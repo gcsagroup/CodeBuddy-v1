@@ -173,6 +173,18 @@ describe('history management filters and archive actions', () => {
     expect(acpArchiveSession).toHaveBeenCalledWith('Recent project A');
     await waitFor(() => expect(acpListSessions).toHaveBeenCalledTimes(2));
   });
+
+  it('preserves the row and its pending click across parent updates', async () => {
+    const view = render(<SessionListView onSelectSession={vi.fn()} workspaceMode="unified" />, {
+      wrapper: IntlTestWrapper,
+    });
+    await screen.findByText('Recent project A');
+    const button = screen.getAllByTitle('Archive session')[0];
+    view.rerender(<SessionListView onSelectSession={vi.fn()} workspaceMode="unified" />);
+    expect(screen.getAllByTitle('Archive session')[0]).toBe(button);
+    await userEvent.click(button);
+    expect(acpArchiveSession).toHaveBeenCalledWith('Recent project A');
+  });
   it('confirms permanent deletion, preserves a failed row, and prevents duplicate submissions', async () => {
     let rejectDelete!: (error: Error) => void;
     vi.mocked(acpDeleteSession).mockImplementationOnce(

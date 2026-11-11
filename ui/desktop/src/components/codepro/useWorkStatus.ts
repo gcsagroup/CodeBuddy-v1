@@ -55,6 +55,42 @@ interface WorkStatusInput {
   thinking?: boolean;
 }
 
+// Presentation thresholds only: no request, cancellation, task verdict or model ranking.
+export function selectRunAdvice(input: WorkStatusInput, now: number) {
+  if (
+    ![ChatState.Streaming, ChatState.Thinking].includes(input.chatState) ||
+    input.cancelling ||
+    input.checking ||
+    input.action ||
+    input.toolPending
+  )
+    return undefined;
+  const execution = input.activity?.execution;
+  if (!execution || execution.childCount > 0 || !['model', 'tool_result'].includes(execution.phase))
+    return undefined;
+  if ((execution.consecutiveToolFailures ?? 0) >= 3)
+    return { kind: 'tools' as const, count: execution.consecutiveToolFailures! };
+  if ((execution.responseRetries ?? 0) >= 3)
+    return { kind: 'responses' as const, count: execution.responseRetries! };
+  if (
+    execution.phase !== 'model' ||
+    (execution.detail && !execution.toolInput) ||
+    execution.modelRequestStartedAt === undefined
+  )
+    return undefined;
+  const seconds = Math.max(0, Math.floor((now - execution.modelRequestStartedAt) / 1000));
+  if (['connecting', 'waiting'].includes(execution.modelRequestPhase ?? '') && seconds >= 90)
+    return { kind: 'waiting' as const, seconds };
+  if (
+    (execution.modelRequestPhase === 'receiving' || input.activity?.kind === 'thought') &&
+    seconds >= 180
+  )
+    return { kind: 'generation' as const, seconds };
+  return undefined;
+}
+
+export type RunAdvice = NonNullable<ReturnType<typeof selectRunAdvice>>;
+
 // A projection of existing facts, not another task/phase state machine.
 export function selectWorkStatus(input: WorkStatusInput, now: number) {
   const { chatState, activity, stage, action, checking, cancelling } = input;
@@ -71,7 +107,8 @@ export function selectWorkStatus(input: WorkStatusInput, now: number) {
   const execution = activity?.execution;
   if (execution?.toolInput && !action)
     return { source: 'toolInput' as const, preview: execution.toolInput, silence };
-  if (execution?.detail && !action) return { source: 'stage' as const, title: execution.detail, silence };
+  if (execution?.detail && !action)
+    return { source: 'stage' as const, title: execution.detail, silence };
   const transportSource =
     execution?.phase === 'model' && execution.modelRequestPhase
       ? (
@@ -161,9 +198,13 @@ export function useWorkStatus(input: WorkStatusInput) {
       : undefined;
   return {
     ...selection,
+    advice: selectRunAdvice(input, Math.max(now, Date.now())),
     elapsedSeconds,
     hint:
-      active && source === 'responseWait' && 'silence' in selection && (selection.silence ?? 0) >= 20
+      active &&
+      source === 'responseWait' &&
+      'silence' in selection &&
+      (selection.silence ?? 0) >= 20
         ? intl.formatMessage(labels.waitingHint)
         : undefined,
     announcement: title,

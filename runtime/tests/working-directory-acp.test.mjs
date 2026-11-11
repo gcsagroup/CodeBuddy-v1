@@ -1,3 +1,4 @@
+import { replyToNoActionReview } from '../harness/test/review-fixture.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createServer } from 'node:http';
@@ -41,6 +42,7 @@ process.stdout.write(JSON.stringify({jsonrpc:'2.0',id:m.id,result})+'\n');});`);
   const model = createServer(async (req, res) => {
     if (req.url.endsWith('/models')) { res.writeHead(200, { 'content-type': 'application/json' }).end(JSON.stringify({ data: [{ id: 'fixture' }] })); return; }
     let raw = ''; for await (const part of req) raw += part; const body = JSON.parse(raw);
+    if (replyToNoActionReview(body, res)) return;
     if (!body.stream) { res.writeHead(200, { 'content-type': 'application/json' }).end(JSON.stringify({ choices: [{ message: { role: 'assistant', content: 'OK' } }] })); return; }
     requests.push(body); res.writeHead(200, { 'content-type': 'text/event-stream' });
     const emit = (delta, finish_reason = null) => res.write(`data: ${JSON.stringify({ id: 'cwd-acp', object: 'chat.completion.chunk', model: body.model, choices: [{ index: 0, delta, finish_reason }] })}\n\n`);

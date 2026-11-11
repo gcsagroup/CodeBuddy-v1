@@ -56,7 +56,11 @@ export const HARNESS_REFERENCE_COMMIT = 'd743267388641bc76f17c45ce8b4c231aed1d32
 function nativeProviderRoute(provider, model) {
   // Newly discovered capability metadata cannot invalidate existing children
   // whose connection identity was recorded before that metadata was available.
-  const { outputTokenCapacity: _capacity, outputTokenCapacitySource: _source, requestMaxTokens: _budget, countBackend: _counter, ...connection } = provider;
+  const { outputTokenCapacity: _capacity, outputTokenCapacitySource: _source, requestMaxTokens: _budget, countBackend: _counter, thinkingBudgets: _thinkingBudget, ...connection } = provider;
+  if (connection.compat?.thinkingTokenBudgetField) {
+    const { thinkingTokenBudgetField: _field, ...compat } = connection.compat;
+    connection.compat = compat;
+  }
   return 'codebuddy-' + createHash('sha256').update(JSON.stringify({ ...connection, model })).digest('hex').slice(0, 20);
 }
 
@@ -390,7 +394,7 @@ Keep progress updates brief, meaningful, and outcome-based.
     }) };
   }
   function contextUsage(session) {
-    const snapshot = ctx.sessionProjections.snapshot(session, ['tokenUsage', 'contextPressure']);
+    const snapshot = ctx.sessionProjections.snapshot(session, ['tokenUsage', 'contextPressure', 'sessionStats']);
     const meter = ctx.tokenMeter.measure(session);
     const usage = snapshot.values.tokenUsage;
     const pressure = snapshot.values.contextPressure;
@@ -403,6 +407,7 @@ Keep progress updates brief, meaningful, and outcome-based.
       source: meter.baseline.kind === 'usage' && meter.surfaceDeltaTokens === 0 ? 'provider_actual' : 'local_estimate',
       accumulatedInputTokens: (usage?.uncachedInputTokens ?? 0) + (usage?.cacheReadTokens ?? 0) + (usage?.cacheWriteTokens ?? 0),
       accumulatedOutputTokens: usage?.outputTokens ?? 0,
+      sessionStats: snapshot.values.sessionStats,
     };
   }
   function settleRun(agent) {
@@ -433,15 +438,17 @@ Keep progress updates brief, meaningful, and outcome-based.
     const run = runFor(ctx.agents.get(event.sessionId));
     emit(run, event);
     console.warn('[Harness model transport]', JSON.stringify(event));
+  }, (sessionId, sample) => {
+    const live = streamingMeters.get(sessionId);
+    if (live) live.reportedOutput = sample;
   }), 'CodeBuddy model transport observation');
   ctx.effect(() => installModelResponseValidation(ctx, agent => runs.get(agent.id)), 'CodeBuddy model response validation');
   ctx.systemPrompt.context({ name: 'codebuddy:command-outcomes', order: 131, required: true, interpolate: false,
     text: ({ agent }) => {
       const run = runs.get(agent?.id);
       if (!hasFailedCommand(run?.commandFacts)) return '';
-      return (run.commandReportRejected ? 'The previous draft claimed results without supporting receipts and was withheld. ' : '') +
-        'A nonzero exit is not a passing check. If requested work remains, perform the edits and rerun the relevant verification with tools now. If the request is diagnostic or work is blocked, report the observed result. Thinking, illustrative code and predicted test output cannot stand in for execution. Recent command and file receipts (data):\n' +
-        JSON.stringify(run.commandFacts.slice(-8).map(({ output, ...fact }) => fact));
+      return 'A nonzero exit is not a passing check. If requested work remains, perform the edits and rerun the relevant verification with tools now. If the request is diagnostic or work is blocked, report the observed result. Thinking, illustrative code and predicted test output cannot stand in for execution. Recent command and file receipts (data):\n' +
+        JSON.stringify((run.commandFacts ?? []).slice(-8).map(({ output, ...fact }) => fact));
     },
   });
   const outputRecovery = installOutputRecovery(ctx, {
@@ -619,9 +626,11 @@ Keep progress updates brief, meaningful, and outcome-based.
   });
   ctx.on('tools/result', (exec, result) => {
     const run = runs.get(exec.agent.id);
-    if (run && !directCalls.has(exec.callId) && nativeDefinitions.has(ctx.tools.get(exec.name, exec.agent))) {
-      const fact = commandEvidence(exec, result);
+    let executionFailed;
+    if (run && !directCalls.has(exec.callId)) {
+      const fact = commandEvidence(exec, result, { native: nativeDefinitions.has(ctx.tools.get(exec.name, exec.agent)) });
       if (fact) (run.commandFacts ??= []).push(fact);
+      if (fact && 'exit' in fact) executionFailed = hasFailedCommand([fact]);
     }
     const stoppedApproval = approvalCalls.get(`${exec.agent.id}\0${exec.callId}`)?.desktopOutcome === 'stopped';
     if (stoppedApproval) desktopOutcomes.set(exec, 'stopped');
@@ -630,6 +639,7 @@ Keep progress updates brief, meaningful, and outcome-based.
     const presentationContent = !result.isError ? hostImageReceipts.get(exec) : undefined;
     hostImageReceipts.delete(exec);
     const receipt = { name: exec.name, arguments: exec.arguments, internalControl: isInternalControl(exec.agent, exec.name), structuredContent: result.value, error: result.error, ...metadata,
+      ...(executionFailed !== undefined ? { executionFailed } : {}),
       ...(desktopOutcomes.has(exec) ? { desktopOutcome: desktopOutcomes.get(exec) } : {}),
       ...(presentationContent ? { presentationContent } : {}),
     };
@@ -690,7 +700,20 @@ Keep progress updates brief, meaningful, and outcome-based.
         live.lastSent = Date.now();
         // Display only: use upstream block assembly and pricing. The durable
         // meter and native compaction still own all request/pressure decisions.
-        emit(run, { ...live.baseline, used: live.baseline.used + estimateContent(live.assembler.blocks()) + 4, source: 'streaming_estimate' });
+        const estimatedTokens = estimateContent(live.assembler.blocks());
+        const tokens = live.reportedOutput?.tokens ?? estimatedTokens;
+        const source = live.reportedOutput?.requestId ?? 'estimate';
+        const now = performance.now();
+        const previous = live.speedSample;
+        if (!previous || previous.source !== source || tokens < previous.tokens) {
+          live.speedSample = { tokens, now, source };
+          live.rate = null;
+        } else if (now - previous.now >= 500) {
+          live.rate = (tokens - previous.tokens) * 1000 / (now - previous.now);
+          live.speedSample = { tokens, now, source };
+        }
+        emit(run, { ...live.baseline, used: live.baseline.used + estimatedTokens + 4, source: 'streaming_estimate',
+          liveSpeed: { rate: live.rate, estimated: !live.reportedOutput } });
       }
     }
     if (chunk.type === 'text-delta') emit(run, { type: 'text_delta', text: chunk.text, attemptId: frame.attemptId, sessionId: agent.id });
@@ -720,7 +743,16 @@ Keep progress updates brief, meaningful, and outcome-based.
     if (!run) return;
     if (session.id === run.sessionId && event.type === 'turn/start') {
       run.commandFacts = [];
-      run.commandReportRejected = false;
+      run.toolCalls = 0;
+      run.admittedUserMessages = [];
+    }
+    if (session.id === run.sessionId && event.type === 'user/message' && event.data.source?.kind === 'user') {
+      // Admission events own the current request. Compacted surface messages
+      // and synthetic notices must not disable its completion review.
+      const messages = run.admittedUserMessages ??= [];
+      const existing = messages.findIndex(message => message.id === event.data.id);
+      if (existing < 0) messages.push(event.data);
+      else messages[existing] = event.data;
     }
     if (event.type === 'tool/call') {
       let args = event.data.arguments;
@@ -746,6 +778,9 @@ Keep progress updates brief, meaningful, and outcome-based.
     }
     if (event.type === 'tool/result' && event.surfaceOp?.op !== 'replace') {
       const msg = event.data.message;
+      // A rejected argument envelope or denied invocation is not executed work.
+      // Failed process exits still have structured command evidence of their own.
+      if (!msg.isError) run.toolCalls = (run.toolCalls ?? 0) + 1;
       const receiptKey = `${session.id}\0${msg.toolCallId}`;
       const receipt = toolReceipts.get(receiptKey);
       toolReceipts.delete(receiptKey);
@@ -853,7 +888,9 @@ Keep progress updates brief, meaningful, and outcome-based.
     outputSources.set(route, provider.outputTokenCapacitySource ?? (provider.outputTokenCapacity === undefined ? 'fallback' : 'service'));
     const digest = route.slice('codebuddy-'.length);
     if (!providers.has(route) || providers.get(route).defaultMaxTokens !== provider.outputTokenCapacity ||
-        providers.get(route).models[0].requestMaxTokens !== provider.requestMaxTokens || providers.get(route).vllmCount !== (provider.countBackend === 'vllm')) {
+        providers.get(route).models[0].requestMaxTokens !== provider.requestMaxTokens || providers.get(route).vllmCount !== (provider.countBackend === 'vllm') ||
+        JSON.stringify(providers.get(route).thinkingBudgets) !== JSON.stringify(provider.thinkingBudgets) ||
+        providers.get(route).compat?.thinkingTokenBudgetField !== provider.compat?.thinkingTokenBudgetField) {
       const keyRef = `CODEBUDDY_MODEL_${digest}`;
       // Always explicit: never let pi-ai fall through to ambient API credentials.
       credentials.set(keyRef, provider.apiKey || 'codebuddy-no-key');
@@ -862,6 +899,7 @@ Keep progress updates brief, meaningful, and outcome-based.
         baseURL: provider.baseUrl,
         apiKeyEnv: keyRef,
         vllmCount: provider.countBackend === 'vllm',
+        ...(provider.thinkingBudgets ? { thinkingBudgets: { ...provider.thinkingBudgets } } : {}),
         // Omission uses the official provider policy and the official retry plugin.
         ...(provider.retryPolicy ? { retryPolicy: provider.retryPolicy } : {}),
         // A discovered output capability is not a fixed request budget. Keep
@@ -935,8 +973,8 @@ Keep progress updates brief, meaningful, and outcome-based.
   }
   async function releaseStdioConnections(agent) {
     const connections = stdioConnections.get(agent);
-    stdioConnections.delete(agent);
     if (connections) await Promise.all([...connections.values()].map(entry => entry.fiber.dispose()));
+    if (stdioConnections.get(agent) === connections) stdioConnections.delete(agent);
   }
   function capabilitiesFor(agent) {
     let scope = capabilityScopes.get(agent);
@@ -1118,9 +1156,9 @@ Keep progress updates brief, meaningful, and outcome-based.
         }
         const compactFiber = scoped.plugin(compactionPlugin, {
           thresholdRatio: settings.autoCompactThreshold ?? 0.8,
-          // The summary shares the conversation's reasoning mode for cache
-          // reuse, so its cap must fit both thinking and the complete checkpoint.
-          headroomTokens: 1024, maxTokens: 4096, retainRatio: Math.min(0.16, (settings.autoCompactThreshold ?? 0.8) / 2),
+          // Reserve space for a complete checkpoint, including summary reasoning.
+          // The adapter still checks this reservation against the routed window.
+          headroomTokens: 1024, maxTokens: 32768, retainRatio: Math.min(0.16, (settings.autoCompactThreshold ?? 0.8) / 2),
           auto: settings.autoCompact !== false,
         });
         await compactFiber;
@@ -1643,9 +1681,13 @@ Keep progress updates brief, meaningful, and outcome-based.
       return forkWorkingDirectory(ctx, agent, workingDir, { signal, selection,
         isBusy: () => runs.has(sessionId) || [...directCalls.values()].some(call => call.sessionId === sessionId) || ctx.jobs.list(sessionId).some(job => ['running', 'stopping'].includes(job.status)) });
     },
-    async releaseNativeSessionCapabilities(sessionId) {
+    assertNativeSessionIdle(sessionId) {
       const agent = ctx.agents.get(sessionId);
       if (runs.has(sessionId) || (agent && agent.status !== 'idle') || [...directCalls.values()].some(call => call.sessionId === sessionId) || ctx.jobs.list(sessionId).some(job => ['running', 'stopping'].includes(job.status))) throw new Error('Wait for active session operations and background jobs before releasing capabilities');
+    },
+    async releaseNativeSessionCapabilities(sessionId) {
+      driver.assertNativeSessionIdle(sessionId);
+      const agent = ctx.agents.get(sessionId);
       await sessionScopes.get(sessionId)?.dispose();
       if (agent) await releaseStdioConnections(agent);
       if (agent) { builtinApprovals.delete(agent); builtinBusinessApprovals.delete(agent); webApprovals.delete(agent); approvalOwners.delete(agent); }

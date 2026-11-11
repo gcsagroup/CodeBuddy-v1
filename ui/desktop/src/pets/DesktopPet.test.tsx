@@ -65,7 +65,7 @@ it('plays a blocked reaction once, retains the badge, and rearms only on a new f
   });
   publish({ ...blocked, title: 'Updated title' });
   act(() => {
-    vi.advanceTimersByTime(250);
+    vi.advanceTimersByTime(1250);
   });
   expect(screen.getByRole('img', { name: 'idle' })).toBeInTheDocument();
   expect(screen.getByText('Blocked · click to view')).toBeInTheDocument();
@@ -79,7 +79,7 @@ it('plays a blocked reaction once, retains the badge, and rearms only on a new f
   publish(blocked);
   expect(screen.getByRole('img', { name: 'failed' })).toBeInTheDocument();
   act(() => {
-    vi.advanceTimersByTime(1050);
+    vi.advanceTimersByTime(2050);
   });
   publish({ ...blocked, terminalId: 'failure-2' });
   expect(screen.getByRole('img', { name: 'failed' })).toBeInTheDocument();
@@ -107,7 +107,7 @@ it('observes a global cursor beyond 500 pixels even when an idle task remains', 
   expect(screen.getByRole('img', { name: 'idle' })).toBeInTheDocument();
 });
 
-it('waves for a full cycle after a click, then stays visible and returns to idle', async () => {
+it('waves for two full cycles after a click, then stays visible and returns to idle', async () => {
   await act(async () => {
     render(<DesktopPet />);
   });
@@ -116,7 +116,7 @@ it('waves for a full cycle after a click, then stays visible and returns to idle
   fireEvent.pointerUp(sprite, { button: 0, screenX: 100, screenY: 100 });
   expect(screen.getByRole('img', { name: 'wave' })).toBeInTheDocument();
   await act(async () => {
-    vi.advanceTimersByTime(999);
+    vi.advanceTimersByTime(1999);
   });
   expect(screen.getByRole('img', { name: 'wave' })).toBeInTheDocument();
   act(() => {

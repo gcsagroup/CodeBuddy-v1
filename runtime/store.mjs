@@ -1,10 +1,11 @@
+import { openSessionDeletionJournal } from './session-deletion-journal.mjs';
 import { mkdir, readFile, writeFile, rename, unlink } from "node:fs/promises";
 import { setTimeout as delay } from "node:timers/promises";
 import path from "node:path";
 import { randomUUID } from "node:crypto";
 import { performance } from "node:perf_hooks";
 
-export async function openStore(dataDir, { replaceFile = rename, defaultModel, onTiming } = {}) {
+export async function openStore(dataDir, { replaceFile = rename, defaultModel, onTiming, replaceDeletionFile } = {}) {
   await mkdir(dataDir, { recursive: true });
   const file = path.join(dataDir, "state.json");
   let state;
@@ -76,6 +77,12 @@ export async function openStore(dataDir, { replaceFile = rename, defaultModel, o
       }
     }
   }
+  const deletions = await openSessionDeletionJournal(dataDir, { replaceFile: replaceDeletionFile });
+  const liveState = () => {
+    if (!deletions.size) return state;
+    const sessions = state.sessions.filter(session => !deletions.has(session.id));
+    return sessions.length === state.sessions.length ? state : { ...state, sessions };
+  };
   let tail = Promise.resolve();
   let serializedRoots = new Map();
   // Keys are committed session objects; writers and readers receive copies.
@@ -90,7 +97,7 @@ export async function openStore(dataDir, { replaceFile = rename, defaultModel, o
     if (elapsed >= 50) report({ operation: 'read', at_ms: Date.now(), elapsed_ms: elapsed, roots: keys ?? null });
     return result;
   };
-  const update = (fn, keys, sessionId, insertingSession = false) => {
+  const update = (fn, keys, sessionId, insertingSession = false, pruningSessions = false) => {
     const queuedAt = Date.now(), queued = performance.now();
     // A scoped draft never exposes unchanged history to its writer. All
     // updates still share the same queue and atomically replace one snapshot.
@@ -106,23 +113,26 @@ export async function openStore(dataDir, { replaceFile = rename, defaultModel, o
         previous = now;
       };
       try {
-        const index = sessionId === undefined ? -1 : state.sessions.findIndex(session => session.id === sessionId);
+        const base = liveState();
+        const index = sessionId === undefined ? -1 : base.sessions.findIndex(session => session.id === sessionId);
         if (sessionId !== undefined && index === -1) throw new Error(`Transcript session is missing: ${sessionId}`);
-        const draft = insertingSession ? undefined : structuredClone(sessionId !== undefined ? state.sessions[index]
-          : roots === undefined ? state : Object.fromEntries(roots.map(key => [key, state[key]])));
+        const draft = insertingSession || pruningSessions ? undefined : structuredClone(sessionId !== undefined ? base.sessions[index]
+          : roots === undefined ? base : Object.fromEntries(roots.map(key => [key, base[key]])));
         measure('clone_ms');
         const value = await fn(draft);
-        const next = roots === undefined ? draft : { ...state };
-        if (insertingSession) {
-          if (typeof value?.id !== 'string' || !value.id || state.sessions.some(session => session.id === value.id))
+        const next = roots === undefined ? draft : { ...base };
+        if (pruningSessions) {
+          next.sessions = base.sessions;
+        } else if (insertingSession) {
+          if (typeof value?.id !== 'string' || !value.id || (deletions.has(value.id) || base.sessions.some(session => session.id === value.id)))
             throw new TypeError('New session must have a unique identity');
-          next.sessions = [...state.sessions, structuredClone(value)];
+          next.sessions = [...base.sessions, structuredClone(value)];
         } else if (sessionId !== undefined) {
           if (draft.id !== sessionId) throw new TypeError('Store session update changed its identity');
           // The writer may retain its draft or return a nested value. Neither
           // reference may mutate the committed session behind the byte cache.
           const committedSession = structuredClone(draft);
-          next.sessions = state.sessions.map((session, i) => i === index ? committedSession : session);
+          next.sessions = base.sessions.map((session, i) => i === index ? committedSession : session);
         } else if (roots !== undefined) {
           if (Object.keys(draft).some(key => !roots.includes(key)))
             throw new TypeError('Store update wrote outside its selected roots');
@@ -130,6 +140,10 @@ export async function openStore(dataDir, { replaceFile = rename, defaultModel, o
             if (Object.hasOwn(draft, key)) next[key] = draft[key];
             else delete next[key];
           }
+        }
+        if (deletions.size) {
+          const visible = next.sessions.filter(session => !deletions.has(session.id));
+          if (visible.length !== next.sessions.length) next.sessions = visible;
         }
         measure('mutation_ms');
         const tmp = file + "." + randomUUID() + ".tmp";
@@ -140,7 +154,7 @@ export async function openStore(dataDir, { replaceFile = rename, defaultModel, o
         let sessionBytes = serializedSessions;
         const serialized = [Buffer.from('{')];
         for (const key of Object.keys(next)) {
-          const cached = roots !== undefined && !roots.includes(key)
+          const cached = roots !== undefined && !roots.includes(key) && !(key === 'sessions' && next.sessions !== state.sessions)
             ? serializedRoots.get(key) : undefined;
           let bytes = cached;
           if (!bytes && key === 'sessions' && Array.isArray(next.sessions)) {
@@ -224,8 +238,9 @@ export async function openStore(dataDir, { replaceFile = rename, defaultModel, o
     // Settings requests must not clone every conversation and tool receipt.
     // Both forms return detached snapshots of the last committed state.
     read: (keys, { sessionFields, runFields, runSessionId, runId } = {}) => {
-      let selected = keys === undefined ? state
-        : Object.fromEntries(keys.map(key => [key, state[key]]));
+      const base = liveState();
+      let selected = keys === undefined ? base
+        : Object.fromEntries(keys.map(key => [key, base[key]]));
       if (sessionFields) selected = { ...selected, sessions: selected.sessions.map(session =>
         Object.fromEntries(sessionFields.map(key => [key, session[key]]))) };
       if (keys?.includes('codeproRuns') && (runFields || runSessionId !== undefined || runId !== undefined)) {
@@ -238,7 +253,7 @@ export async function openStore(dataDir, { replaceFile = rename, defaultModel, o
       return snapshot(selected, keys);
     },
     readSession: (id, { fields } = {}) => {
-      const session = state.sessions.find(session => session.id === id);
+      const session = deletions.has(id) ? undefined : state.sessions.find(session => session.id === id);
       return snapshot(session === undefined || fields === undefined ? session
         : Object.fromEntries(fields.map(key => [key, session[key]])), ['sessions']);
     },
@@ -255,6 +270,26 @@ export async function openStore(dataDir, { replaceFile = rename, defaultModel, o
     insertSession(create) {
       return update(create, ['sessions'], undefined, true);
     },
-    flush: () => tail,
+    pendingSessionDeletions: () => deletions.list(),
+    isSessionDeleted: id => deletions.has(id),
+    async acceptSessionDeletion(id) {
+      if (typeof id !== 'string' || !id) throw new TypeError('Session id is required');
+      const existing = deletions.list().find(record => record.id === id);
+      if (existing) return existing;
+      const session = state.sessions.find(session => session.id === id);
+      if (!session) return undefined;
+      const started = performance.now();
+      const record = await deletions.accept({ version: 1, id,
+        nativeSessionId: session.nativeSessionId ?? id, acceptedAt: new Date().toISOString() });
+      report({ operation: 'session_delete_accept', session_id: id, elapsed_ms: Math.round(performance.now() - started) });
+      return record;
+    },
+    async finishSessionDeletion(id) {
+      if (!deletions.has(id)) return;
+      // No transcript clone: retain the byte cache of every surviving session.
+      await update(() => {}, ['sessions'], undefined, false, true);
+      await deletions.finish(id);
+    },
+    flush: async () => { await tail; await deletions.flush(); },
   };
 }

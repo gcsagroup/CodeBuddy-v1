@@ -1,4 +1,5 @@
 import test from 'node:test';
+import { replyToNoActionReview } from './review-fixture.mjs';
 import assert from 'node:assert/strict';
 import { createServer } from 'node:http';
 import { mkdtemp } from 'node:fs/promises';
@@ -20,7 +21,9 @@ test('referenced conversation is delivered as bounded background and survives re
   const requests = [];
   const server = createServer(async (req, res) => {
     let raw = ''; for await (const part of req) raw += part;
-    requests.push(JSON.parse(raw));
+    const body = JSON.parse(raw);
+    if (replyToNoActionReview(body, res)) return;
+    requests.push(body);
     res.writeHead(200, { 'content-type': 'text/event-stream' });
     for (const [delta, finish_reason] of [[{ content: 'RECORDED' }, null], [{}, 'stop']]) {
       res.write('data: ' + JSON.stringify({ id: 'ref', model: 'fixture', choices: [{ index: 0, delta, finish_reason }] }) + '\n\n');

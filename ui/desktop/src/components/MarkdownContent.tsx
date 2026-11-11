@@ -55,6 +55,7 @@ import {
 import { panelMessages } from '../workspace-panel/workspacePanelMessages';
 import { defineMessages, useIntl } from '../i18n';
 import { GeneratedMediaFiles, GeneratedMediaReference } from './GeneratedMedia';
+import { DeliveredFileCard } from './DeliveredFileCard';
 
 const i18n = defineMessages({
   copyCode: {
@@ -422,6 +423,18 @@ const MarkdownContent = memo(function MarkdownContent({
   // existing children must not remount and replay their entrance animation.
   const components = useMemo<Components>(
     () => ({
+      p: ({ node, children }) => {
+        // Only standalone document links become cards; prose, source-line
+        // references and media retain their existing inline presentation.
+        const nodes = node?.children.filter(child => child.type !== 'text' || child.value.trim());
+        const only = nodes?.length === 1 ? nodes[0] : undefined;
+        const href = only?.type === 'element' && only.tagName === 'a' ? String(only.properties.href ?? '') : '';
+        const path = workspaceLinkPath(href);
+        if (sessionId && path && !workspaceLinkLine(href) && /\.(xlsx?|docx?|pptx?|pdf|md|mdx|markdown|csv|tsv|txt|json|zip)$/i.test(path)) {
+          return <DeliveredFileCard sessionId={sessionId} path={path}>{children}</DeliveredFileCard>;
+        }
+        return <p>{children}</p>;
+      },
       a: (props) => {
         const filePath = props.href && workspaceLinkPath(props.href);
         const line = props.href && filePath ? workspaceLinkLine(props.href) : undefined;

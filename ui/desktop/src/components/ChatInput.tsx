@@ -34,6 +34,8 @@ import { LocalMessageStorage } from '../utils/localMessageStorage';
 import { readNewTaskDraft, updateNewTaskDraft, type NewTaskDraftKey } from '../utils/newTaskDraft';
 import { DirSwitcher } from './bottom_menu/DirSwitcher';
 import ModelsBottomBar from './settings/models/bottom_bar/ModelsBottomBar';
+import { ComposerStats } from './ComposerStats';
+import type { TokenState } from '../types/chat';
 import { cn } from '../utils';
 import { useAlerts } from './alerts';
 import { getContextAlertType, shouldShowContextAlert } from './contextWindowAlert';
@@ -244,6 +246,8 @@ interface ChatInputProps {
   contextLimit?: number;
   requestBudget?: RequestBudget;
   contextUsageSource?: 'provider_actual' | 'local_estimate' | 'streaming_estimate';
+  sessionStats?: TokenState['sessionStats'];
+  liveSpeed?: TokenState['liveSpeed'];
   contextCapacitySource?: 'service' | 'catalog' | 'configured' | 'fallback';
   accumulatedInputTokens?: number;
   accumulatedOutputTokens?: number;
@@ -259,6 +263,7 @@ interface ChatInputProps {
   hideWorkingDirSwitcher?: boolean;
   inputRef?: React.RefObject<HTMLTextAreaElement | null>;
   sessionModel?: string | null;
+  externalModelOpenRequest?: number;
   sessionProvider?: string | null;
   sessionLoaded?: boolean;
   workingDir?: string | null;
@@ -305,6 +310,8 @@ export default function ChatInput({
   contextLimit,
   requestBudget,
   contextUsageSource,
+  sessionStats,
+  liveSpeed,
   contextCapacitySource,
   messages = [],
   disableAnimation = false,
@@ -317,6 +324,7 @@ export default function ChatInput({
   hideWorkingDirSwitcher = false,
   inputRef,
   sessionModel,
+  externalModelOpenRequest = 0,
   sessionProvider,
   sessionLoaded,
   workingDir,
@@ -479,8 +487,6 @@ export default function ChatInput({
     sendNowInFlightMessageIdsRef.current = new Set();
     setSendNowInFlightMessageIds(new Set());
   }, [sessionId]);
-
-
 
   useLayoutEffect(() => {
     if (
@@ -851,13 +857,14 @@ export default function ChatInput({
     if (!draftDelivery || consumedDraftDelivery.current === draftDelivery.id) return;
     consumedDraftDelivery.current = draftDelivery.id;
     inputRevisionRef.current += 1;
-    setDisplayValue(previous => [previous, draftDelivery.text].filter(Boolean).join('\n'));
+    setDisplayValue((previous) => [previous, draftDelivery.text].filter(Boolean).join('\n'));
     textAreaRef.current?.focus();
   }, [draftDelivery, textAreaRef]);
 
   useEffect(() => {
-    if (!sessionId || sessionLoaded === false || chatState === ChatState.LoadingConversation) return;
-    return receiveMainConversationMessages(sessionId, input => {
+    if (!sessionId || sessionLoaded === false || chatState === ChatState.LoadingConversation)
+      return;
+    return receiveMainConversationMessages(sessionId, (input) => {
       if (input.composerAction) {
         if (attachmentCountRef.current + input.images.length > MAX_IMAGES_PER_MESSAGE)
           throw new Error('主对话附件过多，请先处理现有附件');
@@ -865,29 +872,52 @@ export default function ChatInput({
         attachmentCountRef.current += input.images.length;
         inputRevisionRef.current += 1;
         // Opening a picker is draft delivery, never a queued or submitted turn.
-        if (input.msg) setDisplayValue(previous => [previous, input.msg].filter(Boolean).join('\n'));
-        setPastedImages(previous => [...previous, ...input.images.map(image => ({
-          id: globalThis.crypto.randomUUID(), dataUrl: `data:${image.mimeType};base64,${image.data}`, isLoading: false,
-          sourceSessionId: sessionId,
-        }))]);
-        if (input.composerAction === 'goal' || input.composerAction === 'plan') setComposerMode(input.composerAction);
-        else if (input.composerAction === 'agent') setAgentOpenRequest(value => value + 1);
-        else setMentionPopover({ isOpen: true, isSlashCommand: true, addOnly: true, query: '', mentionStart: 0, selectedIndex: 0 });
+        if (input.msg)
+          setDisplayValue((previous) => [previous, input.msg].filter(Boolean).join('\n'));
+        setPastedImages((previous) => [
+          ...previous,
+          ...input.images.map((image) => ({
+            id: globalThis.crypto.randomUUID(),
+            dataUrl: `data:${image.mimeType};base64,${image.data}`,
+            isLoading: false,
+            sourceSessionId: sessionId,
+          })),
+        ]);
+        if (input.composerAction === 'goal' || input.composerAction === 'plan')
+          setComposerMode(input.composerAction);
+        else if (input.composerAction === 'agent') setAgentOpenRequest((value) => value + 1);
+        else
+          setMentionPopover({
+            isOpen: true,
+            isSlashCommand: true,
+            addOnly: true,
+            query: '',
+            mentionStart: 0,
+            selectedIndex: 0,
+          });
         textAreaRef.current?.focus();
         return;
       }
-      if (queueStorageFailedRef.current || !queueStorageRef.current) throw new Error('无法保存主对话消息，请重试');
-      if (input.messageId && queuedMessagesRef.current.some(item => item.id === input.messageId)) return;
-      const next = [...queuedMessagesRef.current, {
-        id: input.messageId ?? globalThis.crypto.randomUUID(), content: input.msg, images: input.images,
-        timestamp: Date.now(), desktopGeneration: getDesktopOwnership().generation ?? '',
-      }];
+      if (queueStorageFailedRef.current || !queueStorageRef.current)
+        throw new Error('无法保存主对话消息，请重试');
+      if (input.messageId && queuedMessagesRef.current.some((item) => item.id === input.messageId))
+        return;
+      const next = [
+        ...queuedMessagesRef.current,
+        {
+          id: input.messageId ?? globalThis.crypto.randomUUID(),
+          content: input.msg,
+          images: input.images,
+          timestamp: Date.now(),
+          desktopGeneration: getDesktopOwnership().generation ?? '',
+        },
+      ];
       if (!persistQueue(next)) throw new Error('无法保存主对话消息，请检查消息队列');
       if (queuedMessagesRef.current.length === 0) queuePausedRef.current = false;
       queuedMessagesRef.current = next;
       setQueuedMessagesState(next);
     });
-  }, [sessionId, sessionLoaded, chatState, persistQueue]);
+  }, [sessionId, sessionLoaded, chatState, persistQueue, textAreaRef]);
 
   // Handle recipe prompt updates
   useEffect(() => {
@@ -1188,7 +1218,8 @@ export default function ChatInput({
       const evidence = videoEvidenceContext(
         allDroppedFiles,
         pastedImages.filter(
-          (image) => !image.error && !image.isLoading && /^data:[^;]+;base64,.+$/.test(image.dataUrl)
+          (image) =>
+            !image.error && !image.isLoading && /^data:[^;]+;base64,.+$/.test(image.dataUrl)
         ).length
       );
       if (droppedFilePaths.length > 0) {
@@ -1651,7 +1682,13 @@ export default function ChatInput({
             return;
           }
           setCommandNotice(null);
-          if (prepared.input) await handleSubmit(prepared.input, lifecycle);
+          if (prepared.input)
+            await handleSubmit(
+              {
+                ...prepared.input,
+              },
+              lifecycle
+            );
         } catch {
           lifecycle.onRejectedBeforeAcceptance();
           return;
@@ -2524,7 +2561,8 @@ export default function ChatInput({
           />
 
           {/* Left: working directory (leaf folder name only) */}
-          {!globalConversation && !hideWorkingDirSwitcher &&
+          {!globalConversation &&
+            !hideWorkingDirSwitcher &&
             shouldShowWorkingDirectorySwitcher(Boolean(onWorkingDirChange)) && (
               <DirSwitcher
                 className=""
@@ -2546,20 +2584,10 @@ export default function ChatInput({
         </div>
 
         <div className="flex min-w-0 max-w-full items-center justify-end gap-1">
-          <ContextWindowIndicator
-            requestBudget={requestBudget?.model === effectiveModel ? requestBudget : undefined}
-            totalTokens={totalTokens}
-            tokenLimit={tokenLimit}
-            usageSource={contextUsageSource}
-            capacitySource={
-              capacity?.contextLimit === contextLimit ? contextCapacitySource : undefined
-            }
-            alerts={alerts}
-          />
           <div className="min-w-0">
             <ModelsBottomBar
               sessionId={sessionId}
-              openRequest={modelOpenRequest}
+              openRequest={modelOpenRequest + externalModelOpenRequest}
               dropdownRef={dropdownRef}
               setView={setView}
               sessionModel={effectiveModel}
@@ -2669,6 +2697,17 @@ export default function ChatInput({
           sessionId={sessionId}
         />
       </div>
+      <ComposerStats messages={messages} stats={sessionStats} liveSpeed={chatState === ChatState.Streaming || chatState === ChatState.Thinking ? liveSpeed : null}>
+        <ContextWindowIndicator
+          showLabel
+          requestBudget={requestBudget?.model === effectiveModel ? requestBudget : undefined}
+          totalTokens={totalTokens}
+          tokenLimit={tokenLimit}
+          usageSource={contextUsageSource}
+          capacitySource={capacity?.contextLimit === contextLimit ? contextCapacitySource : undefined}
+          alerts={alerts}
+        />
+      </ComposerStats>
     </div>
   );
 }

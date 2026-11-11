@@ -1397,13 +1397,15 @@ export function WorkspacePanelContent({
                 </button>
               </header>
               <div className="wb-file-preview">
-                <WorkspaceCodePreview
+                {/\.(md|mdx|markdown)$/i.test(selected.path) && !selected.line ? (
+                  <MarkdownContent sessionId={scope.sessionId} content={selected.content} />
+                ) : <WorkspaceCodePreview
                   key={selected.id}
                   path={selected.path}
                   content={selected.content}
                   wrap={wrap}
                   line={selected.line}
-                />
+                />}
               </div>
               <footer className="wb-statusbar">{intl.formatMessage(m.readOnlyReference)}</footer>
             </section>
@@ -1533,7 +1535,7 @@ export function WorkspacePanelContent({
                 </div>
               ) : selected.preview ? (
                 <div className="wb-file-preview">
-                  {/\.mdx?$/i.test(selected.document.path) ? (
+                  {/\.(md|mdx|markdown)$/i.test(selected.document.path) && !selected.line ? (
                     <MarkdownContent sessionId={scope.sessionId} content={selected.draft} />
                   ) : (
                     <WorkspaceCodePreview

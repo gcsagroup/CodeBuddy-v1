@@ -1,3 +1,4 @@
+import { replyToNoActionReview } from '../harness/test/review-fixture.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createServer } from 'node:http';
@@ -18,6 +19,7 @@ test('concurrent chats keep approval arguments and cleanup separate when model c
     try {
       let raw = ''; for await (const part of req) raw += part;
       const body = JSON.parse(raw);
+    if (replyToNoActionReview(body, res)) return;
       const input = body.messages.findLastIndex(message => message.role === 'user' && /APPROVAL_CHAT_[AB]/.test(JSON.stringify(message.content)));
       const chat = JSON.stringify(body.messages[input]?.content).includes('APPROVAL_CHAT_A') ? 'A' : 'B';
       const replied = body.messages.slice(input + 1).some(message => message.role === 'tool');

@@ -15,6 +15,20 @@ vi.mock('./icons', () => ({
 }));
 
 describe('MarkdownContent', () => {
+  it('shows standalone documents as cards with preview and open-with actions, leaving prose and web links inline', () => {
+    const received = vi.fn();
+    window.addEventListener('codebuddy:open-workspace-file', received);
+    try {
+      const { container } = renderWithIntl(<MarkdownContent sessionId="cards" content={'[销售报表.xlsx](<D:/工作 区/销售报表.xlsx>)\n\n[说明.md](./说明.md)\n\nRead [inline.txt](inline.txt) here.\n\n[web](https://example.com/file.xlsx)\n\n[line](src.ts:12)'} />);
+      expect(container.querySelectorAll('.delivered-file-card')).toHaveLength(2);
+      fireEvent.click(screen.getByRole('link', { name: '销售报表.xlsx' }));
+      expect(received.mock.calls[0][0].detail).toMatchObject({ sessionId: 'cards', filePath: 'D:/工作 区/销售报表.xlsx' });
+      fireEvent.click(screen.getAllByRole('button', { name: /Open with/ })[0]);
+      expect(received.mock.calls[1][0].detail).toMatchObject({ sessionId: 'cards', filePath: 'D:/工作 区/销售报表.xlsx', action: 'file-menu' });
+      expect(screen.getByRole('link', { name: 'web' }).closest('.delivered-file-card')).toBeNull();
+      expect(screen.getByRole('link', { name: 'inline.txt' }).closest('.delivered-file-card')).toBeNull();
+    } finally { window.removeEventListener('codebuddy:open-workspace-file', received); }
+  });
   it('opens a mislabelled Windows report as a workspace file and keeps web links and quoted examples intact', () => {
     const received = vi.fn();
     const old = String.raw`[v1/report.md]<https://D:\repo\.local\v1\report.md>`;

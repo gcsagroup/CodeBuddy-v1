@@ -7,6 +7,7 @@ import type { PanelDocument, PanelEntry, PanelLocalSelection } from './workspace
 import { WorkspaceCodePreview } from './WorkspaceCodePreview';
 import { WorkspaceMedia } from './WorkspaceMedia';
 import { WorkspaceDocument } from './WorkspaceDocument';
+import MarkdownContent from '../components/MarkdownContent';
 
 export function WorkspaceLocalFiles({ selection }: { selection: PanelLocalSelection }) {
   const intl = useIntl();
@@ -104,7 +105,9 @@ export function WorkspaceLocalFiles({ selection }: { selection: PanelLocalSelect
           <p className="wb-empty">{intl.formatMessage(m.binaryFile)}</p>
         ) : document ? (
           <div className="wb-file-preview">
-            <WorkspaceCodePreview path={file} content={document.content} wrap />
+            {/\.(md|mdx|markdown)$/i.test(file) ? (
+              <MarkdownContent sessionId={selection.scope.sessionId} content={document.content} />
+            ) : <WorkspaceCodePreview path={file} content={document.content} wrap />}
           </div>
         ) : null
       ) : (

@@ -2,9 +2,38 @@ import { act, renderHook } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { IntlTestWrapper } from '../../i18n/test-utils';
 import { ChatState } from '../../types/chatState';
-import { useWorkStatus } from './useWorkStatus';
+import { useWorkStatus, selectRunAdvice } from './useWorkStatus';
 
 afterEach(() => vi.useRealTimers());
+
+describe('evidence-based run advice', () => {
+  const input = { chatState: ChatState.Thinking, checking: false, activity: {
+    promptAttemptId: 'run', sourceUserMessageId: 'user', startedAt: 1_000,
+    execution: { phase: 'model' as const, childCount: 0, modelRequestPhase: 'waiting' as const, modelRequestStartedAt: 1_000 },
+  } };
+  it('uses bounded waiting/generation clocks instead of total task age', () => {
+    expect(selectRunAdvice(input, 90_999)).toBeUndefined();
+    expect(selectRunAdvice(input, 91_000)).toEqual({ kind: 'waiting', seconds: 90 });
+    const receiving = { ...input, activity: { ...input.activity, execution: { ...input.activity.execution, modelRequestPhase: 'receiving' as const } } };
+    expect(selectRunAdvice(receiving, 180_999)).toBeUndefined();
+    expect(selectRunAdvice(receiving, 181_000)?.kind).toBe('generation');
+    expect(selectRunAdvice({ ...input, activity: { ...input.activity, execution: { ...input.activity.execution, modelRequestStartedAt: 180_000 } } }, 181_000)).toBeUndefined();
+  });
+  it('suppresses notices during approvals, tools, compaction, cancellation and review', () => {
+    for (const chatState of [ChatState.Idle, ChatState.Compacting, ChatState.WaitingForUserInput])
+      expect(selectRunAdvice({ ...input, chatState }, 999_000)).toBeUndefined();
+    for (const override of [{ checking: true }, { cancelling: true }, { action: 'Running tests' }, { toolPending: true }])
+      expect(selectRunAdvice({ ...input, ...override }, 999_000)).toBeUndefined();
+    expect(selectRunAdvice({ ...input, activity: { ...input.activity, execution: { ...input.activity.execution, childCount: 1 } } }, 999_000)).toBeUndefined();
+  });
+  it('uses host counters, not model prose, and remains compatible with absent observations', () => {
+    expect(selectRunAdvice({ ...input, stage: 'Everything failed' }, 1_001)).toBeUndefined();
+    expect(selectRunAdvice({ ...input, activity: { ...input.activity, execution: undefined } }, 999_000)).toBeUndefined();
+    for (const [field, kind] of [['consecutiveToolFailures', 'tools'], ['responseRetries', 'responses']] as const) {
+      expect(selectRunAdvice({ ...input, activity: { ...input.activity, execution: { ...input.activity.execution, [field]: 3 } } }, 1_001)?.kind).toBe(kind);
+    }
+  });
+});
 
 describe('specific live execution feedback', () => {
   it('shows file preparation without claiming a write, keeps its clock across size updates and respects approval', () => {

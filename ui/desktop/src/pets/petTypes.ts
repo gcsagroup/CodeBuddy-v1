@@ -1,3 +1,4 @@
+export const petActionCycles = 2;
 export const petStates = [
   'idle',
   'wave',

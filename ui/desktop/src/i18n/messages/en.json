@@ -1586,6 +1586,9 @@
   "compaction.completedManual": {
     "defaultMessage": "Context compacted"
   },
+  "compaction.details": {
+    "defaultMessage": "View details"
+  },
   "compaction.failed": {
     "defaultMessage": "Context compaction failed. The previous context is preserved."
   },
@@ -1790,6 +1793,33 @@
   "composerGoalBar.unavailable": {
     "defaultMessage": "Goal state is unavailable. Use /goal status to retry."
   },
+  "composerStats.cache": {
+    "defaultMessage": "Cache hit"
+  },
+  "composerStats.cacheDetail": {
+    "defaultMessage": "Latest reported model request: {cached} cached input tokens / {prompt} total input tokens. Cache writes are not hits."
+  },
+  "composerStats.cacheUnavailable": {
+    "defaultMessage": "Not reported"
+  },
+  "composerStats.cacheUnknown": {
+    "defaultMessage": "The latest request has no usable cache receipt yet. Missing data does not mean a 0% hit rate."
+  },
+  "composerStats.live": {
+    "defaultMessage": "Current generation speed"
+  },
+  "composerStats.liveDetail": {
+    "defaultMessage": "Output tokens received per second over the latest sample of this request. ≈ indicates an estimate."
+  },
+  "composerStats.speed": {
+    "defaultMessage": "Average generation speed"
+  },
+  "composerStats.speedDetail": {
+    "defaultMessage": "Session average from completed model requests. Excludes first-token wait and tool execution; updates when a request completes."
+  },
+  "composerStats.speedUnknown": {
+    "defaultMessage": "Waiting for a completed request with token and timing data."
+  },
   "configureApproveMode.cancel": {
     "defaultMessage": "Cancel"
   },
@@ -1825,6 +1855,12 @@
   },
   "confirmationModal.processing": {
     "defaultMessage": "Processing..."
+  },
+  "conversation.turnStoppedAfter": {
+    "defaultMessage": "Stopped after {duration}"
+  },
+  "conversation.turnWorkingFor": {
+    "defaultMessage": "Working for {duration}"
   },
   "conversation.turnDuration": {
     "defaultMessage": "Time spent {minutes} min {seconds} sec"
@@ -5435,8 +5471,14 @@
   "navigationPanel.noChats": {
     "defaultMessage": "No recent tasks"
   },
+  "navigationPanel.noWorkspace": {
+    "defaultMessage": "No workspace"
+  },
   "navigationPanel.pendingPermission": {
     "defaultMessage": "Awaiting approval"
+  },
+  "navigationPanel.pinProject": {
+    "defaultMessage": "Pin project"
   },
   "navigationPanel.pinned": {
     "defaultMessage": "Pinned"
@@ -5453,8 +5495,17 @@
   "navigationPanel.resetProjectNameHint": {
     "defaultMessage": "Clear the name to restore the folder name"
   },
+  "navigationPanel.unknownTime": {
+    "defaultMessage": "Time unavailable"
+  },
+  "navigationPanel.unpinProject": {
+    "defaultMessage": "Unpin project"
+  },
   "navigationPanel.untitledSession": {
     "defaultMessage": "Untitled session"
+  },
+  "navigationPanel.updatedAt": {
+    "defaultMessage": "Updated"
   },
   "navigationPanel.workspaces": {
     "defaultMessage": "Workspaces"
@@ -6895,6 +6946,45 @@
   },
   "rootCleanup.selectAndAudit": {
     "defaultMessage": "Select exact target and audit"
+  },
+  "runAdvice.details": {
+    "defaultMessage": "Details"
+  },
+  "runAdvice.footnote": {
+    "defaultMessage": "Existing files are kept. After switching models, send the task again when ready."
+  },
+  "runAdvice.generation": {
+    "defaultMessage": "Still generating"
+  },
+  "runAdvice.generationBody": {
+    "defaultMessage": "Generating for {seconds}s. You can wait or try another model."
+  },
+  "runAdvice.responses": {
+    "defaultMessage": "Response retried several times"
+  },
+  "runAdvice.responsesBody": {
+    "defaultMessage": "{count} retries without a successful tool result. You can wait or try another model."
+  },
+  "runAdvice.stop": {
+    "defaultMessage": "Stop and choose a model"
+  },
+  "runAdvice.stopping": {
+    "defaultMessage": "Stopping…"
+  },
+  "runAdvice.tools": {
+    "defaultMessage": "Tool attempts failed"
+  },
+  "runAdvice.toolsBody": {
+    "defaultMessage": "{count} recent attempts failed. Check tool results for permission or environment issues."
+  },
+  "runAdvice.wait": {
+    "defaultMessage": "Keep waiting"
+  },
+  "runAdvice.waiting": {
+    "defaultMessage": "Waiting for a response"
+  },
+  "runAdvice.waitingBody": {
+    "defaultMessage": "No content received for {seconds}s. The service may be busy."
   },
   "runtime.sourceChanged": {
     "defaultMessage": "The runtime has been updated. Finish active tasks, then close and restart CodeBuddy to load the changes."

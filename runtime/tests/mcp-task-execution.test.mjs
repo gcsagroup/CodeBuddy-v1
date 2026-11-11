@@ -1,3 +1,4 @@
+import { replyToNoActionReview } from '../harness/test/review-fixture.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import http from 'node:http';
@@ -24,6 +25,7 @@ async function fixture(t, { mode = 'legacy', capability = true, support = 'optio
     if (req.method !== 'POST') { res.writeHead(405).end(); return; }
     let raw = ''; for await (const part of req) raw += part;
     const m = JSON.parse(raw);
+    if (replyToNoActionReview(m, res)) return;
     if (req.url === '/v1/chat/completions') {
       models.push(m);
       const delta = models.length === 1 ? { role: 'assistant', tool_calls: [{ index: 0, id: 'async-call', type: 'function', function: { name: 'mcp__fixture__work', arguments: '{}' } }] } : { role: 'assistant', content: 'TASK_RESULT_RECEIVED' };

@@ -1,3 +1,4 @@
+import { replyToNoActionReview } from '../harness/test/review-fixture.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createServer } from 'node:http';
@@ -19,6 +20,7 @@ for (const phase of ['execution', 'approval', 'conflict', 'unavailable']) test(`
     if (req.method !== 'POST') { res.writeHead(405).end(); return; }
     let text = ''; for await (const chunk of req) text += chunk;
     const body = JSON.parse(text);
+    if (replyToNoActionReview(body, res)) return;
     if (req.url.startsWith('/mcp/')) {
       if (!('id' in body)) { res.writeHead(202).end(); return; }
       const desktop = req.url.endsWith('desktop');

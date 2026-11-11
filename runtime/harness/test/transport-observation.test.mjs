@@ -23,11 +23,12 @@ test('transport timings separate response wait from reasoning and text without c
     yield { type: 'reasoning-delta', text: 'private reasoning' };
     await delay(130);
     yield { type: 'text-delta', text: 'private answer' };
+    yield { type: 'usage', usage: { inputTokens: 3000, outputTokens: 8192, reasoningTokens: 8000, secret: 'never log this' } };
     yield { type: 'finish', reason: { kind: 'stop' } };
   };
   const output = [];
-  for await (const chunk of handler({ sessionId: 'fixture' }, next)) output.push(chunk);
-  assert.equal(output.length, 3);
+  for await (const chunk of handler({ sessionId: 'fixture', purpose: 'compaction', provider: 'fixture', model: 'summary-model', maxTokens: 8192, reasoningEffort: 'low' }, next)) output.push(chunk);
+  assert.equal(output.length, 4);
   const reasoning = events.find(e => e.phase === 'first_reasoning');
   const text = events.find(e => e.phase === 'first_text');
   const end = events.at(-1);
@@ -41,6 +42,10 @@ test('transport timings separate response wait from reasoning and text without c
   assert.equal(end.reasoningDeltaChars, 'private reasoning'.length);
   assert.equal(end.toolCallBlocks, 0);
   assert.equal(end.finishKind, 'stop');
+  assert.equal(end.purpose, 'compaction');
+  assert.equal(end.maxTokens, 8192);
+  assert.equal(end.reasoningEffort, 'low');
+  assert.deepEqual(end.usage, { inputTokens: 3000, outputTokens: 8192, reasoningTokens: 8000 });
   const timing = end.timings[0];
   assert.ok(timing.headersMs - timing.bodySentMs >= 100, JSON.stringify(timing));
   assert.ok(timing.sendHeadersMs >= timing.createdMs);

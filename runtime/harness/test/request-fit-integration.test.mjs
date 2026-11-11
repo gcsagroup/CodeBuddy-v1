@@ -1,3 +1,4 @@
+import { replyToNoActionReview } from './review-fixture.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createServer } from 'node:http';
@@ -35,6 +36,7 @@ async function fixture(t, handler, { contextWindow = 65536, maxTokens = 256, use
     if (req.url === '/tokenize' && count) return res.writeHead(200, { 'content-type': 'application/json' }).end(JSON.stringify({
       count: count(body), max_model_len: contextWindow,
     }));
+    if (replyToNoActionReview(body, res)) return;
     const lastContent = (body.messages ?? body.input)?.at(-1)?.content;
     const lastText = typeof lastContent === 'string' ? lastContent : (lastContent ?? []).filter(block => block.type === 'text').map(block => block.text).join('\n');
     // This fixture identifies the SDK's auxiliary directive only to choose a
@@ -67,6 +69,47 @@ const failures = history => history.events
   .map(record => record.chunk.reason.failure)
   .filter(Boolean);
 const summaries = history => history.events.filter(event => event.type === 'compaction/summary');
+
+test('manual compaction retries one truncated checkpoint, preserves failed history and can retry explicitly', { timeout: 20000 }, async t => {
+  let mode = 'truncate-once', summaryCalls = 0;
+  const f = await fixture(t, (request, res) => {
+    if (!request.summary) return reply(res, WARM_HISTORY);
+    summaryCalls++;
+    if (mode === 'empty') return reply(res, '');
+    if (mode === 'truncate-once' && summaryCalls === 1) return reply(res, 'Incomplete checkpoint', { finish: 'length', output: request.body.max_completion_tokens ?? request.body.max_tokens });
+    return reply(res, 'Recorded fixture facts. Preserve integer cents.');
+  });
+  await warm(f);
+  await f.driver.compact(f.sessionId);
+  assert.equal(summaryCalls, 2);
+  assert.deepEqual(f.requests.filter(r => r.summary).map(r => r.body.max_completion_tokens ?? r.body.max_tokens), [16384, 32768]);
+  const good = await f.driver.history(f.sessionId);
+  assert.equal(summaries(good).length, 1, 'truncated output must never become a checkpoint');
+  await f.driver.prompt(f.sessionId, 'Continue with additional recorded facts.');
+  mode = 'empty';
+  const before = await f.driver.history(f.sessionId);
+  await assert.rejects(f.driver.compact(f.sessionId), error => error.cause?.code === 'EMPTY_RESPONSE');
+  const failed = await f.driver.history(f.sessionId);
+  assert.equal(summaries(failed).length, summaries(before).length);
+  assert.deepEqual(failed.events.slice(0, before.events.length), before.events);
+  await f.reopen();
+  mode = 'success';
+  await f.driver.compact(f.sessionId);
+  assert.equal(summaries(await f.driver.history(f.sessionId)).length, 2);
+});
+
+test('default summary output reaches 32768 on large windows and scales down on small windows', { timeout: 30000 }, async t => {
+  for (const [contextWindow, expected] of [[32768, 8192], [65536, 16384], [131072, 32768], [262144, 32768]]) {
+    const f = await fixture(t, (request, res) => reply(res, request.summary
+      ? 'Keep the verified fixture facts and the pending user requirement.' : WARM_HISTORY), { contextWindow });
+    await warm(f);
+    await f.driver.compact(f.sessionId);
+    const summaryRequests = f.requests.filter(request => request.summary);
+    assert.equal(summaryRequests.length, 1);
+    assert.equal(summaryRequests[0].body.max_completion_tokens ?? summaryRequests[0].body.max_tokens, expected);
+    assert.equal(summaries(await f.driver.history(f.sessionId)).length, 1);
+  }
+});
 
 test('service capacity, explicit user budget and unknown fallback reach the real HTTP envelope', { timeout: 20000 }, async t => {
   for (const scenario of [
@@ -631,7 +674,9 @@ test('summary input that cannot reserve its own output never reaches HTTP and pr
   let modelCalls = 0;
   const f = await fixture(t, (request, res) => {
     modelCalls++;
-    reply(res, modelCalls === 1 ? 'large fixture history '.repeat(2000) : 'UNEXPECTED_HTTP');
+    // Enough retained history to exhaust this 8K fixture without making the
+    // auxiliary report itself larger than the model's entire usable context.
+    reply(res, modelCalls === 1 ? 'large fixture history '.repeat(100) : 'UNEXPECTED_HTTP');
   }, { contextWindow: 8192 });
   await warm(f);
   await assert.rejects(f.driver.prompt(f.sessionId, 'Continue the fixture.'), { code: 'LOCAL_OUTPUT_BUDGET_EXHAUSTED' });
@@ -829,9 +874,10 @@ test('deployed tokenizer prices the dispatched messages and tools, reducing outp
   assert.equal((await f.driver.prompt(f.sessionId, 'Reply with the verification.')).stopReason, 'end_turn');
   assert.equal(f.requests.length, 1);
   const wire = f.requests[0].body;
-  assert.deepEqual(measured.at(-1).messages, wire.messages);
-  assert.deepEqual(measured.at(-1).tools, wire.tools);
-  assert.deepEqual(measured.at(-1).chat_template_kwargs, wire.chat_template_kwargs);
+  const agentMeasurement = measured.find(body => !body.tools?.some(tool => tool.function?.name === 'check_execution_claims'));
+  assert.deepEqual(agentMeasurement.messages, wire.messages);
+  assert.deepEqual(agentMeasurement.tools, wire.tools);
+  assert.deepEqual(agentMeasurement.chat_template_kwargs, wire.chat_template_kwargs);
   assert.equal(wire.max_completion_tokens ?? wire.max_tokens, 65536 - 58666 - 4096);
   assert.equal(fits.at(-1).fit.source, 'vllm-tokenizer');
 });

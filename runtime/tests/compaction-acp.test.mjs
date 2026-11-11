@@ -1,3 +1,4 @@
+import { replyToNoActionReview } from '../harness/test/review-fixture.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createServer } from 'node:http';
@@ -21,6 +22,7 @@ test('ACP live threshold, repeated compaction, manual command, cancellation and 
     if (req.url.endsWith('/models')) { res.end(JSON.stringify({ data: [{ id: 'fixture', contextWindow: 32768 }] })); return; }
     let raw = ''; for await (const c of req) raw += c;
     const request = JSON.parse(raw);
+    if (replyToNoActionReview(request, res)) return;
     if (!request.stream) { res.writeHead(200, { 'content-type': 'application/json' }).end(JSON.stringify({ choices: [{ message: { content: 'OK' } }] })); return; }
     requests.push(request);
     const summary = JSON.stringify(request.messages.at(-1)).includes('compaction engine');
@@ -118,7 +120,8 @@ test('a process killed during compaction restarts without a stale renderer spinn
   const endpoint = createServer(async (req, res) => {
     if (req.url.endsWith('/models')) { res.end(JSON.stringify({ data: [{ id: 'fixture', contextWindow: 32768 }] })); return; }
     let raw = ''; for await (const c of req) raw += c;
-    const request = JSON.parse(raw); requests.push(request);
+    const request = JSON.parse(raw);
+    if (replyToNoActionReview(request, res)) return; requests.push(request);
     if (!request.stream) { res.end(JSON.stringify({ choices: [{ message: { content: 'OK' } }] })); return; }
     const summary = JSON.stringify(request.messages.at(-1)).includes('compaction engine');
     if (slow && summary) { started.resolve(); return; }

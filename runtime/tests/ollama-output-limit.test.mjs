@@ -1,3 +1,4 @@
+import { replyToNoActionReview } from '../harness/test/review-fixture.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createServer } from 'node:http';
@@ -15,7 +16,8 @@ test('Ollama cloud output budgets retain route identity, end as limited, and lea
       return;
     }
     let raw = ''; for await (const chunk of req) raw += chunk;
-    const body = JSON.parse(raw); requests.push(body);
+    const body = JSON.parse(raw);
+    if (replyToNoActionReview(body, res)) return; requests.push(body);
     res.writeHead(200, { 'content-type': 'text/event-stream' });
     const first = requests.length === 1;
     const content = first ? 'Partial review at the output limit.' : 'The next turn remains usable.';

@@ -67,6 +67,31 @@ beforeEach(() => {
 afterEach(() => cancelAcpPermissionRequestsForSession('between-replies'));
 
 describe('processes between public replies', () => {
+  it.each(['completed', 'cancelled'] as const)('times the active turn and freezes on %s even without tool history', (status) => {
+    vi.useFakeTimers();
+    try {
+      vi.setSystemTime(60_000);
+      const start = { ...user, created: 1 };
+      const earlier = { ...user, id: 'earlier', created: 0 };
+      const view = render(show([earlier, start], true), { wrapper: IntlTestWrapper });
+      expect(screen.getByRole('timer')).toHaveTextContent('Working for 59 sec');
+      act(() => { vi.advanceTimersByTime(2000); });
+      expect(screen.getByRole('timer')).toHaveTextContent('Working for 1 min 1 sec');
+      const end = assistant('end', [{
+        type: 'systemNotification', notificationType: 'turnTerminal', msg: '',
+        data: {
+          schema_version: 1, session_id: 'between-replies', run_id: 'run',
+          terminal_message_id: 'end', source_user_message_id: start.id, status,
+          checkpoint_id: null, retry_strategy: 'not_available', visible_text_available: false,
+          tool_action_count: 0, copy_artifact_ref: null, finished_at: new Date(62_000).toISOString(),
+        },
+      }]);
+      view.rerender(show([earlier, start, end]));
+      act(() => { vi.advanceTimersByTime(60_000); });
+      expect(screen.queryByRole('timer')).toBeNull();
+      expect(screen.getByText(status === 'cancelled' ? 'Stopped after 1 min 1 sec' : 'Time spent 1 min 1 sec')).toBeVisible();
+    } finally { vi.useRealTimers(); }
+  });
   it('does not include unbound historical receipts in the latest completed turn footer', () => {
     const answer = assistant('math-answer', [{ type: 'text', text: '899' }]);
     answer.metadata.usage = { inputTokens: 59, outputTokens: 16, totalTokens: 93389 };

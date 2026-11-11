@@ -30,6 +30,10 @@ export function contextUpdates({ sessionId, runId, signal } = {}) {
   const starts = new Map();
   return event => {
     if (event.sessionId && event.sessionId !== sessionId) return [];
+    if (event.type === 'assistant_start' || event.type === 'assistant_end')
+      return [{ sessionUpdate: 'status_message', status: { type: 'progress', message: '', data: {
+        schema_version: 1, event: 'live_decode_speed', liveSpeed: event.type === 'assistant_start' ? { rate: null, estimated: false } : null,
+      } } }];
     if (event.type === 'model_diagnostic' && event.phase === 'request_budget' && !event.purpose)
       return [{ sessionUpdate: 'status_message', status: { type: 'progress', message: '', data: {
         schema_version: 1, event: 'request_budget', model: event.model, source: event.source,
@@ -45,6 +49,8 @@ export function contextUpdates({ sessionId, runId, signal } = {}) {
       }, { sessionUpdate: 'status_message', status: { type: 'progress', message: '', data: {
         schema_version: 1, event: 'context_meter', used: event.used, contextLimit: event.contextLimit,
         source: event.source, contextSource: event.contextSource,
+        ...(event.sessionStats ? { sessionStats: event.sessionStats } : {}),
+        ...(event.liveSpeed ? { liveSpeed: event.liveSpeed } : {}),
       } } }];
     }
     if (event.type !== 'harness_event') return [];

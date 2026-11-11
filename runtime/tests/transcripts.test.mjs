@@ -10,6 +10,33 @@ import { openTranscriptJournal } from '../transcripts.mjs';
 
 const user = (text) => ({ sessionUpdate: 'user_message_chunk', messageId: 'user-fixture', content: { type: 'text', text } });
 const reply = (text) => ({ sessionUpdate: 'agent_message_chunk', messageId: 'assistant-fixture', content: { type: 'text', text } });
+
+for (const restart of [false, true]) test(`accepted deletion discards failed transcript projection without blocking restart (restart=${restart})`, async () => {
+  const { directory } = await fixture();
+  let deny = false;
+  const store = await openStore(directory, { replaceFile: async (from, to) => {
+    if (deny) throw Object.assign(new Error('fixture projection failure'), { code: 'EIO' });
+    return rename(from, to);
+  } });
+  const journal = await openTranscriptJournal(store);
+  const writer = await journal.begin({ sessionId: 'session-fixture', users: [user('durable input')] });
+  await writer.append(reply('durable reply'));
+  deny = true;
+  await assert.rejects(writer.finalize(), { code: 'EIO' });
+  await store.acceptSessionDeletion('session-fixture');
+  const activeStore = restart ? await openStore(directory) : store;
+  deny = false;
+  if (restart) {
+    const recovered = await openTranscriptJournal(activeStore);
+    assert.deepEqual(recovered.recovered, []);
+  } else await journal.discardSession('session-fixture');
+  await activeStore.finishSessionDeletion('session-fixture');
+  const reopened = await openStore(directory);
+  await openTranscriptJournal(reopened);
+  assert.equal(reopened.readSession('session-fixture'), undefined);
+  assert.deepEqual(await readdir(journal.directory), []);
+});
+
 async function fixture() {
   const directory = await mkdtemp(join(tmpdir(), 'codebuddy-transcript-'));
   const store = await openStore(directory);

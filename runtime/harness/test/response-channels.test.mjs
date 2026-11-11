@@ -1,3 +1,4 @@
+import { replyToNoActionReview } from './review-fixture.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createServer } from 'node:http';
@@ -12,6 +13,7 @@ test('OpenAI field boundaries remain intact; protocol-looking reasoning never be
   const server = createServer(async (req, res) => {
     let body = ''; for await (const part of req) body += part;
     const request = JSON.parse(body);
+    if (replyToNoActionReview(request, res)) return;
     const prompt = JSON.stringify(request.messages);
     const broken = prompt.includes('reasoning-only-case');
     const field = ['reasoning_content', 'reasoning_text'].find(name => prompt.includes(`field=${name}`)) ?? 'reasoning';

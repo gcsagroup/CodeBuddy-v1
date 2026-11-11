@@ -25,7 +25,7 @@ import {
   useState,
   useSyncExternalStore,
 } from 'react';
-import { Pencil } from 'lucide-react';
+import ThinkingIcon from './ThinkingIcon';
 import { defineMessages, useIntl } from '../i18n';
 import GooseMessage, { codeProTerminalPresentation, hasMissingFinalReply } from './GooseMessage';
 import { resolveToolLoadingStatus } from './ToolCallWithResponse';
@@ -118,6 +118,14 @@ const i18n = defineMessages({
   turnDuration: {
     id: 'conversation.turnDuration',
     defaultMessage: 'Time spent {minutes} min {seconds} sec',
+  },
+  turnWorkingFor: {
+    id: 'conversation.turnWorkingFor',
+    defaultMessage: 'Working for {duration}',
+  },
+  turnStoppedAfter: {
+    id: 'conversation.turnStoppedAfter',
+    defaultMessage: 'Stopped after {duration}',
   },
   toolRecords: {
     id: 'progressiveMessageList.toolRecords',
@@ -424,19 +432,44 @@ function OrderedMessageList(props: ProgressiveMessageListProps) {
   );
 }
 
+function formatElapsed(intl: ReturnType<typeof useIntl>, seconds: number) {
+  const minutes = Math.floor(seconds / 60);
+  const format = (value: number, unit: 'minute' | 'second') =>
+    intl.formatNumber(value, { style: 'unit', unit, unitDisplay: 'short' });
+  return [minutes > 0 && format(minutes, 'minute'), format(seconds % 60, 'second')].filter(Boolean).join(' ');
+}
+
+function LiveTurnDuration({ startedAt }: { startedAt: number }) {
+  const intl = useIntl();
+  const [now, setNow] = useState(Date.now);
+  useEffect(() => {
+    const timer = window.setInterval(() => setNow(Date.now()), 1000);
+    return () => window.clearInterval(timer);
+  }, []);
+  const elapsed = Math.max(0, Math.floor(now / 1000 - startedAt));
+  return <span role="timer" className="tabular-nums">{intl.formatMessage(i18n.turnWorkingFor, {
+    duration: formatElapsed(intl, elapsed),
+  })}</span>;
+}
+
 function TurnProcessHistory({
   settled,
   label,
+  showTime,
   storageKey,
   children,
 }: {
   settled: boolean;
-  label: string;
+  label: React.ReactNode;
+  showTime: boolean;
   storageKey: string;
   children: React.ReactNode;
 }) {
   return (
     <div data-turn-process-summary={settled ? '' : undefined}>
+      {!settled && showTime && (
+        <div className="min-h-6 py-0.5 text-sm text-text-secondary">{label}</div>
+      )}
       <ToolCallExpandable
         compact
         groupHeading={settled}
@@ -1335,7 +1368,7 @@ function ProgressiveMessageListContent({
                   thinkingNow ? (
                     <ToolActivityIcon name="thinking" status="loading" />
                   ) : !headlineCall ? (
-                    <Pencil aria-hidden="true" className="h-4 w-4 shrink-0" />
+                    <ThinkingIcon />
                   ) : (
                     <ToolActivityIcon
                       name={headlineCall.name}
@@ -1735,7 +1768,8 @@ function ProgressiveMessageListContent({
             (message) => message.role === 'user' && message.metadata.presentation?.continuation === true
           );
           const continued = continuations.length > 0;
-          const sourceUserId = continuations[continuations.length - 1]?.id ?? turn[0]?.id;
+          const source = continuations[continuations.length - 1] ?? turn[0];
+          const sourceUserId = source.id ?? turn[0]?.id;
           let lastReplyId: string | undefined;
           let terminalIndex = -1;
           let lastToolIndex = -1;
@@ -1810,9 +1844,10 @@ function ProgressiveMessageListContent({
             !laterToolReceived &&
             !awaitingNativePermission &&
             (hasAnswerBoundary || hasTerminalBoundary);
+          const timedTurn = isConversationTurnStart(turn[0]) && Number.isFinite(source.created);
           const elapsed =
-            settled && terminal && hasTerminalBoundary && !streaming && !pending
-              ? Math.round(Date.parse(terminal.finished_at) / 1000 - turn[0].created)
+            timedTurn && settled && terminal && hasTerminalBoundary
+              ? Math.floor(Date.parse(terminal.finished_at) / 1000 - source.created)
               : NaN;
           const hasProcess = turn.some((message) =>
             message.content.some(
@@ -1822,15 +1857,18 @@ function ProgressiveMessageListContent({
                 content.type === 'redactedThinking'
             )
           );
-          const processLabel =
-            Number.isFinite(elapsed) && elapsed >= 0
-              ? intl.formatMessage(i18n.turnDuration, {
-                  minutes: Math.floor(elapsed / 60),
-                  seconds: elapsed % 60,
-                })
-              : intl.formatMessage(i18n.turnRecord, {
-                  count: turn.flatMap(getToolRequests).length,
-                });
+          const timedEnd = Number.isFinite(elapsed) && elapsed >= 0;
+          const liveTime = timedTurn && streaming && !hasTerminalBoundary;
+          let processLabel: React.ReactNode;
+          if (timedEnd) {
+            processLabel = terminal?.user_requested_stop || terminal?.status === 'cancelled'
+              ? intl.formatMessage(i18n.turnStoppedAfter, { duration: formatElapsed(intl, elapsed) })
+              : intl.formatMessage(i18n.turnDuration, { minutes: Math.floor(elapsed / 60), seconds: elapsed % 60 });
+          } else if (liveTime) {
+            processLabel = <LiveTurnDuration startedAt={source.created} />;
+          } else {
+            processLabel = intl.formatMessage(i18n.turnRecord, { count: turn.flatMap(getToolRequests).length });
+          }
           const userEnd = turn[0]?.role === 'user' ? 1 : 0;
           // A bound host boundary selects display history. Never classify
           // prose by wording or treat the final-looking paragraph as a result.
@@ -1917,6 +1955,7 @@ function ProgressiveMessageListContent({
               <TurnProcessHistory
                 settled={!continued && settled && hasHistory}
                 label={processLabel}
+                showTime={timedEnd || liveTime}
                 storageKey={`turn-process-${chat.sessionId}-${turn[0]?.id ?? start}`}
               >
                 {renderSlice(

@@ -377,6 +377,222 @@ interface SessionListViewProps {
   workspaceMode: SessionWorkspaceMode;
 }
 
+const SessionItem = React.memo(function SessionItem({
+  session,
+  historyView,
+  onSelectSession,
+  actionsBusy,
+  nostrEnabled,
+  onEditClick,
+  onDuplicateClick,
+  onArchiveClick,
+  onDeleteClick,
+  onExportClick,
+  onShareClick,
+  onOpenInNewWindow,
+  isSharing,
+  isArchiving,
+}: {
+  session: SessionListItem;
+  historyView: HistoryView;
+  onSelectSession: (id: string) => void;
+  actionsBusy: boolean;
+  nostrEnabled: boolean;
+  onEditClick: (session: SessionListItem) => void;
+  onDuplicateClick: (session: SessionListItem) => void;
+  onArchiveClick: (session: SessionListItem) => void;
+  onDeleteClick: (session: SessionListItem) => void;
+  onExportClick: (session: SessionListItem, e: React.MouseEvent) => void;
+  onShareClick: (session: SessionListItem, e: React.MouseEvent) => void;
+  onOpenInNewWindow: (session: SessionListItem, e: React.MouseEvent) => void;
+  isSharing: boolean;
+  isArchiving: boolean;
+}) {
+  const intl = useIntl();
+  const handleEditClick = useCallback(
+    (e: React.MouseEvent) => {
+      e.stopPropagation();
+      onEditClick(session);
+    },
+    [onEditClick, session]
+  );
+
+  const handleDuplicateClick = useCallback(
+    (e: React.MouseEvent) => {
+      e.stopPropagation();
+      onDuplicateClick(session);
+    },
+    [onDuplicateClick, session]
+  );
+
+  const handleDeleteClick = useCallback(
+    (e: React.MouseEvent) => {
+      e.stopPropagation();
+      onDeleteClick(session);
+    },
+    [onDeleteClick, session]
+  );
+
+  const handleArchiveClick = useCallback(
+    (e: React.MouseEvent) => {
+      e.stopPropagation();
+      onArchiveClick(session);
+    },
+    [onArchiveClick, session]
+  );
+
+  const handleCardClick = useCallback(() => {
+    if (!session.archivedAt) onSelectSession(session.id);
+  }, [session.id, session.archivedAt, onSelectSession]);
+
+  const handleExportClick = useCallback(
+    (e: React.MouseEvent) => {
+      onExportClick(session, e);
+    },
+    [onExportClick, session]
+  );
+
+  const handleShareClick = useCallback(
+    (e: React.MouseEvent) => {
+      onShareClick(session, e);
+    },
+    [onShareClick, session]
+  );
+
+  const handleOpenInNewWindowClick = useCallback(
+    (e: React.MouseEvent) => {
+      onOpenInNewWindow(session, e);
+    },
+    [onOpenInNewWindow, session]
+  );
+
+  const displayName = session.name;
+
+  return (
+    <article className="flex min-w-0 flex-wrap items-center gap-3 border-b border-border-primary px-4 py-3 last:border-b-0 hover:bg-background-secondary/40">
+      <div className="min-w-0 flex-1 basis-48">
+        <button
+          onClick={handleCardClick}
+          disabled={Boolean(session.archivedAt)}
+          className="block max-w-full truncate text-left text-sm font-medium text-text-primary disabled:cursor-default hover:underline disabled:no-underline"
+          title={displayName}
+        >
+          {displayName}
+        </button>
+        <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-text-secondary">
+          <span>{formatMessageTimestamp(Date.parse(sessionActivityAt(session)) / 1000)}</span>
+          {historyView !== 'archived' && (
+            <span className="max-w-64 truncate" title={session.workingDir}>
+              {session.workingDir}
+            </span>
+          )}
+          {session.archivedAt && historyView !== 'archived' && (
+            <span className="rounded bg-background-tertiary px-1.5 py-0.5">
+              {intl.formatMessage(i18n.archivedSessions)}
+            </span>
+          )}
+        </div>
+      </div>
+      <div className="flex shrink-0 items-center gap-2">
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={handleArchiveClick}
+          disabled={actionsBusy}
+          title={intl.formatMessage(
+            session.archivedAt ? i18n.unarchiveSession : i18n.archiveSession
+          )}
+        >
+          {isArchiving ? (
+            <LoaderCircle className="size-3.5 animate-spin" />
+          ) : session.archivedAt ? (
+            <ArchiveRestore className="size-3.5" />
+          ) : (
+            <Archive className="size-3.5" />
+          )}
+          {intl.formatMessage(session.archivedAt ? i18n.restore : i18n.archiveSession)}
+        </Button>
+        {session.archivedAt ? (
+          <button
+            onClick={handleDeleteClick}
+            disabled={actionsBusy}
+            className="flex size-8 items-center justify-center rounded-md text-text-secondary hover:bg-red-50 hover:text-red-600 focus-visible:ring-2 disabled:opacity-50"
+            title={intl.formatMessage(i18n.permanentDelete)}
+            aria-label={intl.formatMessage(i18n.permanentDelete)}
+          >
+            <Trash2 className="size-4" />
+          </button>
+        ) : (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button
+                className="flex size-8 items-center justify-center rounded-md text-text-secondary hover:bg-background-tertiary"
+                aria-label={intl.formatMessage(i18n.more, { name: displayName })}
+              >
+                <MoreHorizontal className="size-4" />
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem
+                onClick={handleOpenInNewWindowClick}
+                title={intl.formatMessage(i18n.openInNewWindow)}
+              >
+                <ExternalLink />
+                {intl.formatMessage(i18n.openInNewWindow)}
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={handleEditClick}
+                title={intl.formatMessage(i18n.editSessionName)}
+              >
+                <Edit2 />
+                {intl.formatMessage(i18n.editSessionName)}
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={handleDuplicateClick}
+                disabled={!canForkSession(session.sessionType)}
+                title={intl.formatMessage(
+                  canForkSession(session.sessionType)
+                    ? i18n.duplicateSession
+                    : sessionCapabilityMessages.forkUnavailable
+                )}
+              >
+                <Copy />
+                {intl.formatMessage(i18n.duplicateSession)}
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={handleExportClick}
+                title={intl.formatMessage(i18n.exportSession)}
+              >
+                <Download />
+                {intl.formatMessage(i18n.exportSession)}
+              </DropdownMenuItem>
+              {nostrEnabled && (
+                <DropdownMenuItem
+                  onClick={handleShareClick}
+                  disabled={isSharing}
+                  title={intl.formatMessage(i18n.shareNostrSession)}
+                >
+                  <Share2 />
+                  {intl.formatMessage(i18n.shareNostrSession)}
+                </DropdownMenuItem>
+              )}
+              <DropdownMenuItem
+                onClick={handleDeleteClick}
+                disabled={actionsBusy}
+                variant="destructive"
+                title={intl.formatMessage(i18n.permanentDelete)}
+              >
+                <Trash2 />
+                {intl.formatMessage(i18n.permanentDelete)}
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        )}
+      </div>
+    </article>
+  );
+});
+
 const SessionListView: React.FC<SessionListViewProps> = React.memo(
   ({ onSelectSession, workspaceMode }) => {
     const intl = useIntl();
@@ -895,213 +1111,6 @@ const SessionListView: React.FC<SessionListViewProps> = React.memo(
       });
     }, []);
 
-    const SessionItem = React.memo(function SessionItem({
-      session,
-      onEditClick,
-      onDuplicateClick,
-      onArchiveClick,
-      onDeleteClick,
-      onExportClick,
-      onShareClick,
-      onOpenInNewWindow,
-      isSharing,
-      isArchiving,
-    }: {
-      session: SessionListItem;
-      onEditClick: (session: SessionListItem) => void;
-      onDuplicateClick: (session: SessionListItem) => void;
-      onArchiveClick: (session: SessionListItem) => void;
-      onDeleteClick: (session: SessionListItem) => void;
-      onExportClick: (session: SessionListItem, e: React.MouseEvent) => void;
-      onShareClick: (session: SessionListItem, e: React.MouseEvent) => void;
-      onOpenInNewWindow: (session: SessionListItem, e: React.MouseEvent) => void;
-      isSharing: boolean;
-      isArchiving: boolean;
-    }) {
-      const handleEditClick = useCallback(
-        (e: React.MouseEvent) => {
-          e.stopPropagation();
-          onEditClick(session);
-        },
-        [onEditClick, session]
-      );
-
-      const handleDuplicateClick = useCallback(
-        (e: React.MouseEvent) => {
-          e.stopPropagation();
-          onDuplicateClick(session);
-        },
-        [onDuplicateClick, session]
-      );
-
-      const handleDeleteClick = useCallback(
-        (e: React.MouseEvent) => {
-          e.stopPropagation();
-          onDeleteClick(session);
-        },
-        [onDeleteClick, session]
-      );
-
-      const handleArchiveClick = useCallback(
-        (e: React.MouseEvent) => {
-          e.stopPropagation();
-          onArchiveClick(session);
-        },
-        [onArchiveClick, session]
-      );
-
-      const handleCardClick = useCallback(() => {
-        if (!session.archivedAt) onSelectSession(session.id);
-      }, [session.id, session.archivedAt]);
-
-      const handleExportClick = useCallback(
-        (e: React.MouseEvent) => {
-          onExportClick(session, e);
-        },
-        [onExportClick, session]
-      );
-
-      const handleShareClick = useCallback(
-        (e: React.MouseEvent) => {
-          onShareClick(session, e);
-        },
-        [onShareClick, session]
-      );
-
-      const handleOpenInNewWindowClick = useCallback(
-        (e: React.MouseEvent) => {
-          onOpenInNewWindow(session, e);
-        },
-        [onOpenInNewWindow, session]
-      );
-
-      const displayName = session.name;
-
-      return (
-        <article className="flex min-w-0 flex-wrap items-center gap-3 border-b border-border-primary px-4 py-3 last:border-b-0 hover:bg-background-secondary/40">
-          <div className="min-w-0 flex-1 basis-48">
-            <button
-              onClick={handleCardClick}
-              disabled={Boolean(session.archivedAt)}
-              className="block max-w-full truncate text-left text-sm font-medium text-text-primary disabled:cursor-default hover:underline disabled:no-underline"
-              title={displayName}
-            >
-              {displayName}
-            </button>
-            <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-text-secondary">
-              <span>{formatMessageTimestamp(Date.parse(sessionActivityAt(session)) / 1000)}</span>
-              {historyView !== 'archived' && (
-                <span className="max-w-64 truncate" title={session.workingDir}>
-                  {session.workingDir}
-                </span>
-              )}
-              {session.archivedAt && historyView !== 'archived' && (
-                <span className="rounded bg-background-tertiary px-1.5 py-0.5">
-                  {intl.formatMessage(i18n.archivedSessions)}
-                </span>
-              )}
-            </div>
-          </div>
-          <div className="flex shrink-0 items-center gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleArchiveClick}
-              disabled={Boolean(archivingSessionId) || deleting}
-              title={intl.formatMessage(
-                session.archivedAt ? i18n.unarchiveSession : i18n.archiveSession
-              )}
-            >
-              {isArchiving ? (
-                <LoaderCircle className="size-3.5 animate-spin" />
-              ) : session.archivedAt ? (
-                <ArchiveRestore className="size-3.5" />
-              ) : (
-                <Archive className="size-3.5" />
-              )}
-              {intl.formatMessage(session.archivedAt ? i18n.restore : i18n.archiveSession)}
-            </Button>
-            {session.archivedAt ? (
-              <button
-                onClick={handleDeleteClick}
-                disabled={Boolean(archivingSessionId) || deleting}
-                className="flex size-8 items-center justify-center rounded-md text-text-secondary hover:bg-red-50 hover:text-red-600 focus-visible:ring-2 disabled:opacity-50"
-                title={intl.formatMessage(i18n.permanentDelete)}
-                aria-label={intl.formatMessage(i18n.permanentDelete)}
-              >
-                <Trash2 className="size-4" />
-              </button>
-            ) : (
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <button
-                    className="flex size-8 items-center justify-center rounded-md text-text-secondary hover:bg-background-tertiary"
-                    aria-label={intl.formatMessage(i18n.more, { name: displayName })}
-                  >
-                    <MoreHorizontal className="size-4" />
-                  </button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                  <DropdownMenuItem
-                    onClick={handleOpenInNewWindowClick}
-                    title={intl.formatMessage(i18n.openInNewWindow)}
-                  >
-                    <ExternalLink />
-                    {intl.formatMessage(i18n.openInNewWindow)}
-                  </DropdownMenuItem>
-                  <DropdownMenuItem
-                    onClick={handleEditClick}
-                    title={intl.formatMessage(i18n.editSessionName)}
-                  >
-                    <Edit2 />
-                    {intl.formatMessage(i18n.editSessionName)}
-                  </DropdownMenuItem>
-                  <DropdownMenuItem
-                    onClick={handleDuplicateClick}
-                    disabled={!canForkSession(session.sessionType)}
-                    title={intl.formatMessage(
-                      canForkSession(session.sessionType)
-                        ? i18n.duplicateSession
-                        : sessionCapabilityMessages.forkUnavailable
-                    )}
-                  >
-                    <Copy />
-                    {intl.formatMessage(i18n.duplicateSession)}
-                  </DropdownMenuItem>
-                  <DropdownMenuItem
-                    onClick={handleExportClick}
-                    title={intl.formatMessage(i18n.exportSession)}
-                  >
-                    <Download />
-                    {intl.formatMessage(i18n.exportSession)}
-                  </DropdownMenuItem>
-                  {nostrEnabled && (
-                    <DropdownMenuItem
-                      onClick={handleShareClick}
-                      disabled={isSharing}
-                      title={intl.formatMessage(i18n.shareNostrSession)}
-                    >
-                      <Share2 />
-                      {intl.formatMessage(i18n.shareNostrSession)}
-                    </DropdownMenuItem>
-                  )}
-                  <DropdownMenuItem
-                    onClick={handleDeleteClick}
-                    disabled={Boolean(archivingSessionId) || deleting}
-                    variant="destructive"
-                    title={intl.formatMessage(i18n.permanentDelete)}
-                  >
-                    <Trash2 />
-                    {intl.formatMessage(i18n.permanentDelete)}
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            )}
-          </div>
-        </article>
-      );
-    });
-
     const renderActualContent = () => {
       if (error) {
         return (
@@ -1179,6 +1188,10 @@ const SessionListView: React.FC<SessionListViewProps> = React.memo(
                   <SessionItem
                     key={session.id}
                     session={session}
+                    historyView={historyView}
+                    onSelectSession={onSelectSession}
+                    actionsBusy={Boolean(archivingSessionId) || deleting}
+                    nostrEnabled={nostrEnabled}
                     onEditClick={handleEditSession}
                     onDuplicateClick={handleDuplicateSession}
                     onArchiveClick={handleArchiveSession}

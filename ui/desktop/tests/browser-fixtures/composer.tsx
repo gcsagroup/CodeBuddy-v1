@@ -82,6 +82,13 @@ Promise.all([
                   <ChatInput
                     sessionId="composer-layout"
                     sessionLoaded
+                    sessionStats={new URLSearchParams(location.search).has('stats') ? { decodeTokens: 440, decodeMs: 2000 } : undefined}
+                    liveSpeed={busy ? { rate: 42, estimated: false } : null}
+                    messages={new URLSearchParams(location.search).has('stats') ? [{
+                      id: 'stats-reply', role: 'assistant', created: 1, content: [],
+                      metadata: { agentVisible: true, userVisible: true,
+                        usage: { inputTokens: 180, cacheReadTokens: 820, totalTokens: 1040, outputTokens: 40 } },
+                    }] : []}
                     droppedFiles={withAttachments ? [
                       { id: 'layout-image', path: 'C:/isolated-composer-fixture/image.png', name: 'image.png', type: 'image/png', isImage: true, isVideo: false, dataUrl: pixel },
                       { id: 'layout-video', path: 'C:/isolated-composer-fixture/video.mp4', name: 'video.mp4', type: 'video/mp4', isImage: false, isVideo: true },

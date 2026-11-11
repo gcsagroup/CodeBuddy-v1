@@ -1,3 +1,4 @@
+import { replyToNoActionReview } from '../harness/test/review-fixture.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import http from 'node:http';
@@ -37,6 +38,7 @@ test('original ACP Git and Review flow uses the current session model, persists 
       if (req.url.endsWith('/models')) { res.setHeader('content-type', 'application/json'); res.end(JSON.stringify({ data: [{ id: 'main-fixture' }, { id: 'reviewer-fixture' }] })); return; }
       let body = ''; for await (const chunk of req) body += chunk;
       const request = JSON.parse(body);
+    if (replyToNoActionReview(request, res)) return;
       if (!request.stream) { res.setHeader('content-type', 'application/json'); res.end(JSON.stringify({ choices: [{ message: { role: 'assistant', content: 'OK' } }] })); return; }
       requests.push(request);
       assert.equal(request.model, 'main-fixture', 'current session model owns review invocation despite the obsolete reviewer route');

@@ -1,4 +1,4 @@
-import { renderHook } from '@testing-library/react';
+import { act, renderHook } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { IntlTestWrapper } from '../i18n/test-utils';
 import { ChatState } from '../types/chatState';
@@ -9,6 +9,7 @@ import { acpChatSessionController } from '../acp/chatSessionController';
 import { useChatSession } from './useChatSession';
 
 const state = vi.hoisted(() => ({
+  recoveryListener: undefined as ((recovering: boolean) => void) | undefined,
   snapshot: {
     promptRequestId: null as string | null,
     activeRunId: 'run-1' as string | null,
@@ -17,6 +18,15 @@ const state = vi.hoisted(() => ({
     chatState: 'thinking',
     messages: [] as Message[],
     notifications: [],
+  },
+}));
+vi.mock('../acp/acpConnection', () => ({
+  isAcpRecovering: () => false,
+  subscribeToAcpRecovery: (listener: (recovering: boolean) => void) => {
+    state.recoveryListener = listener;
+    return () => {
+      state.recoveryListener = undefined;
+    };
   },
 }));
 vi.mock('../acp/prompt', () => ({ acpSteerSession: vi.fn() }));
@@ -90,6 +100,25 @@ function terminalMessage(
 }
 
 describe('useChatSession steering acceptance', () => {
+  it('reloads the same session after reconnect without resubmitting its prompt', () => {
+    const { unmount } = setup();
+    vi.mocked(acpChatSessionController.loadSession).mockClear();
+    vi.mocked(acpChatSessionController.submitMessage).mockClear();
+    act(() => {
+      state.recoveryListener?.(true);
+    });
+    expect(acpChatSessionController.loadSession).not.toHaveBeenCalled();
+    act(() => {
+      state.recoveryListener?.(false);
+    });
+    expect(acpChatSessionController.loadSession).toHaveBeenCalledWith(
+      'session-1',
+      expect.any(Object)
+    );
+    expect(acpChatSessionController.submitMessage).not.toHaveBeenCalled();
+    unmount();
+    expect(state.recoveryListener).toBeUndefined();
+  });
   it('withholds partial history until loading finishes, but never buffers live output', () => {
     const history = terminalMessage('interrupted', 'paused');
     state.snapshot = {

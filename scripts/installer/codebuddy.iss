@@ -56,7 +56,7 @@ SetupWindowTitle=安装 CodeBuddy
 WizardSelectDir=选择安装位置
 SelectDirDesc=将 CodeBuddy 安装到你的电脑。
 SelectDirLabel3=安装到此文件夹
-SelectDirBrowseLabel=仅为当前账户安装。聊天记录和项目会保留。
+SelectDirBrowseLabel=仅为当前账户安装。默认位置无需管理员权限，其他位置需要当前账户可写。
 DiskSpaceGBLabel=所需空间：[gb] GB
 DiskSpaceMBLabel=所需空间：[mb] MB
 ButtonInstall=安装
@@ -167,7 +167,11 @@ begin
   end;
 end;
 
+#include "install-location.iss"
+
 function NextButtonClick(CurPageID: Integer): Boolean;
+var
+  Problem: String;
 begin
   Result := True;
   if CurPageID = wpFinished then
@@ -179,12 +183,15 @@ begin
       Result := False;
     end;
   end;
-  { Bundled libraries still include paths subject to the Win32 MAX_PATH limit. }
-  if (CurPageID = wpSelectDir) and
-     (Length(AddBackslash(WizardDirValue)) + {#MaxRelativePath} > 259) then
+  if CurPageID = wpSelectDir then
   begin
-    MsgBox('安装路径过长，请选择更短的位置，例如 D:\CodeBuddy。', mbError, MB_OK);
-    Result := False;
+    Problem := InstallLocationProblem(WizardDirValue);
+    if Problem <> '' then
+    begin
+      if not WizardSilent then MsgBox(Problem, mbError, MB_OK);
+      Log(Problem);
+      Result := False;
+    end;
   end;
 end;
 
@@ -192,11 +199,9 @@ function PrepareToInstall(var NeedsRestart: Boolean): String;
 begin
   Result := RunningCodeBuddyMessage;
   if Result <> '' then Exit;
-  Result := ValidateDataDirectory;
+  Result := InstallLocationProblem(ExpandConstant('{app}'));
   if Result <> '' then Exit;
-  { The same bound must apply to silent installation, which skips page clicks. }
-  if Length(AddBackslash(ExpandConstant('{app}'))) + {#MaxRelativePath} > 259 then
-    Result := '安装路径过长，请选择更短的位置，例如 D:\CodeBuddy。';
+  Result := ValidateDataDirectory;
 end;
 
 procedure CurInstallProgressChanged(CurProgress, MaxProgress: Integer);

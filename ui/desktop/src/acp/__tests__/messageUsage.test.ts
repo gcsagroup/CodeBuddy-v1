@@ -28,6 +28,23 @@ const usage = (messageId: string, value: MessageUsage) => ({
 });
 
 describe('message usage receipt identity', () => {
+  it.each([false, true])('retracts a rejected provisional answer without deleting other work (replay=%s)', (replay) => {
+    const adapter = createAcpSessionNotificationAdapter();
+    adapter.apply(content('kept'));
+    adapter.apply(content('rejected'));
+    adapter.applyGoose(usage('rejected', { outputTokens: 37 }), replay);
+    adapter.applyGoose({ sessionId, update: { sessionUpdate: 'status_message', status: {
+      type: 'notice', message: 'Continuing execution',
+      data: { type: 'output_attempt_rejected', message_id: 'rejected' },
+    } } }, replay);
+    expect(adapter.getMessages().find(message => message.id === 'kept')?.content).toHaveLength(1);
+    const rejected = adapter.getMessages().find(message => message.id === 'rejected');
+    expect(rejected?.content).toEqual([]);
+    expect(rejected?.metadata.userVisible).toBe(false);
+    expect(rejected?.metadata.usage).toEqual({ outputTokens: 37 });
+    adapter.apply(content('replacement'));
+    expect(adapter.getMessages().find(message => message.id === 'replacement')?.content).toHaveLength(1);
+  });
   it('keeps orphaned replay receipts without charging them to the latest answer', () => {
     const adapter = createAcpSessionNotificationAdapter();
     adapter.apply(content('latest'));

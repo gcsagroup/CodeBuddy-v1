@@ -1,3 +1,5 @@
+import { SessionDeletionCleanup } from './session-deletion-cleanup.mjs';
+import { createSessionConnection } from './session-connection.mjs';
 import { MAIN_CONVERSATION, ensureMainConversation, workspaceMemoryTool } from './main-conversation.mjs';
 import { nameFirstTurn } from './session-titles.mjs';
 import { agentProfileRequest, workspaceAgent, agentAllowsTool, bindAgentInput, agentInputProfile, agentBaselineProfile, sessionAgentSelection, agentProfileChoice, createAgentSelection } from './agent-profiles.mjs';
@@ -290,6 +292,13 @@ export class Compat {
     this.routing = new Map();
     this.thinking = new Map();
     this.sessionMutations = new Map();
+    this.sessionDeletions = new SessionDeletionCleanup(store, async record => {
+      await this.releaseSession({ id: record.id, nativeSessionId: record.nativeSessionId });
+      await this.journal?.discardSession(record.id);
+      await this.schedules?.stopSessionSchedules(record.id);
+      if (this.nativeScheduling)
+        await this.driver.nativeScheduleRequest('stop-session', { sessionId: record.nativeSessionId });
+    });
     this.connections = new Set();
     this.desktop = new DesktopCoordinator({ notify: state => {
       for (const connection of this.connections) { try { connection.notify?.('_goose/unstable/session/update', {
@@ -459,6 +468,7 @@ export class Compat {
       });
       this.nativeScheduling = true;
     } else await this.schedules?.start();
+    this.sessionDeletions.resume();
   }
   async reviewContext(sessionId) {
     const s = this.session(sessionId);
@@ -697,6 +707,7 @@ export class Compat {
     this.subagentViews.delete(connection);
     this.transcription.disconnect(connection);
     this.connections.delete(connection);
+    for (const active of this.active.values()) active.connection.detach?.(connection);
     this.workspaces.disconnect(connection).catch(() => {});
     this.library?.disconnect?.(connection);
   }
@@ -707,14 +718,14 @@ export class Compat {
     if (!s) throw invalid("Session not found");
     return s;
   }
-  assertSessionAvailable(id) {
-    const session = this.session(id);
+  assertSessionAvailable(id, options) {
+    const session = this.session(id, options);
     if (this.sessionMutations.has(id))
       throw invalid("Wait for the session change to finish");
     return session;
   }
   async mutateSession(id, operation) {
-    this.assertSessionAvailable(id);
+    this.assertSessionAvailable(id, { fields: ['id'] });
     let finish;
     const done = new Promise((resolve) => {
       finish = resolve;
@@ -1805,19 +1816,6 @@ export class Compat {
         }
         const snapshot = this.runs.latest(s.id);
         if (snapshot) {
-          connection.notify("session/update", {
-            sessionId: s.id,
-            update: {
-              sessionUpdate: "session_info_update",
-              // The latest run is retained for inspection after its Harness turn
-              // ends. Only a live operation may reopen the renderer's stream.
-              _meta: {
-                goose: {
-                  activeRunId: this.active.has(s.id) ? snapshot.runId : null,
-                },
-              },
-            },
-          });
           connection.notify(prefix + "codepro/run/update", { snapshot });
           connection.notify(prefix + "session/update", {
             sessionId: s.id,
@@ -1846,6 +1844,14 @@ export class Compat {
         checkpoint("optionsMs");
         const extensionResults = await this.extensionResults(s);
         checkpoint("extensionsMs");
+        const live = this.active.get(s.id);
+        live?.connection.attach?.(connection);
+        // Reconcile after all asynchronous replay work. A retained run snapshot
+        // is history; only the same live operation can reopen the stream.
+        connection.notify('session/update', { sessionId: s.id, update: {
+          sessionUpdate: 'session_info_update',
+          _meta: { goose: { activeRunId: live ? live.run?.runId ?? live.replay?.turnId : null } },
+        } });
         completed = true;
         return {
           modes: loadedModes,
@@ -1999,17 +2005,31 @@ export class Compat {
       return {};
     }
     if (method === "session/delete") {
+      requireString(p.sessionId, 'sessionId');
+      if (this.store.isSessionDeleted?.(p.sessionId) ||
+          (this.store.readSession && !this.store.readSession(p.sessionId, { fields: ['id'] }))) return {};
       return this.mutateSession(p.sessionId, () =>
         this.driver.withConversationLock(p.sessionId, async () => {
           if (this.active.has(p.sessionId))
             throw invalid("Stop the session before deleting it");
-          await this.schedules?.stopSessionSchedules(p.sessionId);
-          if (this.nativeScheduling)
-            await this.driver.nativeScheduleRequest('stop-session', { sessionId: p.sessionId });
-          await this.releaseSession(this.session(p.sessionId));
-          await this.store.update((state) => {
-            state.sessions = state.sessions.filter((s) => s.id !== p.sessionId);
-          });
+          const session = this.session(p.sessionId, { fields: ['id', 'nativeSessionId'] });
+          // Keep admission checks ahead of the durable tombstone. Background
+          // cleanup must never turn an active task into an accepted deletion.
+          await this.driver.assertNativeSessionIdle?.(session.nativeSessionId ?? session.id);
+          if (this.schedules?.rows().some(row => row.executionMode === 'current_session' &&
+              row.targetSessionId === session.id && row.currentlyRunning))
+            throw invalid('Stop the automatic follow-up before deleting its chat');
+          if (this.store.acceptSessionDeletion) {
+            const record = await this.store.acceptSessionDeletion(session.id);
+            if (record) this.sessionDeletions.enqueue(record);
+          } else {
+            // In-memory embeddings have no durable cleanup journal.
+            await this.releaseSession(session);
+            await this.schedules?.stopSessionSchedules(session.id);
+            if (this.nativeScheduling)
+              await this.driver.nativeScheduleRequest('stop-session', { sessionId: session.nativeSessionId ?? session.id });
+            await this.store.update(state => { state.sessions = state.sessions.filter(s => s.id !== session.id); });
+          }
           return {};
         }),
       );
@@ -2724,6 +2744,15 @@ export class Compat {
     if (this.active.has(s.id))
       throw invalid("A prompt is already running for this session");
     const controller = new AbortController();
+    if (!connection.background) connection = createSessionConnection({
+      sessionId: s.id, initial: connection, observers: () => this.connections,
+      signal: controller.signal,
+      onAttach: (delivery, client) => {
+        const capabilities = this.businessApprovalClients?.get(client);
+        if (capabilities) this.businessApprovalClients.set(delivery, capabilities);
+        else this.businessApprovalClients?.delete(delivery);
+      },
+    });
     let finish;
     const done = new Promise((resolve) => {
       finish = resolve;
@@ -2779,7 +2808,7 @@ export class Compat {
             });
           } catch { /* A detached observer must not mask the prompt's outcome. */ }
         }
-      } finally { finish(); }
+      } finally { connection.dispose?.(); finish(); }
     };
     let validated = false, validationError;
     try {
@@ -2962,14 +2991,9 @@ export class Compat {
           if (event.type === 'agent_input' && event.sessionId === s.id) {
             // This is an invalidation receipt, not a second role snapshot.
             // current() continues to derive adoption from the native log.
-            for (const observer of new Set([connection, ...this.connections]))
-              if (observer === connection || observer.sessionIds?.has(s.id)) {
-                try {
-                  observer.notify('session/update', { sessionId: s.id, update: {
-                    sessionUpdate: 'session_info_update', _meta: { 'codebuddy/agent-input': { requestId: event.requestId, seq: event.seq } },
-                  } });
-                } catch { console.warn('Agent selection display could not receive its native input receipt.'); }
-              }
+            connection.notify('session/update', { sessionId: s.id, update: {
+              sessionUpdate: 'session_info_update', _meta: { 'codebuddy/agent-input': { requestId: event.requestId, seq: event.seq } },
+            } });
             return;
           }
           if (event.type === 'scheduled_message' && event.sessionId === s.id) {
@@ -2981,19 +3005,14 @@ export class Compat {
             return;
           }
           if (event.type === 'user_questions' && event.sessionId === s.id) {
-            for (const observer of new Set([connection, ...this.connections]))
-              if (observer === connection || observer.sessionIds?.has(s.id))
-                observer.notify('session/update', questionNotification(s.id, event.snapshot));
+            connection.notify('session/update', questionNotification(s.id, event.snapshot));
             return;
           }
           if (event.sessionId === s.id && event.type === 'harness_event' &&
             ['permission/preset', 'sandbox/mode', 'approval/policy'].includes(event.event.type)) {
             const current = await this.permissionModes(s);
-            for (const observer of new Set([connection, ...this.connections])) {
-              if (observer === connection || observer.sessionIds?.has(s.id))
-                observer.notify('session/update', { sessionId: s.id,
-                  update: { sessionUpdate: 'current_mode_update', currentModeId: current.currentModeId } });
-            }
+            connection.notify('session/update', { sessionId: s.id,
+              update: { sessionUpdate: 'current_mode_update', currentModeId: current.currentModeId } });
           }
           await this.recordCapabilityUsage(s, event);
           // Do not persist these observations or turn them into chat messages.
@@ -3001,7 +3020,7 @@ export class Compat {
           for (const update of projectWorkStatus(event))
             connection.notify("_goose/unstable/session/update", { sessionId: s.id, update });
           for (const update of projectContext(event)) {
-            if (event.source !== 'streaming_estimate' && event.type !== 'model_diagnostic') {
+            if (event.source !== 'streaming_estimate' && event.type !== 'model_diagnostic' && update.status?.data?.event !== 'live_decode_speed') {
               await writer?.appendUsage(update);
               usageUpdates.push(update);
             }
@@ -3348,11 +3367,7 @@ export class Compat {
           };
           await writer?.appendUsage(update);
           usageUpdates.push(update);
-          for (const c of new Set([connection, ...this.connections])) {
-            if (c !== connection && (c.background || !c.sessionIds?.has(s.id))) continue;
-            try { c.notify(prefix + "session/update", { sessionId: s.id, update }); }
-            catch { /* The original durable terminal remains authoritative. */ }
-          }
+          connection.notify(prefix + "session/update", { sessionId: s.id, update });
         }
         if (writer) await writer.finalize();
         else
@@ -3422,6 +3437,7 @@ export class Compat {
     await Promise.allSettled(
       [...this.sessionMutations.values()].map((change) => change.done),
     );
+    await this.sessionDeletions.close();
     await this.driver.close();
     await this.workspaces.close();
     await this.library?.close();

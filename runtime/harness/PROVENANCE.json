@@ -24,11 +24,21 @@
     "testCommand": "node --test test/driver.test.mjs"
   },
   "compatibilityPatches": {
+    "streamingDecodeSpeed": {
+      "adapter": "sdk-budget/adapter-patch.mjs",
+      "scope": "Request continuous_usage_stats on discovered vLLM chat streams with usage enabled. Publish request-scoped intermediate output counts through the existing transport observer for display. Other providers retain their wire options. End-of-request sessionStats remains upstream.",
+      "exitCondition": "Prefer upstream per-request live decode samples when available. Checked by runtime/tests/composer-stats.test.mjs."
+    },
+    "cacheUsagePresence": {
+      "adapter": "sdk-budget/adapter-patch.mjs",
+      "scope": "Preserve explicitly reported zero cache reads through native mapUsage using the existing per-request provider-stream observer. Missing or null counters remain unknown; positive counts retain native mapping. Uses existing optional cacheReadTokens and native Session persistence; no inferred hits or aggregate server metrics.",
+      "exitCondition": "Remove when the pinned upstream adapter preserves explicit zero versus absent cache receipts. Covered by runtime/tests/composer-stats.test.mjs."
+    },
     "toolErrorDiagnostics": {
       "adapter": "tool-error-contract.mjs",
       "version": "0.2.1-alpha.2",
       "sourceSha256": { "@deepseek-ai/dsh-tools/lib/index.js": "c427f5bf2162a5afb13bf3cc99b4df38e93f46980836d8e1d414a612181567cc" },
-      "scope": "In-memory native tool error serialization only. Bounded safe transport cause codes in optional error.info and readable error text; no cause messages, addresses, stacks or credentials. Preserve native approval, cancellation, outcome and retry ownership.",
+      "scope": "In-memory native tool error serialization only. Bounded safe transport cause codes and structured native cancellation kinds in optional error.info and readable error text; no arbitrary object fields, cause messages, addresses, stacks or credentials. Preserve native approval, cancellation, outcome and retry ownership.",
       "exitCondition": "Remove when an upgraded native serializer retains equivalent safe causes; source hash drift requires review."
     },
     "requestFitRecovery": {

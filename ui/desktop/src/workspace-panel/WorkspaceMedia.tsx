@@ -1,4 +1,4 @@
-import { useState, useRef, type ComponentRef } from 'react';
+import { useState, useRef, useEffect, type ComponentRef } from 'react';
 import { useIntl } from '../i18n';
 import { panelMessages as m } from './workspacePanelMessages';
 import type { PanelMedia } from './workspacePanelTypes';
@@ -25,6 +25,12 @@ export function WorkspaceMedia({
   const [failedMedia, setFailedMedia] = useState<PanelMedia>();
   const [expandedMedia, setExpandedMedia] = useState<PanelMedia>();
   const video = useRef<ComponentRef<'video'>>(null);
+  useEffect(() => {
+    const player = video.current;
+    return () => {
+      player?.pause();
+    };
+  }, [media.url]);
   const returnFocus = useRef<HTMLElement | null>(null);
   const playhead = useRef(0);
   const text = (en: string, cn: string, tw: string) => selectNativeText(currentLocale, en, cn, tw);

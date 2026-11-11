@@ -1,7 +1,7 @@
-import { fireEvent, render as testingRender, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render as testingRender, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { ReactElement } from 'react';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { readSessionPins } from '../../utils/sessionPins';
 import { readProjectPins } from '../../utils/projectPins';
 import { groupNavigationSessions } from '../../utils/projectSessions';
@@ -26,6 +26,13 @@ function render(ui: ReactElement) {
   return testingRender(ui, { wrapper: IntlTestWrapper });
 }
 
+beforeEach(() => vi.stubGlobal('ResizeObserver', class {
+  observe() {}
+  unobserve() {}
+  disconnect() {}
+}));
+afterEach(() => vi.unstubAllGlobals());
+
 describe('chat row archive button', () => {
   const session: SessionListItem = {
     id: 'rename-fixture',
@@ -37,6 +44,41 @@ describe('chat row archive button', () => {
   };
 
   beforeEach(() => vi.clearAllMocks());
+
+  it('shows full title, update time and workspace on focus without opening the session', async () => {
+    const onClick = vi.fn();
+    render(<SessionRow session={session} active={false} status={undefined} onClick={onClick} onRenamed={vi.fn()} />);
+    await userEvent.tab();
+    const card = await screen.findByRole('tooltip');
+    expect(within(card).getByText(session.name)).toBeInTheDocument();
+    expect(within(card).getByText('project')).toBeInTheDocument();
+    expect(within(card).getByText(session.workingDir)).toBeInTheDocument();
+    expect(card.querySelector('time')).toHaveAttribute('datetime', '2026-10-09T00:00:00.000Z');
+    expect(onClick).not.toHaveBeenCalled();
+    await userEvent.keyboard('{Escape}');
+    await waitFor(() => expect(screen.queryByRole('tooltip')).not.toBeInTheDocument());
+  });
+
+  it('shows the last update as relative and exact time instead of the creation date', async () => {
+    const now = Date.now();
+    const updatedAt = new Date(now - 14 * 60_000).toISOString();
+    render(<SessionRow session={{ ...session, updatedAt }} active={false} status={undefined} onClick={vi.fn()} onRenamed={vi.fn()} />);
+    await userEvent.tab();
+    const card = await screen.findByRole('tooltip');
+    expect(within(card).getByText('14 minutes ago')).toBeVisible();
+    const time = card.querySelector('time')!;
+    expect(time).toHaveAttribute('datetime', updatedAt);
+    expect(time.children).toHaveLength(2);
+  });
+
+  it('handles unbound workspaces and missing dates without inventing metadata', async () => {
+    render(<SessionRow session={{ ...session, workingDir: '', updatedAt: '', createdAt: '' }} active={false} status={undefined} onClick={vi.fn()} onRenamed={vi.fn()} />);
+    await userEvent.tab();
+    const card = await screen.findByRole('tooltip');
+    expect(within(card).getByText('No workspace')).toBeInTheDocument();
+    expect(within(card).getByText('Time unavailable')).toBeInTheDocument();
+    expect(card.querySelector('time')).toBeNull();
+  });
 
   it('opens the owning chat by keyboard before the secondary actions', async () => {
     const onClick = vi.fn();

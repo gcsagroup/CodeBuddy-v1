@@ -2,24 +2,15 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { markAgentLoopRequest } from '@deepseek-ai/dsh-llm';
 import { installModelResponseValidation } from '../model-response-validation.mjs';
-import { commandEvidence, groundCommandReport, hasFailedCommand, validateCommandClaims } from '../command-evidence.mjs';
+import { commandEvidence, hasFailedCommand } from '../command-evidence.mjs';
 
-test('execution claims require the corresponding action and process outcome; a diagnostic answer needs no success receipt', async () => {
-  const failure = commandEvidence({ name: 'pwsh', callId: 'red', arguments: { command: 'python -m unittest' } },
-    { value: { kind: 'foreground', exitCode: 1, stdout: { text: 'exit code: 0' } } });
-  const write = commandEvidence({ name: 'write', callId: 'edit' }, { value: { path: 'booking.py' } });
-  const interrupted = { ...failure, id: 'stopped', exit: 0, interrupted: true };
-  assert.equal(hasFailedCommand([failure]), true);
-  assert.equal(commandEvidence({ name: 'pwsh' }, { value: { kind: 'promoted' } }), undefined);
-  assert.equal(commandEvidence({ name: 'write' }, { isError: true }), undefined);
-  assert.equal(validateCommandClaims({ changes: ['unknown'], successes: ['red'] }, [failure]), false);
-  assert.equal(validateCommandClaims({ changes: ['edit'], successes: ['stopped'] }, [write, interrupted]), false);
-  assert.equal(validateCommandClaims({ changes: [], successes: [] }, [failure]), true);
-  const honest = [{ type: 'text-delta', index: 0, text: 'The test still fails.' },
-    { type: 'finish', reason: { kind: 'stop' } }];
-  const streamed = [];
-  for await (const chunk of groundCommandReport(honest, [failure], async () => true)) streamed.push(chunk);
-  assert.deepEqual(streamed, honest);
+test('command outcomes preserve denial, timeout and cancellation independently', () => {
+  const receipt = flags => commandEvidence({name:'pwsh', callId:'command', arguments:{command:'example'}},
+    {value:{kind:'foreground',exitCode:0,...flags}});
+  assert.equal(hasFailedCommand([receipt({})]), false);
+  for (const flags of [{exitCode:1},{aborted:true},{timedOut:true},{sandbox:{denied:true}},{sandbox:{runnerFailed:true}}])
+    assert.equal(hasFailedCommand([receipt(flags)]), true);
+  assert.equal(receipt({sandbox:{denied:true}}).interrupted, false);
 });
 
 function fixture() {
@@ -99,4 +90,20 @@ test('validation forwards reasoning immediately and keeps concurrent response st
     gate.resolve();
     assert.equal((await iterator.next()).value.reason.failure.code, 'EMPTY_RESPONSE');
   } finally { gate.resolve(); await iterator.return(); f.dispose(); }
+});
+
+test('compacted human turns keep empty-response validation without a completion review', async () => {
+  let handler;
+  const agent = {session:{header:{origin:'new'}}};
+  const run = {admittedUserMessages:[{role:'user',source:{kind:'user'}}]};
+  installModelResponseValidation({agents:new Map([['root',agent]]),
+    on(_name, fn){handler=fn;return ()=>{};},
+    llm:{prepareCall(){throw new Error('No secondary review may run');}}},()=>run);
+  const options=markAgentLoopRequest({sessionId:'root',messages:[{role:'user',source:{kind:'compaction'},content:[]}]});
+  const answer={type:'text-delta',index:0,text:'The result is ready.'};
+  assert.deepEqual(await Array.fromAsync(handler(options,async function*(){yield answer;yield stop;})),[answer,stop]);
+  const empty=await Array.fromAsync(handler(options,async function*(){yield reasoning;yield stop;}));
+  assert.equal(empty.at(-1).reason.failure.code,'EMPTY_RESPONSE');
+  run.admittedUserMessages=[];
+  assert.deepEqual(await Array.fromAsync(handler(options,async function*(){yield reasoning;yield stop;})),[reasoning,stop]);
 });

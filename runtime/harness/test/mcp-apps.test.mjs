@@ -7,6 +7,7 @@ import path from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { setTimeout as delay } from 'node:timers/promises';
 import { createHarnessDriver } from '../index.mjs';
+import { replyToNoActionReview } from './review-fixture.mjs';
 import { Compat } from '../../compat.mjs';
 import { openStore } from '../../store.mjs';
 import { SafetyPolicy } from '../../safety-policy.mjs';
@@ -38,6 +39,7 @@ async function fixture(t) {
       } else { res.writeHead(200, { 'content-type': 'application/json' }).end(JSON.stringify({ jsonrpc: '2.0', id: msg.id, error: { code: -32601, message: 'Missing fixture method' } })); return; }
       res.writeHead(200, { 'content-type': 'application/json', ...(controls.liveNotifications ? { 'mcp-session-id': 'fixture-shared' } : {}) }).end(JSON.stringify({ jsonrpc: '2.0', id: msg.id, result })); return;
     }
+    if (replyToNoActionReview(msg, res)) return;
     models.push(msg); res.writeHead(200, { 'content-type': 'text/event-stream' });
     const chunk = (delta, reason = null) => res.write(`data: ${JSON.stringify({ id: randomUUID(), object: 'chat.completion.chunk', model: msg.model, choices: [{ index: 0, delta, finish_reason: reason }] })}\n\n`);
     if (JSON.stringify(msg.messages).includes('hold-model')) { chunk({ role: 'assistant', content: 'waiting' }); held.set('model', res); return; }

@@ -49,6 +49,19 @@ function receive(overrides = {}, message = '', type: 'progress' | 'notice' = 'pr
   });
 }
 describe('live execution activity is scoped presentation only', () => {
+  it('accepts bounded advice observations and drops malformed optional fields without changing execution', () => {
+    start();
+    receive({ phase: 'model', child_count: 0, model_request_started_at: 1234,
+      consecutive_tool_failures: 3, response_retries: 4 });
+    expect(store.getSnapshot(sessionId)?.promptActivity?.execution).toMatchObject({
+      modelRequestStartedAt: 1234, consecutiveToolFailures: 3, responseRetries: 4,
+    });
+    receive({ phase: 'model', child_count: 0, model_request_started_at: 'yesterday',
+      consecutive_tool_failures: -1, response_retries: 10001 });
+    expect(store.getSnapshot(sessionId)?.promptActivity?.execution).toEqual({ phase: 'model', childCount: 0 });
+    expect(store.getSnapshot(sessionId)?.chatState).toBe(ChatState.Streaming);
+    expect(store.getSnapshot(sessionId)?.messages).toHaveLength(1);
+  });
   it('updates the wait target without adding chat messages or changing execution state', () => {
     start();
     const before = store.getSnapshot(sessionId)!;

@@ -1,3 +1,4 @@
+import { replyToNoActionReview } from '../harness/test/review-fixture.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createServer } from 'node:http';
@@ -35,6 +36,7 @@ process.stdout.write(JSON.stringify({jsonrpc:'2.0',id:m.id,result})+'\n');});`);
     }
     let raw = ''; for await (const chunk of req) raw += chunk;
     const body = JSON.parse(raw);
+    if (replyToNoActionReview(body, res)) return;
     res.writeHead(200, { 'content-type': 'text/event-stream' });
     const emit = (delta, finish_reason = null) => res.write(`data: ${JSON.stringify({ id: 'lifecycle-fixture', object: 'chat.completion.chunk', model: body.model, choices: [{ index: 0, delta, finish_reason }] })}\n\n`);
     emit({ role: 'assistant', content: 'Actual lifecycle fixture answer' });
@@ -205,7 +207,7 @@ test('close and delete release real MCP processes and session leases; close perm
   assert.ok(f.store.read().sessions.some(s => s.id === id));
   await f.request(ext('tools/list'), { sessionId: id, extensionName: 'probe' });
   const second = (await f.pids()).at(-1); assert.notEqual(second, first); process.kill(second, 0);
-  await f.request('session/delete', { sessionId: id }); stopped(second);
+  await f.request('session/delete', { sessionId: id }); await f.compat.sessionDeletions.settle(id); stopped(second);
   assert.equal(f.store.read().sessions.some(s => s.id === id), false);
   for (const method of ['session/close', 'session/delete']) {
     const cwd = path.join(f.root, method.split('/')[1]);
@@ -213,6 +215,7 @@ test('close and delete release real MCP processes and session leases; close perm
     const { sessionId } = await f.request('session/new', { cwd, mcpServers: [], _meta: { workspaceMode: 'codepro', workspaceLeaseId: lease.leaseId, enabledExtensions: ['developer'] } });
     assert.equal(f.compat.workspaces.sessions.has(sessionId), true);
     await f.request(method, { sessionId });
+    if (method === 'session/delete') await f.compat.sessionDeletions.settle(sessionId);
     assert.equal(f.compat.workspaces.sessions.has(sessionId), false);
   }
 });
@@ -245,7 +248,7 @@ test('a direct file write waiting for approval blocks close/delete/truncate unti
   await assert.rejects(access(path.join(f.root, 'approved.txt')));
   answer.resolve(allow); assert.equal((await running).isError, false);
   assert.equal(await readFile(path.join(f.root, 'approved.txt'), 'utf8'), 'approved fixture write');
-  const pid = (await f.pids()).at(-1); await f.request('session/delete', { sessionId: id }); stopped(pid);
+  const pid = (await f.pids()).at(-1); await f.request('session/delete', { sessionId: id }); await f.compat.sessionDeletions.settle(id); stopped(pid);
 });
 
 test('a first user turn waits for native tool maintenance, then streams through Harness', { timeout: 30_000 }, async t => {
@@ -275,13 +278,15 @@ test('background native jobs block deletion and truncation after their launch ca
   assert.equal(result.isError, false, JSON.stringify(result));
   assert.equal(result.structuredContent.kind, 'background');
   assert.equal(f.driver.isConversationBusy(id), false);
-  for (const method of ['session/close', 'session/delete']) await assert.rejects(f.request(method, { sessionId: id }), /background jobs/);
+  for (const method of ['session/close', 'session/delete']) await assert.rejects(f.request(method, { sessionId: id }), /background jobs/, method);
+  const running = await f.tool(id, 'job_output', { job_id: result.structuredContent.jobId, wait: false });
+  assert.equal(running.structuredContent.job.status, 'running', 'rejected deletion must preserve the actual process');
   await assert.rejects(f.request('session/fork', { sessionId: id }), /background jobs/);
   assert.ok(f.store.read().sessions.some(s => s.id === id));
   const killed = await f.tool(id, 'job_kill', { job_id: result.structuredContent.jobId });
   assert.equal(killed.isError, false, JSON.stringify(killed));
   await f.tool(id, 'job_output', { job_id: result.structuredContent.jobId, wait: true, timeout_ms: 5000 });
-  const pid = (await f.pids()).at(-1); await f.request('session/delete', { sessionId: id }); stopped(pid);
+  const pid = (await f.pids()).at(-1); await f.request('session/delete', { sessionId: id }); await f.compat.sessionDeletions.settle(id); stopped(pid);
 });
 
 test('close awaits real prompt cancellation and its final persistence while rejecting a concurrent new prompt', { timeout: 30_000 }, async t => {
@@ -434,8 +439,8 @@ test('an ordinary fork retains source MCP scope; a committed truncate retires on
   assert.deepEqual((await f.native.history(id)).events, oldHistory.events);
   await f.request(ext('tools/list'), { sessionId: id, extensionName: 'probe' });
   const replacementPid = (await f.pids()).at(-1); assert.notEqual(replacementPid, copyPid);
-  await f.request('session/delete', { sessionId: id }); stopped(replacementPid); process.kill(copyPid, 0);
-  await f.request('session/delete', { sessionId: copied }); stopped(copyPid);
+  await f.request('session/delete', { sessionId: id }); await f.compat.sessionDeletions.settle(id); stopped(replacementPid); process.kill(copyPid, 0);
+  await f.request('session/delete', { sessionId: copied }); await f.compat.sessionDeletions.settle(copied); stopped(copyPid);
 });
 
 test('direct MCP resource requests also block release while they await permission outside the conversation lock', { timeout: 30_000 }, async t => {
@@ -447,7 +452,7 @@ test('direct MCP resource requests also block release while they await permissio
   await assert.rejects(f.request('session/delete', { sessionId: id }), /active session operations/);
   await assert.rejects(f.request('session/fork', { sessionId: id }), /active operations/);
   answer.resolve(true); assert.equal((await reading).contents[0].text, 'ACTUAL_RESOURCE_RECEIPT');
-  const pid = (await f.pids()).at(-1); await f.request('session/delete', { sessionId: id }); stopped(pid);
+  const pid = (await f.pids()).at(-1); await f.request('session/delete', { sessionId: id }); await f.compat.sessionDeletions.settle(id); stopped(pid);
 });
 
 test('a session deleted during asynchronous capability preparation never recreates an orphan MCP scope', { timeout: 30_000 }, async t => {
@@ -455,13 +460,14 @@ test('a session deleted during asynchronous capability preparation never recreat
   await f.request(ext('tools/list'), { sessionId: id, extensionName: 'probe' });
   const before = await f.pids(), first = before.at(-1);
   const preparing = Promise.withResolvers(), proceed = Promise.withResolvers();
+  t.after(() => proceed.resolve());
   const options = f.compat.sessionOptions.bind(f.compat);
   f.compat.sessionOptions = async session => { preparing.resolve(); await proceed.promise; return options(session); };
   f.compat.initialized.delete(id);
   const calling = f.tool(id, 'write', { file_path: 'orphan.txt', content: 'must not be written' });
   const rejected = assert.rejects(calling, /Session not found/);
   await preparing.promise;
-  await f.request('session/delete', { sessionId: id }); stopped(first);
+  await f.request('session/delete', { sessionId: id }); await f.compat.sessionDeletions.settle(id); stopped(first);
   proceed.resolve(); await rejected;
   assert.deepEqual(await f.pids(), before);
   for (const pid of before) stopped(pid);
@@ -473,11 +479,11 @@ test('closing and deleting imported history releases capabilities without creati
   const store = await openStore(root);
   await store.update(s => s.sessions.push({ id: 'imported', title: 'Retained history', readonlyHistory: true, cwd: root, type: 'user', updates: [], usageUpdates: [], messageCount: 0 }));
   await store.flush();
-  const releases = [];
+  const releases = [], released = Promise.withResolvers();
   const driver = {
     async createSession() { assert.fail('Imported history must not create a native session'); },
     async configureSession() { assert.fail('Imported history must not configure a native session'); },
-    async releaseNativeSessionCapabilities(id) { releases.push(id); },
+    async releaseNativeSessionCapabilities(id) { releases.push(id); if (releases.length === 2) released.resolve(); },
     async close() {},
   };
   const app = await createCompatServer({ dataDir: root, secret, driver }), base = await app.listen();
@@ -495,6 +501,7 @@ test('closing and deleting imported history releases capabilities without creati
   }
   await request('initialize', { protocolVersion: 1, clientCapabilities: {} });
   await request('session/close'); await request('session/delete');
+  await released.promise;
   assert.deepEqual(releases, ['imported', 'imported']);
   const reopened = await openStore(root);
   assert.equal(reopened.read().sessions.some(session => session.id === 'imported'), false);

@@ -22,6 +22,7 @@ test('native installer has no data selection page, uses the default and preserve
   const script = path.join(root, 'fixture.iss');
   fs.writeFileSync(script, `
 #define StorageLocator "${locator}"
+#define MaxRelativePath 100
 [Setup]
 AppId=CodeBuddyStorageDirectoryFixture
 AppName=Storage Directory Fixture
@@ -37,6 +38,7 @@ OutputDir=${root}
 OutputBaseFilename=fixture
 [Code]
 #include "${path.join(__dirname, 'installer/data-directory.iss')}"
+#include "${path.join(__dirname, 'installer/install-location.iss')}"
 procedure Require(Condition: Boolean; const Message: String);
 begin
   if not Condition then RaiseException(Message);
@@ -53,6 +55,12 @@ begin
   Require(ReadStorageLocation = '${selected}', 'Upgrade must read the existing Unicode location');
   ForceDirectories('${selected}');
   SaveStringToFile('${selected}\\retained.txt', 'important data', False);
+  Require(InstallLocationProblem('${selected}') = '', 'Existing Unicode folder is writable');
+  Require(InstallLocationProblem('${selected}\\new\\program') = '', 'New nested folders are valid');
+  Require(not DirExists('${selected}\\new'), 'Preflight must leave no folders');
+  Require(InstallLocationProblem('${selected}\\retained.txt\\program') <> '', 'File in path is rejected');
+  Require(InstallLocationProblem('${selected}\\' + StringOfChar('x', 250)) <> '', 'Long path rejected');
+  Require(Pos('权限', InstallLocationProblem('${root}\\denied\\program')) > 0, 'Access denial has an actionable message');
   WizardForm.DirEdit.Text := '${selected}\\program';
   Require(ValidateDataDirectory <> '', 'Program cannot be installed inside user data');
   WizardForm.DirEdit.Text := '${root}\\program';
@@ -63,6 +71,12 @@ end;
   const compile = spawnSync(tools.compiler, ['/Q', script], { encoding: 'utf8', windowsHide: true, timeout: 30000 });
   assert.equal(compile.error, undefined);
   assert.equal(compile.status, 0, compile.stdout + compile.stderr);
+  const denied = path.join(root, 'denied');
+  fs.mkdirSync(denied);
+  // Deny creating a child directory on this fixture only, even for elevated test users.
+  const acl = spawnSync('icacls.exe', [denied, '/deny', '*S-1-1-0:(AD)'], { windowsHide: true });
+  assert.equal(acl.status, 0);
+  t.after(() => { assert.equal(spawnSync('icacls.exe', [denied, '/remove:d', '*S-1-1-0'], { windowsHide: true }).status, 0); });
   for (const extra of [[], ['/DATADIR=' + previous]]) {
     const run = spawnSync(path.join(root, 'fixture.exe'), ['/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART', `/LOG=${path.join(root, 'install.log')}`, ...extra], { encoding: 'utf8', windowsHide: true, timeout: 30000 });
     assert.equal(run.error, undefined);

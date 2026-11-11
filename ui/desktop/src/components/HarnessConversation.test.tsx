@@ -242,7 +242,7 @@ describe('Harness conversation presentation', () => {
     expect(screen.getByText('Search results are ready.')).toBeVisible();
     expect(view.container.querySelector('.codepro-thinking-record')).toBeNull();
     fireEvent.click(history);
-    expect(screen.getByText('Review the sources before answering.')).toHaveAttribute('aria-hidden', 'true');
+    expect(screen.queryByText('Review the sources before answering.')).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Reasoning details' })).toBeNull();
     fireEvent.click(screen.getByRole('button', { name: 'Thinking', expanded: false }));
     expect(screen.getByText('Review the sources before answering.')).toBeVisible();
@@ -259,7 +259,9 @@ describe('Harness conversation presentation', () => {
       fireEvent.click(header);
       expect(header).toHaveAttribute('aria-expanded', 'true');
       view.rerender(show([...trace, terminal('user', status)]));
-      const whole = await screen.findByRole('button', { name: /^Time spent/ }, { timeout: 5000 });
+      const whole = await screen.findByRole('button', {
+        name: status === 'cancelled' ? /^Stopped after/ : /^Time spent/,
+      }, { timeout: 5000 });
       expect(whole).toHaveAttribute('aria-expanded', 'false');
       expect(whole).not.toHaveTextContent('Completed');
       fireEvent.click(whole);
@@ -333,7 +335,7 @@ describe('Harness conversation presentation', () => {
       content: [{ type: 'thinking', thinking: 'Inspecting the first approach.', signature: '' }],
     };
     const view = render(show([user(), thought], true), { wrapper: IntlTestWrapper });
-    expect(screen.getByText('Inspecting the first approach.')).toHaveAttribute('aria-hidden', 'true');
+    expect(screen.queryByText('Inspecting the first approach.')).not.toBeInTheDocument();
     const group = view.container.querySelector('[data-process-group]');
     view.rerender(show([user(), thought, user('stop-and-send')], true));
     expect(view.container.querySelector('[data-process-group]')).toBe(group);
@@ -442,7 +444,7 @@ describe('Harness conversation presentation', () => {
     const history = view.container.querySelector('[data-turn-process-summary] button')!;
     fireEvent.click(history);
     expect(screen.getByText('Stage 117')).toBeVisible();
-    expect(screen.getByText('Inspect stage 117')).toHaveAttribute('aria-hidden', 'true');
+    expect(screen.queryByText('Inspect stage 117')).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Reasoning details' })).toBeNull();
     fireEvent.click(screen.getByRole('button', { name: 'Thinking', expanded: false }));
     expect(screen.getByText('Inspect stage 117')).toBeVisible();

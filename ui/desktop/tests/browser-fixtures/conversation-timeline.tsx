@@ -1,6 +1,7 @@
 import { useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { IntlProvider } from 'react-intl';
+import zhCN from '../../src/i18n/messages/zh-CN.json';
 import { ConversationTimeline } from '../../src/components/ConversationTimeline';
 import ProgressiveMessageList from '../../src/components/ProgressiveMessageList';
 import { ScrollArea, type ScrollAreaHandle } from '../../src/components/ui/scroll-area';
@@ -75,4 +76,29 @@ function Fixture() {
     </IntlProvider>
   );
 }
-createRoot(document.getElementById('root')!).render(<Fixture />);
+function TimedTurnFixture() {
+  const [start] = useState(() => Math.floor(Date.now() / 1000));
+  const [end, setEnd] = useState<Message>();
+  const user = { ...messages[0], created: start };
+  function finish(status: 'completed' | 'cancelled') {
+    const created = Math.floor(Date.now() / 1000);
+    setEnd({ ...messages[1], id: 'end', created, content: [{
+      type: 'systemNotification', notificationType: 'turnTerminal', msg: '',
+      data: {
+        schema_version: 1, session_id: 'timer', run_id: 'run', terminal_message_id: 'end',
+        source_user_message_id: user.id, status, checkpoint_id: null, retry_strategy: 'not_available',
+        visible_text_available: true, tool_action_count: 0, copy_artifact_ref: null,
+        finished_at: new Date(created * 1000).toISOString(),
+      },
+    }] });
+  }
+  return <IntlProvider locale="zh-CN" messages={Object.fromEntries(Object.entries(zhCN).map(([key, value]) => [key, value.defaultMessage]))}>
+    <button onClick={() => finish('completed')}>完成</button>
+    <button onClick={() => finish('cancelled')}>停止</button>
+    <ProgressiveMessageList messages={end ? [user, end] : [user]} isStreamingMessage={!end}
+      chat={{ sessionId: 'timer' }} isUserMessage={m => m.role === 'user'} />
+  </IntlProvider>;
+}
+createRoot(document.getElementById('root')!).render(
+  new URLSearchParams(location.search).has('timer') ? <TimedTurnFixture /> : <Fixture />
+);

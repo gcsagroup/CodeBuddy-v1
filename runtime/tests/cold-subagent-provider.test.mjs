@@ -42,6 +42,12 @@ async function fixture(t) {
     }
     assert.ok(path.endsWith('/chat/completions'), 'Only the synthetic model endpoint may be used');
     const body = JSON.parse(options.body);
+    if (body.tools?.some(tool => tool.function?.name === 'check_execution_claims')) {
+      const delta = { tool_calls: [{ index: 0, id: randomUUID(), type: 'function', function: {
+        name: 'check_execution_claims', arguments: JSON.stringify({ changes: [], successes: [], executionMissing: false }),
+      } }] };
+      return new Response('data: ' + JSON.stringify({ id: randomUUID(), model, choices: [{ index: 0, delta, finish_reason: 'tool_calls' }] }) + '\n\ndata: [DONE]\n\n', { headers: { 'content-type': 'text/event-stream' } });
+    }
     const marker = body.messages.findLastIndex(message => message.role === 'user' && /COLD_PARENT_START|COLD_PARENT_CONTINUE|COLD_CHILD_INITIAL|COLD_CHILD_CONTINUE/.test(JSON.stringify(message.content)));
     const latest = JSON.stringify(body.messages[marker]?.content);
     const child = /COLD_CHILD_INITIAL|COLD_CHILD_CONTINUE/.test(latest);

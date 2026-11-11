@@ -223,8 +223,22 @@ export function MediaTaskCards({
   readOnly?: boolean;
 }) {
   const snapshot = useMediaJobs(readOnly ? '' : sessionId);
+  const outputs = jobs.flatMap((job) => {
+    const observation = mediaJobObservation(job, snapshot);
+    return mediaOutputPaths(observation.receipt).map((path) => ({
+      path,
+      label: taskName(job, observation),
+    }));
+  });
+  const paths = [...new Set(outputs.map((output) => output.path))];
+  const labels = Object.fromEntries(outputs.map((output) => [output.path, output.label]));
   return (
     <>
+      {paths.length > 0 && (
+        <div className="media-result" data-media-card-id={jobs.map((job) => job.jobId).join(',')}>
+          <GeneratedMediaFiles sessionId={sessionId} paths={paths} labels={labels} inline />
+        </div>
+      )}
       {jobs.map((job) => {
         const observation = mediaJobObservation(job, snapshot);
         const paths = mediaOutputPaths(observation.receipt);
@@ -239,11 +253,14 @@ export function MediaTaskCards({
           live.total > 0
             ? Math.min(100, Math.max(0, Math.round((live.step / live.total) * 100)))
             : undefined;
-        if (!paths.length && !observation.active) return null;
+        if (paths.length || !observation.active) return null;
         return (
           <div key={job.key} className="media-result" data-media-card-id={job.jobId}>
-            {paths.length ? (
-              <GeneratedMediaFiles sessionId={sessionId} paths={paths} taskLabel={name} inline />
+            {jobs.length > 1 ? (
+              <div className="media-gallery-pending" role="status">
+                {name} · {statusText(observation.status)}
+                {percent !== undefined ? ` · ${percent}%` : ''}
+              </div>
             ) : (
               <div
                 className={`media-generating ${job.kind === 'video' ? 'media-generating-video' : ''}`}

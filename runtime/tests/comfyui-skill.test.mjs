@@ -9,6 +9,7 @@ import { createHarnessDriver } from '../harness/index.mjs';
 import { comfyuiVideoTool } from '../comfyui-video-tool.mjs';
 import { comfyuiTool } from '../comfyui-tool.mjs';
 import { savedFixtureResponse } from './comfyui-catalog-fixture.mjs';
+import { replyToNoActionReview } from '../harness/test/review-fixture.mjs';
 const { installToolDiscovery } = await import('../harness/tool-discovery.mjs');
 
 test('Harness accepts scalar workflow controls and rejects composite values before dispatch', async t => {
@@ -53,7 +54,9 @@ test('official Harness lists and model-loads the bundled ComfyUI skill, reveals 
   const requests = []; let serviceCalls = 0;
   const server = http.createServer(async (req, res) => {
     let body = ''; for await (const part of req) body += part;
-    requests.push(JSON.parse(body));
+    const request = JSON.parse(body);
+    if (replyToNoActionReview(request, res)) return;
+    requests.push(request);
     res.writeHead(200, { 'content-type': 'text/event-stream' });
     const send = (delta, finish_reason = null) => res.write(`data: ${JSON.stringify({ id: 'fixture', object: 'chat.completion.chunk', choices: [{ index: 0, delta, finish_reason }] })}\n\n`);
     if (requests.length === 1) {
@@ -70,7 +73,7 @@ test('official Harness lists and model-loads the bundled ComfyUI skill, reveals 
   const { sessionId } = await driver.createSession({ cwd: root, provider: { id: 'fixture', baseUrl: `http://127.0.0.1:${server.address().port}`, contextWindow: 65536 }, model: 'fixture', options: { tools: [tool] } });
   const builtin = (await driver.listBuiltinSkills(root)).find(s => s.name === 'comfyui');
   assert.equal(builtin?.source, 'bundled');
-  await driver.prompt(sessionId, '请用 ComfyUI 生成一段视频。', { onPermission: () => true });
+  await driver.prompt(sessionId, '请加载 ComfyUI 技能说明，暂不生成视频；读完说明即可回复。', { onPermission: () => true });
   assert.equal(requests.length, 2);
   assert.ok(requests[0].tools.some(t => t.function.name === 'skill'));
   assert.ok(!requests[0].tools.some(t => t.function.name === 'generate_video'));

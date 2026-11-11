@@ -33,6 +33,11 @@ test('Ollama profiles, per-connection preferences, persistence and actual DSH re
     }
     requests.push(body);res.writeHead(200,{'content-type':'text/event-stream'});
     const emit=(delta,finish_reason=null)=>res.write(`data: ${JSON.stringify({id:'thinking',object:'chat.completion.chunk',model:body.model,choices:[{index:0,delta,finish_reason}]})}\n\n`);
+    if(body.tools?.some(tool=>tool.function?.name==='check_execution_claims')) {
+      requests.pop();
+      emit({tool_calls:[{index:0,id:'review',type:'function',function:{name:'check_execution_claims',arguments:JSON.stringify({changes:[],successes:[],executionMissing:false})}}]});
+      emit({},'tool_calls');res.end('data: [DONE]\n\n');return;
+    }
     if(body.reasoning_effort && body.reasoning_effort!=='none')emit({reasoning_content:'A bounded reasoning fixture.'});
     emit({content:'391'});emit({},'stop');res.end('data: [DONE]\n\n');
   });

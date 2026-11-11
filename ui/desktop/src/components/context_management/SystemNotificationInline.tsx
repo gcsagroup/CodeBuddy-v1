@@ -13,6 +13,7 @@ const m = defineMessages({
   compactManual: { id: 'compaction.completedManual', defaultMessage: 'Context compacted' },
   compactFailed: { id: 'compaction.failed', defaultMessage: 'Context compaction failed. The previous context is preserved.' },
   compactCancelled: { id: 'compaction.cancelled', defaultMessage: 'Context compaction cancelled. The previous context is preserved.' },
+  compactDetails: { id: 'compaction.details', defaultMessage: 'View details' },
   start: { id: 'subagentLifecycle.start', defaultMessage: 'started working' },
   end: { id: 'subagentLifecycle.end', defaultMessage: 'ended' },
 });
@@ -34,7 +35,15 @@ export const SystemNotificationInline: React.FC<SystemNotificationInlineProps> =
       : compaction.status === 'failed' ? m.compactFailed : m.compactCancelled;
     return <div role="status" className="my-3 flex items-center gap-2 rounded-lg border border-border-primary bg-background-secondary/50 px-3 py-2 text-xs text-text-secondary">
       <Icon className="size-3.5 shrink-0" />
-      <span>{intl.formatMessage(label)}</span>
+      <div className="min-w-0 flex-1">
+        <span>{intl.formatMessage(label)}</span>
+        {compaction.status === 'failed' && compaction.error && (
+          <details className="mt-1">
+            <summary className="cursor-pointer text-text-secondary hover:text-text-primary">{intl.formatMessage(m.compactDetails)}</summary>
+            <p className="mt-2 whitespace-pre-wrap break-words text-xs">{compaction.error}</p>
+          </details>
+        )}
+      </div>
     </div>;
   }
   const lifecycle = parseSubagentLifecycle(notification.data);

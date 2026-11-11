@@ -49,6 +49,8 @@ createRoot(document.getElementById('root')!).render(
     <nav style={{ position: 'fixed', left: 380, top: 20 }}>
       <button onClick={() => publish('blocked')}>blocked</button>
       <button onClick={() => publish('working')}>working</button>
+      <button onClick={() => publish('input')}>input</button>
+      <button onClick={() => publish('completed')}>completed</button>
     </nav>
   </>
 );

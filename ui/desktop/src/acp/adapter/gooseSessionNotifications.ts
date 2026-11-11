@@ -16,13 +16,25 @@ import { adaptLegacyCodeProActivity } from './legacyCodeProActivityAdapter';
 import { type AcpChatStateChange, type AdapterState, isRecord, messagesChange } from './shared';
 import type { TokenState } from '../../types/chat';
 
+function liveSpeedState(value: unknown): Partial<TokenState> {
+  if (value === null) return { liveSpeed: null };
+  if (!isRecord(value) || typeof value.estimated !== 'boolean') return {};
+  const rate = value.rate;
+  if (rate !== null && (typeof rate !== 'number' || !Number.isFinite(rate) || rate < 0)) return {};
+  return { liveSpeed: { rate, estimated: value.estimated } };
+}
+
 function contextSources(update: unknown): Partial<TokenState> {
   const metadata = (
-    update as { _meta?: { harness?: { source?: unknown; contextSource?: unknown } } }
+    update as { _meta?: { harness?: { source?: unknown; contextSource?: unknown; sessionStats?: unknown } } }
   )._meta?.harness;
   const source = metadata?.source;
   const capacity = metadata?.contextSource;
+  const stats = metadata?.sessionStats;
   return {
+    ...(isRecord(stats) && typeof stats.decodeTokens === 'number' && Number.isFinite(stats.decodeTokens) && stats.decodeTokens >= 0 &&
+      typeof stats.decodeMs === 'number' && Number.isFinite(stats.decodeMs) && stats.decodeMs >= 0
+      ? { sessionStats: { decodeTokens: stats.decodeTokens, decodeMs: stats.decodeMs } } : {}),
     ...(source === 'provider_actual' ||
     source === 'local_estimate' ||
     source === 'streaming_estimate'
@@ -65,6 +77,8 @@ export function applyGooseSessionNotification(
     case 'status_message':
       if (update.status.data && typeof update.status.data === 'object') {
         const meter = update.status.data as Record<string, unknown>;
+        if (meter.event === 'live_decode_speed' && meter.schema_version === 1)
+          return isSessionReplay ? [] : [{ type: 'tokenState', tokenState: liveSpeedState(meter.liveSpeed) }];
         if (meter.event === 'request_budget' && meter.schema_version === 1) {
           const { model, source, input, output, window } = meter;
           if (typeof model !== 'string' || !model ||
@@ -89,6 +103,7 @@ export function applyGooseSessionNotification(
                 totalTokens: meter.used as number,
                 contextLimit: meter.contextLimit as number,
                 ...contextSources({ _meta: { harness: meter } }),
+                ...(!isSessionReplay ? liveSpeedState(meter.liveSpeed) : {}),
               },
             },
           ];
@@ -271,6 +286,20 @@ function applyStatusMessage(
   }
 
   const incomplete = update.status.data;
+  if (
+    isRecord(incomplete) &&
+    incomplete.type === 'output_attempt_rejected' &&
+    typeof incomplete.message_id === 'string'
+  ) {
+    const rejected = state.messages.find((message) => message.id === incomplete.message_id);
+    if (rejected) {
+      // Native retry did not commit this attempt. Retract its provisional
+      // content both live and during replay, retaining its usage identity.
+      rejected.content = [];
+      rejected.metadata = { ...rejected.metadata, userVisible: false, agentVisible: false };
+    }
+    return messagesChange(state);
+  }
   if (
     isRecord(incomplete) &&
     incomplete.type === 'output_attempt_incomplete' &&

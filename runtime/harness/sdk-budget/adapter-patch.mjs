@@ -20,7 +20,7 @@ export const adapterPatch = {
       return source.slice(source.indexOf(start), source.indexOf(end));
     };
     replace('import { homedir } from "node:os";', `import { homedir } from "node:os";
-import { countVllmInput, requestBudgetChannel } from ${JSON.stringify(new URL('./vllm-count.mjs', import.meta.url).href)};
+import { countVllmInput, requestBudgetChannel, streamingOutputChannel } from ${JSON.stringify(new URL('./vllm-count.mjs', import.meta.url).href)};
 import { gemmaCallTransport } from ${JSON.stringify(new URL('../gemma-call-transport.mjs', import.meta.url).href)};
 import { gemmaToolResponseStop } from ${JSON.stringify(new URL('../gemma-response.mjs', import.meta.url).href)};
 import { randomUUID as requestFitId } from "node:crypto";
@@ -120,6 +120,8 @@ ${setup.replaceAll('\t\t\t', '\t\t')}${projection.replaceAll('\t\t\t\t', '\t\t')
 \t\t\t\t\t...(recovery ? {fetch: recovery.fetch} : {}),
 \t\t\t\t\tonPayload: payload => {
 \t\t\t\t\t\tpayload = gemmaToolResponseStop(payload, model);
+\t\t\t\t\t\tif (profile.vllmCount && model.api === "openai-completions" && payload.stream_options?.include_usage)
+\t\t\t\t\t\t\tpayload = { ...payload, stream_options: { ...payload.stream_options, continuous_usage_stats: true } };
 \t\t\t\t\t\tif (fit.source !== "vllm-tokenizer") return payload;
 \t\t\t\t\t\t// Preserve the exact counted template. Pi's generic final clamp may
 \t\t\t\t\t\t// still carry the previous route's usage anchor across a downshift.
@@ -127,7 +129,13 @@ ${setup.replaceAll('\t\t\t', '\t\t')}${projection.replaceAll('\t\t\t\t', '\t\t')
 \t\t\t\t\t\treturn { ...payload, [key]: fit.effectiveMaxTokens };
 \t\t\t\t\t},
 \t\t\t\t\tonProviderStreamEvent: async (event, requestModel) => {
-\t\t\t\t\t\tobserveReportedOutput(requestModel.api, event, reportedOutput);
+\t\t\t\t\t\tconst choice = requestModel.api === "openai-completions" ? event?.choices?.[0] : undefined;
+\t\t\t\t\t\tconst chunkUsage = choice && (event.usage ?? choice.usage);
+\t\t\t\t\t\tif (chunkUsage && !choice.finish_reason && Number.isSafeInteger(chunkUsage.completion_tokens) && chunkUsage.completion_tokens > 0)
+\t\t\t\t\t\t\tstreamingOutputChannel.publish({ tokens: chunkUsage.completion_tokens, requestId: fit.requestId });
+\t\t\t\t\t\t// Intermediate vLLM counters describe progress, not a completed output budget.
+\t\t\t\t\t\tif (!(profile.vllmCount && chunkUsage && !choice.finish_reason))
+\t\t\t\t\t\t\t\tobserveReportedOutput(requestModel.api, event, reportedOutput);
 \t\t\t\t\t\tawait options.onProviderStreamEvent?.(event, requestModel);
 \t\t\t\t\t}
 `);
@@ -137,11 +145,20 @@ ${setup.replaceAll('\t\t\t', '\t\t')}${projection.replaceAll('\t\t\t\t', '\t\t')
     replace('}), model.contextWindow, options.signal, model.id)[Symbol.asyncIterator]();', '}), model.contextWindow, options.signal, model.id, fit, reportedOutput)[Symbol.asyncIterator]();');
     // Pi normalizes absent output usage to zero. Preserve presence only at its
     // public raw-event observer; final normalized usage cannot distinguish them.
+    // Pi initializes missing counters to zero; preserve an explicit zero only
+    // when the raw provider receipt confirms it for this request.
+    replace('function mapUsage(usage) {', 'function mapUsage(usage, reported) {');
+    replace('...usage.cacheRead > 0 ? { cacheReadTokens: usage.cacheRead } : {},',
+      '...(usage.cacheRead > 0 || (usage.cacheRead === 0 && reported?.cacheRead === 0)) ? { cacheReadTokens: usage.cacheRead } : {},');
+    replace('mapUsage(event.message.usage)', 'mapUsage(event.message.usage, reportedOutput)');
+    replace('mapUsage(event.error.usage)', 'mapUsage(event.error.usage, reportedOutput)');
     replace('function mapStopReason(message, contextWindow) {', `function observeReportedOutput(api, event, reported) {
 \tlet value;
 \tif (api === "openai-completions") {
 \t\tconst usage = event?.usage || event?.choices?.[0]?.usage;
 \t\tif (!usage) return;
+\t\tconst cached = usage.prompt_tokens_details?.cached_tokens ?? usage.prompt_cache_hit_tokens ?? usage.cached_tokens;
+\t\treported.cacheRead = Number.isSafeInteger(cached) && cached >= 0 ? cached : void 0;
 \t\tvalue = usage.completion_tokens;
 \t} else if (api === "openai-responses") {
 \t\tif (event?.type !== "response.completed" && event?.type !== "response.incomplete") return;

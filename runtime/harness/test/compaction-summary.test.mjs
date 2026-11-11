@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import CompactionEngine, { checkpointFileReferences, includeFileReferences, installCompactionRequestCompatibility } from '../compaction.mjs';
+import '../sdk-budget-contract.mjs';
+const { default: CompactionEngine, checkpointFileReferences, includeFileReferences, installCompactionRequestCompatibility } = await import('../compaction.mjs');
 
 test('file references survive repeated checkpoints, using paired successful filesystem receipts from the selected span only', () => {
   const events = [];
@@ -38,14 +39,18 @@ test('file references survive repeated checkpoints, using paired successful file
 
 function fixture(reason = { kind: 'stop' }) {
   let request;
+  const requests = [];
   const owner = {
     pressureAttempts: new WeakMap(),
+    summaryFailures: new WeakMap(),
     config: { modelPolicies: [], summarizationProvider: '', summarizationModel: '', maxTokens: 4096 },
-    ctx: { llm: { async *stream(options) {
+    ctx: { llm: { resolveModelInfo: async () => ({ reasoning: { efforts: [{ id: 'low' }] } }), async *stream(options) {
       request = options;
-      yield { type: 'block-end', index: 0, block: { type: 'text', text: 'Keep API A. Rate 750 bps supersedes 500. Do not publish. Remaining: verify.' } };
+      requests.push(options);
+      const current = Array.isArray(reason) ? reason[Math.min(requests.length - 1, reason.length - 1)] : reason;
+      if (!current.empty) yield { type: 'block-end', index: 0, block: { type: 'text', text: 'Keep API A. Rate 750 bps supersedes 500. Do not publish. Remaining: verify.' } };
       yield { type: 'usage', usage: { inputTokens: 500, outputTokens: 25 } };
-      yield { type: 'finish', reason };
+      yield { type: 'finish', reason: current };
     } } },
   };
   const route = { provider: 'fixture', model: 'same-model' };
@@ -59,7 +64,7 @@ function fixture(reason = { kind: 'stop' }) {
       Object.freeze({ role: 'user', content: [{ type: 'text', text: 'Correction: 750 bps supersedes 500. Verify before completion.' }] }),
     ]),
   });
-  return { input, agent, history, request: () => request, summarize: signal => CompactionEngine.prototype.summarize.call(owner, input, agent, signal) };
+  return { input, agent, history, owner, requests, request: () => request, summarize: signal => CompactionEngine.prototype.summarize.call(owner, input, agent, signal) };
 }
 
 test('native summary keeps the complete replay prefix, tools, route and full output budget', async () => {
@@ -76,9 +81,50 @@ test('native summary keeps the complete replay prefix, tools, route and full out
   assert.equal(request.model, 'same-model');
   assert.equal(request.maxTokens, 4096);
   assert.equal(request.purpose, 'compaction');
+  assert.equal(request.reasoningEffort, 'low');
   assert.equal(result.llmStreamCall, true);
   assert.deepEqual(result.summary, result.rawOutput);
   assert.equal(result.usage.outputTokens, 25);
+});
+
+test('a truncated summary gets one larger attempt and preserves the actual successful budget', async () => {
+  const f = fixture([{ kind: 'max-tokens' }, { kind: 'stop' }]);
+  const result = await f.summarize();
+  assert.deepEqual(f.requests.map(r => r.maxTokens), [4096, 8192]);
+  assert.equal(result.maxTokens, 8192);
+  assert.equal(f.owner.summaryFailures.has(f.agent), false);
+  assert.deepEqual(f.requests[0].messages, f.requests[1].messages);
+});
+
+test('exhausted and empty checkpoints cannot repeatedly call the model at subsequent tool steps', async () => {
+  for (const [reason, code, count] of [
+    [{ kind: 'max-tokens' }, 'MAX_TOKENS', 2],
+    [{ kind: 'stop', empty: true }, 'COMPACTION_EMPTY_SUMMARY', 1],
+  ]) {
+    const f = fixture(reason);
+    await assert.rejects(f.summarize(), { code });
+    for (let step = 0; step < 10; step++)
+      assert.equal(await CompactionEngine.prototype.compactIfNeeded.call(f.owner, f.agent, 'pressure'), null);
+    await assert.rejects(CompactionEngine.prototype.compactIfNeeded.call(f.owner, f.agent, 'context-overflow'), { code });
+    assert.equal(f.requests.length, count);
+  }
+});
+
+test('cancellation and provider errors do not receive larger-budget retries', async () => {
+  for (const code of ['ABORTED', 'RATE_LIMIT']) {
+    const f = fixture({ kind: code === 'ABORTED' ? 'aborted' : 'error', failure: { code, message: code } });
+    await assert.rejects(f.summarize(), { code });
+    assert.equal(f.requests.length, 1);
+    assert.equal(f.owner.summaryFailures.has(f.agent), false);
+  }
+});
+
+test('small windows and non-reasoning models keep a supported bounded summary envelope', async () => {
+  const f = fixture();
+  f.owner.ctx.llm.resolveModelInfo = async () => ({ context: { contextWindow: 8192 } });
+  const result = await f.summarize();
+  assert.equal(result.maxTokens, 2048);
+  assert.equal(f.request().reasoningEffort, undefined);
 });
 
 test('native summary validation still rejects truncated and cancelled output', async () => {

@@ -1,4 +1,16 @@
-import { memo, useMemo, createContext, useContext, type ReactNode } from 'react';
+import {
+  memo,
+  useMemo,
+  useState,
+  useRef,
+  createContext,
+  useContext,
+  type ReactNode,
+  type ComponentRef,
+} from 'react';
+import { ChevronLeft, ChevronRight, Film } from 'lucide-react';
+import { currentLocale } from '../i18n';
+import { selectNativeText } from '../utils/nativeLocalization';
 import type { ToolResponseMessageContent } from '../types/message';
 import { WorkspaceFileReferences } from './WorkspaceFileReferences';
 import { generatedMediaReceipt } from '../utils/mediaToolReceipt';
@@ -56,9 +68,9 @@ export function mediaOutputPaths(receipt?: Record<string, unknown>): string[] {
   if (receipt?.status !== 'completed') return [];
   const entries = 'images' in receipt ? receipt.images : 'videos' in receipt ? receipt.videos : [];
   if (!Array.isArray(entries)) return [];
-  return entries
-    .flatMap((item) => (item && typeof item.path === 'string' && item.path.trim() ? [item.path] : []))
-    .slice(0, 8);
+  return entries.flatMap((item) =>
+    item && typeof item.path === 'string' && item.path.trim() ? [item.path] : []
+  );
 }
 
 export function GeneratedMedia({
@@ -79,14 +91,16 @@ export function GeneratedMediaFiles({
   paths,
   inline = false,
   taskLabel,
+  labels,
 }: {
   sessionId: string;
   paths: string[];
   inline?: boolean;
   taskLabel?: string;
+  labels?: Record<string, string>;
 }) {
   return inline ? (
-    <MediaTaskOutputs sessionId={sessionId} paths={paths} taskLabel={taskLabel} />
+    <MediaTaskOutputs sessionId={sessionId} paths={paths} taskLabel={taskLabel} labels={labels} />
   ) : paths.length ? (
     <WorkspaceFileReferences sessionId={sessionId} content="" paths={paths} />
   ) : null;
@@ -97,37 +111,118 @@ const MediaTaskOutputs = memo(
     sessionId,
     paths,
     taskLabel,
+    labels,
   }: {
     sessionId: string;
     paths: string[];
     taskLabel?: string;
+    labels?: Record<string, string>;
   }) {
-    const files = useWorkspaceFileReferences({ sessionId, content: '', paths });
+    const files = useWorkspaceFileReferences({
+      sessionId,
+      content: '',
+      paths,
+      retainVerified: true,
+    });
+    const [selected, setSelected] = useState<string>();
+    const rail = useRef<ComponentRef<'span'>>(null);
+    const index = Math.max(
+      0,
+      files.findIndex((file) => file.path === selected)
+    );
+    const file = files[index];
+    const titleFor = (path: string) => {
+      const name = path.replace(/\\/g, '/').split('/').pop()!;
+      const normalized = path.replace(/\\/g, '/');
+      const label =
+        labels?.[path] ??
+        Object.entries(labels ?? {}).find(([source]) =>
+          source.replace(/\\/g, '/').endsWith('/' + normalized)
+        )?.[1] ??
+        taskLabel;
+      return label ? `${label} / ${name}` : name;
+    };
+    const text = (en: string, cn: string, tw: string) =>
+      selectNativeText(currentLocale, en, cn, tw);
+    const choose = (next: number) => {
+      const target = files[next];
+      if (!target) return;
+      setSelected(target.path);
+      rail.current?.children[next]?.scrollIntoView?.({ block: 'nearest', inline: 'nearest' });
+    };
     return files.length ? (
-      <span className="media-output-grid">
-        {files.map((file) => {
-          const filename = file.path.replace(/\\/g, '/').split('/').pop()!;
-          const title = taskLabel ? `${taskLabel} / ${filename}` : filename;
-          return (
-            <span key={file.path} className="media-output">
-              {file.media && (
-                <WorkspaceMedia
-                  media={file.media}
-                  title={title}
-                  target={{ sessionId, filePath: file.path }}
-                />
-              )}
+      <span
+        className={`media-output-grid ${files.length > 1 ? 'media-gallery' : ''}`}
+        role={files.length > 1 ? 'region' : undefined}
+        aria-label={
+          files.length > 1 ? text('Generated media', '生成的媒体', '生成的媒體') : undefined
+        }
+      >
+        <span key={file.path} className="media-output">
+          {file.media && (
+            <WorkspaceMedia
+              media={file.media}
+              title={titleFor(file.path)}
+              target={{ sessionId, filePath: file.path }}
+            />
+          )}
+          <button
+            type="button"
+            className="mt-1 block max-w-full truncate text-xs text-text-secondary hover:text-text-primary"
+            title={file.path}
+            onClick={() => openWorkspaceFile({ sessionId, filePath: file.path })}
+          >
+            {titleFor(file.path)}
+          </button>
+        </span>
+        {files.length > 1 && (
+          <>
+            <span className="media-gallery-controls">
               <button
                 type="button"
-                className="mt-1 block max-w-full truncate text-xs text-text-secondary hover:text-text-primary"
-                title={file.path}
-                onClick={() => openWorkspaceFile({ sessionId, filePath: file.path })}
+                aria-label={text('Previous media', '上一个', '上一個')}
+                disabled={index === 0}
+                onClick={() => choose(index - 1)}
               >
-                {title}
+                <ChevronLeft size={18} />
+              </button>
+              <span role="status" aria-live="polite">
+                {index + 1} / {files.length}
+              </span>
+              <button
+                type="button"
+                aria-label={text('Next media', '下一个', '下一個')}
+                disabled={index === files.length - 1}
+                onClick={() => choose(index + 1)}
+              >
+                <ChevronRight size={18} />
               </button>
             </span>
-          );
-        })}
+            <span
+              className="media-gallery-thumbnails"
+              ref={rail}
+              aria-label={text('Choose media', '选择媒体', '選擇媒體')}
+            >
+              {files.map((item, itemIndex) => (
+                <button
+                  type="button"
+                  key={item.path}
+                  aria-label={`${itemIndex + 1}: ${titleFor(item.path)}`}
+                  aria-pressed={itemIndex === index}
+                  title={titleFor(item.path)}
+                  onClick={() => choose(itemIndex)}
+                >
+                  {item.media?.kind === 'image' ? (
+                    <img src={item.media.url} alt="" loading="lazy" draggable={false} />
+                  ) : (
+                    <Film size={22} />
+                  )}
+                  <span>{itemIndex + 1}</span>
+                </button>
+              ))}
+            </span>
+          </>
+        )}
       </span>
     ) : (
       paths.map((path) => (
@@ -156,6 +251,7 @@ const MediaTaskOutputs = memo(
   (previous, next) =>
     previous.sessionId === next.sessionId &&
     previous.taskLabel === next.taskLabel &&
+    JSON.stringify(previous.labels) === JSON.stringify(next.labels) &&
     previous.paths.length === next.paths.length &&
     previous.paths.every((path, index) => path === next.paths[index])
 );

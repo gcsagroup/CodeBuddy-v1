@@ -1,3 +1,4 @@
+import { replyToNoActionReview } from '../harness/test/review-fixture.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createServer } from 'node:http';
@@ -17,6 +18,7 @@ async function fixture(t, { childCount = 1, customTemplate = false } = {}) {
     try {
       let raw = ''; for await (const chunk of req) raw += chunk;
       const body = JSON.parse(raw);
+    if (replyToNoActionReview(body, res)) return;
       // Synthetic test markers only; native injected user-role context is not
       // a human input. Product routing never uses this fixture classifier.
       const index = body.messages.findLastIndex(message => message.role === 'user' && /CHILD_WAIT_RETEST|CHILD_RESUME_RETEST|REUSE_CHILD_RETEST|FRESH_USER_TURN|PARENT_DELEGATE_RETEST/.test(JSON.stringify(message.content)));

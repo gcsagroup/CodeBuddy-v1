@@ -32,11 +32,13 @@ export function useWorkspaceFileReferences({
   content,
   paths,
   excludePaths,
+  retainVerified = false,
 }: {
   sessionId?: string;
   content: string;
   paths?: string[];
   excludePaths?: string[];
+  retainVerified?: boolean;
 }) {
   const snapshot = useAcpChatSessionSnapshot(sessionId ?? '');
   const session = snapshot?.session;
@@ -49,16 +51,28 @@ export function useWorkspaceFileReferences({
       ? ''
       : (session?.working_dir ?? '');
   const candidates = useMemo(
-    () => [...new Set([...(paths ?? []), ...fileReferenceCandidates(content)])].slice(0, 12),
+    () => [...new Set([...(paths ?? []), ...fileReferenceCandidates(content)])],
     [content, paths]
   );
   const key = JSON.stringify([sessionId, root, candidates]);
-  const [verified, setVerified] = useState<{ key: string; files: PanelFileInfo[] }>();
+  const origin = JSON.stringify([sessionId, root]);
+  const [verified, setVerified] = useState<{
+    key: string;
+    origin: string;
+    files: PanelFileInfo[];
+  }>();
   useEffect(() => {
     if (!sessionId || !root || !candidates.length || !window.electron?.workspacePanel) return;
+    if (verified?.key === key) return;
+    // Appending generated outputs must not register new preview URLs for files
+    // already on screen: that reloads the selected image/video and its lightbox.
+    const existing = retainVerified && verified?.origin === origin ? verified.files : [];
+    const known = new Set(existing.map((file) => fileIdentity(file.path, root)));
+    const missing = candidates.filter((path) => !known.has(fileIdentity(path, root)));
+    if (!missing.length) return;
     let cancelled = false;
     void Promise.allSettled(
-      candidates.map((path) =>
+      missing.map((path) =>
         window.electron.workspacePanel({
           scope: { sessionId, root },
           action: 'inspect',
@@ -67,21 +81,28 @@ export function useWorkspaceFileReferences({
       )
     ).then((results) => {
       if (cancelled) return;
-      const files = new Map<string, PanelFileInfo>();
+      const files = new Map<string, PanelFileInfo>(
+        existing.map((file) => [fileIdentity(file.path, root), file])
+      );
       for (const result of results)
         if (result.status === 'fulfilled' && result.value?.file) {
           files.set(fileIdentity(result.value.file.path, root), result.value.file);
         }
-      setVerified({ key, files: [...files.values()] });
+      setVerified({ key, origin, files: [...files.values()] });
     });
     return () => {
       cancelled = true;
     };
-  }, [sessionId, root, candidates, key]);
+  }, [sessionId, root, candidates, key, origin, verified, retainVerified]);
   const excluded = new Set(excludePaths?.map((path) => fileIdentity(path, root)));
+  const requested = new Set(candidates.map((path) => fileIdentity(path, root)));
   const files =
-    verified?.key === key
-      ? verified.files.filter((file) => !excluded.has(fileIdentity(file.path, root)))
+    verified?.origin === origin
+      ? verified.files.filter(
+          (file) =>
+            requested.has(fileIdentity(file.path, root)) &&
+            !excluded.has(fileIdentity(file.path, root))
+        )
       : [];
   return files;
 }

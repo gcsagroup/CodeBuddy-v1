@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { PetSprite } from './PetSprite';
 import type { PetAnimation, PetSnapshot, PetTask } from './petTypes';
+import { petActionCycles } from './petTypes';
 import { petPanelHeight, petPanelWidth } from './petPolicy';
 import { currentLocale } from '../i18n';
 import { selectNativeText } from '../utils/nativeLocalization';
@@ -136,6 +137,7 @@ function TaskCard({ task }: { task: PetTask }) {
 export default function DesktopPet() {
   const [snapshot, setSnapshot] = useState<PetSnapshot | null>(null);
   const [temporary, setTemporary] = useState<PetAnimation | null>(null);
+  const [interactionId, setInteractionId] = useState(0);
   const [gazing, setGazing] = useState(false);
   const [expanded, setExpanded] = useState(true);
   const [composing, setComposing] = useState(false);
@@ -170,7 +172,10 @@ export default function DesktopPet() {
     if (!blockedTaskKey || !petFps) return;
     // Failure is a brief reaction; the task badge retains the blocked state.
     // Repeated snapshots and cursor updates must not restart the reaction.
-    const timer = setTimeout(() => setSettledBlockedTask(blockedTaskKey), 6000 / petFps);
+    const timer = setTimeout(
+      () => setSettledBlockedTask(blockedTaskKey),
+      (6000 * petActionCycles) / petFps
+    );
     return () => clearTimeout(timer);
   }, [blockedTaskKey, petFps]);
   const onAlphaMap = useCallback((value: Uint8ClampedArray) => {
@@ -608,8 +613,9 @@ export default function DesktopPet() {
           void window.electron.desktopPet({ action: 'drag-end' });
           if (start && Math.hypot(event.screenX - start.x, event.screenY - start.y) < 6) {
             setTemporary('wave');
+            setInteractionId((id) => id + 1);
             clearTimeout(release.current);
-            release.current = setTimeout(() => setTemporary(null), 6000 / pet.fps);
+            release.current = setTimeout(() => setTemporary(null), (6000 * petActionCycles) / pet.fps);
             clearTimeout(clickTimer.current);
             clickTimer.current = setTimeout(() => void openComposer(), 300);
           }
@@ -621,8 +627,9 @@ export default function DesktopPet() {
         onDoubleClick={() => {
           clearTimeout(clickTimer.current);
           setTemporary('jump');
+          setInteractionId((id) => id + 1);
           clearTimeout(release.current);
-          release.current = setTimeout(() => setTemporary(null), 6000 / pet.fps);
+          release.current = setTimeout(() => setTemporary(null), (6000 * petActionCycles) / pet.fps);
         }}
       >
         <div
@@ -641,6 +648,15 @@ export default function DesktopPet() {
           <PetSprite
             pet={pet}
             animation={temporary || (glance ? 'look' : stateAnimation)}
+            playbackKey={
+              temporary
+                ? interactionId
+                : JSON.stringify([
+                    task?.sessionId,
+                    task?.terminalId,
+                    task?.inputRequest?.permission?.token,
+                  ])
+            }
             reducedMotion={reducedMotion}
             gazeFrame={gazeFrame}
             onAlphaMap={onAlphaMap}

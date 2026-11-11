@@ -2,19 +2,71 @@ import { act, fireEvent, render as testingRender, screen, waitFor } from '@testi
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { IntlTestWrapper } from '../i18n/test-utils';
 import { SessionActionsContextMenu } from './SessionActionsHeader';
-import { acpArchiveSession, acpExportSession, acpExportSessionLog } from '../acp/sessions';
+import { acpArchiveSession, acpDeleteSession, acpExportSession, acpExportSessionLog } from '../acp/sessions';
 import { toast } from 'react-toastify';
 
 vi.mock('../acp/sessions', async (original) => ({
   ...(await original<typeof import('../acp/sessions')>()),
   acpExportSessionLog: vi.fn(),
   acpArchiveSession: vi.fn(),
+  acpDeleteSession: vi.fn(),
   acpExportSession: vi.fn(),
 }));
 vi.mock('react-toastify', () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
 beforeEach(() => vi.clearAllMocks());
 
 describe('SessionActionsContextMenu', () => {
+  it('closes on durable deletion acknowledgement without waiting for backend resource cleanup', async () => {
+    let accept!: () => void;
+    vi.mocked(acpDeleteSession).mockImplementationOnce(() => new Promise<void>(resolve => { accept = resolve; }));
+    const removed = vi.fn();
+    window.addEventListener('session-deleted', removed);
+    try {
+      testingRender(<SessionActionsContextMenu session={{ id: 'async-delete', name: 'Large history' }}><div>Large history</div></SessionActionsContextMenu>, { wrapper: IntlTestWrapper });
+      fireEvent.contextMenu(screen.getByText('Large history'));
+      fireEvent.click(await screen.findByRole('menuitem', { name: 'Delete session' }));
+      fireEvent.click(await screen.findByRole('button', { name: 'Delete session' }));
+      expect(screen.getByRole('dialog')).toBeVisible();
+      expect(screen.getByRole('button', { name: 'Cancel' })).toBeDisabled();
+      expect(removed).not.toHaveBeenCalled();
+      await act(async () => accept());
+      await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+      expect(removed).toHaveBeenCalledOnce();
+      expect(removed.mock.calls[0][0].detail.sessionId).toBe('async-delete');
+    } finally { window.removeEventListener('session-deleted', removed); }
+  });
+
+  it('places deletion after archive and requires confirmation before removing the selected conversation', async () => {
+    const removed = vi.fn();
+    window.addEventListener('session-deleted', removed);
+    try {
+      testingRender(<SessionActionsContextMenu session={{ id: 'delete-fixture', name: 'Keep files' }}><div>Keep files</div></SessionActionsContextMenu>, { wrapper: IntlTestWrapper });
+      fireEvent.contextMenu(screen.getByText('Keep files'));
+      const items = await screen.findAllByRole('menuitem');
+      const archive = items.findIndex(item => item.textContent === 'Archive session');
+      expect(items[archive + 1]).toHaveTextContent('Delete session');
+      fireEvent.click(items[archive + 1]);
+      expect(await screen.findByRole('dialog')).toHaveTextContent('Files in the workspace will be kept.');
+      fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+      expect(acpDeleteSession).not.toHaveBeenCalled();
+      fireEvent.contextMenu(screen.getByText('Keep files'));
+      fireEvent.click(await screen.findByRole('menuitem', { name: 'Delete session' }));
+      fireEvent.click(await screen.findByRole('button', { name: 'Delete session' }));
+      await waitFor(() => expect(acpDeleteSession).toHaveBeenCalledExactlyOnceWith('delete-fixture'));
+      await waitFor(() => expect(removed).toHaveBeenCalledTimes(1));
+      expect(removed.mock.calls[0][0].detail.sessionId).toBe('delete-fixture');
+    } finally { window.removeEventListener('session-deleted', removed); }
+  });
+
+  it('keeps the confirmation open and does not announce deletion when the backend rejects it', async () => {
+    vi.mocked(acpDeleteSession).mockRejectedValueOnce(new Error('Active session'));
+    testingRender(<SessionActionsContextMenu session={{ id: 'busy-fixture', name: 'Busy task' }}><div>Busy task</div></SessionActionsContextMenu>, { wrapper: IntlTestWrapper });
+    fireEvent.contextMenu(screen.getByText('Busy task'));
+    fireEvent.click(await screen.findByRole('menuitem', { name: 'Delete session' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Delete session' }));
+    await waitFor(() => expect(toast.error).toHaveBeenCalledWith(expect.stringContaining('Active session')));
+    expect(screen.getByRole('dialog')).toBeVisible();
+  });
   it('opens the actual session directory and copies its ID without exporting the conversation', async () => {
     const open = vi.fn().mockResolvedValue(true);
     Object.assign(window.electron, { openDirectoryInExplorer: open });

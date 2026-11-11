@@ -1,3 +1,4 @@
+import { replyToNoActionReview } from './review-fixture.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdtemp } from 'node:fs/promises';
@@ -47,7 +48,9 @@ test('a native one-shot delivers once through the existing stream without inject
   const requests = [];
   const server = createServer(async (request, response) => {
     let raw = ''; for await (const part of request) raw += part;
-    requests.push(JSON.parse(raw));
+    const body = JSON.parse(raw);
+    if (replyToNoActionReview(body, response)) return;
+    requests.push(body);
     response.writeHead(200, { 'content-type': 'text/event-stream' });
     response.write('data: '+JSON.stringify({ id: 'fixture', object: 'chat.completion.chunk', model: 'fixture', choices: [{ index: 0, delta: { role: 'assistant', content: 'NATIVE_DELIVERY_OK' }, finish_reason: null }] })+'\n\n');
     response.end('data: '+JSON.stringify({ id: 'fixture', object: 'chat.completion.chunk', model: 'fixture', choices: [{ index: 0, delta: {}, finish_reason: 'stop' }], usage: { prompt_tokens: 10, completion_tokens: 2, total_tokens: 12 } })+'\n\ndata: [DONE]\n\n');

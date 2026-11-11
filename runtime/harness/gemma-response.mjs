@@ -32,8 +32,8 @@ function visibleDelta(state, text, reasoning) {
   }
   const value = state.start && pending.startsWith(prefix) ? pending.slice(prefix.length) : pending;
   state.start = false;
-  let keep = Math.min(close.length, value.length);
-  while (keep && !value.endsWith(close.slice(0, keep))) keep--;
+  let keep = Math.min(Math.max(close.length, opening.length), value.length);
+  while (keep && ![close, opening].some(marker => keep <= marker.length && value.endsWith(marker.slice(0, keep)))) keep--;
   state.pending = value.slice(value.length - keep);
   return value.slice(0, value.length - keep);
 }
@@ -69,6 +69,8 @@ function repeatedParagraph(state, text) {
   state.lines.tail = unfinished.slice(-1024);
   const parts = (state.tail + text).split('\n\n');
   const remainder = parts.pop();
+  state.paragraphs ??= [];
+  state.paragraphPeriods ??= new Uint16Array(8);
   for (const part of parts) {
     // Ignore long sections instead of comparing only a common suffix.
     const paragraph = !state.truncated && part.length <= 1024 ? part : '';
@@ -76,6 +78,17 @@ function repeatedParagraph(state, text) {
     state.previous = paragraph;
     state.truncated = false;
     if (paragraph.length >= 32 && state.count >= 16) return true;
+    // Installed streams alternated several short paragraphs (receipt, done,
+    // final answer), so no two adjacent paragraphs were equal. Detect bounded
+    // cycles without inspecting tool arguments or ordinary final-answer text.
+    for (let period = 1; period <= state.paragraphPeriods.length; period++) {
+      state.paragraphPeriods[period - 1] = paragraph && state.paragraphs.at(-period) === paragraph
+        ? state.paragraphPeriods[period - 1] + 1 : 0;
+      if (state.paragraphPeriods[period - 1] >= period * 16 &&
+          state.paragraphs.slice(-period).reduce((size, value) => size + value.length, 0) * 16 >= 512) return true;
+    }
+    state.paragraphs.push(paragraph);
+    if (state.paragraphs.length > 8) state.paragraphs.shift();
   }
   state.truncated ||= remainder.length > 1024;
   state.tail = remainder.slice(-1024);
@@ -85,6 +98,7 @@ function repeatedParagraph(state, text) {
 async function* cleanGemmaResponse(stream, repairedBoundaries) {
   const blocks = new Map();
   let toolProposed = false;
+  let fileCallCompleted = false;
   for await (const chunk of stream) {
     if (chunk.type === 'tool-call-delta' || chunk.blockType === 'tool-call' || chunk.block?.type === 'tool-call') toolProposed = true;
     if (chunk.type === 'text-delta' || chunk.type === 'reasoning-delta') {
@@ -102,6 +116,14 @@ async function* cleanGemmaResponse(stream, repairedBoundaries) {
         if (state.answerHead.startsWith('<|') && !(toolProposed && toolSeparator.startsWith(state.answerHead))) {
           yield { type: 'finish', reason: { kind: 'error', failure: {
             code: 'SERVER', message: 'Gemma returned an unparsed native envelope in answer content.',
+          } } };
+          return;
+        }
+        state.openerCursor ??= { width: 0, ticks: 0, matched: 0, offset: 0, quotedEnd: 0 };
+        if (!(toolProposed && toolSeparator.startsWith(state.answerHead)) &&
+            scanThought(state.openerCursor, text, true, opening)) {
+          yield { type: 'finish', reason: { kind: 'error', failure: {
+            code: 'SERVER', message: 'Gemma returned an unparsed thought opener inside answer content.',
           } } };
           return;
         }
@@ -125,6 +147,24 @@ async function* cleanGemmaResponse(stream, repairedBoundaries) {
       const state = blocks.get(chunk.index);
       const reasoning = chunk.block.type === 'reasoning';
       const visible = visibleBlock(chunk.block.text, reasoning);
+      if (!reasoning && fileCallCompleted && containsNativeFileResult(visible)) {
+        // Some servers strip the tool-response role token but leak the native
+        // dsh-tool-fs envelope into assistant content. That result belongs to
+        // the host. The provider adapter can reorder content and call blocks,
+        // so it cannot prove which calls preceded this fabricated result.
+        // Native retry must discard the whole speculative batch before execution.
+        yield { type: 'finish', reason: { kind: 'error', failure: {
+          code: 'SERVER', message: 'Gemma returned a model-authored native file receipt. Return structured tool calls and wait for the host result instead of fabricating tool output.',
+        } } };
+        return;
+      }
+      if (!reasoning && !(toolProposed && visible.trimEnd() === toolSeparator.trimEnd()) &&
+          scanThought({ width: 0, ticks: 0, matched: 0, offset: 0, quotedEnd: 0 }, visible, true, opening)) {
+        yield { type: 'finish', reason: { kind: 'error', failure: {
+          code: 'SERVER', message: 'Gemma returned an unparsed thought opener inside answer content.',
+        } } };
+        return;
+      }
       if (!reasoning && (toolProposed || repairedBoundaries.has(chunk.index)) &&
           scanThought({ width: 0, ticks: 0, matched: 0, offset: 0, quotedEnd: 0 }, visible)) {
         yield { type: 'finish', reason: { kind: 'error', failure: {
@@ -142,16 +182,25 @@ async function* cleanGemmaResponse(stream, repairedBoundaries) {
       repairedBoundaries.delete(chunk.index);
       yield { ...chunk, block: { ...chunk.block, text: visible } };
     } else {
+      if (chunk.type === 'block-end' && chunk.block.type === 'tool-call' &&
+          ['read', 'write', 'edit'].includes(chunk.block.name)) fileCallCompleted = true;
       if (chunk.type === 'block-end') blocks.delete(chunk.index);
       yield chunk;
     }
   }
 }
 
+function containsNativeFileResult(text) {
+  // Match the pinned dsh-tool-fs model-facing envelope grammar, not the prose
+  // describing success or the user's intent. Quoted/code examples remain text.
+  const end = scanThought({ width: 0, ticks: 0, matched: 0, offset: 0, quotedEnd: 0 }, text, true, '<path>');
+  return end > 0 && /^<path>[^\r\n]*<\/path>\r?\n<type>file<\/type>\r?\n<content>\r?\n[\s\S]*?\r?\n<\/content>/.test(text.slice(end - '<path>'.length));
+}
+
 // Backtick runs can straddle both transport chunks and the reasoning/text split.
 // A protocol token inside a paired code span is literal. An unpaired run in a
 // truncated filename does not quote a token through the end of the text block.
-function scanThought(state, text, detectBoundary = true) {
+function scanThought(state, text, detectBoundary = true, token = close) {
   for (let i = 0; i < text.length; i++) {
     const char = text[i];
     if (char === '`') {
@@ -165,8 +214,8 @@ function scanThought(state, text, detectBoundary = true) {
       state.ticks = 0;
     }
     if (!detectBoundary) continue;
-    state.matched = char === close[state.matched] ? state.matched + 1 : Number(char === close[0]);
-    if (state.matched === close.length) {
+    state.matched = char === token[state.matched] ? state.matched + 1 : Number(char === token[0]);
+    if (state.matched === token.length) {
       state.matched = 0;
       if (!state.width) return state.offset + i + 1;
       state.quotedEnd ||= state.offset + i + 1;
@@ -263,7 +312,7 @@ async function* cleanThoughtBoundary(stream, repairedBoundaries) {
 // whole malformed response so the provider's existing SERVER retry policy owns
 // recovery. A leading raw call is invalid even if the server appends invented
 // results/reasoning after it. Quoted examples and introductory prose stay text.
-export async function* normalizeGemmaResponse(stream) {
+export async function* normalizeGemmaResponse(stream, tools = []) {
   const pending = new Map();
   const ordinary = new Set();
   const prefixes = ['call:', '<|'];
@@ -282,6 +331,33 @@ export async function* normalizeGemmaResponse(stream) {
         code: 'SERVER', message: 'Gemma returned a tool call without a call ID or tool name.',
       } } };
       return;
+    }
+    if (chunk.type === 'block-end' && chunk.block.type === 'tool-call') {
+      const schema = tools.find(tool => tool.name === chunk.block.name)?.parameters;
+      // The server may bury file_path inside content while emitting a valid JSON
+      // object. Native tool rejection then starts a fresh successful model step,
+      // resetting recovery forever. Reject malformed wire arguments at the same
+      // seam as missing call identities so native SERVER retry stays bounded.
+      // Only check the advertised root shape/required fields here; the tool owner
+      // still validates full arguments and arbitrary external schema keywords.
+      if (schema?.type === 'object') {
+        // Keep this parser importable before index.mjs installs SDK contracts.
+        const { validateJsonSchemaValue } = await import('@deepseek-ai/dsh-tools');
+        let violations;
+        try {
+          const required = Array.isArray(schema.required)
+            ? schema.required.filter(key => typeof key === 'string') : [];
+          violations = validateJsonSchemaValue({ type: 'object',
+            properties: Object.fromEntries(required.map(key => [key, {}])), required,
+          }, JSON.parse(chunk.block.arguments));
+        } catch { violations = ['arguments must be a JSON object']; }
+        if (violations.length) {
+          yield { type: 'finish', reason: { kind: 'error', failure: {
+            code: 'SERVER', message: `Gemma returned invalid arguments for ${chunk.block.name}: ${violations.join('; ')}`,
+          } } };
+          return;
+        }
+      }
     }
     if (chunk.type === 'text-delta' && !ordinary.has(chunk.index)) {
       const text = (pending.get(chunk.index) ?? '') + chunk.text;

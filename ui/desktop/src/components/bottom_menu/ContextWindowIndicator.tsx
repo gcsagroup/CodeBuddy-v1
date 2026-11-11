@@ -5,6 +5,7 @@ import { useIntl } from '../../i18n';
 import type { RequestBudget } from '../../types/chat';
 
 interface ContextWindowIndicatorProps {
+  showLabel?: boolean;
   requestBudget?: RequestBudget;
   totalTokens?: number;
   tokenLimit: number;
@@ -20,6 +21,7 @@ const getProgressColor = (percentage: number): string => {
 };
 
 export function ContextWindowIndicator({
+  showLabel = false,
   requestBudget,
   totalTokens,
   tokenLimit,
@@ -90,7 +92,7 @@ export function ContextWindowIndicator({
         triggerLabel={label}
         triggerDescription={title}
         showIndicator={false}
-        triggerClassName="size-8 justify-center rounded-full p-0 hover:bg-background-secondary focus-visible:outline focus-visible:outline-2"
+        triggerClassName={showLabel ? 'min-h-7 gap-1.5 rounded-md px-2 text-xs text-text-secondary tabular-nums hover:bg-background-secondary focus-visible:outline focus-visible:outline-2' : 'size-8 justify-center rounded-full p-0 hover:bg-background-secondary focus-visible:outline focus-visible:outline-2'}
         preview={
           <>
             {percentage !== undefined && (
@@ -138,6 +140,7 @@ export function ContextWindowIndicator({
             />
           )}
         </svg>
+        {showLabel && <span>{chinese ? '上下文' : 'Context'} {percentage === undefined ? '—' : `${estimated ? '≈' : ''}${percentage}%`}</span>}
       </BottomMenuAlertPopover>
     </div>
   );

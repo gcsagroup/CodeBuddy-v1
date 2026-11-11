@@ -117,6 +117,7 @@ export function createConversationDriver(driver, store) {
     // A native fork is not a published product session until Editing commits it.
     fork(id, options) { return driver.fork(nativeId(id), options); },
     forkWorkingDirectory(id, workingDir, options) { return driver.forkWorkingDirectory(nativeId(id), workingDir, options); },
+    assertNativeSessionIdle(id) { return driver.assertNativeSessionIdle?.(id); },
     releaseNativeSessionCapabilities(id) { return driver.releaseNativeSessionCapabilities?.(id); },
     async *follow(id, signal) {
       const actual = nativeId(id);

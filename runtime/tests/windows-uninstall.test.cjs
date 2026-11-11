@@ -27,6 +27,52 @@ async function fixture(t) {
 }
 const exists = file => fs.access(file).then(() => true, () => false);
 
+test('history only clears all chats and native replay data while preserving settings and project files on repeated cleanup', async t => {
+  const f = await fixture(t);
+  const stateFile = path.join(f.root, 'backend/state.json');
+  const state = JSON.parse(await fs.readFile(stateFile));
+  const project = path.join(f.root, 'backend/harness/sessions/user-project');
+  state.sessions.push({ id: 'old', archived: true, cwd: project }, { id: 'main', globalConversation: true });
+  Object.assign(state, { codeproRuns: [{ sessionId: 'old' }], providers: [{ id: 'local', secret: 'fixture' }],
+    preferences: { locale: 'zh-CN' }, schedules: [{ id: 'schedule' }] });
+  await f.write(stateFile, JSON.stringify(state));
+  const records = ['backend/transcript-journal/old.jsonl', 'backend/harness/sessions/old.jsonl',
+    'backend/session-deletions/old.json', 'backend/state.json.00000000-0000-0000-0000-000000000000.tmp'];
+  for (const record of records) await f.write(path.join(f.root, record));
+  await f.write(path.join(project, 'user.txt'));
+  const options = { ...f.options, mode: 'history' };
+  const { openStore } = await import('../store.mjs');
+  for (let i = 0; i < 2; i++) {
+    await cleanData(options);
+    const reopened = (await openStore(path.dirname(stateFile))).read();
+    assert.deepEqual(reopened.sessions, []);
+    assert.deepEqual(reopened.codeproRuns, []);
+    for (const key of ['providers', 'preferences', 'schedules']) assert.deepEqual(reopened[key], state[key]);
+    for (const record of records) assert.equal(await exists(path.join(f.root, record)), false, record);
+    for (const file of [f.locator, path.join(project, 'user.txt'), path.join(f.root, 'logs/runtime.log')])
+      assert.ok(await exists(file), file);
+  }
+  await cleanData(f.options);
+  assert.equal(await fs.readFile(path.join(project, 'user.txt'), 'utf8'), 'keep');
+  assert.equal(await fs.readFile(path.join(f.root, 'backend/custom-project/work.txt'), 'utf8'), 'keep');
+});
+
+test('unknown mode, unsupported registry and linked history stop before any deletion', async t => {
+  const f = await fixture(t);
+  const file = path.join(f.root, 'backend/state.json');
+  const journal = path.join(f.root, 'backend/transcript-journal/history');
+  await f.write(journal);
+  await assert.rejects(cleanData({ ...f.options, mode: 'typo' }), /Unknown cleanup mode/);
+  const history = { ...f.options, mode: 'history' };
+  await f.write(file, '{"version":2,"sessions":[]}');
+  await assert.rejects(cleanData(history), /version/);
+  await f.write(file, '{"version":1,"sessions":[]}');
+  await fs.link(file, path.join(f.base, 'linked-state'));
+  await assert.rejects(cleanData(history), /identity/);
+  assert.ok(await exists(journal));
+  assert.ok(await exists(f.locator));
+});
+
 test('cleanup removes personal records but preserves workspaces, registered projects and unknown root files', async t => {
   const f = await fixture(t);
   const result = await cleanData(f.options);

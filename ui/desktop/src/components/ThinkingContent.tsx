@@ -1,6 +1,6 @@
 import { memo, useContext, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import MarkdownContent from './MarkdownContent';
-import AnimatedIcons from './AnimatedIcons';
+import ThinkingIcon from './ThinkingIcon';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from './ui/collapsible';
 import Expand from './ui/Expand';
 import { defineMessages, useIntl } from '../i18n';
@@ -121,12 +121,7 @@ const ThinkingContent = memo(function ThinkingContent({
         ref={header}
         className="codepro-record-trigger codepro-secondary-label relative flex min-h-7 items-center gap-1.5 py-1 px-0 text-sm text-text-secondary hover:text-text-primary transition-colors cursor-pointer"
       >
-        <span
-          aria-hidden="true"
-          className={isStreaming ? 'inline-flex h-4 w-4 shrink-0' : 'hidden'}
-        >
-          {isStreaming && <AnimatedIcons cycleInterval={600} />}
-        </span>
+        <ThinkingIcon active={isStreaming} />
         <span>{intl.formatMessage(isStreaming ? i18n.thinkingLive : i18n.thinking)}</span>
         <Expand size={3} isExpanded={expanded} />
       </CollapsibleTrigger>

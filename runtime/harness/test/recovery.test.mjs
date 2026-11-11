@@ -1,3 +1,4 @@
+import { replyToNoActionReview } from './review-fixture.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createServer } from 'node:http';
@@ -14,7 +15,8 @@ async function fixture(t, handler, retryPolicy) {
   const requests = [];
   const server = createServer(async (req, res) => {
     let raw = ''; for await (const chunk of req) raw += chunk;
-    const body = JSON.parse(raw); requests.push(body);
+    const body = JSON.parse(raw);
+    if (replyToNoActionReview(body, res)) return; requests.push(body);
     await handler(req, res, body, requests.length);
   });
   await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));

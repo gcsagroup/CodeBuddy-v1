@@ -753,6 +753,30 @@ describe('acpChatSessionController.submitMessage', () => {
     expect(onFinish).toHaveBeenCalledWith('Submit error: workspace rejected');
   });
 
+  it('uses the matching manual compaction failure receipt without a duplicate submit banner', async () => {
+    let notify: Parameters<typeof subscribeToAcpChatSession>[1];
+    vi.mocked(subscribeToAcpChatSession).mockImplementation((_id, listener) => {
+      notify = listener;
+      return () => {};
+    });
+    vi.mocked(acpPromptSession).mockImplementationOnce(async () => {
+      const calls = vi.mocked(acpChatSessionActions.startPromptAttempt).mock.calls;
+      const attempt = calls[calls.length - 1][1];
+      for (const status of ['started', 'failed'] as const) notify({
+        ...snapshotWithActivePrompt(attempt),
+        compactionLifecycle: { schemaVersion: 1, event: 'compaction_lifecycle', operationId: 'current-compaction',
+          trigger: 'manual', startedAt: new Date().toISOString(), status },
+      });
+      throw new Error('manual compaction failed: summarization truncated');
+    });
+    const onFinish = vi.fn();
+    await acpChatSessionController.submitMessage(SESSION_ID, userMessage(), {
+      getCurrentSnapshot: () => snapshotWithActivePrompt(null), onFinish,
+    });
+    expect(acpChatSessionActions.finishPromptAttemptIfCurrent).toHaveBeenCalledWith(SESSION_ID, expect.any(String));
+    expect(onFinish).toHaveBeenCalledWith();
+  });
+
   it('keeps an observed failure explanation when the prompt RPC later rejects', async () => {
     vi.mocked(acpPromptSession).mockRejectedValueOnce(new Error('raw provider failure'));
     vi.mocked(acpChatSessionStore.getSnapshot).mockReturnValue({

@@ -1,3 +1,4 @@
+import { replyToNoActionReview } from '../harness/test/review-fixture.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createServer } from 'node:http';
@@ -14,7 +15,8 @@ test('direct goal tools preserve the official model-turn boundary and never laun
   let effects = 0;
   const server = createServer(async (req, res) => {
     let raw = ''; for await (const chunk of req) raw += chunk;
-    const body = JSON.parse(raw); requests.push(body);
+    const body = JSON.parse(raw);
+    if (replyToNoActionReview(body, res)) return; requests.push(body);
     res.writeHead(200, { 'content-type': 'text/event-stream' });
     const emit = (delta, finish_reason = null) => res.write(`data: ${JSON.stringify({ id: randomUUID(), object: 'chat.completion.chunk', model: body.model, choices: [{ index: 0, delta, finish_reason }] })}\n\n`);
     if (requests.length === 1) {

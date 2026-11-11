@@ -21,6 +21,7 @@ const fixture = vi.hoisted(() => ({
   state: 'idle',
   activity: undefined as PromptActivity | undefined,
   submit: vi.fn(),
+  stop: vi.fn(),
   update: vi.fn(),
   history: undefined as Message[] | undefined,
   pending: undefined as ((sessionId: string, message: Message | undefined) => void) | undefined,
@@ -55,6 +56,7 @@ vi.mock('../hooks/useChatSession', () => ({
     tokenState: {},
     notifications: new Map(),
     handleSubmit: fixture.submit,
+    stopStreaming: fixture.stop,
     onMessageUpdate: fixture.update,
     workspaceReconfirmation: fixture.workspace,
     reconfirmCodeProWorkspace: fixture.reconfirm,
@@ -69,12 +71,16 @@ vi.mock('./ChatInput', () => ({
   default: ({
     onPendingMessageChange,
     queueProcessingBlocked,
+    externalModelOpenRequest,
+    inputRef,
   }: {
     onPendingMessageChange?: (sessionId: string, message: Message | undefined) => void;
     queueProcessingBlocked?: boolean;
+    externalModelOpenRequest?: number;
+    inputRef?: React.RefObject<HTMLTextAreaElement>;
   }) => {
     fixture.pending = onPendingMessageChange;
-    return <textarea aria-label="Compose message" disabled={queueProcessingBlocked} />;
+    return <textarea ref={inputRef} aria-label="Compose message" disabled={queueProcessingBlocked} data-model-open={externalModelOpenRequest ?? 0} />;
   },
 }));
 vi.mock('../hooks/use-mobile', () => ({ useIsMobile: () => false }));
@@ -125,6 +131,7 @@ beforeEach(() => {
   fixture.state = 'idle';
   fixture.activity = undefined;
   fixture.submit.mockReset();
+  fixture.stop.mockReset();
   fixture.update.mockReset();
   fixture.history = undefined;
   fixture.pending = undefined;
@@ -203,6 +210,59 @@ it('moves the actual footer from A through model output to B and resets its acti
   );
   expect(screen.getByTestId('loading-indicator')).toHaveTextContent('海报 B');
   expect(screen.getByTestId('loading-indicator')).not.toHaveTextContent('30s');
+});
+
+it('run advice waits for cancellation before opening model selection and never resubmits', () => {
+  fixture.readonly = false;
+  fixture.state = 'thinking';
+  fixture.activity = { promptAttemptId: 'a', sourceUserMessageId: 'u', startedAt: Date.now(),
+    execution: { phase: 'model', childCount: 0, consecutiveToolFailures: 3 } };
+  const tree = (id = 'imported') => <MemoryRouter><BaseChat sessionId={id} isActiveSession suppressEmptyState setChat={vi.fn()} /></MemoryRouter>;
+  const view = render(tree(), { wrapper: IntlTestWrapper });
+  expect(screen.queryByTestId('loading-indicator')).toBeNull();
+  fireEvent.click(screen.getByRole('button', { name: 'Stop and choose a model' }));
+  expect(fixture.stop).toHaveBeenCalledTimes(1);
+  expect(screen.getByRole('textbox', { name: 'Compose message' })).toHaveAttribute('data-model-open', '0');
+  fixture.cancelling = true;
+  view.rerender(tree());
+  expect(screen.getByRole('textbox', { name: 'Compose message' })).toHaveAttribute('data-model-open', '0');
+  fixture.cancelling = false;
+  fixture.state = 'idle';
+  fixture.activity = undefined;
+  view.rerender(tree());
+  expect(screen.getByRole('textbox', { name: 'Compose message' })).toHaveAttribute('data-model-open', '1');
+  expect(fixture.submit).not.toHaveBeenCalled();
+});
+
+it('settling a turn does not steal focus from the model picker', () => {
+  vi.useFakeTimers();
+  fixture.readonly = false;
+  show();
+  const picker = document.createElement('div');
+  picker.dataset.modelPickerList = '';
+  const search = document.createElement('input');
+  picker.append(search);
+  document.body.append(picker);
+  try {
+    search.focus();
+    act(() => vi.advanceTimersByTime(150));
+    expect(search).toHaveFocus();
+  } finally { picker.remove(); }
+});
+
+it('a pending advice action cannot open the model picker in another chat', () => {
+  fixture.readonly = false;
+  fixture.state = 'thinking';
+  fixture.activity = { promptAttemptId: 'a', sourceUserMessageId: 'u', startedAt: Date.now(),
+    execution: { phase: 'model', childCount: 0, responseRetries: 3 } };
+  const tree = (id: string) => <MemoryRouter><BaseChat sessionId={id} isActiveSession suppressEmptyState setChat={vi.fn()} /></MemoryRouter>;
+  const view = render(tree('imported'), { wrapper: IntlTestWrapper });
+  fireEvent.click(screen.getByRole('button', { name: 'Stop and choose a model' }));
+  fixture.state = 'idle';
+  fixture.activity = undefined;
+  view.rerender(tree('another'));
+  expect(screen.getByRole('textbox', { name: 'Compose message' })).toHaveAttribute('data-model-open', '0');
+  expect(fixture.submit).not.toHaveBeenCalled();
 });
 
 function show({ startAgent = true } = {}) {

@@ -1,3 +1,4 @@
+import { replyToNoActionReview } from '../harness/test/review-fixture.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createServer } from 'node:http';
@@ -22,6 +23,7 @@ test('one session approval covers four native MCP queries, later turns and only 
     let raw = '';
     for await (const chunk of req) raw += chunk;
     const body = JSON.parse(raw);
+    if (replyToNoActionReview(body, res)) return;
     if (req.url.startsWith('/mcp')) {
       if (!('id' in body)) { res.writeHead(202).end(); return; }
       let result;

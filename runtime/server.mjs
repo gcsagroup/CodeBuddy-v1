@@ -9,6 +9,7 @@ import { createConversationDriver } from "./conversation-driver.mjs";
 import { createMcpAppProxy } from "./mcp-app-proxy.mjs";
 import { acquireProfileLock } from "./profile-lock.mjs";
 import { createSourceStatus } from './source-status.mjs';
+import { clientDisconnectedError } from './session-connection.mjs';
 
 const previewSource = process.env.CODEBUDDY_HARNESS_PREVIEW === '1'
   ? createSourceStatus(path.dirname(fileURLToPath(import.meta.url))).catch(() => undefined)
@@ -198,6 +199,7 @@ export async function createCompatServer({ dataDir, secret, driver, defaultModel
     });
     wss.on("connection", (ws) => {
       ws.on("error", () => {});
+      let connected = true;
       const pending = new Map();
       let initialized = false;
       const send = (message) => {
@@ -207,6 +209,7 @@ export async function createCompatServer({ dataDir, secret, driver, defaultModel
         notify: (method, params) => send({ jsonrpc: "2.0", method, params }),
         ask: (method, params, signal) =>
           new Promise((resolve, reject) => {
+            if (!connected) return reject(clientDisconnectedError());
             if (signal?.aborted) return reject(new DOMException("Cancelled", "AbortError"));
             const id = "server-" + randomUUID();
             const done = (error, result) => {
@@ -313,11 +316,10 @@ export async function createCompatServer({ dataDir, secret, driver, defaultModel
         }
       });
       ws.on("close", () => {
+        connected = false;
         compat.disconnect(connection);
         for (const done of [...pending.values()])
-          done(new DOMException("Client disconnected", "AbortError"));
-        for (const active of compat.active.values())
-          if (active.connection === connection) active.controller.abort();
+          done(clientDisconnectedError());
       });
     });
     let closePromise;

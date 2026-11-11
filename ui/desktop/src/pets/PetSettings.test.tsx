@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import PetSettings from './PetSettings';
 import type { PetSnapshot } from './petTypes';
-vi.mock('./PetSprite', () => ({ PetSprite: () => <span>sprite</span> }));
+vi.mock('./PetSprite', () => ({ PetSprite: ({ playbackKey }: { playbackKey?: number }) => <span data-testid="pet-preview" data-playback={playbackKey}>sprite</span> }));
 vi.mock('../i18n', () => ({ currentLocale: 'en' }));
 const snapshot: PetSnapshot = {
   preferences: { visible: false, selectedId: 'red-panda', size: 160, reducedMotion: false },
@@ -35,6 +35,11 @@ describe('pet settings', () => {
     render(<PetSettings />);
     await screen.findByText('My pets');
     expect(screen.getAllByRole('article')).toHaveLength(3);
+    const preview = screen.getAllByTestId('pet-preview').find((node) => node.hasAttribute('data-playback'))!;
+    expect(preview).toHaveAttribute('data-playback', '0');
+    fireEvent.click(screen.getByRole('button', { name: 'Replay animation' }));
+    expect(preview).toHaveAttribute('data-playback', '1');
+    expect(request).toHaveBeenCalledTimes(1);
     const panda = screen.getByRole('button', { name: 'Preview red-panda' }).closest('article')!;
     expect(within(panda).getByText('Show this pet')).not.toBeDisabled();
     expect(within(panda).queryByText('Default companion')).not.toBeInTheDocument();

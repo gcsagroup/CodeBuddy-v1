@@ -11,6 +11,7 @@ export default function PetSettings() {
   const [snapshot, setSnapshot] = useState<PetSnapshot | null>(null);
   const [previewId, setPreviewId] = useState<string>();
   const [animation, setAnimation] = useState<PetAnimation>('idle');
+  const [previewPlayback, setPreviewPlayback] = useState(0);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
   useEffect(() => {
@@ -72,7 +73,12 @@ export default function PetSettings() {
       <div className="flex min-h-64 flex-col items-center justify-center rounded-2xl border border-border-subtle bg-background-default p-6">
         {pet && (
           <div style={{ width: 192, height: 208 }}>
-            <PetSprite pet={pet} animation={animation} reducedMotion={preferences.reducedMotion} />
+            <PetSprite
+              pet={pet}
+              animation={animation}
+              reducedMotion={preferences.reducedMotion}
+              playbackKey={previewPlayback}
+            />
           </div>
         )}
         <p className="font-medium">
@@ -102,6 +108,13 @@ export default function PetSettings() {
             ))}
           </select>
         </label>
+        <button
+          className={`${button} mt-2`}
+          disabled={!pet}
+          onClick={() => setPreviewPlayback((value) => value + 1)}
+        >
+          {t('Replay animation', '重播动作', '重播動作')}
+        </button>
       </div>
       <div className="flex flex-wrap items-center gap-5 text-sm">
         <label className="flex items-center gap-2">

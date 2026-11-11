@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync, spawn } from 'node:child_process';
 import { once } from 'node:events';
-import { mkdtemp, mkdir, readFile, rm } from 'node:fs/promises';
+import { mkdtemp, mkdir, readFile, rm, writeFile, link, symlink } from 'node:fs/promises';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
@@ -22,6 +22,7 @@ test('an owner with Modify can use the Windows sandbox without widening other di
   const root = join(base, 'work'), child = join(root, 'existing'), sibling = join(base, 'sibling');
   await mkdir(child, { recursive: true });
   await mkdir(sibling);
+  await writeFile(join(child, 'server.pid'), 'HOST_CREATED');
   const helper = fileURLToPath(new URL('../harness/WorkspaceLabelAccess.cs', import.meta.url));
   function ps(script, directory) {
     return execFileSync('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command', "$ErrorActionPreference='Stop';" + script],
@@ -40,6 +41,9 @@ test('an owner with Modify can use the Windows sandbox without widening other di
   assert.equal(prepare(root), 'False');
   assert.equal(descriptor(root), denied);
   icacls(root, '/remove:d', '*' + sid);
+  assert.equal(prepare(root), 'True');
+  assert.equal(descriptor(child), childBefore, 'the root WRITE_OWNER repair must not edit existing children');
+  assert.equal(descriptor(base), parentBefore);
 
   // Real desktop sessions keep a process cwd on the workspace. This denies DELETE
   // sharing even though the owner can still write files and change the root DACL.
@@ -52,6 +56,9 @@ test('an owner with Modify can use the Windows sandbox without widening other di
     const wrote = await call("Set-Content -LiteralPath 'inside.txt' -Value 'inside'");
     assert.equal(wrote.isError, false, JSON.stringify(wrote));
     assert.equal((await readFile(join(root, 'inside.txt'), 'utf8')).trim(), 'inside');
+    const existing = await call("[IO.File]::WriteAllText((Join-Path $PWD 'existing/server.pid'), 'updated')");
+    assert.equal(existing.value.exitCode, 0, JSON.stringify(existing));
+    assert.equal(await readFile(join(child, 'server.pid'), 'utf8'), 'updated');
     const escape = join(sibling, 'outside.txt');
     await call("Set-Content -LiteralPath '" + escape.replaceAll("'", "''") + "' -Value 'escaped'");
     await assert.rejects(readFile(escape), { code: 'ENOENT' });
@@ -60,8 +67,49 @@ test('an owner with Modify can use the Windows sandbox without widening other di
   assert.equal(prepare(root), 'True');
   assert.equal(descriptor(root), prepared);
   assert.equal(descriptor(base), parentBefore);
-  assert.equal(descriptor(child), childBefore);
+  // Native sandbox capability inheritance is separate from the root repair.
+  // It must not turn an ordinary inheriting directory into a protected DACL.
+  assert.equal(ps('(Get-Acl -LiteralPath $env:CB_DIR).AreAccessRulesProtected', child), 'False');
   assert.match(descriptor(root), new RegExp('\\(A;;WO;;;' + sid + '\\)'));
   assert.ok(!descriptor(child).includes('(A;;WO;;;' + sid + ')'));
   assert.ok(!childBefore.includes('(A;;WO;;;' + sid + ')'));
+});
+
+test('existing-file labels preserve DACLs and skip protected items, junctions and outside hard links', { skip: process.platform !== 'win32' }, async t => {
+  const base = await mkdtemp(join(tmpdir(), 'codebuddy-label-boundary-'));
+  const root = join(base, 'work'), outside = join(base, 'outside');
+  await mkdir(root); await mkdir(outside);
+  const allowed = join(root, 'allowed.txt'), protectedFile = join(root, 'protected.txt');
+  const explicitLabel = join(root, 'medium.txt'), outsideFile = join(outside, 'outside.txt');
+  for (const file of [allowed, protectedFile, explicitLabel, outsideFile]) await writeFile(file, 'original');
+  await link(outsideFile, join(root, 'alias.txt'));
+  const junction = join(root, 'junction');
+  await symlink(outside, junction, 'junction');
+  t.after(async () => {
+    // Remove only the QA junction itself before recursive fixture cleanup.
+    await rm(junction); await rm(base, { recursive: true, force: true });
+  });
+  const helper = fileURLToPath(new URL('../harness/WorkspaceLabelAccess.cs', import.meta.url));
+  const script = `
+    $ErrorActionPreference='Stop'
+    Add-Type -Path $env:CB_HELPER
+    $allowed=Join-Path $env:CB_ROOT 'allowed.txt'
+    $protected=Join-Path $env:CB_ROOT 'protected.txt'
+    $medium=Join-Path $env:CB_ROOT 'medium.txt'
+    $a=Get-Acl -LiteralPath $protected; $a.SetAccessRuleProtection($true,$true); Set-Acl -LiteralPath $protected -AclObject $a
+    & icacls.exe $medium /setintegritylevel M | Out-Null
+    if ($LASTEXITCODE -ne 0) { throw 'Fixture label setup failed' }
+    $before=@{}; foreach($p in @($allowed,$protected,$medium,$env:CB_OUTSIDE)) { $before[$p]=(Get-Acl -LiteralPath $p).Sddl }
+    $count=[WorkspaceLabelAccess]::PrepareExisting($env:CB_ROOT)
+    foreach($p in $before.Keys) { if((Get-Acl -LiteralPath $p).Sddl -ne $before[$p]) { throw "DACL changed: $p" } }
+    $again=[WorkspaceLabelAccess]::PrepareExisting($env:CB_ROOT)
+    [pscustomobject]@{changed=$count;again=$again;allowed=(& icacls.exe $allowed | Out-String);protected=(& icacls.exe $protected | Out-String);outside=(& icacls.exe $env:CB_OUTSIDE | Out-String);medium=(& icacls.exe $medium | Out-String)} | ConvertTo-Json -Compress
+  `;
+  const result = JSON.parse(execFileSync('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command', script], {
+    windowsHide: true, encoding: 'utf8', env: { ...process.env, CB_HELPER: helper, CB_ROOT: root, CB_OUTSIDE: outsideFile,
+      PSModulePath: join(process.env.SystemRoot, 'System32/WindowsPowerShell/v1.0/Modules') },
+  }));
+  assert.equal(result.changed, 1, JSON.stringify(result));
+  assert.equal(result.again, 0);
+  assert.equal(await readFile(outsideFile, 'utf8'), 'original');
 });

@@ -8,6 +8,7 @@ import { fileURLToPath } from 'node:url';
 import { randomUUID } from 'node:crypto';
 import { build } from '../../ui/node_modules/esbuild/lib/main.js';
 import { createCompatServer } from '../server.mjs';
+import { replyToNoActionReview } from '../harness/test/review-fixture.mjs';
 import { zReadResourceResponse_unstable, zGooseToolCallResponse_unstable, zAppsListResponse_unstable } from '../../ui/sdk/src/generated/zod.gen.ts';
 
 const secret = 'mcp-apps-controlled-acp-fixture', ext = name => `_goose/unstable/${name}`;
@@ -47,6 +48,7 @@ test('frozen MCP Apps UI consumers read/call/import/export through ACP and offic
         else { res.writeHead(200, { 'content-type': 'application/json' }).end(JSON.stringify({ jsonrpc: '2.0', id: msg.id, error: { code: -32601, message: 'Fixture uses MCP 2025 protocol' } })); return; }
         res.writeHead(200, { 'content-type': 'application/json' }).end(JSON.stringify({ jsonrpc: '2.0', id: msg.id, result })); return;
       }
+      if (replyToNoActionReview(msg, res)) return;
       if (!msg.stream) { res.writeHead(200, { 'content-type': 'application/json' }).end(JSON.stringify({ choices: [{ message: { role: 'assistant', content: 'OK' } }] })); return; }
       res.writeHead(200, { 'content-type': 'text/event-stream' });
       const chunk = (delta, finish_reason = null) => res.write(`data: ${JSON.stringify({ id: randomUUID(), object: 'chat.completion.chunk', model: msg.model, choices: [{ index: 0, delta, finish_reason }] })}\n\n`);

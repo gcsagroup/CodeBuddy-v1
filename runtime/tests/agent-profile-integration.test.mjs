@@ -1,3 +1,4 @@
+import { replyToNoActionReview } from '../harness/test/review-fixture.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createServer } from 'node:http';
@@ -50,6 +51,7 @@ test('role workspace survives a complete Compat and Harness restart with its ori
     }
     let raw = ''; for await (const chunk of req) raw += chunk;
     const body = JSON.parse(raw);
+    if (replyToNoActionReview(body, res)) return;
     if (answerTitleRequest(body, res)) return;
     requests.push(body);
     res.writeHead(200, { 'content-type': 'text/event-stream' });
@@ -131,6 +133,7 @@ test('the actual server forwards native role queries and restores an adopted cho
     }
     let raw = ''; for await (const chunk of req) raw += chunk;
     const body = JSON.parse(raw);
+    if (replyToNoActionReview(body, res)) return;
     if (answerTitleRequest(body, res)) return;
     requests.push(body);
     await beforeOutput();

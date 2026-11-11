@@ -14,6 +14,24 @@ import { HistoryService } from "../history.mjs";
 import { Compat } from "../compat.mjs";
 
 const created = 1791950400;
+test('live export contains safe model identity and actual per-message and accumulated usage', async () => {
+  const { store, service } = await fixture();
+  await store.update(state => state.sessions.push({ id: 'live-export', title: 'Audit', createdAt: new Date().toISOString(),
+    providerId: 'kimi-provider', modelId: 'kimi-k3', historyConversation: [message('answer', 'assistant', [{ type: 'text', text: 'Done' }])],
+    usageUpdates: [
+      { sessionUpdate: 'message_usage', messageId: 'answer', usage: { inputTokens: 100, outputTokens: 20, totalTokens: 120 } },
+      { sessionUpdate: 'message_usage', messageId: 'next', usage: { inputTokens: 5, outputTokens: 2, totalTokens: 7 } },
+      { sessionUpdate: 'model_diagnostic', usage: { inputTokens: 99999 } },
+    ], apiKey: 'NEVER_EXPORT' }));
+  const output = JSON.parse((await service.request('session/export', { sessionId: 'live-export' })).data);
+  assert.equal(output.provider_name, 'kimi-provider');
+  assert.equal(output.model_config.model_name, 'kimi-k3');
+  assert.deepEqual(output.accumulated_usage, { input_tokens: 105, output_tokens: 22, total_tokens: 127 });
+  assert.equal(output.usage.total_tokens, 7);
+  assert.equal(output.conversation[0].metadata.usage.total_tokens, 120);
+  assert.equal(JSON.stringify(output).includes('NEVER_EXPORT'), false);
+  assert.equal(store.read().sessions[0].historyConversation[0].metadata.usage, undefined, 'export does not mutate history');
+});
 const metadata = { agentVisible: true, userVisible: true };
 const message = (id, role, content, extra = {}) => ({
   id,
@@ -233,7 +251,7 @@ test("current streamed messages and structured tool results round-trip through t
       createdAt: now,
       updatedAt: now,
       updates,
-      providerId: "PRIVATE",
+      providerId: "exported-provider-id",
       enabledExtensions: [{ env: { TOKEN: "PRIVATE" } }],
     }),
   );
@@ -242,6 +260,7 @@ test("current streamed messages and structured tool results round-trip through t
   });
   assert.equal(result.data.includes("PRIVATE"), false);
   const value = JSON.parse(result.data);
+  assert.equal(value.provider_name, 'exported-provider-id');
   assert.equal(value.conversation.length, 3);
   assert.equal(value.conversation[1].content[1].text, "Testing now");
   const imported = await service.request("session/import", {

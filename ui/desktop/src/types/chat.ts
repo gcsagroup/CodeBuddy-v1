@@ -10,6 +10,8 @@ export type RequestBudget = {
 };
 
 export type TokenState = {
+  liveSpeed?: { rate: number | null; estimated: boolean } | null;
+  sessionStats?: { decodeTokens: number; decodeMs: number };
   requestBudget?: RequestBudget;
   contextLimit?: number;
   contextUsageSource?: 'provider_actual' | 'local_estimate' | 'streaming_estimate';

@@ -2076,6 +2076,16 @@ describe('acpChatSessionStore', () => {
     expect(clearedSnapshot.activeRunId).toBeNull();
   });
 
+  it('settles an ordinary detached prompt on the server release without an old RPC response', () => {
+    const id = sessionId('detached-ordinary');
+    acpChatSessionActions.startPromptAttempt(id, 'old-attempt', 'user-1');
+    acpChatSessionActions.applyAcpSessionNotification(activeRunNotification(id, 'native-operation'));
+    const released = acpChatSessionActions.applyAcpSessionNotification(activeRunNotification(id, null));
+    expect(released.activePromptAttemptId).toBeNull();
+    expect(released.activeRunId).toBeNull();
+    expect(released.chatState).toBe(ChatState.Idle);
+  });
+
   it('keeps the active run visible during cancellation until the backend clears it', () => {
     const currentSessionId = sessionId('session-cancelling-run');
     acpChatSessionActions.startPromptAttempt(currentSessionId, 'attempt-1', 'user-1');

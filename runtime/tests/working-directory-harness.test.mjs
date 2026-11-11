@@ -1,3 +1,4 @@
+import { replyToNoActionReview } from '../harness/test/review-fixture.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createServer } from 'node:http';
@@ -16,7 +17,8 @@ async function fixture(t, { outsideTemp = false } = {}) {
   for (const [dir, label] of [[dirA, 'A'], [dirB, 'B'], [dirC, 'C']]) { await mkdir(path.join(dir, '.git'), { recursive: true }); await writeFile(path.join(dir, 'AGENTS.md'), `DIRECTORY_${label}_INSTRUCTIONS: use ${label} project conventions.`); }
   const requests = [], slow = Promise.withResolvers();
   const server = createServer(async (req, res) => {
-    let raw = ''; for await (const part of req) raw += part; const body = JSON.parse(raw); requests.push(body);
+    let raw = ''; for await (const part of req) raw += part; const body = JSON.parse(raw);
+    if (replyToNoActionReview(body, res)) return; requests.push(body);
     res.writeHead(200, { 'content-type': 'text/event-stream' });
     const emit = (delta, finish_reason = null) => res.write(`data: ${JSON.stringify({ id: 'cwd-fixture', object: 'chat.completion.chunk', model: body.model, choices: [{ index: 0, delta, finish_reason }] })}\n\n`);
     const content = JSON.stringify(body.messages);

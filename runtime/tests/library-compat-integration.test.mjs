@@ -1,3 +1,4 @@
+import { replyToNoActionReview } from '../harness/test/review-fixture.mjs';
 import { answerTitleRequest } from './fixtures/title-request.mjs';
 import assert from "node:assert/strict";
 import http from "node:http";
@@ -126,6 +127,7 @@ async function fixture(
     let raw = "";
     for await (const chunk of request) raw += chunk;
     const input = JSON.parse(raw);
+    if (replyToNoActionReview(input, response)) return;
     if (answerTitleRequest(input, response)) return;
     modelRequests.push(input);
     if (input.stream) await onModelRequest?.(input);

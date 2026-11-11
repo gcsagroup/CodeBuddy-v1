@@ -26,7 +26,7 @@ Responses 启用输出上限时最少需要 16 token（[官方约束](https://de
 
 ## 适配接口
 
-摘要本身也消费 adapter 的实际 fit。完整请求经现有中间件和投影准备后，若放不下所请求的摘要输出（默认 4,096 token），LLM 服务在 HTTP 前返回 `COMPACTION_OUTPUT_BUDGET_EXHAUSTED`。原生压缩在同一事务内按工具配对边界几何缩短选区，同步重建输入与 shadow 集合；未摘要的尾段仍为原 surface 事件。有限次本地准备只寻找一个可用区间，不保证最长或穷尽所有区间。最终候选复用已绑定的连接快照与配置并只发一次摘要 HTTP；实际 length 或取消不再触发第二次摘要。找不到可用区间时不提交检查点，保留原失败。普通压力路径的单检查点保护也覆盖缩区后的实际摘要输入。
+摘要本身也消费 adapter 的实际 fit。完整请求经现有中间件和投影准备后，若放不下所请求的摘要输出（默认上限 32,768 token，小上下文窗口自动缩减），LLM 服务在 HTTP 前返回 `COMPACTION_OUTPUT_BUDGET_EXHAUSTED`。原生压缩在同一事务内按工具配对边界几何缩短选区，同步重建输入与 shadow 集合；未摘要的尾段仍为原 surface 事件。有限次本地准备只寻找一个可用区间，不保证最长或穷尽所有区间。最终候选复用已绑定的连接快照与配置并只发一次摘要 HTTP；实际 length 或取消不再触发第二次摘要。找不到可用区间时不提交检查点，保留原失败。普通压力路径的单检查点保护也覆盖缩区后的实际摘要输入。
 
 原生工具图片引用仅由附件存储校验读取，再由适配层生成合法 ACP 展示块。预览读取失败只降级图片展示，工具的真实终态和原回执仍保留；旧记录只在回放投影中修复，不重放工具或改写历史。可选图片 I/O 完成后重新读取当前历史与实时高水位，再同步重置和回放。
 
@@ -38,7 +38,7 @@ Responses 启用输出上限时最少需要 16 token（[官方约束](https://de
 - 自定义连接按模型列表的 `owned_by` 选择预览接口：vLLM 使用 `/v1/chat/completions/render`，SGLang 使用 `/v1/tokenize`，保留 API 基础路径和连接鉴权。预览仅渲染实际聊天模板，不生成回答；只有实际改变模板的档位才显示，等效档位合并，并保留服务默认值。结果复用现有能力缓存，刷新模型列表后重新验证。旧服务缺少预览、调用失败或参数被忽略时不推断强度，模型详情显示“尚未确认可用档位”；不以通用参数枚举或模型名称判断支持情况。依据：[vLLM reasoning controls](https://docs.vllm.ai/en/stable/features/reasoning_outputs/)、[SGLang tokenization](https://github.com/sgl-project/sglang/blob/main/python/sglang/srt/entrypoints/openai/serving_tokenize.py)。
 - maxTurns 限制本次 prompt 主／子 Agent 的官方步骤数；到达后返回 max_turns，历史保留，不标记业务完成。
 - autoCompactThreshold（0 到 1）、autoCompact 使用官方 token-meter／compaction-basic；`compact(sessionId,{signal})` 手动压缩，原事件证据保留。
-- 压缩兼容层为同一路由补齐当前对话的思考档位，避免摘要请求切换聊天模板而失去前缀缓存；显式摘要档位、独立摘要模型或已变更的会话配置不覆盖。摘要保持官方原有指令与所选区间的完整输入，输出预算从 1,024 提升至 4,096 token，容纳思考和完整检查点；不是要求输出更多文字。锁版选区修复保留最新 `source.kind=user` 的原始事件，后续生成的 runtime-context／skill-catalog 不会取代它。遵守原有 tail 预算，在用户事件两侧选择工具配对完整、估价较大的连续区间，优先非单检查点区间；长任务仍能压缩后续工具历史，不复制或重排用户输入。只有旧检查点可选时保留超限恢复和手动压缩能力，普通压力路径仍略过它。后半区摘要可能无法复用完整前缀缓存。截断拒绝、取消及检查点事务仍归官方引擎；摘要本身不是任意任务无损的保证。升级 Harness 后复查此兼容层。
+- 压缩兼容层为同一路由补齐当前对话的思考档位，避免摘要请求切换聊天模板而失去前缀缓存；显式摘要档位、独立摘要模型或已变更的会话配置不覆盖。摘要保持官方原有指令与所选区间的完整输入，摘要输出预算默认上限为 32,768 token，额外预留空间保持 1,024 token，容纳思考和完整检查点；不是要求输出更多文字。锁版选区修复保留最新 `source.kind=user` 的原始事件，后续生成的 runtime-context／skill-catalog 不会取代它。遵守原有 tail 预算，在用户事件两侧选择工具配对完整、估价较大的连续区间，优先非单检查点区间；长任务仍能压缩后续工具历史，不复制或重排用户输入。只有旧检查点可选时保留超限恢复和手动压缩能力，普通压力路径仍略过它。后半区摘要可能无法复用完整前缀缓存。截断拒绝、取消及检查点事务仍归官方引擎；摘要本身不是任意任务无损的保证。升级 Harness 后复查此兼容层。
 - tools 为 `[{name,description,inputSchema,execute}]`。execute 接收 `(args,{sessionId,signal,callId})` 并返回 JSON 对象，仍经官方 registry、校验和审批。
 - mcpServers 使用官方 stdio／streamable-http 配置；工具名为 mcp__server__tool。独立服务并行连接，保留各项 ready／error 状态及配置顺序；失败连接释放，其他能力仍可用，重配重试。`extensionStatus(sessionId)` 返回状态；`testExtension(server)` 临时连接、发现、释放，失败直接报错。连接、工具发现、同步调用及每次 Tasks 请求默认 300 秒，显式 `toolCallTimeoutMs` 优先。扩展设置的 `timeout` 以秒计，测试和正式会话共用转换；保存后由既有会话重配置机制应用。版本协商可能有多个请求，因此该值不是全部服务的总启动期限。
 - 首次连接／重连从协议能力与工具定义探测异步：2025 Tasks 同时要求服务端 `tasks.requests.tools.call` 和工具 `execution.taskSupport` 为 optional／required；2026 Tasks 使用 `io.modelcontextprotocol/tasks` 扩展，由服务端决定是否返回任务。未声明支持的工具走同步，不猜工具名、不执行探测业务动作。`mcp-tasks.mjs` 在适配层轮询并将最终 MCP 回执交回 Harness，已受理的调用不重放；300 秒限制单次请求，不限制异步任务总时长，用户仍可取消。取消回执不证明远端已停止。当前不支持 Tasks 内的交互输入或进程重启后的自动恢复。SDK 2.2.0 尚无 Tasks 运行时，新版扩展使用锁定版本的内部 codec 兼容适配，升级依赖时须重新验证并优先移除该适配。设计参考：[MCP Tasks](https://tasks.extensions.modelcontextprotocol.io/)。

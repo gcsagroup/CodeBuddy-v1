@@ -1,10 +1,12 @@
 import { FileText, ListChecks, Monitor, Pencil, Search, Terminal, Wrench } from 'lucide-react';
 import AnimatedIcons from './AnimatedIcons';
+import ThinkingIcon from './ThinkingIcon';
 import type { ToolCallStatus } from './ToolCallStatusIndicator';
 import { cn } from '../utils';
 
 /** Presentation shared by activity events and tool request/receipt rows. */
 export function ToolActivityIcon({ name, status }: { name: string; status: ToolCallStatus }) {
+  if (name === 'thinking') return <ThinkingIcon active={status === 'loading'} />;
   if (status === 'loading') {
     return <AnimatedIcons className="shrink-0" cycleInterval={300} />;
   }

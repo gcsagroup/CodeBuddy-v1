@@ -1,3 +1,4 @@
+import { replyToNoActionReview } from '../harness/test/review-fixture.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createServer } from 'node:http';
@@ -30,6 +31,7 @@ async function fixture(t) {
   const server = createServer(async (req, res) => {
     let raw = ''; for await (const chunk of req) raw += chunk;
     const body = JSON.parse(raw);
+    if (replyToNoActionReview(body, res)) return;
     const index = body.messages.findLastIndex(message => message.role === 'user' && [...plans.keys()].some(key => text(message).includes(key)));
     const key = [...plans.keys()].find(candidate => text(body.messages[index] ?? { content: '' }).includes(candidate));
     const done = body.messages.slice(index + 1).filter(message => message.role === 'tool').length;

@@ -1,3 +1,4 @@
+import { replyToNoActionReview } from './review-fixture.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createServer } from 'node:http';
@@ -17,6 +18,7 @@ test('native templates preserve chat-local histories, roles and resolved models 
     if (req.method !== 'POST') { res.writeHead(405).end(); return; }
     let raw = ''; for await (const part of req) raw += part;
     const body = JSON.parse(raw);
+    if (replyToNoActionReview(body, res)) return;
     if (req.url === '/mcp') {
       if (!('id' in body)) { res.writeHead(202).end(); return; }
       const result = body.method === 'initialize'

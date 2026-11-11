@@ -43,6 +43,11 @@ $bitmap.Save($OutputPath, [System.Drawing.Imaging.ImageFormat]::Png)
 $graphics.Dispose(); $bitmap.Dispose()
 `);
   let script = fs.readFileSync(path.join(__dirname, 'installer/codebuddy.iss'), 'utf8');
+  // The fixture has its own AppId and target. Match its executable so the
+  // user's running app does not block (or interfere with) this isolated test.
+  const guard = path.join(root, 'fixture-process-guard.iss');
+  fs.writeFileSync(guard, fs.readFileSync(path.join(__dirname, 'installer/process-guard.iss'), 'utf8')
+    .replaceAll('CodeBuddy.exe', fixtureAppId + '.exe'));
   script = script.replace('AppId={{57246561-8F37-48B1-9DE6-2878918A3EBA}', `AppId=${fixtureAppId}`)
     .replace('UsePreviousAppDir=yes', 'UsePreviousAppDir=yes\nCreateUninstallRegKey=no')
     .replace('Uninstallable=yes', 'Uninstallable=no')
@@ -52,7 +57,7 @@ $graphics.Dispose(); $bitmap.Dispose()
     .replace('procedure InitializeWizard;', 'procedure VerifyLayout; forward;\nprocedure InitializeWizard;')
     .replace('  InitializeInstallerUI;', "  InitializeInstallerUI; VerifyLayout;")
     .replaceAll('BeforeInstall: ShowInstallingFile', 'BeforeInstall: CaptureInstallingComponent')
-    .replace(/#include "([^"]+)"/g, (_, file) => `#include "${path.join(__dirname, 'installer', file)}"`);
+    .replace(/#include "([^"]+)"/g, (_, file) => `#include "${file === 'process-guard.iss' ? guard : path.join(__dirname, 'installer', file)}"`);
   script = `#define AppSource "${path.join(root, 'payload')}"\n#define AppVersion "1.0"\n#define OutputDir "${root}"\n#define ProductIcon "${path.join(repo, 'ui/desktop/src/images/icon.ico')}"\n#define ProductImage "${path.join(repo, 'ui/desktop/src/images/icon-512.png')}"\n#define MaxRelativePath 100\n#define StorageLocator "${path.join(root, 'bootstrap/data-root.txt')}"\n` + script;
   script += `
 procedure RequireUI(Condition: Boolean; const Message: String);

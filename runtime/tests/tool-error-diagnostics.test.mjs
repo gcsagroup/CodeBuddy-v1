@@ -29,6 +29,9 @@ test('native tool errors retain bounded safe transport causes without serializin
       }
       await fetch(`http://127.0.0.1:${port}`, { signal: AbortSignal.timeout(3000) });
     },
+  }, {
+    name: 'cancel_reason_probe', inputSchema: { type: 'object', properties: {} },
+    async execute() { throw { kind: 'user', private: 'DO_NOT_LOG_TOKEN' }; },
   }] } });
   const call = aggregate => driver.callTool(session.sessionId, 'network_probe', { aggregate }, { onToolPolicy: () => ({ kind: 'allow' }) });
   const refused = await call(false);
@@ -38,4 +41,9 @@ test('native tool errors retain bounded safe transport causes without serializin
   const tls = await call(true);
   assert.deepEqual(tls.error.info.causes, [{ code: 'CERT_HAS_EXPIRED' }]);
   assert.doesNotMatch(JSON.stringify(tls), /DO_NOT_LOG|private-host/);
+  const cancelled = await driver.callTool(session.sessionId, 'cancel_reason_probe', {}, { onToolPolicy: () => ({ kind: 'allow' }) });
+  assert.equal(cancelled.isError, true);
+  assert.deepEqual(cancelled.error.info.cancellation, { kind: 'user' });
+  assert.match(JSON.stringify(cancelled.content), /任务已取消.*停止请求/);
+  assert.doesNotMatch(JSON.stringify(cancelled), /\[object Object\]|DO_NOT_LOG/);
 });

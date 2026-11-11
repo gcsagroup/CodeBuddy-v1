@@ -1,3 +1,4 @@
+import { replyToNoActionReview } from './review-fixture.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createServer } from 'node:http';
@@ -14,6 +15,7 @@ test('native retry owns recovery, exhaustion, cancellation and later turns for e
   const server = createServer(async (req, res) => {
     let raw = ''; for await (const chunk of req) raw += chunk;
     const request = JSON.parse(raw);
+    if (replyToNoActionReview(request, res)) return;
     const prompt = JSON.stringify(request.messages.findLast(message => message.role === 'user' && JSON.stringify(message.content).includes('empty_fixture_'))?.content);
     const marker = /empty_fixture_(recover|exhaust|cancel|length|normal|parent|child)/.exec(prompt)?.[1];
     assert.ok(marker);

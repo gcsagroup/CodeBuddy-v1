@@ -10,13 +10,14 @@
 .conversation-title[data-overflow='true'] {
   mask-image: linear-gradient(to right, #000 calc(100% - 24px), transparent);
 }
+[data-session-row]:hover .conversation-title[data-overflow='true'] .conversation-title-text,
 button:hover .conversation-title[data-overflow='true'] .conversation-title-text,
 button:focus-visible .conversation-title[data-overflow='true'] .conversation-title-text {
-  animation: conversation-title-reveal var(--title-duration) linear 600ms infinite alternate;
+  animation: conversation-title-reveal var(--title-duration) linear 0s infinite alternate;
 }
 @keyframes conversation-title-reveal {
-  0%, 15% { transform: translateX(0); }
-  85%, 100% { transform: translateX(var(--title-travel)); }
+  from { transform: translateX(0); }
+  to { transform: translateX(var(--title-travel)); }
 }
 @media (prefers-reduced-motion: reduce) {
   .conversation-title-text { animation: none !important; }

@@ -1,3 +1,4 @@
+import { replyToNoActionReview } from '../harness/test/review-fixture.mjs';
 import { answerTitleRequest } from './fixtures/title-request.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -74,6 +75,7 @@ async function modelFixture(cwd, completedChildren) {
       if (req.url.endsWith('/models')) { res.setHeader('content-type', 'application/json'); res.end(JSON.stringify({ data: models.map(id => ({ id })) })); return; }
       let raw = ''; for await (const chunk of req) raw += chunk;
       const request = JSON.parse(raw);
+    if (replyToNoActionReview(request, res)) return;
       if (req.url.endsWith('/api/show')) { res.setHeader('content-type', 'application/json'); res.end(JSON.stringify({capabilities:['completion','thinking','tools'],thinking:{values:['low','medium','high'],default:'medium'}})); return; }
     if (answerTitleRequest(request, res)) return;
       requests.push(request);

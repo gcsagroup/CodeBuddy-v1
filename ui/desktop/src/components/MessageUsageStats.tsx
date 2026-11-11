@@ -10,6 +10,7 @@ import {
   formatTokenCount,
   formatTokensPerSecond,
   tokensPerSecond,
+  cacheHitReading,
 } from '../utils/usageFormatting';
 
 const i18n = defineMessages({
@@ -153,14 +154,7 @@ export default function MessageUsageStats({
     hasValue(cacheWriteTokens);
   const hasTimingSection = hasValue(timeToFirstTokenMs) || hasValue(elapsedMs) || tps !== null;
   const hasCostSection = hasValue(cost);
-  const cacheHitPercent =
-    hasValue(cacheReadTokens) &&
-    hasValue(inputTokens) &&
-    inputTokens > 0 &&
-    cacheReadTokens >= 0 &&
-    cacheReadTokens <= inputTokens
-      ? Math.round((cacheReadTokens / inputTokens) * 100)
-      : undefined;
+  const cacheHitPercent = cacheHitReading(usage)?.percent;
 
   const section = 'space-y-1';
 

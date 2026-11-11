@@ -1,6 +1,36 @@
+## 2026-11-10 已批准：界面连接与任务生命周期分离
+
+Harness 继续唯一持有执行、取消及结束事实；WebSocket 关闭仅移除显示客户端并拒绝该连接的待答 RPC，不再取消已接纳任务。Compat 为活动请求提供会话级投递连接，session/load 完成原生回放后绑定新客户端并投影当前 activeRunId；前端恢复连接后加载原会话，不重发用户请求。原生日志负责持久化，连接适配器不另建执行器或持久运行状态。仅权限、问题及配方参数可在同一原生请求与截止时间内重新呈现；浏览器及桌面操作不自动重放。显式停止及服务关闭沿用原生取消。后端进程退出后的自动续跑不在本次范围；旧会话无需迁移。工具错误序列化仅展示有界的原生取消种类，不重判取消来源或结果。详见 `docs/session-reconnect.zh-CN.md`。
+
+繁體：Harness 持有任務生命週期；斷線僅解除客戶端，重連載入原會話與真實執行狀態。人類決策沿用原請求與期限，不重播桌面操作。English: Harness owns task lifecycle. Disconnect detaches delivery only; reconnect reloads the same native session and live run. Human decisions retain native scope/deadlines; side-effecting desktop operations are never replayed by transport.
+
+## 2026-11-10 已批准：会话异步删除
+
+Store 唯一持有小型持久化删除标记及读取屏蔽；Compat 在既有会话锁和原生活动校验通过后提交标记，ACP 成功表示逻辑删除已生效。资源释放、关联调度停用、失败 transcript 日志清理与完整快照整理在后台执行，失败保留标记并重试，启动恢复。完整状态持久化及清理完成后才移除标记。前端消费受理结果，不自行裁决删除成功、不等待资源回收；项目文件保留。旧 profile 无需迁移；降级前需排空标记，边界见 `docs/async-session-delete.zh-CN.md`。
+
+繁體：Store 持有持久刪除事實，Compat 保留活動任務檢查與背景回收；前端受理後關閉確認框，不刪工作區檔案。English: Store owns durable deletion visibility; Compat retains active-work admission and resumable cleanup. UI consumes committed logical deletion, preserving workspace files.
+
+## 2026-11-10 已批准：移除交付复核与独立验收
+
+用户要求移除两套完成检查。结束前不再请求当前或独立模型评分，也不再接纳外部验收脚本配置。旧 `CODEBUDDY_COMPLETION_REVIEW` 配置和旧消息验收元数据不再参与运行，不清除用户历史或凭据。Harness 原生执行、结束、重试、取消与压缩仍为 owner；保留命令真实回执、非零退出提示、权限与沙箱、模型协议与空响应校验。模型自行调用项目测试的能力不变；删除会话仍检查活动任务。
+
+繁體：移除交付複核與獨立驗收入口及執行；原生 Harness、權限、工具錯誤與空回應校驗保留，舊設定不再生效，不刪歷史。English: Completion review and executable acceptance gates are removed. Harness retains execution and terminal authority; permissions, tool outcomes and empty-response validation remain. Legacy gate settings are inert; history is preserved.
+
+## 2026-11-10 已授权：本轮运行提示与模型选择入口
+
+用户要求按实际运行表现提示模型/服务适配问题。`commandEvidence` 保持进程失败事实 owner；driver 只透传显示元数据。`work-status` 在现有单轮闭包内投影请求计时、连续工具失败和响应重试，通过既有 `execution_activity` 发布可选字段；桌面 store 校验轮次，`useWorkStatus/RunAdviceCard` 只负责显示。提示不持有完成、授权、取消或模型评级权威，不追加模型调用，不迁移持久化状态。用户点击后由原有取消控制器停止，空闲后打开现有模型选择器，不自动重发。旧字段缺失则降级为原有状态显示。设计与参考见 `docs/run-advice.zh-CN.md`。
+
+繁體：本輪計時與失敗次數僅作顯示，完成與取消仍由原生 owner 決定；使用者停止後才開啟模型選擇，不自動重送。English: Per-run observations are advisory only; native owners retain execution and terminal authority. Explicit user cancellation precedes the existing model picker, with no automatic replay or persistence migration.
+
 ## 2026-11-09 已批准：Windows 工作区标签权限修复
 
-`runtime/harness/windows-sandbox.mjs` 在官方 `LocalSandboxProvider` 返回 `SetNamedSecurityInfoW / 5` 时，调用 `WorkspaceLabelAccess.cs` 核对目录句柄、当前账户所有权及现有写入权限。仅对符合条件的工作区根目录，给当前账户添加不继承的 `WRITE_OWNER`，随后由官方 Provider 再次建立受限执行。父目录、子目录、其他所有者目录、重解析点、卷根与显式拒绝均不扩大权限。原生句柄与账户级互斥负责对象身份和并发检查。模型和前端不决定该修复的授权范围。
+本轮追加授权：受限执行前，为当前账户拥有且可写的工作区已有文件和目录补齐缺失的低完整性标签。`WorkspaceLabelAccess` 逐层固定原生句柄，不跟随重解析点，跳过硬链接、其他所有者、受保护 DACL、相关显式拒绝及已有完整性标签；不处理父目录或工作区外对象。必要的临时 `WRITE_OWNER` 仅用于当前对象标签写入，随后恢复原 DACL（包括继承状态），不永久授予完全控制。标签不带继承位，避免波及被跳过的子项。每次命令前重新检查，以覆盖宿主文件工具后来创建的文件；失败不切换到无沙箱运行。原生沙箱仍持有能力 SID 和执行权限。
+
+繁體：追加授權僅補齊目前帳戶擁有且可寫之工作區既有項目的低完整性標籤；跳過連結、其他擁有者及受保護項目。原生句柄固定範圍，臨時標籤權限用後恢復原 DACL，不擴大至父目錄或工作區外。標籤可能使 Office 採用受保護檢視。
+
+English: Additional authorization covers missing low-integrity labels on writable, current-user-owned existing workspace entries only. Pinned native handles exclude reparse points, hard links, foreign owners and protected policy. Temporary label access restores the original DACL and inheritance state; no permanent full-control grant or out-of-workspace mutation is allowed. Each command rechecks host-created files. Label changes can cause Office Protected View.
+
+根目录原有修复保持不变：`runtime/harness/windows-sandbox.mjs` 在官方 `LocalSandboxProvider` 返回 `SetNamedSecurityInfoW / 5` 时，调用 `WorkspaceLabelAccess.cs` 核对目录句柄、当前账户所有权及现有写入权限。仅对符合条件的工作区根目录，给当前账户添加不继承的 `WRITE_OWNER`，随后由官方 Provider 再次建立受限执行。父目录、其他所有者目录、重解析点、卷根与相关显式拒绝均不扩大权限。原生句柄与账户级互斥负责对象身份和并发检查。模型和前端不决定该修复的授权范围。
 
 繁體：已獲使用者授權，僅為目前帳戶擁有且可寫的工作區根目錄補上不繼承的 `WRITE_OWNER`；官方 Provider 繼續持有受限執行。目錄身分、所有權及有效權限由原生句柄核對。
 

@@ -8,7 +8,7 @@ import {
   cancelAcpPermissionRequestsForSession,
 } from '../acp/permissionRequests';
 import { collectMediaJobs, mediaJobObservation } from './mediaJobPresentation';
-import { MediaTaskRows } from './MediaTaskRows';
+import { MediaTaskRows, MediaTaskCards } from './MediaTaskRows';
 import ProgressiveMessageList from './ProgressiveMessageList';
 
 const { extMethod, verifiedFiles } = vi.hoisted(() => ({
@@ -121,6 +121,29 @@ const named = (
 ) => response(id, jobId, status, { display_name: name, ...extra });
 
 describe('media task presentation', () => {
+  it('groups ten completed jobs into one gallery while retaining each independent receipt', () => {
+    const trace = Array.from({ length: 10 }, (_, index) => {
+      const id = `11111111-2222-4333-8444-${String(index + 1).padStart(12, '0')}`;
+      return [
+        request('many-' + index),
+        named('many-' + index, id, 'completed', `Image ${index + 1}`, {
+          images: [{ path: `generated-images/${id}/1.png` }],
+        }),
+      ];
+    }).flat();
+    const jobs = [...new Set(collectMediaJobs(trace).values())];
+    const original = JSON.stringify(jobs);
+    const view = render(<MediaTaskCards jobs={jobs} sessionId={sessionId} />, {
+      wrapper: IntlTestWrapper,
+    });
+    expect(view.container.querySelectorAll('[data-media-card-id]')).toHaveLength(1);
+    expect(view.container.querySelectorAll('.media-output')).toHaveLength(1);
+    fireEvent.click(screen.getByRole('button', { name: '10: Image 10 / 1.png' }));
+    expect(screen.getByRole('img', { name: 'Image 10 / 1.png' })).toBeVisible();
+    expect(screen.getByRole('status')).toHaveTextContent('10 / 10');
+    expect(JSON.stringify(jobs)).toBe(original);
+  });
+
   it('uses one collapsed process entry for eight distinct failures without assuming a batch or merging their receipts', () => {
     const ids = Array.from(
       { length: 8 },
@@ -290,12 +313,18 @@ describe('media task presentation', () => {
       fireEvent.click(
         within(row as HTMLElement).getByRole('button', { name: 'Generate 产品海报 Completed' })
       );
-    expect(screen.getAllByRole('img').map((image) => image.getAttribute('alt'))).toEqual([
-      '产品海报 / 1.png',
-      '产品海报 / 1.png',
-    ]);
-    expect(new Set(screen.getAllByRole('img').map((image) => image.getAttribute('src'))).size).toBe(
-      2
+    const first = screen.getByRole('img', { name: '产品海报 / 1.png' }).getAttribute('src');
+    expect(screen.getByRole('button', { name: '1: 产品海报 / 1.png' })).toHaveAttribute(
+      'aria-pressed',
+      'true'
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Next media' }));
+    expect(screen.getByRole('img', { name: '产品海报 / 1.png' }).getAttribute('src')).not.toBe(
+      first
+    );
+    expect(screen.getByRole('button', { name: '2: 产品海报 / 1.png' })).toHaveAttribute(
+      'aria-pressed',
+      'true'
     );
   });
 

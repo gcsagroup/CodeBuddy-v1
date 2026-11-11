@@ -1,3 +1,4 @@
+import { replyToNoActionReview } from './review-fixture.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import http from 'node:http';
@@ -40,6 +41,7 @@ test('first request exposes the desktop skill; loading it preserves deferred too
     if (req.method !== 'POST') { res.writeHead(405).end(); return; }
     let raw = ''; for await (const chunk of req) raw += chunk;
     const message = JSON.parse(raw);
+    if (replyToNoActionReview(message, res)) return;
     if (req.url === '/mcp') {
       if (!('id' in message)) { res.writeHead(202).end(); return; }
       let result = {};

@@ -1,3 +1,4 @@
+import { replyToNoActionReview } from '../harness/test/review-fixture.mjs';
 import { savedFixtureResponse } from './comfyui-catalog-fixture.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -66,6 +67,7 @@ async function fixture(t, kind = 'image', modern = false) {
     let raw = '';
     for await (const chunk of req) raw += chunk;
     const body = JSON.parse(raw);
+    if (replyToNoActionReview(body, res)) return;
     if (!answerSelection(body, res)) modelResponse(body, res, { role: 'assistant', content: 'Ready.' }, 'stop');
   });
   await new Promise(resolve => model.listen(0, '127.0.0.1', resolve));
@@ -249,6 +251,7 @@ for (const modern of [false, true]) test(kind + ' real ACP ' + (modern ? 'busine
       if (req.url.startsWith('/ws')) { res.writeHead(404).end(); return; }
       let raw = ''; for await (const chunk of req) raw += chunk;
       const body = JSON.parse(raw);
+    if (replyToNoActionReview(body, res)) return;
       if (req.url === '/prompt') { submissions.push(body); return json({ prompt_id: body.prompt_id }); }
       if (!body.stream) return json({ choices: [{ message: { content: 'OK' } }] });
       if (answerSelection(body, res)) return;

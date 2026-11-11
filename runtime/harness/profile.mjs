@@ -24,6 +24,7 @@ export function profileEntries(dataDir, cwd, instructionsHome = dataDir, sharedS
     entry('session', 'dsh-session'),
     entry('agent', 'dsh-agent'),
     entry('session-projection', 'dsh-session-projection'),
+    entry('session-stats', 'dsh-session-stats'),
     entry('goal', 'dsh-goal'),
     entry('goal-round-driver', 'dsh-goal-round-driver'),
     entry('token-meter', 'dsh-token-meter'),
@@ -86,7 +87,9 @@ export function profileEntries(dataDir, cwd, instructionsHome = dataDir, sharedS
     entry('tool-fs-search', 'dsh-tool-fs-search', { sampleOverCapGlobResults: false }),
     entry('subprocess', 'dsh-subprocess-local'),
     entry('shell-env', 'dsh-shell-env'),
-    entry('shell', process.platform === 'win32' ? 'dsh-pwsh-sandbox' : 'dsh-bash-sandbox'),
+    process.platform === 'win32'
+      ? { id: 'shell', name: new URL('./pwsh-executor.mjs', import.meta.url).href }
+      : entry('shell', 'dsh-bash-sandbox'),
     entry('approval', 'dsh-user-approval', { policy: 'ask' }),
     entry('permissions', 'dsh-permission-presets', { presets: {
       'read-only': { sandbox: 'read-only', approval: 'ask' },

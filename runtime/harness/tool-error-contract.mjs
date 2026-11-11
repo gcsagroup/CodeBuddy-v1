@@ -37,9 +37,21 @@ if (createHash('sha256').update(source).digest('hex') !== hash)
   throw new Error('Review the pinned native tool error diagnostic contract.');
 const previous = 'const info = errorInfo(error);\n\tconst message = errorMessage(error);';
 if (source.split(previous).length !== 2) throw new Error('Native tool error diagnostic seam changed.');
+// Native cancellation throws a structured reason rather than an Error. Render
+// its bounded discriminant, never arbitrary object fields or a private cause.
+function cancellationDiagnostic(error) {
+  try {
+  if (!error || typeof error !== 'object') return;
+  if (error.kind === 'user') return { kind: 'user', message: '任务已取消：收到停止请求。' };
+  if (error.kind === 'hook') return { kind: 'hook', message: '任务已取消：运行控制钩子结束了本次操作。' };
+  if (error.name === 'AbortError') return { kind: 'abort', message: '操作已中止（AbortError）。' };
+  if (error.name === 'TimeoutError') return { kind: 'timeout', message: '操作等待超时（TimeoutError）。' };
+  } catch { /* Diagnostic getters must not replace the original failure. */ }
+}
 const replacement = source.replace(previous, `const causes = (${safeToolCauses.toString()})(error);
-\tconst info = causes.length ? { ...errorInfo(error), causes } : errorInfo(error);
-\tconst message = errorMessage(error) + (causes.length ? ' [transport: ' + causes.map(item => item.code).join(', ') + ']' : '');`);
+\tconst cancellation = (${cancellationDiagnostic.toString()})(error);
+\tconst info = causes.length || cancellation ? { ...errorInfo(error), ...(causes.length ? { causes } : {}), ...(cancellation ? { cancellation: { kind: cancellation.kind } } : {}) } : errorInfo(error);
+\tconst message = (cancellation?.message ?? errorMessage(error)) + (causes.length ? ' [transport: ' + causes.map(item => item.code).join(', ') + ']' : '');`);
 let applied = false;
 const hook = registerHooks({ load(loadedUrl, context, next) {
   const result = next(loadedUrl, context);

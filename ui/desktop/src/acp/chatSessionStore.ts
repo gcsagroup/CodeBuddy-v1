@@ -41,6 +41,9 @@ export interface PromptActivity {
     phase: 'model' | 'children' | 'child_result' | 'tool_result';
     childCount: number;
     modelRequestPhase?: 'preparing' | 'connecting' | 'waiting' | 'receiving';
+    modelRequestStartedAt?: number;
+    responseRetries?: number;
+    consecutiveToolFailures?: number;
     detail?: string;
     toolInput?: ToolInputPreview;
   };
@@ -838,6 +841,12 @@ function createAcpChatSessionStoreInternal(): AcpChatSessionStoreInternal {
               phase: activity.phase as NonNullable<PromptActivity['execution']>['phase'],
               childCount: Number(activity.child_count),
               toolInput,
+              ...(typeof activity.model_request_started_at === 'number' && Number.isFinite(activity.model_request_started_at) && activity.model_request_started_at >= 0
+                ? { modelRequestStartedAt: activity.model_request_started_at } : {}),
+              ...(Number.isSafeInteger(activity.response_retries) && Number(activity.response_retries) >= 0 && Number(activity.response_retries) <= 10_000
+                ? { responseRetries: Number(activity.response_retries) } : {}),
+              ...(Number.isSafeInteger(activity.consecutive_tool_failures) && Number(activity.consecutive_tool_failures) >= 0 && Number(activity.consecutive_tool_failures) <= 10_000
+                ? { consecutiveToolFailures: Number(activity.consecutive_tool_failures) } : {}),
               ...(typeof status.message === 'string' && status.message.trim()
                 ? {
                     detail: status.message,
@@ -1092,6 +1101,8 @@ function applyChatStateChanges(entry: StoreEntry, changes: AcpChatStateChange[])
         }
         if (change.activeRunId !== undefined) {
           const cancellation = entry.promptCancellationRestoreState;
+          const detachedRelease = change.activeRunId === null && !entry.promptRequestId && !cancellation &&
+            (entry.activeRunId !== null || entry.sessionReplayActive);
           if (
             cancellation &&
             change.activeRunId !== null &&
@@ -1105,6 +1116,15 @@ function applyChatStateChanges(entry: StoreEntry, changes: AcpChatStateChange[])
           )
             cancellation.nativeReleaseReceived = true;
           entry.activeRunId = change.activeRunId;
+          if (detachedRelease) {
+            entry.activePromptAttemptId = null;
+            entry.activePromptSourceUserMessageId = null;
+            entry.liveToolCallIds.clear();
+            entry.liveAgentToolCallIds.clear();
+            entry.thinkingActivity = undefined;
+            entry.progressMessage = undefined;
+            if (entry.chatState !== ChatState.LoadingConversation) entry.chatState = ChatState.Idle;
+          }
           if (change.activeRunId !== null) {
             entry.sealedRunIds.delete(change.activeRunId);
             entry.sealedIdleBoundaryActive = false;

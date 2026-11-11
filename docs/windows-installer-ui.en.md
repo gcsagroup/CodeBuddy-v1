@@ -1,10 +1,10 @@
 # Windows installer UI
 
-The location page defaults to `%LOCALAPPDATA%\Programs\CodeBuddy`, normally under the current user's C: directory, instead of recalling a previous installation location such as D:. Users can still enter or browse to another directory. This setting does not migrate existing installations or user data.
+Fresh installations use `%LOCALAPPDATA%\Programs\CodeBuddy`. Upgrades reuse the registered Inno installation directory. Interactive and silent setup check directory access before copying files. If access is denied, choose the default location or contact an administrator.
 
 The installer uses Inno's native light appearance: white content, a light gray footer, consistent typography, content boundaries and button spacing. Browse matches the path field height. The current operation and component appear directly above the progress bar, without a disclosure link or log panel. The finish page places the CodeBuddy mark on the left and instructions and options on the right.
 
-Desktop and Start menu shortcuts and launch-on-finish choices retain their existing behavior. Uninstallation preserves user data and projects. Details show component summaries; internal dependency paths remain in diagnostic logs.
+Uninstall keeps personal data by default. Choose to clear only chat history or to clear all managed personal data. Both choices require confirmation. Clearing chats keeps model settings, projects, diagnostic logs and separately exported copies. Silent uninstall always keeps personal data.
 
 The uninstall page also shows the current operation and component above progress, without a disclosure button or log panel. Summaries follow indexed files actually disappearing; Inno remains responsible for deletion. The product image is loaded before removal. The index is observational only and out-of-root entries are ignored. Run `node --test scripts/uninstall-details.test.cjs` for isolated visible and silent uninstall tests covering real component updates, retained application data and uninstalled project files, with native window screenshots.
 

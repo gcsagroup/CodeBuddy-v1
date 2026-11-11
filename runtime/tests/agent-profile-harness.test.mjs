@@ -1,3 +1,4 @@
+import { replyToNoActionReview } from '../harness/test/review-fixture.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdtemp, mkdir, writeFile, rm } from 'node:fs/promises';
@@ -41,7 +42,8 @@ test('actual main identity stays out of child requests while shared policy and c
   const childSeen = Promise.withResolvers();
   const server = createServer(async (req, res) => {
     let raw = ''; for await (const chunk of req) raw += chunk;
-    const body = JSON.parse(raw); requests.push(body);
+    const body = JSON.parse(raw);
+    if (replyToNoActionReview(body, res)) return; requests.push(body);
     const child = body.messages.some(m => m.role === 'user' && JSON.stringify(m.content).includes('CHILD_ROLE_PROBE'));
     let call;
     if (!child && mainStep++ === 0) call = { name: 'search_mcp_tools', arguments: JSON.stringify({ names: ['subagent'] }) };

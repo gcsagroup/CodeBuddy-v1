@@ -1,3 +1,4 @@
+import { replyToNoActionReview } from '../harness/test/review-fixture.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createServer } from 'node:http';
@@ -32,6 +33,7 @@ test('real ACP CodePro edit cancels the old run, keeps file effects and logs, an
     try {
       let raw = ''; for await (const chunk of req) raw += chunk;
       const request = JSON.parse(raw);
+    if (replyToNoActionReview(request, res)) return;
       if (request.stream !== true) { res.writeHead(200, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ id: 'fixture-test', object: 'chat.completion', choices: [{ index: 0, message: { role: 'assistant', content: 'OK' }, finish_reason: 'stop' }] })); return; }
       if (request.messages.some(message => message.role === 'system' && JSON.stringify(message.content).includes('Summarize the supplied first conversation turn'))) {
         titleRequests.push(request);

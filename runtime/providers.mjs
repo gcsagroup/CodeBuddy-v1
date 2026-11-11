@@ -1,6 +1,7 @@
 import { randomUUID, createHash } from "node:crypto";
 import { protectSecret, revealSecret } from "./secrets.mjs";
 import { DEFAULT_CONTEXT_WINDOW } from "./model-defaults.mjs";
+import { REASONING_BUDGETS, advertisesThinkingBudget } from './reasoning-budget.mjs';
 import { catalogModels, catalogThinkingProfile, catalogProviderForEndpoint, catalogModelIds, DEFAULT_OUTPUT_TOKENS } from './harness/model-catalog.mjs';
 
 const RESPONSE_LIMIT = 2 * 1024 * 1024;
@@ -412,6 +413,14 @@ async function resolveContext(provider, model, authPending, retryAfterRefresh = 
           const auth = await (authPending ?? credentials(provider, provider));
           cached.thinking ??= {};
           cached.thinking[model] = await templateThinkingProfile(provider, model, auth.requestHeaders, cached.templateBackends[model]);
+          if (cached.templateBackends[model] === 'vllm') {
+            // One advisory schema read per cached connection inventory, never
+            // per slider event, model token, or agent step. Unknown support
+            // leaves the existing request dialect untouched.
+            cached.budgetSupport ??= requestJson(new URL(endpoints(provider).completion.pathname.replace(/(?:\/v1)?\/chat\/completions$/, '/openapi.json'), provider.apiUrl),
+              { headers: auth.requestHeaders, timeoutMs: 2000 }).then(advertisesThinkingBudget, () => false);
+            cached.thinkingBudgetField = await cached.budgetSupport ? 'thinking_token_budget' : undefined;
+          }
         }
         // Cloud uses its full window. Local model_info is only an architectural
         // maximum, not the running num_ctx; never adopt it as deployment capacity.
@@ -501,6 +510,8 @@ async function validateSelection(provider, stored, legacyThinking) {
       : typeof effort === 'string' ? { reasoning_effort: effort } : {};
   const budget = selected.thinkingEffort && selected.thinkingEffort !== 'off' && effort !== 'none'
     ? 4096 : PROBE_OUTPUT_TOKENS;
+  if (!responses && budget > PROBE_OUTPUT_TOKENS && selected.provider.compat?.thinkingTokenBudgetField)
+    reasoning[selected.provider.compat.thinkingTokenBudgetField] = 256;
   const tool = { name: 'connection_check', description: 'Connection check only; no action is performed.',
     parameters: { type: 'object', properties: {}, required: [], additionalProperties: false } };
   const payload = responses
@@ -786,7 +797,9 @@ export async function driverProvider(provider, model, { legacyThinking = false }
   if (requestMaxTokens !== null && (!Number.isSafeInteger(requestMaxTokens) || requestMaxTokens < 1 ||
       outputTokens !== undefined && requestMaxTokens > outputTokens))
     throw providerError('invalid_output_budget', 'The configured output budget must be a positive integer within the known model capacity.');
-  const { thinkingToggle: _toggle, thinkingDefault: _default, compat, ...nativeThinking } = legacyThinking ? modelThinkingProfile(model) : thinkingProfile(provider, model);
+  const { thinkingToggle: _toggle, thinkingDefault: _default, compat: thinkingCompat, ...nativeThinking } = legacyThinking ? modelThinkingProfile(model) : thinkingProfile(provider, model);
+  const compat = nativeThinking.reasoningEfforts && cachedModels(provider)?.thinkingBudgetField
+    ? { ...thinkingCompat, thinkingTokenBudgetField: cachedModels(provider).thinkingBudgetField } : thinkingCompat;
   const protocol = endpoints(provider).completion.pathname.endsWith("/responses")
     ? "openai-responses" : "openai-completions";
   return {
@@ -800,6 +813,7 @@ export async function driverProvider(provider, model, { legacyThinking = false }
     // Thinking-profile compatibility fields describe Chat Completions only.
     // Responses has its own native reasoning serialization and rejects them.
     ...(protocol === 'openai-completions' && compat ? { compat } : {}),
+    ...(protocol === 'openai-completions' && compat?.thinkingTokenBudgetField ? { thinkingBudgets: { ...REASONING_BUDGETS } } : {}),
     ...contextProfile(provider, model),
     ...(outputTokens === undefined ? {} : { outputTokenCapacity: outputTokens, outputTokenCapacitySource: cachedModels(provider)?.outputSources?.[model] ?? 'service' }),
     ...(requestMaxTokens === null ? {} : { requestMaxTokens }),

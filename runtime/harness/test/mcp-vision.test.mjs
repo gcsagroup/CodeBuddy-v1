@@ -1,4 +1,5 @@
 import test from 'node:test';
+import { replyToNoActionReview } from './review-fixture.mjs';
 import assert from 'node:assert/strict';
 import http from 'node:http';
 import { mkdtemp, rm } from 'node:fs/promises';
@@ -15,6 +16,7 @@ async function fixture(t, { serverName = 'screen' } = {}) {
     if (req.method !== 'POST') { res.writeHead(405).end(); return; }
     let text = ''; for await (const chunk of req) text += chunk;
     const msg = JSON.parse(text);
+    if (replyToNoActionReview(msg, res)) return;
     if (req.url === '/mcp') {
       if (!('id' in msg)) { res.writeHead(202).end(); return; }
       let result;

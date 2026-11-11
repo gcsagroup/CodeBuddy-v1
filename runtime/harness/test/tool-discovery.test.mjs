@@ -1,3 +1,4 @@
+import { replyToNoActionReview } from './review-fixture.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import http from 'node:http';
@@ -13,7 +14,8 @@ test('a failed undiscovered native call exposes its schema without replaying or 
  const shell=process.platform==='win32'?'pwsh':'bash', requests=[];
  const server=http.createServer(async(req,res)=>{
   let raw='';for await(const chunk of req)raw+=chunk;
-  const request=JSON.parse(raw);requests.push(request);
+  const request=JSON.parse(raw);
+    if (replyToNoActionReview(request, res)) return;requests.push(request);
   const user=request.messages.findLastIndex(message=>message.role==='user');
   const results=request.messages.slice(user+1).filter(message=>message.role==='tool');
   res.writeHead(200,{'content-type':'text/event-stream'});
@@ -183,6 +185,7 @@ test('MCP discovery reduces first request, loads callable schemas, preserves per
  const server=http.createServer(async(req,res)=>{
   if(req.method!=='POST'){res.writeHead(405).end();return;}
   let raw='';for await(const b of req)raw+=b;const m=JSON.parse(raw);
+  if(replyToNoActionReview(m,res))return;
   if(req.url==='/mcp'){
    if(!('id' in m)){res.writeHead(202).end();return;}
    let result;

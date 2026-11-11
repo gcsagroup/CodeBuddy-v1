@@ -2,6 +2,10 @@ import { BasicCompactionEngine } from '@deepseek-ai/dsh-compaction-basic';
 import { createUserMessage } from '@deepseek-ai/dsh-llm';
 
 class UnchangedCheckpoint extends Error {}
+const summaryRoute = agent => {
+  const route = agent.session.requestHeader()?.config ?? agent.options;
+  return JSON.stringify([route.provider, route.model, route.reasoningEffort]);
+};
 
 // Only follow the compacted surface span and the spans replaced by earlier
 // checkpoints. A sibling turn, a failed call or arbitrary tool text is not a
@@ -89,9 +93,20 @@ export function installCompactionRequestCompatibility(ctx, currentEffort = () =>
 export default class CompactionEngine extends BasicCompactionEngine {
   pressureAttempts = new WeakMap();
   manualSurfaces = new WeakMap();
+  summaryFailures = new WeakMap();
+
+  constructor(ctx, config) {
+    super(ctx, config);
+    // A failed summary must not become another paid request on every tool step.
+    // The native turn boundary and an explicit manual request permit a fresh try.
+    ctx.on('agent/status', ({ agent, status }) => {
+      if (status === 'idle') this.summaryFailures.delete(agent);
+    });
+  }
 
   async compactNow(agent, signal, sourceCommandId) {
     signal.throwIfAborted();
+    this.summaryFailures.delete(agent);
     const surface = () => JSON.stringify(agent.session.surface.nodes);
     // Repeating /compact without new conversation evidence needlessly summarizes
     // the same checkpoint again. Keep native admission and cancellation checks.
@@ -111,6 +126,13 @@ export default class CompactionEngine extends BasicCompactionEngine {
   }
 
   async compactIfNeeded(agent, trigger, signal) {
+    signal?.throwIfAborted();
+    const route = summaryRoute(agent);
+    const failed = this.summaryFailures.get(agent);
+    if (failed?.route === route) {
+      if (trigger === 'pressure') return null;
+      throw failed.error;
+    }
     if (trigger !== 'pressure') return super.compactIfNeeded(agent, trigger, signal);
     const attempt = { result: null };
     this.pressureAttempts.set(agent, attempt);
@@ -141,6 +163,45 @@ export default class CompactionEngine extends BasicCompactionEngine {
     if (this.pressureAttempts.has(agent) && input.messages.length === first + 1 &&
         message?.role === 'user' && message.source?.kind === 'compact-checkpoint')
       throw new UnchangedCheckpoint();
-    return super.summarize(input, agent, signal);
+    const target = agent.session.requestHeader()?.config ?? agent.options;
+    const policy = this.config.modelPolicies.find(p => p.provider === target.provider && p.model === target.model);
+    const summaryProvider = policy?.summarizationProvider || this.config.summarizationProvider || target.provider;
+    const summaryModel = policy?.summarizationModel || this.config.summarizationModel || target.model;
+    const info = await this.ctx.llm.resolveModelInfo?.(summaryProvider, summaryModel, signal);
+    const window = info?.context?.contextWindow;
+    const capacity = Number.isSafeInteger(window) && window > 0 ? window : Infinity;
+    const initialBudget = Math.min(policy?.maxTokens ?? this.config.maxTokens, Math.max(1, Math.floor(capacity / 4)));
+    const retryBudget = Math.min(initialBudget * 2, 32768, Math.max(1, Math.floor(capacity / 2)));
+    // Summary generation has its own bounded reasoning allowance. It must not
+    // inherit an xhigh task setting and consume the entire checkpoint budget.
+    // Native request-fit still prices the whole envelope before sending it.
+    const effort = info?.reasoning?.efforts?.some(e => e.id === 'low') ? 'low' : undefined;
+    for (let attempt = 0; ; attempt++) {
+      const maxTokens = attempt === 0 ? initialBudget : retryBudget;
+      // A prepared fit continuation is single-use and bound to its exact cap.
+      // A larger retry must pass through ordinary adapter preparation again.
+      const stream = attempt === 0 && input.requestFitStream ? input.requestFitStream : options => this.ctx.llm.stream(options);
+      const summaryStream = options => stream({ ...options, ...(effort ? { reasoningEffort: effort } : {}) });
+      const owner = {
+        ctx: { llm: { stream: summaryStream } },
+        config: { ...this.config, maxTokens,
+          modelPolicies: this.config.modelPolicies.map(p => ({ ...p, maxTokens })) },
+      };
+      try {
+        const result = await BasicCompactionEngine.prototype.summarize.call(owner,
+          { ...input, requestFitStream: summaryStream }, agent, signal);
+        this.summaryFailures?.delete(agent);
+        return result;
+      } catch (error) {
+        signal?.throwIfAborted();
+        if (attempt === 0 && error.code === 'MAX_TOKENS' && retryBudget > initialBudget) continue;
+        if (['MAX_TOKENS', 'OUTPUT_TRUNCATED', 'EMPTY_RESPONSE', 'COMPACTION_EMPTY_SUMMARY'].includes(error.code)) {
+          this.summaryFailures?.set(agent, {
+            route: summaryRoute(agent), error,
+          });
+        }
+        throw error;
+      }
+    }
   }
 }

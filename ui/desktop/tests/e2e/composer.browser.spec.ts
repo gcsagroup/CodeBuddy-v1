@@ -9,6 +9,50 @@ let server: ViteDevServer;
 let browser: Browser;
 let cacheDirectory: string;
 const composerCacheRoot = resolve('../../.local');
+
+test('composer statistics stay readable, explain their scope and preserve send in narrow layouts', async () => {
+  const page = await browser.newPage({ viewport: { width: 1280, height: 800 } });
+  try {
+    await page.goto(server.resolvedUrls!.local[0] + 'tests/browser-fixtures/composer.html?stats=1');
+    const stats = page.getByTestId('composer-stats');
+    await expect(stats.getByText('220 tok/s')).toBeVisible();
+    const toggle = page.getByRole('button', { name: '切换运行状态' });
+    await toggle.click();
+    await expect(stats.getByRole('button', { name: '当前生成速度' })).toHaveText('42.0 tok/s');
+    await toggle.click();
+    await expect(stats.getByText('220 tok/s')).toBeVisible();
+    await expect(stats.getByText('缓存命中 82%')).toBeVisible();
+    await expect(stats.getByText('上下文 6%')).toBeVisible();
+    await stats.getByRole('button', { name: '平均生成速度', exact: true }).focus();
+    await expect(page.getByRole('tooltip')).toContainText('不含首字等待和工具执行时间');
+    await page.keyboard.press('Escape');
+    await stats.getByRole('button', { name: '缓存命中', exact: true }).hover();
+    await expect(page.getByRole('tooltip')).toContainText('缓存读取 820 / 总输入 1,000');
+    await page.mouse.move(0, 0);
+    await page.keyboard.press('Escape');
+    await page.screenshot({ path: test.info().outputPath('composer-stats-wide.png') });
+    await page.getByRole('spinbutton', { name: '左侧宽度' }).fill('0');
+    await page.getByRole('spinbutton', { name: '右侧宽度' }).fill('0');
+    await page.setViewportSize({ width: 420, height: 800 });
+    const input = page.getByTestId('chat-input');
+    await input.fill('检查新的输入框');
+    const send = page.getByRole('button', { name: '发送', exact: true });
+    await expect(send).toBeVisible();
+    expect(await stats.evaluate(el => el.scrollWidth <= el.clientWidth)).toBe(true);
+    const controls = await stats.locator('button').evaluateAll(buttons => buttons.map(b => {
+      const r = b.getBoundingClientRect(); return { left: r.left, right: r.right, top: r.top, bottom: r.bottom };
+    }));
+    expect(controls.every(b => b.left >= 0 && b.right <= 420)).toBe(true);
+    expect(controls.every((a, i) => controls.slice(i + 1).every(b => a.right <= b.left || b.right <= a.left || a.bottom <= b.top || b.bottom <= a.top))).toBe(true);
+    await page.screenshot({ path: test.info().outputPath('composer-stats-narrow.png') });
+    await send.click();
+    await expect(page.getByRole('status')).toHaveText('检查新的输入框');
+    await page.goto(server.resolvedUrls!.local[0] + 'tests/browser-fixtures/composer.html?dark=1');
+    await expect(page.getByTestId('composer-stats').getByText('— tok/s')).toBeVisible();
+    await expect(page.getByTestId('composer-stats').getByText('缓存命中 未上报')).toBeVisible();
+    await page.screenshot({ path: test.info().outputPath('composer-stats-dark-empty.png') });
+  } finally { await page.close(); }
+});
 test.beforeAll(async () => {
   await mkdir(composerCacheRoot, { recursive: true });
   cacheDirectory = await mkdtemp(resolve(composerCacheRoot, 'codebuddy-composer-vite-'));

@@ -428,7 +428,16 @@ async function submitMessage(
   trace('prompt_submitted', { origin: fromComposer ? 'composer' : 'prompt' });
   let firstOutputLogged = false;
   let accepted = false;
+  let manualCompactionId: string | undefined;
+  let manualCompactionFailed = false;
   const unsubscribe = subscribeToAcpChatSession(sessionId, (nextSnapshot) => {
+    if (nextSnapshot.activePromptAttemptId === promptAttemptId) {
+      const compaction = nextSnapshot.compactionLifecycle;
+      if (compaction?.trigger === 'manual' && compaction.status === 'started')
+        manualCompactionId = compaction.operationId;
+      if (compaction?.operationId === manualCompactionId && compaction?.status === 'failed')
+        manualCompactionFailed = true;
+    }
     const activity = nextSnapshot.promptActivity;
     if (!firstOutputLogged && nextSnapshot.activePromptAttemptId === promptAttemptId &&
       activity?.promptAttemptId === promptAttemptId && activity.receivedAt !== undefined &&
@@ -559,6 +568,13 @@ async function submitMessage(
     }
 
     const errorData = acpErrorData(error);
+    // The matching durable receipt already explains this failed maintenance
+    // operation. Do not add a second red transport-error banner to the composer.
+    if (manualCompactionFailed) {
+      if (acpChatSessionActions.finishPromptAttemptIfCurrent(sessionId, promptAttemptId))
+        void options.onFinish();
+      return;
+    }
     const visionError =
       typeof errorData === 'object' &&
       errorData !== null &&

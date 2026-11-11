@@ -33,12 +33,13 @@ import type { WorkspaceMode } from '../../utils/navigationUtils';
 import { withWorkspaceMode } from '../../utils/navigationUtils';
 import { setSessionPinned, useSessionPins } from '../../utils/sessionPins';
 import { setProjectPinned, useProjectPins } from '../../utils/projectPins';
-import { projectPathIdentity } from '../../utils/projectSessions';
+import { getProjectLabel, projectPathIdentity } from '../../utils/projectSessions';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '../ui/dropdown-menu';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '../ui/dialog';
 import { acpListSessions } from '../../acp/sessions';
 import { SessionActionsContextMenu } from '../SessionActionsHeader';
 import { ConversationTitle } from '../ConversationTitle';
+import { Tooltip, TooltipTrigger, TooltipContent } from '../ui/Tooltip';
 
 type StreamState = 'idle' | 'loading' | 'streaming' | 'error';
 
@@ -48,6 +49,8 @@ interface SessionStatus {
 }
 
 const i18n = defineMessages({
+  pinProject: { id: 'navigationPanel.pinProject', defaultMessage: 'Pin project' },
+  unpinProject: { id: 'navigationPanel.unpinProject', defaultMessage: 'Unpin project' },
   pinned: { id: 'navigationPanel.pinned', defaultMessage: 'Pinned' },
   actions: { id: 'sessionActionsHeader.actionsLabel', defaultMessage: 'Session actions' },
   chats: {
@@ -148,6 +151,16 @@ export const SessionRow: React.FC<SessionRowProps> = ({
     defaultMessage: 'Archive session',
   });
   const isBusy = isStreaming || status?.streamState === 'loading';
+  const fullTitle = displayName || intl.formatMessage(i18n.untitledSession);
+  const [cardOpenedAt, setCardOpenedAt] = useState(Date.now);
+  const updated = [session.updatedAt, session.lastMessageAt, session.createdAt]
+    .map(value => new Date(value ?? '')).find(date => Number.isFinite(date.getTime()));
+  const elapsedSeconds = updated ? (updated.getTime() - cardOpenedAt) / 1000 : 0;
+  const relativeUnit = Math.abs(elapsedSeconds) >= 86400 ? 'day' : Math.abs(elapsedSeconds) >= 3600 ? 'hour' : Math.abs(elapsedSeconds) >= 60 ? 'minute' : 'second';
+  const relativeDivisor = relativeUnit === 'day' ? 86400 : relativeUnit === 'hour' ? 3600 : relativeUnit === 'minute' ? 60 : 1;
+  const workspace = session.workingDir
+    ? getProjectAlias(session.workingDir, getProjectLabel(session.workingDir))
+    : intl.formatMessage({ id: 'navigationPanel.noWorkspace', defaultMessage: 'No workspace' });
 
   const handleArchive = async () => {
     if (archiving.current || isBusy) return;
@@ -171,71 +184,99 @@ export const SessionRow: React.FC<SessionRowProps> = ({
 
   return (
     <SessionActionsContextMenu session={session} onSessionRenamed={onRenamed} onSessionForked={onForked}>
-      <div
-        onKeyDown={event => {
-          // Radix's surrounding menu trigger consumes Enter/Space. Let each
-          // nested button receive its native keyboard activation instead.
-          if ((event.key === 'Enter' || event.key === ' ') &&
-              (event.target as HTMLElement).closest('button')) event.stopPropagation();
-        }}
-        onClick={(event) => {
-          if ((event.target as HTMLElement).closest('button')) return;
-          onClick();
-        }}
-        className={cn(
-          'group/session-row relative flex min-h-7 items-center gap-1.5 py-1 rounded-[10px] cursor-pointer text-sm font-normal',
-          nested ? '-ml-3 mr-1 pl-6 pr-2' : 'mx-1 min-h-8 px-3',
-          !nested && hasSchedule && 'pl-7',
-          'hover:text-text-primary transition-colors',
-          active && 'bg-background-tertiary'
-        )}
-      >
-        {hasSchedule && (
-          <Clock3
-            aria-label={intl.formatMessage({
-              id: 'nativeSchedule.title',
-              defaultMessage: 'Automation tasks',
-            })}
-            className="absolute left-1 top-1/2 -translate-y-1/2 size-3.5 text-text-secondary"
-          />
-        )}
-        <button type="button" onClick={onClick} aria-current={active ? 'page' : undefined}
-          className="flex min-w-0 flex-1 items-center gap-1 rounded-sm text-left text-text-primary focus-visible:outline focus-visible:outline-2"
-          title={displayName}>
-          <ConversationTitle>{displayName || intl.formatMessage(i18n.untitledSession)}</ConversationTitle>
-          {pendingPermission && <span className="shrink-0 text-xs font-medium text-text-secondary">
-            {intl.formatMessage({ id: 'navigationPanel.pendingPermission', defaultMessage: 'Awaiting approval' })}
-          </span>}
-        </button>
-        <button
-          type="button"
-          aria-label={intl.formatMessage({ id: pinned ? 'sessionActions.unpin' : 'sessionActions.pin', defaultMessage: pinned ? 'Unpin session' : 'Pin session' })}
-          aria-pressed={pinned}
-          onClick={(event) => {
-            event.stopPropagation();
-            try { setSessionPinned(session.id, !pinned); }
-            catch (error) { toast.error(errorMessage(error)); }
-          }}
-          className="flex size-6 shrink-0 items-center justify-center rounded-md text-text-secondary opacity-0 group-hover/session-row:opacity-100 group-focus-within/session-row:opacity-100 hover:bg-background-secondary focus-visible:opacity-100"
-        >
-          <Pin className={cn('size-3.5', pinned && 'fill-current')} />
-        </button>
-        <button
-          type="button"
-          aria-label={archiveLabel}
-          title={archiveLabel}
-          disabled={isBusy || isArchiving}
-          aria-busy={isArchiving}
-          onClick={(event) => {
-            event.stopPropagation();
-            void handleArchive();
-          }}
-          className="flex size-6 shrink-0 items-center justify-center rounded-md text-text-secondary opacity-0 transition-opacity group-hover/session-row:opacity-100 group-focus-within/session-row:opacity-100 hover:bg-background-secondary hover:text-text-primary focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-border-primary disabled:cursor-not-allowed disabled:opacity-30"
-        >
-          <Archive className="size-3.5" aria-hidden="true" />
-        </button>
-        <SessionIndicators isStreaming={isStreaming} hasUnread={hasUnread} hasError={hasError} />
-      </div>
+      <Tooltip delayDuration={0} onOpenChange={open => { if (open) setCardOpenedAt(Date.now()); }}>
+        <TooltipTrigger asChild>
+          <div
+            data-session-row
+            onKeyDown={event => {
+              // Radix's surrounding menu trigger consumes Enter/Space. Let each
+              // nested button receive its native keyboard activation instead.
+              if ((event.key === 'Enter' || event.key === ' ') &&
+                  (event.target as HTMLElement).closest('button')) event.stopPropagation();
+            }}
+            onClick={(event) => {
+              if ((event.target as HTMLElement).closest('button')) return;
+              onClick();
+            }}
+            className={cn(
+              'group/session-row relative flex min-h-7 items-center gap-1.5 py-1 rounded-[10px] cursor-pointer text-sm font-normal',
+              nested ? '-ml-3 mr-0 pl-6 pr-2' : 'ml-1 mr-0 min-h-8 px-3',
+              !nested && hasSchedule && 'pl-7',
+              'hover:text-text-primary transition-colors',
+              active && 'bg-background-tertiary'
+            )}
+          >
+            {hasSchedule && (
+              <Clock3
+                aria-label={intl.formatMessage({
+                  id: 'nativeSchedule.title',
+                  defaultMessage: 'Automation tasks',
+                })}
+                className="absolute left-1 top-1/2 -translate-y-1/2 size-3.5 text-text-secondary"
+              />
+            )}
+
+            <button type="button" onClick={onClick} aria-current={active ? 'page' : undefined}
+              className="flex min-w-0 flex-1 items-center gap-1 rounded-sm text-left text-text-primary focus-visible:outline focus-visible:outline-2">
+              <ConversationTitle>{fullTitle}</ConversationTitle>
+              {pendingPermission && <span className="shrink-0 text-xs font-medium text-text-secondary">
+                {intl.formatMessage({ id: 'navigationPanel.pendingPermission', defaultMessage: 'Awaiting approval' })}
+              </span>}
+            </button>
+
+            <button
+              type="button"
+              aria-label={intl.formatMessage({ id: pinned ? 'sessionActions.unpin' : 'sessionActions.pin', defaultMessage: pinned ? 'Unpin session' : 'Pin session' })}
+              aria-pressed={pinned}
+              onClick={(event) => {
+                event.stopPropagation();
+                try { setSessionPinned(session.id, !pinned); }
+                catch (error) { toast.error(errorMessage(error)); }
+              }}
+              className="hidden size-6 shrink-0 items-center justify-center rounded-md text-text-secondary group-hover/session-row:flex group-focus-within/session-row:flex hover:bg-background-secondary"
+            >
+              <Pin className={cn('size-3.5', pinned && 'fill-current')} />
+            </button>
+            <button
+              type="button"
+              aria-label={archiveLabel}
+              title={archiveLabel}
+              disabled={isBusy || isArchiving}
+              aria-busy={isArchiving}
+              onClick={(event) => {
+                event.stopPropagation();
+                void handleArchive();
+              }}
+              className="hidden size-6 shrink-0 items-center justify-center rounded-md text-text-secondary group-hover/session-row:flex group-focus-within/session-row:flex hover:bg-background-secondary hover:text-text-primary focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-border-primary disabled:cursor-not-allowed disabled:opacity-30"
+            >
+              <Archive className="size-3.5" aria-hidden="true" />
+            </button>
+            <SessionIndicators isStreaming={isStreaming} hasUnread={hasUnread} hasError={hasError} />
+          </div>
+        </TooltipTrigger>
+        <TooltipContent side="right" align="start" sideOffset={8} collisionPadding={12}
+          arrowClassName="invisible pointer-events-none"
+          className="w-80 max-w-[calc(100vw-24px)] max-h-[var(--radix-tooltip-content-available-height)] overflow-y-auto rounded-xl border border-border-primary bg-background-primary p-3 text-text-primary text-left text-wrap shadow-lg">
+          <div className="text-sm font-medium leading-5 [overflow-wrap:anywhere]">{fullTitle}</div>
+          <div className="mt-2 flex items-center gap-1.5 text-xs text-text-secondary">
+            <Clock3 className="size-3.5 shrink-0" aria-hidden="true" />
+            <span>{intl.formatMessage({ id: 'navigationPanel.updatedAt', defaultMessage: 'Updated' })}</span>
+            {updated ? <time dateTime={updated.toISOString()}>
+              <span className="block">{intl.formatRelativeTime(Math.round(elapsedSeconds / relativeDivisor), relativeUnit, { numeric: 'auto' })}</span>
+              <span className="block mt-0.5">{intl.formatDate(updated, { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</span>
+            </time>
+              : <span>{intl.formatMessage({ id: 'navigationPanel.unknownTime', defaultMessage: 'Time unavailable' })}</span>}
+          </div>
+          <div className="mt-2 flex items-start gap-1.5 text-sm">
+            <Folder className="mt-0.5 size-4 shrink-0 text-text-secondary" aria-hidden="true" />
+            <div className="min-w-0 [overflow-wrap:anywhere]">
+              <div>{workspace}</div>
+              {session.workingDir && <div className="mt-0.5 text-xs leading-4 text-text-secondary">{session.workingDir}</div>}
+            </div>
+          </div>
+        </TooltipContent>
+
+      </Tooltip>
     </SessionActionsContextMenu>
   );
 };
@@ -395,7 +436,7 @@ export const ProjectSessionGroup: React.FC<ProjectSessionGroupProps> = ({
               </DropdownMenuItem>
               <DropdownMenuItem onSelect={() => {
                 try { setProjectPinned(group.path, !pinned); } catch (error) { toast.error(errorMessage(error)); }
-              }}><Pin className="size-4" />{intl.formatMessage({ id: pinned ? 'navigationPanel.unpinProject' : 'navigationPanel.pinProject', defaultMessage: pinned ? 'Unpin project' : 'Pin project' })}</DropdownMenuItem>
+              }}><Pin className="size-4" />{intl.formatMessage(pinned ? i18n.unpinProject : i18n.pinProject)}</DropdownMenuItem>
               <DropdownMenuItem onSelect={() => { setDraftName(displayName); setIsEditing(true); }}>
                 <Pencil className="size-4" />{intl.formatMessage(i18n.renameProject)}
               </DropdownMenuItem>
@@ -461,7 +502,7 @@ export function NavigationChatsSection({
         <span>{title ?? intl.formatMessage(i18n.chats)}</span>
       </CollapsibleTrigger>
       <CollapsibleContent className="codepro-disclosure-content min-h-0">
-        <div className="px-2 pb-2 pt-1">{children}</div>
+        <div className="pl-2 pr-1 pb-2 pt-1">{children}</div>
       </CollapsibleContent>
     </Collapsible>
   );
@@ -667,7 +708,7 @@ export const Navigation: React.FC<NavigationProps> = ({
       </div>
 
       <MainConversationRow onOpen={handleSessionClick} />
-      <div className="min-h-0 flex-1 overflow-y-auto pb-2">
+      <div className="sidebar-scrollbar min-h-0 flex-1 overflow-y-auto overflow-x-hidden pb-2">
         {recentSessionsByProject.length > 0 && (
           <NavigationChatsSection title={intl.formatMessage(i18n.workspaces)}>
             {sortedProjects.map((group: ProjectGroup) => (

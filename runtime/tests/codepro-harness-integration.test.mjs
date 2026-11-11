@@ -1,3 +1,4 @@
+import { replyToNoActionReview } from '../harness/test/review-fixture.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import http from 'node:http';
@@ -68,7 +69,8 @@ async function scriptedModel(cwd) {
     try {
       if (req.url.endsWith('/models')) { res.setHeader('content-type', 'application/json'); res.end(JSON.stringify({ data: [{ id: 'official-codepro-fixture' }] })); return; }
       let raw = ''; for await (const part of req) raw += part;
-      const request = JSON.parse(raw); requests.push(request);
+      const request = JSON.parse(raw);
+    if (replyToNoActionReview(request, res)) return; requests.push(request);
       if (!request.stream) { res.setHeader('content-type', 'application/json'); res.end(JSON.stringify({ choices: [{ message: { role: 'assistant', content: 'OK' } }] })); return; }
       const user = [...request.messages].reverse().find((message) => message.role === 'user' && JSON.stringify(message.content).includes('official_codepro_'));
       assert.ok(user, 'fixture should be isolated to explicit project requests');

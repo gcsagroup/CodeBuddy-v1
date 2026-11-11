@@ -7,6 +7,7 @@ import { join } from 'node:path';
 import { createHash, randomUUID } from 'node:crypto';
 import { setTimeout as delay } from 'node:timers/promises';
 import { createHarnessDriver } from '../index.mjs';
+import { replyToNoActionReview } from './review-fixture.mjs';
 import { FileSystemSkillProvider } from '@deepseek-ai/dsh-skill-filesystem';
 import { DEFAULT_AGENT_SKILLS } from '../../agent-presets.mjs';
 import { createConversationDriver } from '../../conversation-driver.mjs';
@@ -27,6 +28,7 @@ before(async () => {
     let raw = '';
     for await (const part of req) raw += part;
     const request = JSON.parse(raw);
+    if (replyToNoActionReview(request, res)) return;
     if (req.url === '/mcp') {
       if (!('id' in request)) { res.writeHead(202).end(); return; }
       let result;
@@ -880,6 +882,9 @@ test('tool schema pressure preserves explicit output budget with the actual mode
   schemaPressureFixture = {};
   t.mock.method(PiAiAdapter.prototype, 'prepareRequestWithSnapshot', async function(options, snapshot) {
     const request = await prepare.call(this, options, snapshot);
+    // The independent report evaluator explicitly requests a smaller allowance;
+    // this test checks the conversation and compaction budgets, not that call.
+    if (options.messages?.some(message => message.source?.kind === 'codebuddy-command-evidence')) return request;
     fits.push({ purpose: options.purpose ?? 'agent', ...request.fit });
     if (options.model === 'fixture-tool-capacity') schemaPressureFixture.fit = request.fit;
     return request;

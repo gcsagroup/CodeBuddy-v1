@@ -1,3 +1,4 @@
+import { replyToNoActionReview } from '../harness/test/review-fixture.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createServer } from 'node:http';
@@ -20,6 +21,7 @@ test('native child keeps its captured permission through six root switches and c
   const model=createServer(async (req,res)=>{
     let raw=''; for await(const part of req) raw+=part;
     const body=JSON.parse(raw);
+    if (replyToNoActionReview(body, res)) return;
     const child=body.messages.some(m=>m.role==='user'&&JSON.stringify(m.content).includes('Your parent agent id is'));
     const marker=child?'NI_CHILD_':'NI_PARENT_';
     const user=body.messages.findLastIndex(m=>m.role==='user'&&JSON.stringify(m.content).includes(marker));

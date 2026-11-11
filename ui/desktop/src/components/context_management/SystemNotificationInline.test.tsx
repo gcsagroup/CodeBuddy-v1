@@ -5,6 +5,15 @@ import type { Message, SystemNotificationContent } from '../../types/message';
 import { getInlineSystemNotification, SystemNotificationInline } from './SystemNotificationInline';
 
 describe('durable compaction receipts', () => {
+  it('keeps the failure reason in collapsed details instead of a second alert', () => {
+    render(<SystemNotificationInline notification={{ notificationType: 'progressMessage', msg: '', data: {
+      schema_version: 1, event: 'compaction_lifecycle', operation_id: 'op', status: 'failed', trigger: 'manual',
+      started_at: '2026-11-05T00:00:00Z', error: 'summarization truncated at the token cap (incomplete checkpoint)',
+    } }} />, { wrapper: IntlTestWrapper });
+    expect(screen.getByText('View details').closest('details')).not.toHaveAttribute('open');
+    expect(screen.getByText(/summarization truncated/).closest('details')).not.toHaveAttribute('open');
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+  });
   it.each([
     ['completed', 'auto', 'Context automatically compacted'],
     ['completed', 'manual', 'Context compacted'],

@@ -1,3 +1,4 @@
+import { replyToNoActionReview } from './review-fixture.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import http from 'node:http';
@@ -16,6 +17,7 @@ async function fixture(t) {
     let raw = ''; for await (const part of req) raw += part;
     if (!raw) { res.writeHead(405).end(); return; }
     const body = JSON.parse(raw);
+    if (replyToNoActionReview(body, res)) return;
     if (req.url.includes('/mcp')) {
       wire.push(body.method);
       if (!('id' in body)) { res.writeHead(202).end(); return; }

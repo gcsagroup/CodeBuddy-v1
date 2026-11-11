@@ -155,6 +155,21 @@
   "baseChat.latest": {
     "defaultMessage": "Back to latest"
   },
+  "baseChat.mainCode": {
+    "defaultMessage": "Write and debug code"
+  },
+  "baseChat.mainData": {
+    "defaultMessage": "Organize documents and data"
+  },
+  "baseChat.mainIntroduction": {
+    "defaultMessage": "I can help you understand code, work with documents and data, and carry a task through to checked results. Tell me what you want to get done."
+  },
+  "baseChat.mainTasks": {
+    "defaultMessage": "Plan, execute and check"
+  },
+  "baseChat.mainWelcome": {
+    "defaultMessage": "I'm CodeBuddy. Let's work together."
+  },
   "baseChat.readonlyHistory": {
     "defaultMessage": "Imported history is read-only. Start a new task to continue working."
   },
@@ -1523,6 +1538,9 @@
   "codeProToolContent.timeout": {
     "defaultMessage": "Masa tamat — kesan susulan mungkin perlu disemak"
   },
+  "common.cancel": {
+    "defaultMessage": "Cancel"
+  },
   "commonQueries.city": {
     "defaultMessage": "Default query city (optional)"
   },
@@ -1558,6 +1576,21 @@
   },
   "commonQueries.units": {
     "defaultMessage": "Temperature unit"
+  },
+  "compaction.cancelled": {
+    "defaultMessage": "Context compaction cancelled. The previous context is preserved."
+  },
+  "compaction.completedAuto": {
+    "defaultMessage": "Context automatically compacted"
+  },
+  "compaction.completedManual": {
+    "defaultMessage": "Context compacted"
+  },
+  "compaction.details": {
+    "defaultMessage": "Lihat butiran"
+  },
+  "compaction.failed": {
+    "defaultMessage": "Context compaction failed. The previous context is preserved."
   },
   "composerCommands.active": {
     "defaultMessage": "Active"
@@ -1796,11 +1829,23 @@
   "confirmationModal.processing": {
     "defaultMessage": "Memproses..."
   },
+  "conversation.turnStoppedAfter": {
+    "defaultMessage": "Dihentikan selepas {duration}"
+  },
+  "conversation.turnWorkingFor": {
+    "defaultMessage": "Sedang diproses selama {duration}"
+  },
   "conversation.turnDuration": {
     "defaultMessage": "Time spent {minutes} min {seconds} sec"
   },
   "conversation.turnRecord": {
     "defaultMessage": "Work history · {count} operations"
+  },
+  "conversationBranch.action": {
+    "defaultMessage": "Branch after this turn"
+  },
+  "conversationBranch.boundary": {
+    "defaultMessage": "This message has changed. Reload the conversation before branching."
   },
   "conversationFiles.changes": {
     "defaultMessage": "Changes per operation (not a net workspace diff)"
@@ -3794,15 +3839,6 @@
   "headersSection.value": {
     "defaultMessage": "Nilai"
   },
-  "hub.goodAfternoon": {
-    "defaultMessage": "Selamat tengah hari"
-  },
-  "hub.goodEvening": {
-    "defaultMessage": "Selamat petang"
-  },
-  "hub.goodMorning": {
-    "defaultMessage": "Selamat pagi"
-  },
   "huggingFaceModelSearch.download": {
     "defaultMessage": "Muat Turun"
   },
@@ -4175,6 +4211,12 @@
   "loadingGoose.compactingElapsed": {
     "defaultMessage": "Organizing conversation context {seconds}s"
   },
+  "loadingGoose.compactionHint": {
+    "defaultMessage": "Generating a continuation summary. Original messages remain in this conversation."
+  },
+  "loadingGoose.compactionWait": {
+    "defaultMessage": "Still waiting for the model. Large conversations may take longer; you can stop and retry."
+  },
   "loadingGoose.elapsed": {
     "defaultMessage": "{message} {seconds}s elapsed"
   },
@@ -4510,6 +4552,9 @@
   },
   "mentionPopover.keys": {
     "defaultMessage": "↑ ↓ Select · Enter Insert · Esc Close"
+  },
+  "mentionPopover.loadMore": {
+    "defaultMessage": "Load more"
   },
   "mentionPopover.loading": {
     "defaultMessage": "Searching…"
@@ -5108,6 +5153,18 @@
   "modelsBottomBar.noMatches": {
     "defaultMessage": "Tiada model yang sepadan"
   },
+  "modelsBottomBar.refresh": {
+    "defaultMessage": "Refresh models"
+  },
+  "modelsBottomBar.refreshFailed": {
+    "defaultMessage": "Some connections could not refresh. Their previous lists are still shown. Try again."
+  },
+  "modelsBottomBar.refreshed": {
+    "defaultMessage": "Model list updated."
+  },
+  "modelsBottomBar.refreshing": {
+    "defaultMessage": "Refreshing models…"
+  },
   "modelsBottomBar.retry": {
     "defaultMessage": "Retry"
   },
@@ -5372,11 +5429,32 @@
   "navigation.itemToolbox": {
     "defaultMessage": "Toolbox"
   },
+  "navigationPanel.archiveProjectChats": {
+    "defaultMessage": "Archive conversations in project"
+  },
+  "navigationPanel.archiveProjectConfirm": {
+    "defaultMessage": "Archive {count} conversations in {name}? Project files stay unchanged. Conversations can be restored from History."
+  },
   "navigationPanel.chats": {
     "defaultMessage": "Tasks"
   },
+  "navigationPanel.newProjectChat": {
+    "defaultMessage": "New conversation in project"
+  },
   "navigationPanel.noChats": {
     "defaultMessage": "No recent tasks"
+  },
+  "navigationPanel.pendingPermission": {
+    "defaultMessage": "Menunggu kelulusan"
+  },
+  "navigationPanel.pinProject": {
+    "defaultMessage": "Pin project"
+  },
+  "navigationPanel.pinned": {
+    "defaultMessage": "Pinned"
+  },
+  "navigationPanel.projectActions": {
+    "defaultMessage": "Project actions"
   },
   "navigationPanel.projectName": {
     "defaultMessage": "Project name"
@@ -5386,6 +5464,9 @@
   },
   "navigationPanel.resetProjectNameHint": {
     "defaultMessage": "Clear the name to restore the folder name"
+  },
+  "navigationPanel.unpinProject": {
+    "defaultMessage": "Unpin project"
   },
   "navigationPanel.untitledSession": {
     "defaultMessage": "Sesi tanpa tajuk"
@@ -6830,6 +6911,48 @@
   "rootCleanup.selectAndAudit": {
     "defaultMessage": "Select exact target and audit"
   },
+  "runAdvice.details": {
+    "defaultMessage": "Butiran"
+  },
+  "runAdvice.footnote": {
+    "defaultMessage": "Changing models will not automatically resend this task."
+  },
+  "runAdvice.generation": {
+    "defaultMessage": "This response is taking longer to generate"
+  },
+  "runAdvice.generationBody": {
+    "defaultMessage": "This generation has taken {seconds}s. You can keep waiting, or stop and choose another model or a lower reasoning effort. Time alone does not mean the task has failed."
+  },
+  "runAdvice.responses": {
+    "defaultMessage": "The model response has needed repeated recovery"
+  },
+  "runAdvice.responsesBody": {
+    "defaultMessage": "This run has needed {count} response retries without a successful tool result. The model or service format may not suit this task. You can try another configured model; existing files are kept."
+  },
+  "runAdvice.stop": {
+    "defaultMessage": "Stop and choose a model"
+  },
+  "runAdvice.stopping": {
+    "defaultMessage": "Stopping…"
+  },
+  "runAdvice.tools": {
+    "defaultMessage": "Several tool attempts have not succeeded"
+  },
+  "runAdvice.toolsBody": {
+    "defaultMessage": "The last {count} tool attempts failed. Check the recent receipts for argument, permission or environment problems before deciding whether to change models."
+  },
+  "runAdvice.wait": {
+    "defaultMessage": "Keep waiting"
+  },
+  "runAdvice.waiting": {
+    "defaultMessage": "The model service is taking longer to respond"
+  },
+  "runAdvice.waitingBody": {
+    "defaultMessage": "No response content has arrived for {seconds}s. The service may be busy or the connection delayed; this does not establish a model capability problem."
+  },
+  "runtime.sourceChanged": {
+    "defaultMessage": "The runtime has been updated. Finish active tasks, then close and restart CodeBuddy to load the changes."
+  },
   "scheduleChat.choose": {
     "defaultMessage": "Choose a chat"
   },
@@ -7273,6 +7396,18 @@
   },
   "securityToggle.warpNotice": {
     "defaultMessage": "Pengesanan suntikan arahan berfungsi paling baik apabila disambungkan ke WARP (diperlukan untuk mencapai perkhidmatan pengelasan)."
+  },
+  "sessionActions.branchHint": {
+    "defaultMessage": "Continue in an independent conversation. Files remain shared; running tasks are not copied."
+  },
+  "sessionActions.pin": {
+    "defaultMessage": "Pin session"
+  },
+  "sessionActions.pinFailed": {
+    "defaultMessage": "Could not save pin preference: {error}"
+  },
+  "sessionActions.unpin": {
+    "defaultMessage": "Unpin session"
   },
   "sessionActionsHeader.actionsLabel": {
     "defaultMessage": "Tindakan sesi"
@@ -9281,9 +9416,6 @@
   "toolbox.session.disabled": {
     "defaultMessage": "Enable this tool first"
   },
-  "toolbox.session.empty": {
-    "defaultMessage": "Added · no tools discovered yet"
-  },
   "toolbox.session.failed": {
     "defaultMessage": "Load failed. If a turn is running, stop it first, then retry."
   },
@@ -9292,9 +9424,6 @@
   },
   "toolbox.session.missing": {
     "defaultMessage": "Not loaded in this conversation"
-  },
-  "toolbox.session.ready": {
-    "defaultMessage": "Loaded · {count} tools available"
   },
   "toolbox.session.return": {
     "defaultMessage": "Return to conversation"
@@ -9334,6 +9463,36 @@
   },
   "toolbox.statusStopping": {
     "defaultMessage": "Menghentikan…"
+  },
+  "toolbox.sync.applied": {
+    "defaultMessage": "Current conversation is synchronized."
+  },
+  "toolbox.sync.connecting": {
+    "defaultMessage": "Connecting in background…"
+  },
+  "toolbox.sync.custom": {
+    "defaultMessage": "Custom selection"
+  },
+  "toolbox.sync.defaults": {
+    "defaultMessage": "New conversations follow enabled toolbox capabilities. Existing custom conversations keep their selection."
+  },
+  "toolbox.sync.failed": {
+    "defaultMessage": "Connection failed"
+  },
+  "toolbox.sync.follow": {
+    "defaultMessage": "Follow toolbox"
+  },
+  "toolbox.sync.pending": {
+    "defaultMessage": "Saved · changes apply before the next turn. The current task continues."
+  },
+  "toolbox.sync.ready": {
+    "defaultMessage": "Connected"
+  },
+  "toolbox.sync.restricted": {
+    "defaultMessage": "Agent-defined selection"
+  },
+  "toolbox.sync.retry": {
+    "defaultMessage": "Retry connections"
   },
   "toolbox.title": {
     "defaultMessage": "Toolbox"
@@ -9880,50 +10039,5 @@
   },
   "workspaceSubagents.unknownState": {
     "defaultMessage": "Status tidak diketahui · {count}"
-  },
-  "workspaceSwitcher.workspaceSwitcher": {
-    "defaultMessage": "Workspace switcher"
-  },
-  "compaction.cancelled": {
-    "defaultMessage": "Context compaction cancelled. The previous context is preserved."
-  },
-  "compaction.completedAuto": {
-    "defaultMessage": "Context automatically compacted"
-  },
-  "compaction.completedManual": {
-    "defaultMessage": "Context compacted"
-  },
-  "compaction.failed": {
-    "defaultMessage": "Context compaction failed. The previous context is preserved."
-  },
-  "conversationBranch.action": {
-    "defaultMessage": "Branch after this turn"
-  },
-  "conversationBranch.boundary": {
-    "defaultMessage": "This message has changed. Reload the conversation before branching."
-  },
-  "loadingGoose.compactionHint": {
-    "defaultMessage": "Generating a continuation summary. Original messages remain in this conversation."
-  },
-  "loadingGoose.compactionWait": {
-    "defaultMessage": "Still waiting for the model. Large conversations may take longer; you can stop and retry."
-  },
-  "navigationPanel.pendingPermission": {
-    "defaultMessage": "Menunggu kelulusan"
-  },
-  "navigationPanel.pinned": {
-    "defaultMessage": "Pinned"
-  },
-  "sessionActions.branchHint": {
-    "defaultMessage": "Continue in an independent conversation. Files remain shared; running tasks are not copied."
-  },
-  "sessionActions.pin": {
-    "defaultMessage": "Pin session"
-  },
-  "sessionActions.pinFailed": {
-    "defaultMessage": "Could not save pin preference: {error}"
-  },
-  "sessionActions.unpin": {
-    "defaultMessage": "Unpin session"
   }
 }

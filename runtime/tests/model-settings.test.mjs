@@ -1,3 +1,4 @@
+import { replyToNoActionReview } from '../harness/test/review-fixture.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createServer } from 'node:http';
@@ -14,7 +15,8 @@ test('Gemma chat-template thinking reaches Harness wire and streams reasoning se
   const server = createServer(async (req, res) => {
     if (req.url === '/v1/models') { res.setHeader('content-type','application/json'); res.end(JSON.stringify({data:[{id:model,max_model_len:65536}]})); return; }
     let raw = ''; for await (const chunk of req) raw += chunk;
-    const body = JSON.parse(raw); requests.push(body);
+    const body = JSON.parse(raw);
+    if (replyToNoActionReview(body, res)) return; requests.push(body);
     res.writeHead(200, {'content-type':'text/event-stream'});
     const emit = (delta, finish_reason = null) => res.write(`data: ${JSON.stringify({id:'gemma',object:'chat.completion.chunk',model,choices:[{index:0,delta,finish_reason}]})}\n\n`);
     if (body.chat_template_kwargs?.enable_thinking) emit({reasoning_content:'Reasoning stream fixture'});
@@ -72,7 +74,8 @@ test('all six original UI efforts reach the actual official Harness HTTP complet
   const requests = [];
   const server = createServer(async (req, res) => {
     let raw = ''; for await (const chunk of req) raw += chunk;
-    const request = JSON.parse(raw); requests.push(request);
+    const request = JSON.parse(raw);
+    if (replyToNoActionReview(request, res)) return; requests.push(request);
     res.writeHead(200, { 'content-type': 'text/event-stream' });
     const chunk = (delta, finish_reason = null) => res.write(`data: ${JSON.stringify({ id: randomUUID(), object: 'chat.completion.chunk', created: 1, model: request.model, choices: [{ index: 0, delta, finish_reason }] })}\n\n`);
     chunk({ role: 'assistant', content: 'ACTUAL_THINKING_REQUEST' }); chunk({}, 'stop'); res.end('data: [DONE]\n\n');

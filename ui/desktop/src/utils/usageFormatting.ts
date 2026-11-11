@@ -1,5 +1,20 @@
 // Pure formatting helpers for per-message usage stats. Unit labels are left to
 // the consuming component so they can be localized.
+import type { MessageUsage } from '../types/message';
+
+/** Harness input is uncached; complete provider totals also support inclusive-input imports. */
+export function cacheHitReading(usage: MessageUsage | null | undefined) {
+  const count = (n: unknown): n is number => typeof n === 'number' && Number.isFinite(n) && n >= 0;
+  if (!usage || !count(usage.cacheReadTokens)) return null;
+  const prompt = count(usage.totalTokens) && count(usage.outputTokens)
+    ? usage.totalTokens - usage.outputTokens
+    : count(usage.inputTokens) && (usage.cacheWriteTokens == null || count(usage.cacheWriteTokens))
+      ? usage.inputTokens + usage.cacheReadTokens + (usage.cacheWriteTokens ?? 0) : NaN;
+  if (!Number.isFinite(prompt) || prompt <= 0 || usage.cacheReadTokens > prompt) return null;
+  const rate = usage.cacheReadTokens / prompt * 100;
+  const percent = rate === 100 ? '100' : rate > 99 ? '<100' : Math.round(rate).toString();
+  return { cached: usage.cacheReadTokens, prompt, percent };
+}
 
 /** `842`, `1.2k`, `12k`, `1.2M` — one decimal below 10k/10M, trailing `.0` stripped. */
 export function formatTokenCount(n: number): string {
@@ -37,7 +52,7 @@ export function tokensPerSecond(
   outputTokens: number | null | undefined,
   elapsedMs: number | null | undefined
 ): number | null {
-  if (!outputTokens || !elapsedMs || outputTokens <= 0 || elapsedMs <= 0) {
+  if (!outputTokens || !elapsedMs || !Number.isFinite(outputTokens) || !Number.isFinite(elapsedMs) || outputTokens <= 0 || elapsedMs <= 0) {
     return null;
   }
   return outputTokens / (elapsedMs / 1000);

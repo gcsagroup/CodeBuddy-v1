@@ -1,3 +1,4 @@
+import { replyToNoActionReview } from '../harness/test/review-fixture.mjs';
 import { answerTitleRequest } from './fixtures/title-request.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -38,6 +39,7 @@ test('ACP vision settings reach official image model while frozen renderer and r
     try {
       if (req.url.endsWith('/models')) { res.writeHead(200, { 'content-type': 'application/json' }).end(JSON.stringify({ data: ['main', 'vision', 'slow'].map(id => ({ id, input_modalities: id === 'main' ? ['text'] : ['text', 'image'] })) })); return; }
       let raw = ''; for await (const chunk of req) raw += chunk; const request = JSON.parse(raw);
+    if (replyToNoActionReview(request, res)) return;
       if (!request.stream) { res.writeHead(200, { 'content-type': 'application/json' }).end(JSON.stringify({ choices: [{ message: { role: 'assistant', content: 'OK' } }] })); return; }
     if (answerTitleRequest(request, res)) return;
       requests.push(request); res.writeHead(200, { 'content-type': 'text/event-stream' });
@@ -108,6 +110,7 @@ test('ACP computer screenshot uses saved auxiliary settings; renderer retains or
       res.writeHead(200, { 'content-type': 'application/json' }).end(JSON.stringify({ jsonrpc: '2.0', id: m.id, result })); return;
     }
     if (!m.stream) { res.writeHead(200, { 'content-type': 'application/json' }).end(JSON.stringify({ choices: [{ message: { content: 'OK' } }] })); return; }
+    if (replyToNoActionReview(m, res)) return;
     if (answerTitleRequest(m, res)) return;
     requests.push(m); res.writeHead(200, { 'content-type': 'text/event-stream' });
     const emit = (delta, finish_reason = null) => res.write(`data: ${JSON.stringify({ id: 'screenshot', object: 'chat.completion.chunk', model: m.model, choices: [{ index: 0, delta, finish_reason }] })}\n\n`);

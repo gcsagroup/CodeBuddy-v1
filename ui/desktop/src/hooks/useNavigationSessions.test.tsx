@@ -35,6 +35,16 @@ it('reorders the owning project immediately after its existing conversation is p
 });
 
 describe('new session sidebar refresh', () => {
+  it('returns to a new task only when the deleted conversation is currently open', async () => {
+    mocks.location = { pathname: '/codepro/pair', search: '?resumeSessionId=existing' };
+    mocks.list.mockResolvedValue([]);
+    const hook = renderHook(() => useNavigationSessions());
+    await act(async () => { window.dispatchEvent(new CustomEvent(AppEvents.SESSION_DELETED, { detail: { sessionId: 'other' } })); });
+    expect(mocks.navigate).not.toHaveBeenCalled();
+    await act(async () => { window.dispatchEvent(new CustomEvent(AppEvents.SESSION_DELETED, { detail: { sessionId: 'existing' } })); });
+    expect(mocks.navigate).toHaveBeenCalledWith('/codepro', { replace: true });
+    hook.unmount();
+  });
   beforeEach(() => { localStorage.clear(); vi.useFakeTimers(); mocks.get.mockReset().mockResolvedValue({ id: "existing", workingDir: "D:/fixture", name: "Existing", messageCount: 1 }); mocks.list.mockReset(); mocks.navigate.mockClear(); mocks.location = { pathname: '/codepro', search: '' }; });
   afterEach(() => { vi.useRealTimers(); });
 

@@ -39,6 +39,9 @@ export async function openTranscriptJournal(store) {
   async function project(records) {
     if (!records.length) return undefined;
     const first = records[0], last = records.at(-1);
+    // A durable deletion supersedes an earlier unprojected transcript. Startup
+    // must discard that redo record instead of restoring a deleted conversation.
+    if (store.isSessionDeleted?.(first.sessionId)) return undefined;
     return store.updateSession(first.sessionId, (session) => {
       session.transcriptTurns ??= {};
       const key = identity(first.sessionId, first.turnId);
@@ -89,6 +92,14 @@ export async function openTranscriptJournal(store) {
   return {
     directory,
     recovered,
+    async discardSession(sessionId) {
+      if (writers.has(sessionId)) throw new Error('Cannot discard an active transcript turn');
+      const pending = unsettled.get(sessionId);
+      if (pending) {
+        await unlink(pending.file);
+        unsettled.delete(sessionId);
+      }
+    },
     async begin({ sessionId, turnId = randomUUID(), users = [], title } = {}) {
       requireId(sessionId, 'sessionId');
       requireId(turnId, 'turnId');

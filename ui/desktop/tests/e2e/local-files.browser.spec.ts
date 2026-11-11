@@ -6,6 +6,27 @@ import { tmpdir } from 'node:os';
 let server: ViteDevServer;
 let browser: Browser;
 let cache: string;
+for (const action of ['完成', '停止']) {
+  test(`turn timer updates while running and freezes on ${action}`, async () => {
+    const page = await browser.newPage();
+    try {
+      await page.clock.install();
+      await page.goto(server.resolvedUrls!.local[0] + 'tests/browser-fixtures/conversation-timeline.html?timer');
+      const timer = page.getByRole('timer');
+      await expect(timer).toContainText('已处理');
+      const before = await timer.textContent();
+      await page.clock.fastForward(5000);
+      await expect(timer).not.toHaveText(before!);
+      await page.getByRole('button', { name: action, exact: true }).click();
+      await expect(timer).toHaveCount(0);
+      const finalTime = page.getByText(action === '停止' ? /^已停止，用时/ : /^用时 \d/);
+      await expect(finalTime).toBeVisible();
+      const frozen = await finalTime.textContent();
+      await page.clock.fastForward(5000);
+      await expect(finalTime).toHaveText(frozen!);
+    } finally { await page.close(); }
+  });
+}
 test.beforeAll(async () => {
   cache = await mkdtemp(resolve(tmpdir(), 'codebuddy-local-files-vite-'));
   server = await createServer({

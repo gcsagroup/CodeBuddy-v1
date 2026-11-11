@@ -1,4 +1,4 @@
-import { requestBudgetChannel } from './sdk-budget/vllm-count.mjs';
+import { requestBudgetChannel, streamingOutputChannel } from './sdk-budget/vllm-count.mjs';
 import { AsyncLocalStorage } from 'node:async_hooks';
 import { channel } from 'node:diagnostics_channel';
 import { randomUUID } from 'node:crypto';
@@ -27,7 +27,7 @@ function codesOf(error, result = new Set(), seen = new Set()) {
   return [...result];
 }
 
-export function observeModelTransport(ctx, publish) {
+export function observeModelTransport(ctx, publish, onStreamingOutput) {
   const context = new AsyncLocalStorage();
   const requests = new WeakMap();
   const listeners = {
@@ -69,14 +69,22 @@ export function observeModelTransport(ctx, publish) {
   };
   const budget = info => context.getStore()?.report?.('request_budget', info);
   requestBudgetChannel.subscribe(budget);
+  const output = sample => {
+    const scope = context.getStore();
+    if (scope?.sessionId && !scope.purpose) onStreamingOutput?.(scope.sessionId, sample);
+  };
+  streamingOutputChannel.subscribe(output);
   for (const [name, listener] of Object.entries(listeners)) channel(name).subscribe(listener);
   const dispose = ctx.on('llm/stream', (options, next) => {
     const scope = {
-      id: randomUUID(), sessionId: options.sessionId, started: performance.now(),
+      id: randomUUID(), sessionId: options.sessionId, purpose: options.purpose, started: performance.now(),
       requests: 0, chunks: 0, transportCodes: new Set(), timings: [],
     };
     const report = (phase, extra = {}) => publish({
       type: 'model_diagnostic', phase, requestId: scope.id,
+      ...(options.purpose ? { purpose: options.purpose } : {}),
+      provider: options.provider, model: options.model,
+      maxTokens: options.maxTokens, reasoningEffort: options.reasoningEffort,
       at_ms: Date.now(),
       ...(typeof scope.sessionId === 'string' ? { sessionId: scope.sessionId } : {}),
       elapsedMs: Math.round(performance.now() - scope.started), requests: scope.requests,
@@ -90,6 +98,7 @@ export function observeModelTransport(ctx, publish) {
       const iterator = context.run(scope, () => next()[Symbol.asyncIterator]());
       let first = false, exhausted = false, failureCode, finishKind;
       let textDeltaChars = 0, reasoningDeltaChars = 0, toolCallBlocks = 0, toolArgumentChars = 0;
+      let usage;
       const seen = new Set();
       try {
         while (true) {
@@ -101,6 +110,11 @@ export function observeModelTransport(ctx, publish) {
           if (result.value.type === 'tool-call-delta') toolArgumentChars += result.value.argumentsDelta?.length ?? 0;
           if (result.value.type === 'block-end' && result.value.block.type === 'tool-call') toolCallBlocks += 1;
           if (result.value.type === 'finish') finishKind = result.value.reason.kind;
+          if (result.value.type === 'usage') {
+            usage = Object.fromEntries(['inputTokens', 'outputTokens', 'reasoningTokens', 'cachedInputTokens']
+              .filter(key => Number.isFinite(result.value.usage?.[key]))
+              .map(key => [key, result.value.usage[key]]));
+          }
           if (!first && ['text-delta', 'reasoning-delta', 'tool-call-delta'].includes(result.value.type)) {
             first = true; report('first_chunk');
           }
@@ -120,13 +134,14 @@ export function observeModelTransport(ctx, publish) {
         throw error;
       } finally {
         try { if (!exhausted) await context.run(scope, () => iterator.return?.()); }
-        finally { report('end', { textDeltaChars, reasoningDeltaChars, toolArgumentChars, toolCallBlocks, ...(finishKind ? { finishKind } : {}), ...(failureCode ? { failureCode } : {}), cancelled: Boolean(options.signal?.aborted) }); }
+        finally { report('end', { textDeltaChars, reasoningDeltaChars, toolArgumentChars, toolCallBlocks, ...(usage ? { usage } : {}), ...(finishKind ? { finishKind } : {}), ...(failureCode ? { failureCode } : {}), cancelled: Boolean(options.signal?.aborted) }); }
       }
     })();
   });
   return () => {
     dispose();
     requestBudgetChannel.unsubscribe(budget);
+    streamingOutputChannel.unsubscribe(output);
     for (const [name, listener] of Object.entries(listeners)) channel(name).unsubscribe(listener);
     context.disable();
   };

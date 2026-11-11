@@ -1,4 +1,5 @@
 import { test } from 'node:test';
+import { replyToNoActionReview } from '../harness/test/review-fixture.mjs';
 import assert from 'node:assert/strict';
 import { createServer } from 'node:http';
 import { mkdtemp } from 'node:fs/promises';
@@ -17,6 +18,7 @@ async function fixture(t) {
     if (req.method !== 'POST') { res.writeHead(405); res.end(); return; }
     let raw = ''; for await (const chunk of req) raw += chunk;
     const data = JSON.parse(raw);
+    if (replyToNoActionReview(data, res)) return;
     if (req.url === '/mcp') {
       if (!('id' in data)) { res.writeHead(202); res.end(); return; }
       resourceCalls.push(data);

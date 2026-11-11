@@ -41,3 +41,13 @@ Invalid updates report errors and preserve the validated version. A damaged bund
 `runtime/assets/assemble-pet.py` crops, scales and registers generated poses, then exports previews and inspection records; it does not draw characters. The former `ui/desktop/scripts/assemble-pet.py` remains an entry point to the same implementation. The builtin tool accepts workspace-local images, validates a temporary package before publishing it atomically, preserves existing IDs and never selects the pet automatically. Pixel checks do not prove character consistency or action semantics; visual preview is still required. Source images, workflows and local acceptance files live under `target/pet-redesign` and are not distributed with the application.
 
 The compact composer starts at two lines and grows to a bounded height. Use the paperclip to select files or images and remove them through attachment chips. Each message allows up to 10 attachments; source images are limited to 20 MB each. Images reuse chat compression and image input, while other files are local path references without extra copies. Right-click the pet for Hide pet or Pet settings. Settings opens the Virtual pets page directly, where a hidden pet can be shown again.
+
+## Playback and artwork quality
+
+Triggered actions (wave, jump, working, waiting, failure and completion) play twice, then return to idle. Repeated snapshots of the same state do not replay them. Task cards retain their actual status. A new session, terminal record, permission request or click can trigger another reaction. At the default 6 fps, two cycles take about two seconds. Settings includes a Replay animation button.
+
+Idle holds a neutral drawing for 4–7 seconds between brief gestures. No whole-image scaling is applied. Live cursor observation still uses directional poses; reduced motion stays still.
+
+Creation instructions require six successive moments of one continuous action, consistent proportions, camera and ground line. Idle uses small blinks or ear/tail movements; jumping includes anticipation, takeoff, apex, descent, landing and recovery. Action endpoints should approach the neutral pose. Prompts cannot guarantee output quality: preview at playback speed to check identity drift, foot sliding and abrupt pose changes. Existing built-in artwork was not regenerated in this change.
+
+References: [Godot OneShot](https://docs.godotengine.org/en/stable/classes/class_animationnodeoneshot.html) for finite reactions and [Spine animation guidance](https://us.esotericsoftware.com/spine-animating) for key poses and timing. These are design references only; no code, artwork or engine dependencies were imported.

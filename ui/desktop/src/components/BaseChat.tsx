@@ -52,6 +52,7 @@ import { isAcpRecovering, subscribeToAcpRecovery } from '../acp/acpConnection';
 import { CodeProStepSummary } from './codepro/CodeProStepSummary';
 import { shouldShowFloatingProgress } from './codepro/CodeProProgress';
 import { PromptErrorBanner } from './PromptErrorBanner';
+import { RunAdviceCard } from './RunAdviceCard';
 import { shouldUpdateSessionWorkingDir } from '../codepro/sessionWorkspace';
 import { CodeProWorkspaceReconfirmation } from './codepro/CodeProWorkspaceReconfirmation';
 import type { CodeProWorkspaceInspection } from '../codepro/projectWorkspace';
@@ -155,6 +156,8 @@ export default function BaseChat({
   const [acpRecovering, setAcpRecovering] = useState(isAcpRecovering);
   const [savingModeSessionId, setSavingModeSessionId] = useState<string>();
   const [permissionOpenRequest, setPermissionOpenRequest] = useState(0);
+  const [modelOpenRequest, setModelOpenRequest] = useState(0);
+  const [chooseModelAfterStop, setChooseModelAfterStop] = useState<string>();
   const [searchActive, setSearchActive] = useState(false);
   const [searchBarContainer, setSearchBarContainer] = useState<HTMLDivElement | null>(null);
   const modeSaving = savingModeSessionId === sessionId;
@@ -297,6 +300,16 @@ export default function BaseChat({
     toolPending: currentTool?.awaitingResult,
     thinking: !!thinkingActivity,
   });
+  useEffect(() => {
+    if (!chooseModelAfterStop) return;
+    if (chooseModelAfterStop !== sessionId) { setChooseModelAfterStop(undefined); return; }
+    // Wait for the existing controller to settle cancellation before opening
+    // configuration. Never submit/replay the original task from this advice.
+    if (chatState === ChatState.Idle && !cancelling) {
+      setChooseModelAfterStop(undefined);
+      setModelOpenRequest(value => value + 1);
+    }
+  }, [chooseModelAfterStop, sessionId, chatState, cancelling]);
 
   const activityProbe = useRef('');
   useEffect(() => {
@@ -587,6 +600,9 @@ export default function BaseChat({
       chatState !== ChatState.LoadingConversation
     ) {
       const timeoutId = setTimeout(() => {
+        // Cancellation may have just opened the picker. Refocusing the composer
+        // would dismiss that popover through its normal outside-focus handling.
+        if (document.querySelector('[data-model-picker-list]')) return;
         chatInputRef.current?.focus();
       }, 100);
       return () => clearTimeout(timeoutId);
@@ -926,6 +942,7 @@ export default function BaseChat({
             ? !acpRecovering &&
               !showHistoryLoading &&
               !cancelling &&
+              !(promptActivity && !loadingHistory && !readonlyHistory && workStatus.advice) &&
               chatState !== ChatState.Idle && (
                 <div className={cn('mx-4', workStatus.source === 'question' &&
                   elicitationPresentation.requests.some(
@@ -988,6 +1005,21 @@ export default function BaseChat({
               {intl.formatMessage(i18n.readonlyHistory)}
             </div>
           ) : (
+            <>
+            {promptActivity && !acpRecovering && !loadingHistory && (
+              <RunAdviceCard
+                key={sessionId}
+                advice={workStatus.advice}
+                statusMessage={workStatus.message}
+                attemptId={promptActivity.promptAttemptId}
+                stopping={chooseModelAfterStop === sessionId || Boolean(cancelling)}
+                onStopAndChoose={() => {
+                  if (chooseModelAfterStop || cancelling) return;
+                  setChooseModelAfterStop(sessionId);
+                  stopStreaming();
+                }}
+              />
+            )}
             <ChatInputCard
               className={cn(
                 'relative z-10 mx-4 mb-4',
@@ -995,6 +1027,7 @@ export default function BaseChat({
               )}
             >
               <ChatInput
+                externalModelOpenRequest={modelOpenRequest}
                 onOpenPermissions={() => setPermissionOpenRequest((value) => value + 1)}
                 modelToolbarSlot={
                   session && (
@@ -1045,6 +1078,8 @@ export default function BaseChat({
                 }
                 requestBudget={tokenState.requestBudget}
                 contextUsageSource={tokenState.contextUsageSource}
+                sessionStats={tokenState.sessionStats}
+                liveSpeed={tokenState.liveSpeed}
                 contextCapacitySource={tokenState.contextCapacitySource}
                 accumulatedInputTokens={
                   tokenState?.accumulatedInputTokens ??
@@ -1077,6 +1112,7 @@ export default function BaseChat({
                 {...customChatInputProps}
               />
             </ChatInputCard>
+            </>
           )}
         </div>
       </MainPanelLayout>

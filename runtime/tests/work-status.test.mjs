@@ -2,6 +2,47 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { workStatusUpdates } from '../work-status.mjs';
 
+test('advice counts real parent failures including process exits without promoting them to a verdict', () => {
+  const project = workStatusUpdates({ sessionId: 'root' });
+  const result = (id, extra = {}) => project({ type: 'tool_result', sessionId: 'root', id, ...extra })[0]?.status.data;
+  assert.equal(result('a', { isError: true }).consecutive_tool_failures, 1);
+  project({ type: 'tool_result', sessionId: 'child', id: 'child', isError: true });
+  assert.equal(result('b', { isError: false, executionFailed: true }).consecutive_tool_failures, 2);
+  assert.equal(result('c', { isError: true }).consecutive_tool_failures, 3);
+  assert.equal(result('ok', { isError: false, executionFailed: false }).consecutive_tool_failures, 0);
+  assert.equal(result('next', { isError: true }).consecutive_tool_failures, 1);
+  assert.equal(workStatusUpdates({ sessionId: 'root' })({ type: 'tool_result', sessionId: 'root', id: 'new', isError: true })[0].status.data.consecutive_tool_failures, 1);
+});
+
+test('response retry advice excludes HTTP and transport failures, and successful tools reset it', () => {
+  const project = workStatusUpdates({ sessionId: 'root' });
+  const retry = code => project({ type: 'harness_event', sessionId: 'root', event: { type: 'llm/retry', data: { failure: { code } } } })[0].status.data.response_retries;
+  project({ type: 'model_diagnostic', sessionId: 'root', phase: 'end', status: 200 });
+  assert.equal(retry('SERVER'), 1);
+  assert.equal(retry('EMPTY_RESPONSE'), 2);
+  assert.equal(retry('OUTPUT_TRUNCATED'), 3);
+  project({ type: 'model_diagnostic', sessionId: 'root', phase: 'end', status: 503 });
+  assert.equal(retry('SERVER'), 0);
+  project({ type: 'model_diagnostic', sessionId: 'root', phase: 'end', status: 200, transportCodes: ['ECONNRESET'] });
+  assert.equal(retry('EMPTY_RESPONSE'), 0);
+  project({ type: 'model_diagnostic', sessionId: 'root', phase: 'start' });
+  assert.equal(retry('EMPTY_RESPONSE'), 1);
+  const [success] = project({ type: 'tool_result', sessionId: 'root', id: 'ok', isError: false });
+  assert.equal(success.status.data.response_retries, 0);
+});
+
+test('model generation clock survives fragments and clears when tools actually start', t => {
+  t.mock.timers.enable({ apis: ['Date'], now: 100_000 });
+  const project = workStatusUpdates({ sessionId: 'root' });
+  const send = event => project({ sessionId: 'root', ...event })[0]?.status.data;
+  assert.equal(send({ type: 'model_diagnostic', phase: 'start' }).model_request_started_at, 100_000);
+  t.mock.timers.tick(190_000);
+  assert.equal(send({ type: 'model_diagnostic', phase: 'first_reasoning' }).model_request_started_at, 100_000);
+  assert.equal(send({ type: 'tool_call', id: 'run' }).model_request_started_at, undefined);
+  assert.equal(send({ type: 'model_diagnostic', phase: 'start' }).model_request_started_at, 290_000);
+  assert.equal(send({ type: 'model_diagnostic', phase: 'end' }).model_request_started_at, undefined);
+});
+
 test('length and context failures retain their cause and child recovery is scoped', () => {
   for (const [code, text] of [['OUTPUT_LIMIT_REACHED', '输出长度限制'], ['OUTPUT_TRUNCATED', '提前截断'], ['LOCAL_OUTPUT_BUDGET_EXHAUSTED', '上下文']]) {
     const project = workStatusUpdates({ sessionId: 'parent', sourceMessageId: 'input', runId: 'run' });
@@ -235,6 +276,7 @@ test('rate limits and unknown errors do not get invented network causes', () => 
   const unknown = project({ type: 'harness_event', sessionId: 'parent', event: { type: 'turn/end', data: { reason: { kind: 'error', error: { code: 'UNRECOGNIZED' } } } } });
   assert.equal(unknown[0].status.message, '请求失败，具体原因尚未确认');
 });
+
 
 test('child retries clear on that worker recovery without clearing another worker backoff', () => {
   const project = workStatusUpdates({ sessionId: 'parent' });

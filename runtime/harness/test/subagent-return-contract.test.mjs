@@ -1,3 +1,4 @@
+import { replyToNoActionReview } from './review-fixture.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createServer } from 'node:http';
@@ -19,7 +20,8 @@ test('automatic native final delivery preserves optional coordination, role reus
   const server = createServer(async (req, res) => {
     try {
       let raw = ''; for await (const chunk of req) raw += chunk;
-      const body = JSON.parse(raw); requests.push(body);
+      const body = JSON.parse(raw);
+    if (replyToNoActionReview(body, res)) return; requests.push(body);
       const child = body.messages.some(message => message.role === 'user' && textOf(message).includes('Your parent agent id is'));
       const marker = child ? /CHILD_TASK_\w+/ : /ROOT_ACTION_\d+/;
       const input = body.messages.findLastIndex(message => message.role === 'user' && marker.test(textOf(message)));

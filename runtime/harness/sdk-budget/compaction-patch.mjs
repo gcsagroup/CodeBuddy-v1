@@ -2,6 +2,14 @@
 // to the original module URL; native service and error identities stay intact.
 const replacements = [
   [
+    'new ManualCompactionError("summary", "manual compaction could not produce a smaller summary", { cause: failure.error })',
+    'new ManualCompactionError("summary", "manual compaction failed: " + (failure.error instanceof Error ? failure.error.message : String(failure.error)), { cause: failure.error })',
+  ],
+  [
+    'throw new Error("summarization produced no text summary content")',
+    'throw Object.assign(new Error("summarization produced no text summary content"), { code: "COMPACTION_EMPTY_SUMMARY" })',
+  ],
+  [
     '\tconst checkpointMessage = createUserMessage({\n\t\tcontent: frameSummary(summaryResult.summary),',
     '\tconst baseCheckpoint = createUserMessage({\n\t\tcontent: frameSummary(summaryResult.summary),',
   ],

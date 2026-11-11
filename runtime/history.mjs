@@ -17,14 +17,32 @@ export class HistoryService {
       const session = this.store.read().sessions.find(item => item.id === params.sessionId);
       if (!session) throw invalid('Session not found');
       const conversation = session.legacyHistory ? await loadLegacyConversation(this.store.directory, session.legacyHistory) : session.historyConversation ?? conversationFromUpdates(session.updates ?? [], session.createdAt);
+      const usageByMessage = new Map(), accumulated = {};
+      for (const update of session.usageUpdates ?? []) {
+        if (update.sessionUpdate !== 'message_usage' || !record(update.usage)) continue;
+        const usage = usageByMessage.get(update.messageId) ?? {};
+        for (const [key, field] of Object.entries({ inputTokens: 'input_tokens', outputTokens: 'output_tokens', totalTokens: 'total_tokens', cacheReadTokens: 'cache_read_tokens', cacheWriteTokens: 'cache_write_tokens' })) {
+          const value = update.usage[key];
+          if (!Number.isFinite(value) || value < 0) continue;
+          usage[field] = (usage[field] ?? 0) + value;
+          accumulated[field] = (accumulated[field] ?? 0) + value;
+        }
+        usageByMessage.set(update.messageId, usage);
+      }
+      const exportedConversation = conversation.map(message => usageByMessage.has(message.id)
+        ? { ...message, metadata: { ...message.metadata, usage: usageByMessage.get(message.id) } } : message);
+      const lastUsage = [...usageByMessage.values()].at(-1) ?? {};
       return { data: JSON.stringify({
         id: session.id, name: session.title, user_set_name: true,
         working_dir: session.cwd, session_type: session.type,
         created_at: session.createdAt, updated_at: session.updatedAt,
-        extension_data: {}, usage: {}, accumulated_usage: {}, accumulated_cost: null,
+        extension_data: {}, usage: lastUsage, accumulated_usage: accumulated, accumulated_cost: null,
         schedule_id: null, recipe: null, user_recipe_values: null,
-        provider_name: null, model_config: null, goose_mode: 'approve',
-        conversation, message_count: conversation.length,
+        provider_name: session.providerId ?? null,
+        model_config: session.modelId ? { model_name: session.modelId, toolshim: false,
+          ...(session.thinkingEffort ? { reasoning_effort: session.thinkingEffort } : {}) } : null,
+        goose_mode: 'approve',
+        conversation: exportedConversation, message_count: conversation.length,
       }, null, 2) };
     }
     if (method !== 'session/import') throw Object.assign(new Error(`Unsupported history method: ${method}`), { code: -32601 });

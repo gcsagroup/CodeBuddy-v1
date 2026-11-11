@@ -54,7 +54,7 @@ vi.mock('electron', () => ({
 import { registerWorkspacePanel } from './workspacePanelMain';
 
 it('opens native file/folder selections without changing session roots or granting sibling access', async () => {
-  const base = await fs.mkdtemp(path.join(os.tmpdir(), 'cb-local-picker-'));
+  const base = await fs.realpath(await fs.mkdtemp(path.join(os.tmpdir(), 'cb-local-picker-')));
   try {
     const root = path.join(base, 'folder');
     await fs.mkdir(root);
@@ -163,7 +163,7 @@ it('opens native file/folder selections without changing session roots or granti
 });
 
 it('previews external source directly and limits file-menu actions to the referenced file', async () => {
-  const base = await fs.mkdtemp(path.join(os.tmpdir(), 'cb-reference-'));
+  const base = await fs.realpath(await fs.mkdtemp(path.join(os.tmpdir(), 'cb-reference-')));
   const root = path.join(base, 'workspace');
   try {
     await fs.mkdir(root);
@@ -286,7 +286,7 @@ it('previews external source directly and limits file-menu actions to the refere
 });
 
 it('reveals or copies only existing scoped files without executing them or trusting a guest frame', async () => {
-  const base = await fs.mkdtemp(path.join(os.tmpdir(), 'cb-file-menu-'));
+  const base = await fs.realpath(await fs.mkdtemp(path.join(os.tmpdir(), 'cb-file-menu-')));
   const root = path.join(base, 'workspace');
   try {
     await fs.mkdir(root);

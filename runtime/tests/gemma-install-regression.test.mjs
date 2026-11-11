@@ -1,6 +1,7 @@
+import { replyToNoActionReview } from '../harness/test/review-fixture.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtemp, mkdir, writeFile, rm } from 'node:fs/promises';
+import { mkdtemp, mkdir, writeFile, readFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { createServer } from 'node:http';
@@ -8,6 +9,104 @@ import { createHarnessDriver } from '../harness/index.mjs';
 import { normalizeGemmaResponse, gemmaToolResponseStop } from '../harness/gemma-response.mjs';
 
 const leakedCall = 'call:fixture_effect{prompt:<|"|>将围巾改为蓝色<|"|>}<tool_call|>';
+
+test('Gemma arguments missing advertised required fields enter native recovery before tool execution', async () => {
+  const tools=[{name:'write',parameters:{type:'object',properties:{file_path:{type:'string'},content:{type:'string'}},required:['file_path','content']}}];
+  for(const args of ['{"content":"file_path: checker.js"}', '{"file_path":"checker.js"}', '{', 'null', '[]']){
+    const output=await Array.fromAsync(normalizeGemmaResponse([{type:'block-end',index:0,block:{type:'tool-call',id:'bad',name:'write',arguments:args}},{type:'finish',reason:{kind:'tool-calls'}}],tools));
+    assert.equal(output.at(-1).reason.failure.code,'SERVER');
+    assert.equal(output.some(c=>c.block?.type==='tool-call'),false);
+  }
+  const valid={type:'block-end',index:0,block:{type:'tool-call',id:'ok',name:'write',arguments:'{"file_path":"checker.js","content":""}'}};
+  assert.deepEqual(await Array.fromAsync(normalizeGemmaResponse([valid],tools)),[valid]);
+  assert.deepEqual(await Array.fromAsync(normalizeGemmaResponse([valid],[])),[valid],'unknown schemas remain owned by native tool validation');
+});
+
+test('missing file_path can recover or exhaust native retries without looping tool steps or running speculative siblings', {timeout:30000}, async t => {
+  const root=await mkdtemp(join(tmpdir(),'cb-gemma-args-'));let requests=0,recover=false;
+  const server=createServer(async(req,res)=>{
+    let raw='';for await(const c of req)raw+=c;const body=JSON.parse(raw);
+    if(replyToNoActionReview(body,res))return;requests++;
+    res.writeHead(200,{'content-type':'text/event-stream'});
+    const emit=(delta,finish_reason=null)=>res.write('data: '+JSON.stringify({id:'fixture',model:body.model,choices:[{index:0,delta,finish_reason}]})+'\n\n');
+    if(recover&&requests===2){emit({tool_calls:[{index:0,id:'corrected',type:'function',function:{name:'write',arguments:JSON.stringify({file_path:'result.txt',content:'correct'})}}]});emit({},'tool_calls');}
+    else if(recover&&requests===3){emit({content:'Created result.txt.'});emit({},'stop');}
+    else{emit({tool_calls:[{index:0,id:'sibling',type:'function',function:{name:'write',arguments:JSON.stringify({file_path:'must-not-exist.txt',content:'not committed'})}},{index:1,id:'bad',type:'function',function:{name:'write',arguments:JSON.stringify({content:'file_path belongs here only as text'})}}]});emit({},'tool_calls');}
+    res.end('data: [DONE]\n\n');
+  });
+  await new Promise(r=>server.listen(0,'127.0.0.1',r));
+  const driver=await createHarnessDriver({cwd:root,dataDir:join(root,'state')});
+  t.after(async()=>{await driver.close();server.closeAllConnections();await new Promise(r=>server.close(r));});
+  const s=await driver.createSession({cwd:root,model:'gemma-4-fixture',provider:{id:'fixture',baseUrl:`http://127.0.0.1:${server.address().port}/v1`,apiKey:'fixture',retryPolicy:{mode:'normal',maxRetries:2,backoff:{initialDelayMs:1,maxDelayMs:1,jitterRatio:0}}}});
+  await assert.rejects(driver.prompt(s.sessionId,'Create the requested files.',{onPermission:()=>true}),{code:'SERVER'});
+  assert.equal(requests,3);
+  await assert.rejects(readFile(join(root,'must-not-exist.txt')),{code:'ENOENT'});
+  const history=await driver.history(s.sessionId);
+  assert.equal(history.events.filter(e=>e.type==='tool/call').length,0);
+  assert.equal(history.events.filter(e=>e.type==='llm/retry').length,2);
+  recover=true;requests=0;
+  const fixed=await driver.createSession({cwd:root,model:'gemma-4-fixture',provider:{id:'fixture',baseUrl:`http://127.0.0.1:${server.address().port}/v1`,apiKey:'fixture',retryPolicy:{mode:'normal',maxRetries:2,backoff:{initialDelayMs:1,maxDelayMs:1,jitterRatio:0}}}});
+  assert.equal((await driver.prompt(fixed.sessionId,'Create result.txt.',{onPermission:()=>true})).stopReason,'end_turn');
+  assert.equal(await readFile(join(root,'result.txt'),'utf8'),'correct');
+  assert.equal(requests,3);
+  await assert.rejects(readFile(join(root,'must-not-exist.txt')),{code:'ENOENT'});
+});
+
+test('a generated native file receipt invalidates the speculative response without publishing it', async () => {
+  const receipt='<path>/workspace/report.md</path>\n<type>file</type>\n<content>\nCreated file\n</content>';
+  const call={type:'block-end',index:0,block:{type:'tool-call',id:'real',name:'write',arguments:'{"file_path":"report.md","content":"actual"}'}};
+  const later={type:'block-end',index:2,block:{type:'tool-call',id:'speculative',name:'write',arguments:'{"file_path":"other.md","content":"untrusted continuation"}'}};
+  for(const prefix of ['', 'ol\n', 'Tool returned:\n']){
+    const text=prefix+receipt;
+    for(const size of [1,17,text.length]){
+      const deltas=Array.from({length:Math.ceil(text.length/size)},(_,i)=>({type:'text-delta',index:1,text:text.slice(i*size,(i+1)*size)}));
+      const frames=await Array.fromAsync(normalizeGemmaResponse([call,...deltas,{type:'block-end',index:1,block:{type:'text',text}},later,{type:'finish',reason:{kind:'tool-calls'}}]));
+      assert.deepEqual(frames.filter(c=>c.block?.type==='tool-call'),[call]);
+      assert.equal(frames.filter(c=>c.type==='text-delta').map(c=>c.text).join(''),'');
+      assert.equal(frames.at(-1).reason.failure.code,'SERVER');
+    }
+  }
+  for(const text of ['```xml\n'+receipt+'\n```','Example: `'+receipt+'`','The file contains <path> and <content> XML elements.']){
+    const frames=await Array.fromAsync(normalizeGemmaResponse([call,{type:'text-delta',index:1,text},{type:'block-end',index:1,block:{type:'text',text}},{type:'finish',reason:{kind:'tool-calls'}}]));
+    assert.equal(frames.filter(c=>c.type==='text-delta').map(c=>c.text).join(''),text);
+  }
+  const plain=await Array.fromAsync(normalizeGemmaResponse([{type:'text-delta',index:0,text:receipt},{type:'block-end',index:0,block:{type:'text',text:receipt}},{type:'finish',reason:{kind:'stop'}}]));
+  assert.equal(plain.filter(c=>c.type==='text-delta').map(c=>c.text).join(''),receipt);
+});
+
+test('a server-stripped file-result boundary discards reordered speculative calls before native retry executes a clean write', {timeout:30000}, async t => {
+  const root=await mkdtemp(join(tmpdir(),'cb-file-envelope-')), requests=[], visible=[];
+  const server=createServer(async(req,res)=>{
+    let raw='';for await(const c of req)raw+=c;const body=JSON.parse(raw);
+    if(replyToNoActionReview(body,res))return;
+    requests.push(body);res.writeHead(200,{'content-type':'text/event-stream'});
+    const emit=(delta,finish_reason=null)=>res.write('data: '+JSON.stringify({id:'fixture',model:body.model,choices:[{index:0,delta,finish_reason}]})+'\n\n');
+    if(requests.length===1){
+      emit({tool_calls:[{index:0,id:'actual-write',type:'function',function:{name:'write',arguments:JSON.stringify({file_path:'requested.txt',content:'ACTUAL_CONTENT'})}}]});
+      emit({content:'ol\n<path>'+join(root,'requested.txt')+'</path>\n<type>file</type>\n<content>\nCreated file\n</content>'});
+      emit({tool_calls:[{index:1,id:'invented-dependent-write',type:'function',function:{name:'write',arguments:JSON.stringify({file_path:'must-not-exist.txt',content:'INVENTED_RESULT'})}}]});
+      emit({},'tool_calls');
+    }else if(requests.length===2){
+      emit({tool_calls:[{index:0,id:'clean-write',type:'function',function:{name:'write',arguments:JSON.stringify({file_path:'requested.txt',content:'ACTUAL_CONTENT'})}}]});
+      emit({},'tool_calls');
+    }else{emit({content:'已写入 requested.txt。'});emit({},'stop');}
+    res.end('data: [DONE]\n\n');
+  });
+  await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
+  const driver=await createHarnessDriver({cwd:root,dataDir:join(root,'state')});
+  t.after(async()=>{await driver.close();server.closeAllConnections();await new Promise(resolve=>server.close(resolve));});
+  const s=await driver.createSession({cwd:root,model:'gemma-4-fixture',provider:{id:'fixture',baseUrl:`http://127.0.0.1:${server.address().port}/v1`,apiKey:'fixture'}});
+  const result=await driver.prompt(s.sessionId,'Write ACTUAL_CONTENT to requested.txt.',{onPermission:()=>true,onEvent:e=>{if(e.type==='text_delta')visible.push(e.text)}});
+  assert.equal(result.stopReason,'end_turn');
+  assert.equal(await readFile(join(root,'requested.txt'),'utf8'),'ACTUAL_CONTENT');
+  await assert.rejects(readFile(join(root,'must-not-exist.txt')), {code:'ENOENT'});
+  assert.equal(requests.length,3);
+  assert.equal(visible.join(''),'已写入 requested.txt。');
+  assert(requests[2].messages.some(m=>m.role==='tool'&&JSON.stringify(m.content).includes('Created file')));
+  const history=await driver.history(s.sessionId);
+  assert.equal(history.events.filter(e=>e.type==='tool/call').length,1);
+  assert.equal(history.events.filter(e=>e.type==='llm/retry').length,1);
+});
 
 test('installed malformed thought openers never reach visible answers', async () => {
   for (const [reasoning, text] of [['<|cught\n<|c', 'ught\n'], ['', '<|thought\nThinking Process:\nRead the file.']]) {
@@ -50,7 +149,8 @@ test('native Gemma requests hand off before model-authored tool responses and re
   const requests = [], executions = [];
   const server = createServer(async (req, res) => {
     let raw = ''; for await (const c of req) raw += c;
-    const request = JSON.parse(raw); requests.push(request);
+    const request = JSON.parse(raw);
+    if (replyToNoActionReview(request, res)) return; requests.push(request);
     res.writeHead(200, { 'content-type': 'text/event-stream' });
     const emit = (delta, finish_reason = null) => res.write('data: ' + JSON.stringify({ id: 'fixture', model: request.model,
       choices: [{ index: 0, delta, finish_reason }] }) + '\n\n');
@@ -116,7 +216,8 @@ test('native provider retry recovers leaked calls without executing text, and ow
   let requests = 0, executions = 0, scenario = 'recover';
   const server = createServer(async (req, res) => {
     let raw = ''; for await (const c of req) raw += c;
-    const request = JSON.parse(raw); requests++;
+    const request = JSON.parse(raw);
+    if (replyToNoActionReview(request, res)) return; requests++;
     if (scenario === 'malformed' && requests === 2) {
       assert.equal(request.stream, false);
       assert.equal(request.stream_options, undefined);
@@ -313,6 +414,24 @@ test('pending native tool calls cannot publish fabricated receipts or unparsed t
   }
 });
 
+test('a thought opener after ordinary prose is rejected without displaying its split marker', async () => {
+  const text = 'First we will create the files.\n\n<|channel>thought';
+  for (let cut = 0; cut <= text.length; cut++) {
+    const frames = await Array.fromAsync(normalizeGemmaResponse([
+      ...[text.slice(0, cut), text.slice(cut)].map(text => ({ type: 'text-delta', index: 0, text })),
+      { type: 'block-end', index: 0, block: { type: 'text', text } },
+    ]));
+    assert.equal(frames.at(-1).reason?.failure?.code, 'SERVER');
+    assert.ok(!frames.filter(frame => frame.type === 'text-delta').map(frame => frame.text).join('').includes('<|channel>'));
+  }
+  const quoted = 'The marker is `<|channel>thought` in this example.';
+  const frames = await Array.fromAsync(normalizeGemmaResponse([
+    ...[...quoted].map(text => ({ type: 'text-delta', index: 0, text })),
+    { type: 'block-end', index: 0, block: { type: 'text', text: quoted } },
+  ]));
+  assert.equal(frames.filter(frame => frame.type === 'text-delta').map(frame => frame.text).join(''), quoted);
+});
+
 test('a second unquoted thought boundary is rejected even when the server lost the native tool call', async () => {
   const raw = 'ile.<channel|><tool>\n<path>v2/summary.csv</path>\n</tool>\nRechecking.<channel|><tool>invented receipt</tool>';
   for (let i = 0; i <= raw.length; i++) {
@@ -334,7 +453,8 @@ for (const [caseName, text] of [
   const root = await mkdtemp(join(tmpdir(), 'cb-gemma-stream-recovery-'));
   let requests = 0, executions = 0, sent = 0, closedEarly = false;
   const server = createServer(async (req, res) => {
-    for await (const _ of req) { /* consume this isolated fixture request */ }
+    let body = ''; for await (const part of req) body += part;
+    if (replyToNoActionReview(JSON.parse(body), res)) return;
     requests++;
     res.writeHead(200, { 'content-type': 'text/event-stream' });
     const emit = (delta, finish_reason = null) => res.write('data: ' + JSON.stringify({
@@ -396,7 +516,9 @@ test('a managed task inside a checkout uses its own instructions and skill roots
   const requests = [];
   const server = createServer(async (req, res) => {
     let raw = ''; for await (const c of req) raw += c;
-    requests.push(JSON.parse(raw));
+    const body = JSON.parse(raw);
+    if (replyToNoActionReview(body, res)) return;
+    requests.push(body);
     res.writeHead(200, { 'content-type': 'text/event-stream' });
     const emit = (delta, finish_reason = null) => res.write('data: ' + JSON.stringify({
       id: 'fixture', model: 'gemma-4-fixture', choices: [{ index: 0, delta, finish_reason }],
@@ -431,4 +553,21 @@ test('a managed task inside a checkout uses its own instructions and skill roots
   const catalog = await driver.skillCatalog(cwd);
   assert.equal(catalog.roots.find(r => r.source === 'project-agents').path, join(cwd, '.agents', 'skills'));
   assert.equal((await driver.prompt(session.sessionId, 'Continue.')).stopReason, 'end_turn');
+});
+
+test('alternating installed receipt paragraphs are rejected before publishing; file data and final prose stay intact', async () => {
+  const cycle='</path>\n<type>bash</type>\n<content>\nUpdated file\n</content>\n\n(Done.)\n\n</path>\n<type>bash</type>\n<content>\nUpdated file\n</content>\n\n(Final answer.)\n\n';
+  const text=cycle.repeat(30);
+  for(const size of [1,37,text.length]) {
+    const deltas=Array.from({length:Math.ceil(text.length/size)},(_,i)=>({type:'text-delta',index:1,text:text.slice(i*size,(i+1)*size)}));
+    const frames=await Array.fromAsync(normalizeGemmaResponse([{type:'block-start',index:0,blockType:'tool-call'},...deltas]));
+    assert.equal(frames.at(-1).reason?.failure?.code,'SERVER');
+    assert.equal(frames.some(c=>c.type==='text-delta'),false);
+    assert.equal((await Array.fromAsync(normalizeGemmaResponse(deltas))).map(c=>c.text).join(''),text);
+  }
+  const delta={type:'tool-call-delta',index:0,id:'file',name:'write',arguments:JSON.stringify({content:text})};
+  assert.deepEqual(await Array.fromAsync(normalizeGemmaResponse([delta])),[delta]);
+  const varied=Array.from({length:100},(_,i)=>`Receipt ${i}: completed distinct work.\n\n`).join('');
+  const frames=await Array.fromAsync(normalizeGemmaResponse([{type:'reasoning-delta',index:0,text:varied}]));
+  assert.equal(frames.some(c=>c.reason?.failure),false);
 });

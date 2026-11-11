@@ -32,7 +32,7 @@ import {
   useAcpChatSessionSnapshot,
 } from '../acp/chatSessionStore';
 import { acpSteerSession } from '../acp/prompt';
-import { isAcpRecovering } from '../acp/acpConnection';
+import { isAcpRecovering, subscribeToAcpRecovery } from '../acp/acpConnection';
 import type { CodeProWorkspaceInspection } from '../codepro/projectWorkspace';
 
 const initialTokenState: TokenState = {
@@ -184,6 +184,19 @@ export function useChatSession({
     if (!sessionId) return;
 
     void acpChatSessionController.loadSession(sessionId, { onSessionLoaded });
+  }, [sessionId, onSessionLoaded]);
+
+  useEffect(() => {
+    let interrupted = isAcpRecovering();
+    return subscribeToAcpRecovery((recovering) => {
+      if (recovering) interrupted = true;
+      else if (interrupted) {
+        interrupted = false;
+        // Reload the same authoritative transcript and live operation. Never
+        // resend the prompt: it may have kept executing while disconnected.
+        if (sessionId) void acpChatSessionController.loadSession(sessionId, { onSessionLoaded });
+      }
+    });
   }, [sessionId, onSessionLoaded]);
 
   const handleSubmit = useCallback(

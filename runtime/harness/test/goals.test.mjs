@@ -1,3 +1,4 @@
+import { replyToNoActionReview } from './review-fixture.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createServer } from 'node:http';
@@ -20,7 +21,8 @@ async function fixture(t, handler, { sessionOptions = {}, effectValue, usageInpu
   const requests = [], effects = [];
   const server = createServer(async (req, res) => {
     let raw = ''; for await (const c of req) raw += c;
-    const body = JSON.parse(raw); requests.push(body);
+    const body = JSON.parse(raw);
+    if (replyToNoActionReview(body, res)) return; requests.push(body);
     res.writeHead(200, { 'content-type': 'text/event-stream' });
     let outputChars = 0;
     const emit = (delta, finish_reason = null) => {

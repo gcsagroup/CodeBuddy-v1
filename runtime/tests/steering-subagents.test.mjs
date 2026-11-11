@@ -1,3 +1,4 @@
+import { replyToNoActionReview } from '../harness/test/review-fixture.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createServer } from 'node:http';
@@ -25,6 +26,7 @@ async function fixture(t) {
     try {
       let raw = ''; for await (const chunk of req) raw += chunk;
       const body = JSON.parse(raw);
+    if (replyToNoActionReview(body, res)) return;
       requests.push(body);
       const child = body.messages.some(message => message.role === 'user' && textOf(message).includes('Your parent agent id is'));
       res.writeHead(200, { 'content-type': 'text/event-stream' });

@@ -212,6 +212,8 @@ export function useNavigationSessions() {
       const { sessionId } = (event as CustomEvent<{ sessionId: string }>).detail;
 
       setRecentSessions((prev) => prev.filter((session) => session.id !== sessionId));
+      setPinnedItems((prev) => prev.filter((session) => session.id !== sessionId));
+      if (currentSessionId === sessionId) navigate(withWorkspaceMode('/', workspaceMode), { replace: true });
 
       if (lastSessionIdRef.current === sessionId) {
         lastSessionIdRef.current = null;
@@ -245,8 +247,9 @@ export function useNavigationSessions() {
     return () => {
       window.removeEventListener(AppEvents.SESSION_DELETED, handleSessionDeleted);
       window.removeEventListener(AppEvents.SESSION_RENAMED, handleSessionRenamed);
+      fetchVersion++;
     };
-  }, [sessionWorkspaceMode]);
+  }, [sessionWorkspaceMode, currentSessionId, navigate, workspaceMode]);
 
   const handleNavClick = useCallback(
     (path: string) => {

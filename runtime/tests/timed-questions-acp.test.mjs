@@ -1,3 +1,4 @@
+import { replyToNoActionReview } from '../harness/test/review-fixture.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createServer } from 'node:http';
@@ -14,6 +15,7 @@ test('real ACP carries the native deadline, late reply, turn close and cross-ses
     if (req.url.endsWith('/models')) { res.end(JSON.stringify({ data: [{ id: 'fixture' }] })); return; }
     let raw = ''; for await (const chunk of req) raw += chunk;
     const body = JSON.parse(raw);
+    if (replyToNoActionReview(body, res)) return;
     if (!body.stream) { res.end(JSON.stringify({ choices: [{ message: { content: 'OK' } }] })); return; }
     bodies.push(body);
     const hasTool = body.messages.some(m => m.role === 'tool');

@@ -1,5 +1,7 @@
 // Serialize compatibility loading before linking the SDK implementation.
+await import('./windows-process-errors.mjs');
 await import('./sdk-budget-contract.mjs');
+await import('./windows-acl-contract.mjs');
 await import('./tool-error-contract.mjs');
 await import('./subagent-return-contract.mjs');
 await import('./native-schedule-contract.mjs');

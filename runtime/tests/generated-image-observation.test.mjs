@@ -1,3 +1,4 @@
+import { replyToNoActionReview } from '../harness/test/review-fixture.mjs';
 import { answerTitleRequest } from './fixtures/title-request.mjs';
 import { savedFixtureResponse } from './comfyui-catalog-fixture.mjs';
 import test from 'node:test';
@@ -24,6 +25,7 @@ async function fixture(t, inputModalities = ['text', 'image']) {
     if (req.url.endsWith('/models')) { res.writeHead(200, { 'content-type': 'application/json' }).end(JSON.stringify({ data: [{ id: 'main', input_modalities: inputModalities }] })); return; }
     let raw = ''; for await (const chunk of req) raw += chunk;
     const request = JSON.parse(raw);
+    if (replyToNoActionReview(request, res)) return;
     if (!request.stream) { res.writeHead(200, { 'content-type': 'application/json' }).end(JSON.stringify({ choices: [{ message: { content: 'OK' } }] })); return; }
     if (answerTitleRequest(request, res)) return;
     requests.push(request);

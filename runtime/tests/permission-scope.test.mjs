@@ -1,3 +1,4 @@
+import { replyToNoActionReview } from '../harness/test/review-fixture.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createServer } from 'node:http';
@@ -28,6 +29,7 @@ test('delegated working directory does not widen the inherited file sandbox outs
     let raw = '';
     for await (const chunk of req) raw += chunk;
     const body = JSON.parse(raw);
+    if (replyToNoActionReview(body, res)) return;
     const user = body.messages.findLastIndex(message => message.role === 'user' && JSON.stringify(message.content).includes('SCOPE_FIXTURE_'));
     const isChild = JSON.stringify(body.messages[user]?.content).includes('SCOPE_FIXTURE_CHILD');
     const alreadyCalled = body.messages.slice(user + 1).some(message => message.role === 'tool');

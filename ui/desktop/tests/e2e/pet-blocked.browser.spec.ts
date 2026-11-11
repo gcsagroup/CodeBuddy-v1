@@ -23,16 +23,33 @@ test('blocked pet settles in the real renderer without clearing the task or repl
     await expect(canvas).toBeVisible();
     await page.clock.pauseAt(new Date(Date.now() + 60_000));
     await page.getByRole('button', { name: 'working', exact: true }).click();
+    await expect(canvas).toHaveAttribute('data-animation', 'working');
+    await page.clock.runFor(2100);
+    await expect(canvas).toHaveAttribute('data-animation', 'idle');
+    await expect(page.getByText('Working', { exact: true })).toBeVisible();
+    await page.getByRole('button', { name: 'working', exact: true }).click();
+    await expect(canvas).toHaveAttribute('data-animation', 'idle');
+    // A settled idle must keep the actual canvas pixels still, not just its label.
+    const idlePixels = await canvas.evaluate((node: HTMLCanvasElement) => node.toDataURL());
+    await page.clock.runFor(2000);
+    expect(await canvas.evaluate((node: HTMLCanvasElement) => node.toDataURL())).toBe(idlePixels);
+    expect(await canvas.evaluate((node) => getComputedStyle(node).animationName)).toBe('none');
+    for (const [state, animation] of [['input', 'waiting'], ['completed', 'review']]) {
+      await page.getByRole('button', { name: state, exact: true }).click();
+      await expect(canvas).toHaveAttribute('data-animation', animation);
+      await page.clock.runFor(2100);
+      await expect(canvas).toHaveAttribute('data-animation', 'idle');
+    }
     await page.getByRole('button', { name: 'blocked', exact: true }).click();
-    await expect(canvas).not.toHaveClass('pet-breathing');
+    await expect(canvas).toHaveAttribute('data-animation', 'failed');
     await page.screenshot({ path: test.info().outputPath('blocked.png') });
-    await page.clock.runFor(1100);
-    await expect(canvas).toHaveClass('pet-breathing');
+    await page.clock.runFor(2100);
+    await expect(canvas).toHaveAttribute('data-animation', 'idle');
     await expect(page.getByText('Blocked · click to view')).toBeVisible();
     await page.getByRole('button', { name: 'blocked', exact: true }).click();
-    await expect(canvas).toHaveClass('pet-breathing');
+    await expect(canvas).toHaveAttribute('data-animation', 'idle');
     await page.clock.runFor(10000);
-    await expect(canvas).toHaveClass('pet-breathing');
+    await expect(canvas).toHaveAttribute('data-animation', 'idle');
     await page.screenshot({ path: test.info().outputPath('settled.png') });
     await canvas.click();
     await page.clock.runFor(310);

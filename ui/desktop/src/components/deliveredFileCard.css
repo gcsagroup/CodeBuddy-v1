@@ -1,0 +1,70 @@
+.delivered-file-card {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 16px;
+  margin: 12px 0;
+  max-width: 100%;
+  min-width: 0;
+  border: 1px solid color-mix(in srgb, currentColor 12%, transparent);
+  border-radius: 16px;
+}
+.delivered-file-icon {
+  display: grid;
+  place-items: center;
+  flex: 0 0 44px;
+  height: 44px;
+  border-radius: 12px;
+  background: color-mix(in srgb, currentColor 5%, transparent);
+}
+.delivered-file-sheet {
+  color: #169b58;
+}
+.delivered-file-name {
+  min-width: 0;
+  flex: 1;
+  line-height: 1.5;
+}
+.delivered-file-name a {
+  display: block;
+  overflow-wrap: anywhere;
+  font-weight: 600;
+  color: inherit;
+  text-decoration: none;
+}
+.delivered-file-name a:hover {
+  text-decoration: underline;
+}
+.delivered-file-format {
+  display: block;
+  opacity: 0.6;
+  font-size: 12px;
+}
+.delivered-file-open {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  flex-shrink: 0;
+  border: 1px solid color-mix(in srgb, currentColor 12%, transparent);
+  border-radius: 9px;
+  padding: 6px 10px;
+  font-size: 12px;
+}
+.delivered-file-open:hover {
+  background: color-mix(in srgb, currentColor 5%, transparent);
+}
+.delivered-file-card :focus-visible {
+  outline: 2px solid currentColor;
+  outline-offset: 3px;
+}
+@media (max-width: 600px) {
+  .delivered-file-card {
+    flex-wrap: wrap;
+    padding: 12px;
+    gap: 10px;
+  }
+  .delivered-file-open {
+    margin-left: auto;
+  }
+}

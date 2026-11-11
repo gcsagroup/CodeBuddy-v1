@@ -1,3 +1,4 @@
+import { replyToNoActionReview } from '../harness/test/review-fixture.mjs';
 import test from "node:test";
 import { tmpdir } from "node:os";
 import assert from "node:assert/strict";
@@ -45,6 +46,7 @@ test(
       let raw = "";
       for await (const chunk of req) raw += chunk;
       const message = JSON.parse(raw);
+    if (replyToNoActionReview(message, res)) return;
       if (!("id" in message)) {
         res.writeHead(202).end();
         return;

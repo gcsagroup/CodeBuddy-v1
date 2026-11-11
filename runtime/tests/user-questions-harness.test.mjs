@@ -1,3 +1,4 @@
+import { replyToNoActionReview } from '../harness/test/review-fixture.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createServer } from 'node:http';
@@ -11,6 +12,7 @@ test('official user-question tool waits for host input, returns the real answer 
   const server = createServer(async (req, res) => {
     let raw = ''; for await (const part of req) raw += part;
     const body = JSON.parse(raw);
+    if (replyToNoActionReview(body, res)) return;
     res.writeHead(200, { 'content-type': 'text/event-stream' });
     const emit = (delta, finish_reason = null) => res.write(`data: ${JSON.stringify({ id: 'ask-fixture', object: 'chat.completion.chunk', model: body.model, choices: [{ index: 0, delta, finish_reason }] })}\n\n`);
     if (body.messages.some(m => m.role === 'tool')) {
@@ -54,7 +56,8 @@ test('native timed questions allow one late reply only during the running turn; 
   const requests = [];
   const server = createServer(async (req, res) => {
     let raw = ''; for await (const part of req) raw += part;
-    const body = JSON.parse(raw); requests.push(body);
+    const body = JSON.parse(raw);
+    if (replyToNoActionReview(body, res)) return; requests.push(body);
     const tool = body.messages.find(m => m.role === 'tool');
     if (tool) { toolSeen.resolve(tool); await gate.promise; }
     res.writeHead(200, { 'content-type': 'text/event-stream' });

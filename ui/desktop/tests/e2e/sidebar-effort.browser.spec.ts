@@ -29,9 +29,11 @@ test('scoped pins, folder actions and deferred thinking changes work with real b
     const tasks = page.getByText('任务', { exact: true });
     await expect(workspaces).toBeVisible();
     expect((await workspaces.boundingBox())!.y).toBeLessThan((await tasks.boundingBox())!.y);
-    const row = (title: string) => page.locator('span[title]').filter({ hasText: title }).locator('..');
+    const row = (title: string) => page.locator('[data-session-row]').filter({ has: page.getByRole('button', { name: title, exact: true }) });
     await row('项目甲的旧对话').hover();
     await row('项目甲的旧对话').getByRole('button', { name: '置顶会话', exact: true }).click();
+    // Pinning moves the row away from the pointer; reveal its actions at the new position.
+    await row('项目甲的旧对话').hover();
     await expect(row('项目甲的旧对话').getByRole('button', { name: '取消置顶', exact: true })).toHaveAttribute('aria-pressed', 'true');
     await expect.poll(async () => (await row('项目甲的旧对话').boundingBox())!.y - (await row('项目甲的新对话').boundingBox())!.y).toBeLessThan(0);
     await expect(page.getByText('置顶', { exact: true })).toHaveCount(0);
@@ -61,6 +63,47 @@ test('scoped pins, folder actions and deferred thinking changes work with real b
     expect(requests.at(-1)!.input.fields).toEqual([{ key: 'thinkingEffort:model', value: 'low' }]);
     await page.screenshot({ path: test.info().outputPath('sidebar-effort.png') });
     expect(errors).toEqual([]);
+  } finally { await page.close(); }
+});
+
+test('long sidebar names move immediately and expose a complete metadata card', async () => {
+  const page = await browser.newPage({ viewport: { width: 1100, height: 800 } });
+  await page.exposeFunction('fixtureRequest', () => ({}));
+  const title = '修复七项体验问题并验收 Windows 和 Mac 安装包，保留完整历史与验证证据 (12)';
+  try {
+    await page.goto(server.resolvedUrls!.local[0] + 'tests/browser-fixtures/sidebar-effort.html?longTitles=1');
+    const button = page.getByRole('button', { name: title, exact: true });
+    const row = button.locator('..');
+    await expect(button).toBeVisible();
+    const initialWidth = (await button.boundingBox())!.width;
+    const scroller = page.locator('.shell-navigation .sidebar-scrollbar');
+    const gap = await row.evaluate((el) => { const scroll = el.closest('.sidebar-scrollbar')!; return scroll.getBoundingClientRect().left + scroll.clientWidth - el.getBoundingClientRect().right; });
+    expect(gap).toBeLessThanOrEqual(4);
+    await button.hover();
+    await page.waitForTimeout(120);
+    const text = button.locator('.conversation-title-text');
+    expect(await text.evaluate(el => new DOMMatrix(getComputedStyle(el).transform).m41)).toBeLessThan(-0.1);
+    expect(await text.evaluate(el => getComputedStyle(el).animationDelay)).toBe('0s');
+    await expect(page.getByRole('tooltip')).toContainText(title);
+    await expect(page.getByRole('tooltip')).toContainText('D:/Alpha');
+    await expect(page.getByRole('tooltip')).toContainText('2026');
+    await expect(page.getByRole('tooltip')).toContainText('最近更新');
+    expect((await button.boundingBox())!.width).toBeLessThan(initialWidth);
+    await expect(row.getByRole('button', { name: '置顶会话', exact: true })).toBeVisible();
+    await page.screenshot({ path: test.info().outputPath('sidebar-hover-card.png') });
+    await page.keyboard.press('Escape');
+    await expect(page.getByRole('tooltip')).toHaveCount(0);
+    await page.mouse.move(700, 100);
+    await expect(text).toHaveCSS('transform', 'none');
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    await button.hover();
+    await expect(text).toHaveCSS('animation-name', 'none');
+    await page.setViewportSize({ width: 600, height: 650 });
+    const card = page.locator('[data-slot="tooltip-content"]').first();
+    const bounds = (await card.boundingBox())!;
+    expect(bounds.x).toBeGreaterThanOrEqual(0);
+    expect(bounds.x + bounds.width).toBeLessThanOrEqual(600);
+    expect(await scroller.evaluate(el => el.scrollWidth <= el.clientWidth)).toBe(true);
   } finally { await page.close(); }
 });
 

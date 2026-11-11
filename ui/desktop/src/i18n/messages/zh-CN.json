@@ -1,41 +1,13 @@
 {
-  "baseChat.mainWelcome": { "defaultMessage": "我是 CodeBuddy，一起把事情做好。" },
-  "baseChat.mainIntroduction": { "defaultMessage": "我可以帮你理解代码、处理文档和数据，把复杂任务一步步做完并检查结果。告诉我你想完成什么，我们一起开始。" },
-  "baseChat.mainCode": { "defaultMessage": "写代码与排错" },
-  "baseChat.mainData": { "defaultMessage": "整理文档与数据" },
-  "baseChat.mainTasks": { "defaultMessage": "规划、执行与验证" },
-  "runtime.sourceChanged": { "defaultMessage": "后台代码已更新。请等待当前任务完成后，关闭并重新启动 CodeBuddy，让修改生效。" },
-  "toolbox.sync.connecting": { "defaultMessage": "后台连接中…" },
-  "modelsBottomBar.refresh": {
-    "defaultMessage": "刷新模型"
-  },
-  "modelsBottomBar.refreshing": {
-    "defaultMessage": "正在刷新模型…"
-  },
-  "modelsBottomBar.refreshed": {
-    "defaultMessage": "模型列表已更新。"
-  },
-  "modelsBottomBar.refreshFailed": {
-    "defaultMessage": "部分连接刷新失败，已保留这些连接的上次列表，请重试。"
-  },
-  "navigationPanel.projectActions": {
-    "defaultMessage": "项目操作"
-  },
-  "navigationPanel.pinProject": {
-    "defaultMessage": "置顶项目"
-  },
-  "navigationPanel.unpinProject": {
-    "defaultMessage": "取消项目置顶"
-  },
-  "navigationPanel.newProjectChat": {
-    "defaultMessage": "在项目中新建对话"
-  },
-  "navigationPanel.archiveProjectChats": {
-    "defaultMessage": "归档项目中的对话"
-  },
-  "navigationPanel.archiveProjectConfirm": {
-    "defaultMessage": "归档「{name}」中的 {count} 个对话？不会改动项目文件，可在历史记录中恢复对话。"
-  },
+  "composerStats.live": { "defaultMessage": "当前生成速度" },
+  "composerStats.liveDetail": { "defaultMessage": "本次请求最近一个采样时段内每秒收到的输出 token 数。≈ 表示估算值。" },
+  "composerStats.speed": { "defaultMessage": "平均生成速度" },
+  "composerStats.speedDetail": { "defaultMessage": "当前会话已完成模型请求的平均生成速度。不含首字等待和工具执行时间，每次请求完成后更新。" },
+  "composerStats.speedUnknown": { "defaultMessage": "等待包含 token 用量和耗时数据的模型请求完成。" },
+  "composerStats.cache": { "defaultMessage": "缓存命中" },
+  "composerStats.cacheUnavailable": { "defaultMessage": "未上报" },
+  "composerStats.cacheDetail": { "defaultMessage": "最近一次有回执的模型请求：缓存读取 {cached} / 总输入 {prompt} tokens。缓存写入不计作命中。" },
+  "composerStats.cacheUnknown": { "defaultMessage": "最近请求暂未提供有效的缓存回执。缺少数据不代表命中率为 0%。" },
   "alertBox.compactNow": {
     "defaultMessage": "立即压缩"
   },
@@ -191,6 +163,21 @@
   },
   "baseChat.latest": {
     "defaultMessage": "回到最新"
+  },
+  "baseChat.mainCode": {
+    "defaultMessage": "写代码与排错"
+  },
+  "baseChat.mainData": {
+    "defaultMessage": "整理文档与数据"
+  },
+  "baseChat.mainIntroduction": {
+    "defaultMessage": "我可以帮你理解代码、处理文档和数据，把复杂任务一步步做完并检查结果。告诉我你想完成什么，我们一起开始。"
+  },
+  "baseChat.mainTasks": {
+    "defaultMessage": "规划、执行与验证"
+  },
+  "baseChat.mainWelcome": {
+    "defaultMessage": "我是 CodeBuddy，一起把事情做好。"
   },
   "baseChat.readonlyHistory": {
     "defaultMessage": "导入的历史仅供查看。如需继续工作，请新建任务。"
@@ -1560,6 +1547,9 @@
   "codeProToolContent.timeout": {
     "defaultMessage": "执行超时，后续影响可能仍需核对"
   },
+  "common.cancel": {
+    "defaultMessage": "取消"
+  },
   "commonQueries.city": {
     "defaultMessage": "默认查询城市（可选）"
   },
@@ -1595,6 +1585,21 @@
   },
   "commonQueries.units": {
     "defaultMessage": "温度单位"
+  },
+  "compaction.cancelled": {
+    "defaultMessage": "上下文压缩已取消，原上下文已保留。"
+  },
+  "compaction.completedAuto": {
+    "defaultMessage": "上下文已自动压缩"
+  },
+  "compaction.completedManual": {
+    "defaultMessage": "上下文已压缩"
+  },
+  "compaction.details": {
+    "defaultMessage": "查看详情"
+  },
+  "compaction.failed": {
+    "defaultMessage": "上下文压缩失败，原上下文已保留。"
   },
   "composerCommands.active": {
     "defaultMessage": "进行中"
@@ -1833,11 +1838,23 @@
   "confirmationModal.processing": {
     "defaultMessage": "处理中…"
   },
+  "conversation.turnStoppedAfter": {
+    "defaultMessage": "已停止，用时 {duration}"
+  },
+  "conversation.turnWorkingFor": {
+    "defaultMessage": "已处理 {duration}"
+  },
   "conversation.turnDuration": {
     "defaultMessage": "用时 {minutes} 分钟 {seconds} 秒"
   },
   "conversation.turnRecord": {
     "defaultMessage": "本轮记录 {count} 项操作"
+  },
+  "conversationBranch.action": {
+    "defaultMessage": "从此轮创建对话分支"
+  },
+  "conversationBranch.boundary": {
+    "defaultMessage": "消息已变化，请重新加载对话后再创建分支。"
   },
   "conversationFiles.changes": {
     "defaultMessage": "逐次修改记录（增删行数按每次操作计算，不是工作区净差异）"
@@ -3831,15 +3848,6 @@
   "headersSection.value": {
     "defaultMessage": "值"
   },
-  "hub.goodAfternoon": {
-    "defaultMessage": "下午好"
-  },
-  "hub.goodEvening": {
-    "defaultMessage": "晚上好"
-  },
-  "hub.goodMorning": {
-    "defaultMessage": "早上好"
-  },
   "huggingFaceModelSearch.download": {
     "defaultMessage": "下载"
   },
@@ -4212,6 +4220,12 @@
   "loadingGoose.compactingElapsed": {
     "defaultMessage": "正在整理对话上下文 已用 {seconds} 秒"
   },
+  "loadingGoose.compactionHint": {
+    "defaultMessage": "正在生成接续任务所需的摘要，原始消息保留在对话中。"
+  },
+  "loadingGoose.compactionWait": {
+    "defaultMessage": "仍在等待模型返回。较长对话可能耗时较久，可停止后重试。"
+  },
   "loadingGoose.elapsed": {
     "defaultMessage": "{message} 已用 {seconds} 秒"
   },
@@ -4512,9 +4526,6 @@
   "mentionPopover.addGroup": {
     "defaultMessage": "添加"
   },
-  "mentionPopover.loadMore": {
-    "defaultMessage": "加载更多"
-  },
   "mentionPopover.agents": {
     "defaultMessage": "智能体"
   },
@@ -4550,6 +4561,9 @@
   },
   "mentionPopover.keys": {
     "defaultMessage": "↑ ↓ 选择 · Enter 插入 · Esc 关闭"
+  },
+  "mentionPopover.loadMore": {
+    "defaultMessage": "加载更多"
   },
   "mentionPopover.loading": {
     "defaultMessage": "正在搜索…"
@@ -5148,6 +5162,18 @@
   "modelsBottomBar.noMatches": {
     "defaultMessage": "没有匹配的模型"
   },
+  "modelsBottomBar.refresh": {
+    "defaultMessage": "刷新模型"
+  },
+  "modelsBottomBar.refreshFailed": {
+    "defaultMessage": "部分连接刷新失败，已保留这些连接的上次列表，请重试。"
+  },
+  "modelsBottomBar.refreshed": {
+    "defaultMessage": "模型列表已更新。"
+  },
+  "modelsBottomBar.refreshing": {
+    "defaultMessage": "正在刷新模型…"
+  },
   "modelsBottomBar.retry": {
     "defaultMessage": "重试"
   },
@@ -5412,11 +5438,32 @@
   "navigation.itemToolbox": {
     "defaultMessage": "工具箱"
   },
+  "navigationPanel.archiveProjectChats": {
+    "defaultMessage": "归档项目中的对话"
+  },
+  "navigationPanel.archiveProjectConfirm": {
+    "defaultMessage": "归档「{name}」中的 {count} 个对话？不会改动项目文件，可在历史记录中恢复对话。"
+  },
   "navigationPanel.chats": {
     "defaultMessage": "任务"
   },
+  "navigationPanel.newProjectChat": {
+    "defaultMessage": "在项目中新建对话"
+  },
   "navigationPanel.noChats": {
     "defaultMessage": "没有最近的任务"
+  },
+  "navigationPanel.pendingPermission": {
+    "defaultMessage": "待授权"
+  },
+  "navigationPanel.pinProject": {
+    "defaultMessage": "置顶项目"
+  },
+  "navigationPanel.pinned": {
+    "defaultMessage": "置顶"
+  },
+  "navigationPanel.projectActions": {
+    "defaultMessage": "项目操作"
   },
   "navigationPanel.projectName": {
     "defaultMessage": "项目名称"
@@ -5426,6 +5473,9 @@
   },
   "navigationPanel.resetProjectNameHint": {
     "defaultMessage": "清空名称可恢复目录名称"
+  },
+  "navigationPanel.unpinProject": {
+    "defaultMessage": "取消项目置顶"
   },
   "navigationPanel.untitledSession": {
     "defaultMessage": "未命名会话"
@@ -6870,6 +6920,48 @@
   "rootCleanup.selectAndAudit": {
     "defaultMessage": "选择准确目标并审查"
   },
+  "runAdvice.details": {
+    "defaultMessage": "详情"
+  },
+  "runAdvice.footnote": {
+    "defaultMessage": "已有文件会保留。切换模型后，请按需重新发送任务。"
+  },
+  "runAdvice.generation": {
+    "defaultMessage": "回复仍在生成"
+  },
+  "runAdvice.generationBody": {
+    "defaultMessage": "已生成 {seconds} 秒，可以继续等待或尝试其他模型。"
+  },
+  "runAdvice.responses": {
+    "defaultMessage": "响应多次重试"
+  },
+  "runAdvice.responsesBody": {
+    "defaultMessage": "已重试 {count} 次，尚无成功的工具结果。可以继续等待或尝试其他模型。"
+  },
+  "runAdvice.stop": {
+    "defaultMessage": "停止并选择模型"
+  },
+  "runAdvice.stopping": {
+    "defaultMessage": "正在停止…"
+  },
+  "runAdvice.tools": {
+    "defaultMessage": "工具执行遇到问题"
+  },
+  "runAdvice.toolsBody": {
+    "defaultMessage": "最近 {count} 次执行未成功，请检查工具回执中的权限或环境问题。"
+  },
+  "runAdvice.wait": {
+    "defaultMessage": "继续等待"
+  },
+  "runAdvice.waiting": {
+    "defaultMessage": "等待模型响应"
+  },
+  "runAdvice.waitingBody": {
+    "defaultMessage": "已等待 {seconds} 秒，模型服务可能繁忙。"
+  },
+  "runtime.sourceChanged": {
+    "defaultMessage": "后台代码已更新。请等待当前任务完成后，关闭并重新启动 CodeBuddy，让修改生效。"
+  },
   "scheduleChat.choose": {
     "defaultMessage": "选择聊天"
   },
@@ -7313,6 +7405,18 @@
   },
   "securityToggle.warpNotice": {
     "defaultMessage": "连接到 WARP 时，命令注入检测效果最佳（访问分类服务需要 WARP）。"
+  },
+  "sessionActions.branchHint": {
+    "defaultMessage": "创建独立对话，文件夹仍共用；不会复制运行中的任务。"
+  },
+  "sessionActions.pin": {
+    "defaultMessage": "置顶会话"
+  },
+  "sessionActions.pinFailed": {
+    "defaultMessage": "未能保存置顶设置：{error}"
+  },
+  "sessionActions.unpin": {
+    "defaultMessage": "取消置顶"
   },
   "sessionActionsHeader.actionsLabel": {
     "defaultMessage": "会话操作"
@@ -9321,9 +9425,6 @@
   "toolbox.session.disabled": {
     "defaultMessage": "请先启用此工具"
   },
-  "toolbox.session.empty": {
-    "defaultMessage": "已添加 · 暂未发现可用工具"
-  },
   "toolbox.session.failed": {
     "defaultMessage": "加载未完成。如任务正在运行，请先停止，再重试。"
   },
@@ -9332,9 +9433,6 @@
   },
   "toolbox.session.missing": {
     "defaultMessage": "当前对话未加载"
-  },
-  "toolbox.session.ready": {
-    "defaultMessage": "已加载 · {count} 个工具可用"
   },
   "toolbox.session.return": {
     "defaultMessage": "返回对话"
@@ -9374,6 +9472,36 @@
   },
   "toolbox.statusStopping": {
     "defaultMessage": "正在停止…"
+  },
+  "toolbox.sync.applied": {
+    "defaultMessage": "当前对话已同步最新配置。"
+  },
+  "toolbox.sync.connecting": {
+    "defaultMessage": "后台连接中…"
+  },
+  "toolbox.sync.custom": {
+    "defaultMessage": "自定义范围"
+  },
+  "toolbox.sync.defaults": {
+    "defaultMessage": "新对话跟随工具箱中已启用的能力；已有自定义对话保留其选择范围。"
+  },
+  "toolbox.sync.failed": {
+    "defaultMessage": "连接失败"
+  },
+  "toolbox.sync.follow": {
+    "defaultMessage": "跟随工具箱"
+  },
+  "toolbox.sync.pending": {
+    "defaultMessage": "已保存；下一轮任务开始前应用更新，当前任务继续执行。"
+  },
+  "toolbox.sync.ready": {
+    "defaultMessage": "已连接"
+  },
+  "toolbox.sync.restricted": {
+    "defaultMessage": "由智能体限定"
+  },
+  "toolbox.sync.retry": {
+    "defaultMessage": "重试连接"
   },
   "toolbox.title": {
     "defaultMessage": "工具箱"
@@ -9921,76 +10049,13 @@
   "workspaceSubagents.unknownState": {
     "defaultMessage": "状态未知 · {count}"
   },
-  "workspaceSwitcher.workspaceSwitcher": {
-    "defaultMessage": "工作区切换器"
+  "navigationPanel.noWorkspace": {
+    "defaultMessage": "未关联工作区"
   },
-  "compaction.cancelled": {
-    "defaultMessage": "上下文压缩已取消，原上下文已保留。"
+  "navigationPanel.updatedAt": {
+    "defaultMessage": "最近更新"
   },
-  "compaction.completedAuto": {
-    "defaultMessage": "上下文已自动压缩"
-  },
-  "compaction.completedManual": {
-    "defaultMessage": "上下文已压缩"
-  },
-  "compaction.failed": {
-    "defaultMessage": "上下文压缩失败，原上下文已保留。"
-  },
-  "conversationBranch.action": {
-    "defaultMessage": "从此轮创建对话分支"
-  },
-  "conversationBranch.boundary": {
-    "defaultMessage": "消息已变化，请重新加载对话后再创建分支。"
-  },
-  "loadingGoose.compactionHint": {
-    "defaultMessage": "正在生成接续任务所需的摘要，原始消息保留在对话中。"
-  },
-  "loadingGoose.compactionWait": {
-    "defaultMessage": "仍在等待模型返回。较长对话可能耗时较久，可停止后重试。"
-  },
-  "navigationPanel.pendingPermission": {
-    "defaultMessage": "待授权"
-  },
-  "navigationPanel.pinned": {
-    "defaultMessage": "置顶"
-  },
-  "sessionActions.branchHint": {
-    "defaultMessage": "创建独立对话，文件夹仍共用；不会复制运行中的任务。"
-  },
-  "sessionActions.pin": {
-    "defaultMessage": "置顶会话"
-  },
-  "sessionActions.pinFailed": {
-    "defaultMessage": "未能保存置顶设置：{error}"
-  },
-  "sessionActions.unpin": {
-    "defaultMessage": "取消置顶"
-  },
-  "toolbox.sync.follow": {
-    "defaultMessage": "跟随工具箱"
-  },
-  "toolbox.sync.custom": {
-    "defaultMessage": "自定义范围"
-  },
-  "toolbox.sync.restricted": {
-    "defaultMessage": "由智能体限定"
-  },
-  "toolbox.sync.pending": {
-    "defaultMessage": "已保存；下一轮任务开始前应用更新，当前任务继续执行。"
-  },
-  "toolbox.sync.applied": {
-    "defaultMessage": "当前对话已同步最新配置。"
-  },
-  "toolbox.sync.defaults": {
-    "defaultMessage": "新对话跟随工具箱中已启用的能力；已有自定义对话保留其选择范围。"
-  },
-  "toolbox.sync.failed": {
-    "defaultMessage": "连接失败"
-  },
-  "toolbox.sync.ready": {
-    "defaultMessage": "已连接"
-  },
-  "toolbox.sync.retry": {
-    "defaultMessage": "重试连接"
+  "navigationPanel.unknownTime": {
+    "defaultMessage": "时间未知"
   }
 }

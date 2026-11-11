@@ -44,9 +44,20 @@ export function workStatusUpdates({ sessionId, sourceMessageId, runId, signal })
   const activeTools = new Set();
   let previous;
   let lastToolInputAt = 0;
+  let modelRequestStartedAt;
+  let consecutiveToolFailures = 0;
+  let responseRetries = 0;
   return event => {
     if (signal?.aborted) return [];
     if (event.sessionId === sessionId) {
+      if (event.type === 'model_diagnostic' && event.phase === 'start') modelRequestStartedAt = Date.now();
+      if (event.type === 'tool_call' || event.type === 'assistant_end' ||
+          event.type === 'model_diagnostic' && event.phase === 'end') modelRequestStartedAt = undefined;
+      if (event.type === 'tool_result' && !event.internalControl) {
+        const failed = event.isError === true || event.executionFailed === true;
+        consecutiveToolFailures = failed ? Math.min(consecutiveToolFailures + 1, 10_000) : 0;
+        if (!failed) responseRetries = 0;
+      }
       if (event.type === 'tool_call' && !event.internalControl && typeof event.id === 'string') activeTools.add(event.id);
       if (event.type === 'tool_result') activeTools.delete(event.id);
       // The native loop awaits the whole tool batch before this next stream.
@@ -64,6 +75,15 @@ export function workStatusUpdates({ sessionId, sourceMessageId, runId, signal })
         });
     }
     const native = event.type === 'harness_event' ? event.event : undefined;
+    if (event.sessionId === sessionId && native?.type === 'llm/retry') {
+      const observation = observations.get(sessionId);
+      // Retry counts describe observed response trouble, never model quality.
+      // Transport/HTTP failures retain their existing connection diagnostics.
+      const responseFailure = ['EMPTY_RESPONSE', 'OUTPUT_TRUNCATED', 'OUTPUT_LIMIT_REACHED'].includes(native.data?.failure?.code) ||
+        native.data?.failure?.code === 'SERVER' && observation?.status >= 200 && observation.status < 300;
+      responseRetries = responseFailure && !observation?.transportCodes?.length
+        ? Math.min(responseRetries + 1, 10_000) : 0;
+    }
     const retryStarted = (event.type === 'model_diagnostic' && event.phase === 'start') || native?.type === 'llm/retry-started';
     const clearedRetry = retryStarted && retryMessages.delete(event.sessionId);
     if (native?.type === 'turn/end') retryMessages.delete(event.sessionId);
@@ -132,7 +152,7 @@ export function workStatusUpdates({ sessionId, sourceMessageId, runId, signal })
     // One worker's recovery cannot clear another worker's active backoff.
     if (type === 'progress' && retryMessages.size) message = [...retryMessages.values()].at(-1);
     const toolIds = [...activeTools];
-    const key = `${phase}:${children.size}:${modelRequestPhase ?? ''}:${message}:${JSON.stringify(toolInput)}:${JSON.stringify(toolIds)}`;
+    const key = `${phase}:${children.size}:${modelRequestPhase ?? ''}:${message}:${JSON.stringify(toolInput)}:${JSON.stringify(toolIds)}:${modelRequestStartedAt}:${consecutiveToolFailures}:${responseRetries}`;
     const now = Date.now();
     // A real fragment can arrive without changing a complete field or size.
     // Preserve that reception fact, bounded to 1 Hz; never synthesize a timer.
@@ -143,6 +163,8 @@ export function workStatusUpdates({ sessionId, sourceMessageId, runId, signal })
       schema_version: 1, event: 'execution_activity', source_user_message_id: sourceMessageId,
       run_id: typeof runId === 'function' ? runId() : runId, phase, child_count: children.size,
       active_tool_call_ids: toolIds,
+      response_retries: responseRetries, consecutive_tool_failures: consecutiveToolFailures,
+      ...(phase === 'model' && modelRequestStartedAt !== undefined ? { model_request_started_at: modelRequestStartedAt } : {}),
       ...(phase === 'model' && modelRequestPhase ? { model_request_phase: modelRequestPhase } : {}),
       ...(toolInput ? { tool_input: toolInput } : {}),
     } } }];

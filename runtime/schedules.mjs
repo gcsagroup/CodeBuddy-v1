@@ -597,8 +597,9 @@ export class ScheduleService {
   }
 
   async stopSessionSchedules(sessionId) {
-    await this.serial(() =>
-      this.store.update((state) => {
+    await this.serial(() => {
+      if (!this.rows().some(row => row.executionMode === 'current_session' && row.targetSessionId === sessionId)) return;
+      return this.store.update((state) => {
         for (const row of state.schedules ?? []) {
           if (
             row.executionMode !== "current_session" ||
@@ -613,8 +614,8 @@ export class ScheduleService {
           row.tested = false;
           row.lastError = "The linked chat was deleted";
         }
-      }),
-    );
+      }, ['schedules']);
+    });
     this.arm();
   }
 

@@ -53,18 +53,46 @@ describe('messageToAcpPromptContent', () => {
 });
 
 describe('acpPromptSession', () => {
+  it('ignores obsolete verification metadata when sending a saved message', async () => {
+    const prompt = vi.fn().mockResolvedValue({ stopReason: 'end_turn' });
+    vi.mocked(getAcpClient).mockResolvedValue({ prompt } as never);
+    const verification = {
+      program: '/bin/node',
+      script: '/checks/verify.js',
+      sha256: 'a'.repeat(64),
+      args: [],
+    };
+    const message: Message = {
+      role: 'user',
+      created: 1,
+      content: [{ type: 'text', text: 'Build my project' }],
+      metadata: { userVisible: true, agentVisible: true, ...{ verification } },
+    };
+    await acpPromptSession('task', message);
+    expect(prompt.mock.calls[0][0]._meta).not.toHaveProperty('codebuddy/verification');
+    expect(prompt.mock.calls[0][0].prompt).toEqual(message.content);
+    await acpPromptSession('task', {
+      ...message,
+      metadata: { userVisible: true, agentVisible: true },
+    });
+    expect(prompt.mock.calls[1][0]._meta).not.toHaveProperty('codebuddy/verification');
+  });
   it('preserves the queued desktop fence as metadata without changing task content', async () => {
     const prompt = vi.fn().mockResolvedValue({ stopReason: 'end_turn' });
     vi.mocked(getAcpClient).mockResolvedValue({ prompt } as never);
     await acpPromptSession('parent', {
-      id: 'queued', role: 'user', created: 1,
+      id: 'queued',
+      role: 'user',
+      created: 1,
       content: [{ type: 'text', text: 'Observe then write my file' }],
       metadata: { userVisible: true, agentVisible: true, desktopGeneration: 'before-escape' },
     });
-    expect(prompt).toHaveBeenCalledWith(expect.objectContaining({
-      prompt: [{ type: 'text', text: 'Observe then write my file' }],
-      _meta: expect.objectContaining({ 'codebuddy/desktop-generation': 'before-escape' }),
-    }));
+    expect(prompt).toHaveBeenCalledWith(
+      expect.objectContaining({
+        prompt: [{ type: 'text', text: 'Observe then write my file' }],
+        _meta: expect.objectContaining({ 'codebuddy/desktop-generation': 'before-escape' }),
+      })
+    );
   });
   it('sends a display anchor only as metadata, never as model prompt content', async () => {
     const prompt = vi.fn().mockResolvedValue({ stopReason: 'end_turn' });

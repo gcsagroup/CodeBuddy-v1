@@ -1,6 +1,7 @@
 import { channel } from 'node:diagnostics_channel';
 
 export const requestBudgetChannel = channel('codebuddy.request-budget');
+export const streamingOutputChannel = channel('codebuddy.streaming-output-count');
 
 // vLLM's chat tokenizer renders messages, tool definitions and template kwargs.
 // Fields that select a different renderer cannot be silently treated as counted.

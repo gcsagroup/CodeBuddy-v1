@@ -14,6 +14,7 @@ import {
   Pin,
   PinOff,
   Archive,
+  Trash2,
   Download,
   FolderOpen,
   Edit2,
@@ -26,12 +27,17 @@ import { AppEvents } from '../constants/events';
 import { defineMessages, useIntl } from '../i18n';
 import {
   acpArchiveSession,
+  acpDeleteSession,
   acpExportSession,
   acpExportSessionLog,
   acpForkSession,
   acpRenameSession,
 } from '../acp/sessions';
 import { errorMessage } from '../utils/conversionUtils';
+import { ConfirmationModal } from './ui/ConfirmationModal';
+import { acpChatSessionActions } from '../acp/chatSessionStore';
+import { cancelAcpPermissionRequestsForSession } from '../acp/permissionRequests';
+import { cancelAcpElicitationRequestsForSession } from '../acp/elicitationRequests';
 import type { SessionType } from '../types/session';
 import { canForkSession, sessionCapabilityMessages } from '../utils/sessionCapabilities';
 import { Button } from './ui/button';
@@ -45,6 +51,12 @@ import {
 } from './ui/dropdown-menu';
 
 const i18n = defineMessages({
+  delete: { id: 'sessions.action.delete', defaultMessage: 'Delete session' },
+  deleteTitle: { id: 'sessions.history.deleteTitle', defaultMessage: 'Permanently delete conversation' },
+  deleteMessage: { id: 'sessions.history.deleteMessage', defaultMessage: 'Permanently remove "{name}" from your conversation history? You cannot restore it in CodeBuddy. Files in the workspace will be kept.' },
+  deleted: { id: 'sessions.toast.deleted', defaultMessage: 'Session deleted successfully' },
+  deleteFailed: { id: 'sessions.toast.deleteFailed', defaultMessage: 'Failed to delete session "{name}": {error}' },
+  cancelDelete: { id: 'markdownContent.cancel', defaultMessage: 'Cancel' },
   pin: { id: 'sessionActions.pin', defaultMessage: 'Pin session' },
   unpin: { id: 'sessionActions.unpin', defaultMessage: 'Unpin session' },
   pinFailed: {
@@ -412,6 +424,9 @@ export function SessionActionsContextMenu({
   const exportingLog = useRef(false);
   const [isDuplicating, setIsDuplicating] = useState(false);
   const [isArchiving, setIsArchiving] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<typeof session | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const deleting = useRef(false);
   const [isExporting, setIsExporting] = useState(false);
   const [fullTextSelection, setFullTextSelection] = useState<FullTextSelection | null>(null);
   const jsonLoadRequestId = useRef(0);
@@ -505,6 +520,27 @@ export function SessionActionsContextMenu({
       toast.error(intl.formatMessage(i18n.archiveFailed, { error: errorMessage(error) }));
     } finally {
       setIsArchiving(false);
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!deleteTarget || deleting.current) return;
+    const target = deleteTarget;
+    deleting.current = true;
+    setIsDeleting(true);
+    try {
+      await acpDeleteSession(target.id);
+      cancelAcpPermissionRequestsForSession(target.id);
+      cancelAcpElicitationRequestsForSession(target.id);
+      acpChatSessionActions.deleteSnapshot(target.id);
+      setDeleteTarget(null);
+      window.dispatchEvent(new CustomEvent(AppEvents.SESSION_DELETED, { detail: { sessionId: target.id } }));
+      toast.success(intl.formatMessage(i18n.deleted));
+    } catch (error) {
+      toast.error(intl.formatMessage(i18n.deleteFailed, { name: target.name, error: errorMessage(error) }));
+    } finally {
+      deleting.current = false;
+      setIsDeleting(false);
     }
   };
 
@@ -670,6 +706,10 @@ export function SessionActionsContextMenu({
             <Archive className="size-4" />
             {intl.formatMessage(i18n.archive)}
           </DropdownMenuItem>
+          <DropdownMenuItem className="text-red-600" disabled={isDeleting || isArchiving} onSelect={() => setDeleteTarget(session)}>
+            <Trash2 className="size-4" />
+            {intl.formatMessage(i18n.delete)}
+          </DropdownMenuItem>
           <DropdownMenuSeparator />
           <DropdownMenuItem onSelect={() => void handleCopySessionId()}>
             <Copy className="size-4" />
@@ -714,6 +754,17 @@ export function SessionActionsContextMenu({
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
+      <ConfirmationModal
+        isOpen={!!deleteTarget}
+        title={intl.formatMessage(i18n.deleteTitle)}
+        message={intl.formatMessage(i18n.deleteMessage, { name: deleteTarget?.name ?? '' })}
+        confirmLabel={intl.formatMessage(i18n.delete)}
+        cancelLabel={intl.formatMessage(i18n.cancelDelete)}
+        confirmVariant="destructive"
+        isSubmitting={isDeleting}
+        onCancel={() => { if (!deleting.current) setDeleteTarget(null); }}
+        onConfirm={() => void handleDelete()}
+      />
 
       <Dialog open={isRenameOpen} onOpenChange={setIsRenameOpen}>
         <DialogContent className="sm:max-w-md">

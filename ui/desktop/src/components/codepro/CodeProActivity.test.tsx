@@ -595,7 +595,9 @@ describe('CodeProActivity', () => {
       'data-state',
       'closed'
     );
-    expect(screen.getByText(/Tester Agent/)).toHaveAttribute('aria-hidden', 'true');
+    expect(screen.queryByText(/Tester Agent/)).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Thinking' }));
+    expect(screen.getByText(/Tester Agent/)).toBeVisible();
     expect(screen.queryByText('Description')).not.toBeInTheDocument();
   });
 

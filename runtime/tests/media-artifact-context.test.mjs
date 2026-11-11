@@ -18,7 +18,10 @@ test('native direct media delivery skips final inference while complex scope con
     res.writeHead(200, { 'content-type': 'text/event-stream' });
     const emit = (delta, finish_reason = null) => res.write('data: ' + JSON.stringify({ id: 'fixture', model: request.model, choices: [{ index: 0, delta, finish_reason }] }) + '\n\n');
     const selection = request.tools?.some(x => x.function?.name === 'select_workflow');
-    if (selection || !generated) {
+    if (request.tools?.some(tool => tool.function?.name === 'check_execution_claims')) {
+      requests.pop(); // Count only agent inference and media selection here.
+      emit({ tool_calls: [{ index: 0, id: 'check', type: 'function', function: { name: 'check_execution_claims', arguments: JSON.stringify({ changes: [], successes: [], executionMissing: false }) } }] }); emit({}, 'tool_calls');
+    } else if (selection || !generated) {
       if (!selection) generated = true;
       emit({ tool_calls: [{ index: 0, id: selection ? 'route' : 'generate', type: 'function', function: {
         name: selection ? 'select_workflow' : 'generate_image', arguments: JSON.stringify(selection
@@ -82,7 +85,11 @@ test('native next-turn model context refreshes media facts without selecting ref
     const request = JSON.parse(raw); requests.push(request);
     res.writeHead(200, { 'content-type': 'text/event-stream' });
     const emit = (delta, finish_reason = null) => res.write('data: ' + JSON.stringify({ id: 'fixture', model: request.model, choices: [{ index: 0, delta, finish_reason }] }) + '\n\n');
-    if (requests.length === 1) {
+    if (request.tools?.some(tool => tool.function?.name === 'check_execution_claims')) {
+      requests.pop(); // Auxiliary review is not an agent context assembly.
+      emit({ tool_calls: [{ index: 0, id: 'check', type: 'function', function: { name: 'check_execution_claims', arguments: JSON.stringify({ changes: [], successes: [], executionMissing: false }) } }] });
+      emit({}, 'tool_calls');
+    } else if (requests.length === 1) {
       emit({ tool_calls: [{ index: 0, id: 'create', type: 'function', function: { name: 'generate_image', arguments: JSON.stringify({ operation: 'generate', prompt: 'White scarf cat', mode: 'text_to_image' }) } }] });
       emit({}, 'tool_calls');
     } else if (!checkedAfterCompaction && request.messages.some(m => m.role === 'user' && m.content === 'Use the original and edited images as character references.')) {
@@ -130,6 +137,8 @@ test('native next-turn model context refreshes media facts without selecting ref
   const other = await driver.createSession(config);
   await driver.prompt(other.sessionId, 'Hello.');
   assert.doesNotMatch(JSON.stringify(requests.at(-1).messages), /fresh-cat/);
+  const greeting = requests.findLast(r => !r.tools?.some(tool => tool.function?.name === 'check_execution_claims'));
+  assert.doesNotMatch(JSON.stringify(greeting.messages), /media-delivery-instructions|Current admitted media request/);
 });
 
 test('current media request keeps admitted steering, excludes assistant suggestions and survives compacted snapshots', () => {

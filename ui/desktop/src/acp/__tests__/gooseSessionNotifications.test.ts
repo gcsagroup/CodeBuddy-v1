@@ -7,6 +7,23 @@ import type { AcpChatStateChange, AdapterState } from '../adapter/shared';
 
 const SESSION_ID = 'session-1';
 
+it('accepts official performance metadata and rejects malformed optional stats without dropping context', () => {
+  const update = { sessionUpdate: 'status_message' as const,
+    status: { type: 'progress' as const, message: '', data: {
+      schema_version: 1, event: 'context_meter', used: 300, contextLimit: 10000,
+      sessionStats: { decodeTokens: 440, decodeMs: 2000 },
+    } } };
+  expect(applyGooseSessionNotification(makeState(), gooseUpdate(update))).toEqual([
+    expect.objectContaining({ type: 'tokenState', tokenState: expect.objectContaining({
+      totalTokens: 300, sessionStats: { decodeTokens: 440, decodeMs: 2000 },
+    }) }),
+  ]);
+  update.status.data.sessionStats.decodeMs = -1;
+  expect(applyGooseSessionNotification(makeState(), gooseUpdate(update))).toEqual([
+    expect.objectContaining({ type: 'tokenState', tokenState: expect.not.objectContaining({ sessionStats: expect.anything() }) }),
+  ]);
+});
+
 function gooseUpdate(
   update: GooseSessionNotification_unstable['update']
 ): GooseSessionNotification_unstable {

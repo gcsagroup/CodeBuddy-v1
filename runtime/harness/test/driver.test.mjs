@@ -6,10 +6,12 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { createHarnessDriver, HARNESS_VERSION } from '../index.mjs';
+import { replyToNoActionReview } from './review-fixture.mjs';
 import { workStatusUpdates } from '../../work-status.mjs';
 
 let driver, server, root, provider;
 const requests = [];
+const groundingAttempts = new Map();
 const bareToolTexts = {
   subagent: 'call:subagent{description:<|"|>代码审查专家<|"|>,prompt:<|"|>检查示例代码<|"|>,role:<|"|>代码审查专家<|"|>}<tool_call|>',
   image: 'call:generate_image{job_id:<|"|>fixture-existing-job<|"|>,operation:<|"|>status<|"|>,wait_seconds:30}<tool_call|>',
@@ -20,6 +22,9 @@ before(async () => {
     let raw = '';
     for await (const part of req) raw += part;
     const request = JSON.parse(raw);
+    const groundingReview = request.tools?.some(tool => tool.function?.name === 'check_execution_claims') &&
+      JSON.parse(request.messages.at(-1).content).receipts?.some(receipt => ['failed-run', 'successful-run', 'unverified-file'].includes(receipt.id));
+    if (!groundingReview && replyToNoActionReview(request, res)) return;
     requests.push({ path: req.url, ...request, wireHeaders: { ...req.headers } });
     const lastUserIndex = request.messages.findLastIndex(message => message.role === 'user' && JSON.stringify(message.content).includes('fixture_'));
     const prompt = JSON.stringify(request.messages[lastUserIndex]?.content ?? '');
@@ -34,17 +39,25 @@ before(async () => {
       const audit = JSON.parse(request.messages.at(-1).content);
       const success = audit.draft.includes('fabricated') ? 'failed-run' : 'successful-run';
       emit({ tool_calls: [{ index: 0, id: 'review', type: 'function', function: {
-        name: 'check_execution_claims', arguments: JSON.stringify({ changes: [], successes: [success] }),
+        name: 'check_execution_claims', arguments: JSON.stringify({ changes: [], successes: [success], executionMissing: false }),
       } }] });
       emit({}, 'tool_calls');
     } else if (prompt.includes('fixture_grounding')) {
       const results = request.messages.slice(lastUserIndex + 1).filter(message => message.role === 'tool');
-      const correctiveRetry = JSON.stringify(request.messages).includes('previous draft claimed results without supporting receipts');
+      const attempt = groundingAttempts.get(prompt) ?? 0;
+      groundingAttempts.set(prompt, attempt + 1);
+      const correctiveRetry = attempt >= 2;
       if (!results.length || (results.length === 1 && correctiveRetry)) {
         const failed = !results.length;
-        emit({ tool_calls: [{ index: 0, id: failed ? 'failed-run' : 'successful-run', type: 'function', function: {
+        if (failed && prompt.includes('written')) {
+          emit({ tool_calls: [{ index: 0, id: 'unverified-file', type: 'function', function: {
+            name: 'write', arguments: JSON.stringify({ file_path: 'unverified.txt', content: '42' }),
+          } }] });
+        } else emit({ tool_calls: [{ index: 0, id: failed ? 'failed-run' : 'successful-run', type: 'function', function: {
           name: process.platform === 'win32' ? 'pwsh' : 'bash',
-          arguments: JSON.stringify({ command: failed ? 'exit 1' : 'exit 0', description: 'Run the isolated check' }),
+          arguments: JSON.stringify({ command: failed ? 'exit 1' : prompt.includes('written')
+            ? process.platform === 'win32' ? "if ((Get-Content unverified.txt -Raw).Trim() -ne '42') { exit 1 }; Write-Output VERIFIED_42" : 'test "$(cat unverified.txt)" = 42 && echo VERIFIED_42'
+            : 'exit 0', description: 'Run the isolated check' }),
         } }] });
         emit({}, 'tool_calls');
       } else {
@@ -285,16 +298,31 @@ test('official platform shell executes only after approval', async () => {
   assert.equal(typeof outcome.arguments.command, 'string');
 });
 
-test('a passing-test claim with only a nonzero command receipt is withheld and native recovery can execute the missing rerun', async () => {
-  const created = await session();
-  const events = [];
-  const result = await driver.prompt(created.sessionId, 'fixture_grounding', { onPermission: async () => true, onEvent: event => events.push(event) });
-  assert.equal(result.stopReason, 'end_turn');
-  assert.deepEqual(events.filter(e => e.type === 'tool_result').map(e => e.structuredContent.exitCode), [1, 0]);
-  assert.equal(events.filter(e => e.type === 'text_delta').map(e => e.text).join(''), 'Verified rerun passed.');
-  const { events: journal } = await driver.history(created.sessionId);
-  assert.ok(journal.some(e => e.type === 'llm/retry'));
-  assert.ok(!journal.some(e => e.type === 'assistant/message' && JSON.stringify(e.data.message.content).includes('fabricated')));
+test('failed command evidence survives without secondary review or review-driven retry', async () => {
+  const created = await session(), events = [], start = requests.length;
+  const result = await driver.prompt(created.sessionId, 'fixture_grounding', {onPermission:async()=>true,onEvent:e=>events.push(e)});
+  assert.equal(result.stopReason,'end_turn');
+  assert.deepEqual(events.filter(e=>e.type==='tool_result').map(e=>e.structuredContent.exitCode),[1]);
+  assert.equal(events.some(e=>e.rejectedReport),false);
+  const {events:journal}=await driver.history(created.sessionId);
+  assert.equal(journal.some(e=>e.type==='llm/retry'),false);
+  assert.equal(requests.slice(start).length,2,'one tool request and one answer; no reviewer request');
+});
+
+test('file delivery ignores obsolete gate options and retains native persistence', async () => {
+  const created=await driver.createSession({cwd:root,provider,model:'fixture-model',options:{
+    completionReview:{provider:{baseUrl:'invalid retired route'},model:'retired-reviewer'}}});
+  const events=[], start=requests.length;
+  const result=await driver.prompt(created.sessionId,'fixture_grounding_written',{
+    verification:{program:'missing',script:'missing'},onPermission:async()=>true,onEvent:e=>events.push(e)});
+  assert.equal(result.stopReason,'end_turn');
+  assert.equal(await readFile(join(root,'unverified.txt'),'utf8'),'42');
+  assert.equal(events.filter(e=>e.type==='tool_result').length,1);
+  assert.equal(events.some(e=>e.type==='task_verification'||e.rejectedReport),false);
+  assert.equal(result.verification,undefined);
+  assert.equal(requests.slice(start).length,2);
+  const {events:journal}=await driver.history(created.sessionId);
+  assert.ok(journal.some(e=>e.type==='assistant/message'&&JSON.stringify(e.data).includes('fabricated')));
 });
 
 test('cold history and follow-up survive a clean runtime restart', async () => {

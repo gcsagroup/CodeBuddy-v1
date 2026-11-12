@@ -2,7 +2,7 @@ import { replyToNoActionReview } from './review-fixture.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createServer } from 'node:http';
-import { mkdtemp } from 'node:fs/promises';
+import { mkdtemp, readFile, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import '../sdk-budget-contract.mjs';
@@ -70,6 +70,98 @@ const failures = history => history.events
   .map(record => record.chunk.reason.failure)
   .filter(Boolean);
 const summaries = history => history.events.filter(event => event.type === 'compaction/summary');
+
+for (const mode of ['empty', 'length', 'bad-request', 'not-found', 'not-smaller', 'preparation']) test(`three-stage compaction reaches Flash after injected ${mode} failures`, { timeout: 20000 }, async t => {
+  const f = await fixture(t, (request, res) => {
+    if (!request.summary) return reply(res, WARM_HISTORY);
+    if (request.body.model === 'fixture') {
+      if (mode === 'bad-request' || mode === 'not-found') return res.writeHead(mode === 'bad-request' ? 400 : 404, { 'content-type': 'application/json' }).end(JSON.stringify({ error: { message: 'Injected missing model', type: 'invalid_request_error' } }));
+      return reply(res, mode === 'not-smaller' ? JSON.stringify(request.body.messages) : '');
+    }
+    if (request.body.model === 'user-backup') {
+      if (mode === 'length') return reply(res, 'Incomplete.', { finish: 'length', output: 20 });
+      return reply(res, mode === 'not-smaller' ? JSON.stringify(request.body.messages) : '');
+    }
+    reply(res, 'Keep ORION-739; corrected tax is 750 bps; do not publish.');
+  });
+  await warm(f);
+  const before = await f.driver.history(f.sessionId);
+  f.options.compactionFallbacks = [{ source: { provider: f.provider, model: 'fixture' }, fallbacks: [
+    mode === 'preparation' ? { resolveFallback: async () => { throw Error('Injected connection setup failure'); } }
+      : { fallback: { provider: { ...f.provider, id: 'user-backup', contextWindow: 196608 }, model: 'user-backup' } },
+    { fallback: { provider: { ...f.provider, id: 'fixed-flash', contextWindow: 196608 }, model: 'flash' } },
+  ] }];
+  await f.configure();
+  await f.driver.compact(f.sessionId);
+  const after = await f.driver.history(f.sessionId);
+  assert.deepEqual(after.events.slice(0, before.events.length), before.events);
+  assert.equal(summaries(after).length, 1);
+  assert.equal(summaries(after)[0].data.model, 'flash');
+  assert.deepEqual(f.requests.filter(r => r.summary).map(r => r.body.model), mode === 'preparation'
+    ? ['fixture', 'flash'] : ['fixture', 'user-backup', 'flash']);
+  await f.driver.prompt(f.sessionId, 'Continue using the preserved constraints.');
+  assert.equal(f.requests.at(-1).body.model, 'fixture', 'fallback never changes the chat model');
+});
+
+test('all three failures preserve work and a later explicit retry recovers without replaying tools', { timeout: 20000 }, async t => {
+  let online = false, calls = 0, effects = 0;
+  const f = await fixture(t, (request, res) => {
+    if (request.summary) return reply(res, online && request.body.model === 'flash' ? 'Keep ORION-739; corrected tax 750 bps; do not publish.' : '');
+    if (++calls === 2) return reply(res, '', { tool: { id: 'completed-write', name: 'fixture_write' } });
+    reply(res, WARM_HISTORY);
+  }, { tools: [{ name: 'fixture_write', description: 'Write one file in the isolated fixture', parameters: { type: 'object', properties: {} },
+    async execute() { effects++; await writeFile(join(f.root, 'completed.txt'), 'Completed exactly once'); return { receipt: 'FILE_WRITTEN_ONCE' }; } }] });
+  await warm(f);
+  await f.driver.prompt(f.sessionId, 'Complete the isolated write once.', { onPermission: () => true });
+  f.options.compactionFallbacks = [{ source: { provider: f.provider, model: 'fixture' }, fallbacks: [
+    { fallback: { provider: { ...f.provider, id: 'user', contextWindow: 196608 }, model: 'user-backup' } },
+    { fallback: { provider: { ...f.provider, id: 'fixed', contextWindow: 196608 }, model: 'flash' } },
+  ] }];
+  await f.configure();
+  const before = await f.driver.history(f.sessionId);
+  await assert.rejects(f.driver.compact(f.sessionId));
+  const failed = await f.driver.history(f.sessionId);
+  assert.deepEqual(failed.events.slice(0, before.events.length), before.events);
+  assert.equal(summaries(failed).length, 0);
+  assert.equal(await readFile(join(f.root, 'completed.txt'), 'utf8'), 'Completed exactly once');
+  assert.deepEqual(f.requests.filter(r => r.summary).map(r => r.body.model), ['fixture', 'user-backup', 'flash']);
+  assert.equal((await f.driver.prompt(f.sessionId, 'Continue using the retained context while it still fits.', { onPermission: () => true })).stopReason, 'end_turn');
+  assert.equal(effects, 1, 'a failed manual compaction does not make a still-fitting conversation unusable');
+  online = true;
+  await f.reopen();
+  await f.driver.compact(f.sessionId);
+  const after = await f.driver.history(f.sessionId);
+  assert.equal(summaries(after).at(-1).data.model, 'flash');
+  await f.driver.prompt(f.sessionId, 'Continue after restoring compression.', { onPermission: () => true });
+  assert.equal(effects, 1);
+  assert.equal(after.events.filter(e => e.type === 'tool/call').length, 1);
+  assert.equal(await readFile(join(f.root, 'completed.txt'), 'utf8'), 'Completed exactly once');
+});
+
+test('automatic compaction follows the same three-stage failure order', { timeout: 20000 }, async t => {
+  const f = await fixture(t, (request, res) => reply(res, !request.summary ? WARM_HISTORY
+    : request.body.model === 'flash' ? 'Keep ORION-739; corrected tax 750 bps; do not publish.' : ''));
+  await warm(f);
+  f.options.autoCompactThreshold = 0.05;
+  f.options.compactionFallbacks = [{ source: { provider: f.provider, model: 'fixture' }, fallbacks: [
+    { fallback: { provider: { ...f.provider, id: 'user', contextWindow: 196608 }, model: 'user-backup' } },
+    { fallback: { provider: { ...f.provider, id: 'fixed', contextWindow: 196608 }, model: 'flash' } },
+  ] }];
+  await f.configure();
+  await f.driver.prompt(f.sessionId, 'Continue with verification.');
+  assert.deepEqual(f.requests.filter(r => r.summary).slice(0, 3).map(r => r.body.model), ['fixture', 'user-backup', 'flash']);
+  assert.equal(summaries(await f.driver.history(f.sessionId)).at(-1).data.model, 'flash');
+});
+
+test('repeated fallback connections are dispatched at most once after a failed checkpoint', { timeout: 15000 }, async t => {
+  const f = await fixture(t, (request, res) => reply(res, request.summary ? '' : WARM_HISTORY));
+  await warm(f);
+  const flash = { fallback: { provider: { ...f.provider, id: 'fixed', contextWindow: 196608 }, model: 'flash' } };
+  f.options.compactionFallbacks = [{ source: { provider: f.provider, model: 'fixture' }, fallbacks: [flash, flash] }];
+  await f.configure();
+  await assert.rejects(f.driver.compact(f.sessionId));
+  assert.deepEqual(f.requests.filter(r => r.summary).map(r => r.body.model), ['fixture', 'flash']);
+});
 
 test('fallback compacts an oversized wide-model history for the destination window before manual success', { timeout: 30000 }, async t => {
   const count = body => Math.ceil(JSON.stringify(body.messages).length / 4);

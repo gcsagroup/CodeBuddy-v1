@@ -9,7 +9,8 @@ const summaryRoute = agent => {
 const checkpointFailureCodes = new Set(['MAX_TOKENS', 'OUTPUT_TRUNCATED', 'OUTPUT_LENGTH_STOP', 'OUTPUT_LIMIT_REACHED',
   'EMPTY_RESPONSE', 'COMPACTION_EMPTY_SUMMARY', 'COMPACTION_NOT_SMALLER']);
 const fallbackCodes = new Set([...checkpointFailureCodes, 'COMPACTION_OUTPUT_BUDGET_EXHAUSTED', 'CONTEXT_WINDOW_EXCEEDED',
-  'TRANSPORT', 'TIMEOUT', 'SERVER', 'RATE_LIMIT']);
+  'TRANSPORT', 'TIMEOUT', 'SERVER', 'RATE_LIMIT', 'AUTH', 'INVALID_CREDENTIAL', 'INVALID_REQUEST',
+  'NO_ADAPTER', 'MODEL_NOT_FOUND', 'UNSUPPORTED_CONTENT', 'UNSUPPORTED_OPTION', 'INVALID_OUTPUT_BUDGET', 'PI_AI_ERROR']);
 function fallbackFailure(error, codes = fallbackCodes) {
   const seen = new Set();
   for (let cause = error; cause && !seen.has(cause); cause = cause.cause) {
@@ -21,20 +22,44 @@ const sameTarget = (a, b) => a?.provider === b?.provider && a?.model === b?.mode
 function idleTarget(ctx, agent) {
   return ctx.sessionProjections.stateOf(agent.session, 'modelSelection')?.pending ?? agent.session.requestHeader()?.config ?? agent.options;
 }
-async function activateFallback(engine, agent, target, error, signal) {
+async function activateFallback(engine, agent, target, error, signal, failedTarget) {
   signal?.throwIfAborted();
-  if (!fallbackFailure(error) || sameTarget(engine.fallbackTargets?.get(agent)?.source, target)) return;
+  if (!fallbackFailure(error)) return;
   const policy = engine.config.modelPolicies.find(rule => sameTarget(rule, target));
-  if (policy?.summarizationProvider ?? engine.config.summarizationProvider) return;
   const rule = engine.fallbackPolicies?.find(rule => sameTarget(rule.source, target));
   if (!rule) return;
-  const fallback = await rule.resolveFallback(signal);
-  signal?.throwIfAborted();
-  if (sameTarget(rule.source, fallback)) return;
-  engine.summaryFailures?.delete(agent);
-  engine.fallbackTargets.set(agent, { source: target, ...fallback });
-  engine.ctx.logger?.warn(`compaction fallback: ${target.provider}/${target.model} -> ${fallback.provider}/${fallback.model} (${fallbackFailure(error).code})`);
-  return fallback;
+  const cached = engine.fallbackTargets.get(agent);
+  const state = cached && sameTarget(cached.source, target) ? cached : { source: target, index: -1, attempted: new Set() };
+  const configuredProvider = policy?.summarizationProvider ?? engine.config.summarizationProvider;
+  const primary = configuredProvider ? { provider: configuredProvider, model: policy?.summarizationModel ?? engine.config.summarizationModel } : target;
+  const failed = failedTarget ?? (state.provider ? state : primary);
+  const previous = { provider: failed.provider, model: failed.model };
+  state.attempted.add(JSON.stringify([previous.provider, previous.model]));
+  engine.fallbackTargets.set(agent, state);
+  let preparationError;
+  for (let index = state.index + 1; index < rule.fallbacks.length; index++) {
+    state.index = index;
+    let fallback;
+    try { fallback = await rule.fallbacks[index](signal); }
+    catch (error) {
+      signal?.throwIfAborted();
+      preparationError = error;
+      engine.ctx.logger?.warn(`compaction fallback preparation failed at ${index + 1} (${error.code ?? error.name}); trying the remaining configured route`);
+      continue;
+    }
+    signal?.throwIfAborted();
+    const key = JSON.stringify([fallback.provider, fallback.model]);
+    if (state.attempted.has(key)) continue;
+    state.attempted.add(key);
+    Object.assign(state, fallback);
+    engine.summaryFailures?.delete(agent);
+    engine.ctx.logger?.warn(`compaction fallback: ${previous.provider}/${previous.model} -> ${fallback.provider}/${fallback.model} (${fallbackFailure(error).code})`);
+    return fallback;
+  }
+  if (preparationError) {
+    if (fallbackFailure(error, checkpointFailureCodes)) engine.summaryFailures.set(agent, { route: summaryRoute(agent), error });
+    throw preparationError;
+  }
 }
 
 // Only follow the compacted surface span and the spans replaced by earlier
@@ -166,8 +191,7 @@ export default class CompactionEngine extends BasicCompactionEngine {
     if (!this.fallbackPolicies.length) return compact();
     const target = idleTarget(this.ctx, agent);
     const rule = this.fallbackPolicies.find(rule => sameTarget(rule.source, target));
-    const policy = this.config.modelPolicies.find(rule => sameTarget(rule, target));
-    if (!rule || (policy?.summarizationProvider ?? this.config.summarizationProvider)) return compact();
+    if (!rule) return compact();
     const { provider, model } = target;
     const { reasoningEffort, temperature } = rule.requestConfig;
     const maxTokens = agent.options.maxTokens ?? rule.requestConfig.maxTokens;
@@ -182,11 +206,12 @@ export default class CompactionEngine extends BasicCompactionEngine {
     for (let round = 0; round < 8; round++) {
       signal.throwIfAborted();
       if (!sameTarget(idleTarget(this.ctx, agent), target)) throw new Error('Model selection changed during compaction; retry for the new selection');
-      try { result = await compact(); }
-      catch (error) {
-        signal.throwIfAborted();
-        if (!await activateFallback(this, agent, target, error, signal)) throw error;
-        result = await compact();
+      for (;;) {
+        try { result = await compact(); break; }
+        catch (error) {
+          signal.throwIfAborted();
+          if (!await activateFallback(this, agent, target, error, signal)) throw error;
+        }
       }
       const after = await measure();
       if (after.available >= after.minimumMaxTokens && after.effectiveMaxTokens >= after.minimumMaxTokens) {
@@ -197,7 +222,8 @@ export default class CompactionEngine extends BasicCompactionEngine {
       if (!result || !(after.estimate.tokens < before.estimate.tokens))
         throw Object.assign(new Error('Compaction cannot reduce the protected context enough for the selected model; completed checkpoints were preserved'), { code: 'COMPACTION_TARGET_WINDOW_EXCEEDED' });
       // A valid checkpoint alone is not success when the destination still cannot reply.
-      await activateFallback(this, agent, target, { code: 'CONTEXT_WINDOW_EXCEEDED' }, signal);
+      if (!sameTarget(this.fallbackTargets.get(agent)?.source, target))
+        await activateFallback(this, agent, target, { code: 'CONTEXT_WINDOW_EXCEEDED' }, signal);
       before = after;
     }
     throw Object.assign(new Error('Compaction still exceeds the selected model window after 8 reductions; completed checkpoints were preserved'), { code: 'COMPACTION_TARGET_WINDOW_EXCEEDED' });
@@ -215,25 +241,19 @@ export default class CompactionEngine extends BasicCompactionEngine {
       if (trigger === 'pressure') return null;
       throw failed.error;
     }
-    if (trigger !== 'pressure') {
-      try { return await super.compactIfNeeded(agent, trigger, signal); }
-      catch (error) {
-        signal?.throwIfAborted();
-        const target = agent.session.requestHeader()?.config ?? agent.options;
-        if (!await activateFallback(this, agent, target, error, signal)) throw error;
-        return super.compactIfNeeded(agent, trigger, signal);
+    const attempt = trigger === 'pressure' ? { result: null } : undefined;
+    if (attempt) this.pressureAttempts.set(agent, attempt);
+    try {
+      for (;;) {
+        try { return await super.compactIfNeeded(agent, trigger, signal); }
+        catch (error) {
+          if (error instanceof UnchangedCheckpoint) return attempt?.result ?? null;
+          signal?.throwIfAborted();
+          const target = agent.session.requestHeader()?.config ?? agent.options;
+          if (!await activateFallback(this, agent, target, error, signal)) throw error;
+        }
       }
-    }
-    const attempt = { result: null };
-    this.pressureAttempts.set(agent, attempt);
-    try { return await super.compactIfNeeded(agent, trigger, signal); }
-    catch (error) {
-      if (error instanceof UnchangedCheckpoint) return attempt.result;
-      signal?.throwIfAborted();
-      const target = agent.session.requestHeader()?.config ?? agent.options;
-      if (await activateFallback(this, agent, target, error, signal)) return super.compactIfNeeded(agent, trigger, signal);
-      throw error;
-    } finally { this.pressureAttempts.delete(agent); }
+    } finally { if (attempt) this.pressureAttempts.delete(agent); }
   }
 
   async compactRegion(start, end, agent, signal) {
@@ -319,16 +339,19 @@ export default class CompactionEngine extends BasicCompactionEngine {
       }
     };
     const active = this.fallbackTargets?.get(agent);
+    let route = active?.provider && sameTarget(active.source, target) ? active : { provider: summaryProvider, model: summaryModel };
+    let prepared = true;
     try {
-      if (active && sameTarget(active.source, target)) return await generate(active.provider, active.model, true);
-      try { return await generate(summaryProvider, summaryModel, true); }
-      catch (error) {
-        signal?.throwIfAborted();
-        // An explicit native summarizer is already the chosen independent route.
-        const fallback = configuredProvider ? undefined : await activateFallback(this, agent, target, error, signal);
-        if (!fallback) throw error;
-        // A prepared Gemma call is single-use and must never dispatch to Qwen.
-        return await generate(fallback.provider, fallback.model, false);
+      for (;;) {
+        try { return await generate(route.provider, route.model, prepared); }
+        catch (error) {
+          signal?.throwIfAborted();
+          const fallback = await activateFallback(this, agent, target, error, signal, route);
+          if (!fallback) throw error;
+          route = fallback;
+          // Prepared continuations are pinned to one adapter, model and budget.
+          prepared = false;
+        }
       }
     } catch (error) {
       if (fallbackFailure(error, checkpointFailureCodes)) this.summaryFailures?.set(agent, { route: summaryRoute(agent), error });

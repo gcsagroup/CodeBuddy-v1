@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Bot, Image, ScanEye, SlidersHorizontal, Plug, RefreshCw } from 'lucide-react';
+import { Bot, Image, ScanEye, SlidersHorizontal, Plug, RefreshCw, Layers3 } from 'lucide-react';
 import type { View } from '../../../utils/navigationUtils';
 import { defineMessages, useIntl } from '../../../i18n';
 import { Button } from '../../ui/button';
@@ -11,6 +11,7 @@ import { CodeProModelModal } from '../../codepro/CodeProModelModal';
 import ProviderGrid from '../providers/ProviderGrid';
 import ModelImageCapabilitySettings from './ModelImageCapabilitySettings';
 import ModelContextSettings from './ModelContextSettings';
+import CompactionSettings from './CompactionSettings';
 import ImageGenerationSettings from './ImageGenerationSettings';
 import SettingsMenu from '../SettingsMenu';
 import ExternalBackendSection from '../app/ExternalBackendSection';
@@ -33,6 +34,11 @@ const i18n = defineMessages({
     defaultMessage: 'Configure the service used to generate images and videos.',
   },
   context: { id: 'modelsAndRuntime.context', defaultMessage: 'Context capacity' },
+  compaction: { id: 'modelsAndRuntime.compaction', defaultMessage: 'Context compaction' },
+  compactionDescription: {
+    id: 'modelsAndRuntime.compactionDescription',
+    defaultMessage: 'Choose an optional backup model for context compaction.',
+  },
   contextDescription: {
     id: 'modelsAndRuntime.contextDescription',
     defaultMessage: 'Adjust model context limits when service information is unavailable.',
@@ -91,14 +97,11 @@ export default function ModelsAndRuntimeSettings({
   const intl = useIntl();
   const [visionSettingsOpen, setVisionSettingsOpen] = useState(false);
   const [subagentDirty, setSubagentDirty] = useState(false);
+  const [compactionDirty, setCompactionDirty] = useState(false);
+  useEffect(() => {
+    onDirtyChange?.(subagentDirty || compactionDirty);
+  }, [subagentDirty, compactionDirty, onDirtyChange]);
   const [subagentEditing, setSubagentEditing] = useState(false);
-  const handleDirtyChange = useCallback(
-    (dirty: boolean) => {
-      setSubagentDirty(dirty);
-      onDirtyChange?.(dirty);
-    },
-    [onDirtyChange]
-  );
   const [providers, setProviders] = useState<ProviderDetails[]>([]);
   const [connectionsLoading, setConnectionsLoading] = useState(true);
   const [connectionsFailed, setConnectionsFailed] = useState(false);
@@ -198,7 +201,7 @@ export default function ModelsAndRuntimeSettings({
             content: (
               <SubagentTemplateSettings
                 providers={customProviders}
-                onDirtyChange={handleDirtyChange}
+                onDirtyChange={setSubagentDirty}
                 onEditingChange={setSubagentEditing}
               />
             ),
@@ -228,6 +231,17 @@ export default function ModelsAndRuntimeSettings({
             description: intl.formatMessage(i18n.generationDescription),
             icon: <Image className="h-5 w-5" />,
             content: <ImageGenerationSettings />,
+          },
+          {
+            id: 'compaction',
+            keepAlive: true,
+            dirty: compactionDirty,
+            title: intl.formatMessage(i18n.compaction),
+            description: intl.formatMessage(i18n.compactionDescription),
+            icon: <Layers3 className="h-5 w-5" />,
+            content: (
+              <CompactionSettings providers={customProviders} onDirtyChange={setCompactionDirty} />
+            ),
           },
           {
             id: 'context',

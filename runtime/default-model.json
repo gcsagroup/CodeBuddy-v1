@@ -6,7 +6,7 @@
   "imageInput": true,
   "compactionFallback": {
     "baseUrl": "http://192.168.9.120:8001",
-    "modelIds": ["qwen3.8-flash-next-uncensored", "Qwen3.8-27B-FP4"]
+    "modelIds": ["qwen3.8-flash-next-uncensored"]
   },
   "additionalProviders": [
     {
@@ -16,6 +16,7 @@
       "baseUrl": "http://192.168.9.120:8001",
       "requiresAuth": false,
       "models": [
+        "qwen3.8-flash-next-uncensored",
         "Qwen3.8-27B-FP4",
         "Qwen3.8-27B-CyberSecurity"
       ]

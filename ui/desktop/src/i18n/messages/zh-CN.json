@@ -1601,6 +1601,48 @@
   "compaction.failed": {
     "defaultMessage": "上下文压缩失败，原上下文已保留。"
   },
+  "compactionSettings.description": {
+    "defaultMessage": "优先使用当前聊天模型压缩，失败后尝试你指定的兜底模型，最后使用 Qwen Flash。相同模型会自动跳过。"
+  },
+  "compactionSettings.empty": {
+    "defaultMessage": "添加模型连接后，即可选择自选兜底模型。"
+  },
+  "compactionSettings.last": {
+    "defaultMessage": "Qwen Flash 是最后一级兜底，使用已配置的连接。压缩后会确认上下文能放入当前聊天模型的窗口，再继续对话。"
+  },
+  "compactionSettings.legacy": {
+    "defaultMessage": "此前按模型设置的兜底仍会保留；保存本页后，将使用这里的统一选择。"
+  },
+  "compactionSettings.loadError": {
+    "defaultMessage": "未能读取压缩设置，请重试后再保存。"
+  },
+  "compactionSettings.loading": {
+    "defaultMessage": "正在加载压缩设置…"
+  },
+  "compactionSettings.model": {
+    "defaultMessage": "自选兜底模型（可选）"
+  },
+  "compactionSettings.none": {
+    "defaultMessage": "不指定 — 失败后直接使用 Qwen Flash"
+  },
+  "compactionSettings.retry": {
+    "defaultMessage": "重试"
+  },
+  "compactionSettings.save": {
+    "defaultMessage": "保存压缩设置"
+  },
+  "compactionSettings.saveError": {
+    "defaultMessage": "未能保存，已保留你的选择，请重试。"
+  },
+  "compactionSettings.saved": {
+    "defaultMessage": "已保存，下次压缩时生效。"
+  },
+  "compactionSettings.title": {
+    "defaultMessage": "上下文压缩"
+  },
+  "compactionSettings.unavailable": {
+    "defaultMessage": "已保存的模型不可用，请选择其他模型或不指定自选兜底。"
+  },
   "composerCommands.active": {
     "defaultMessage": "进行中"
   },
@@ -5101,6 +5143,12 @@
   },
   "modelsAndRuntime.codeBuddyModelDescription": {
     "defaultMessage": "CodeBuddy 自有模型仍在开发中。"
+  },
+  "modelsAndRuntime.compaction": {
+    "defaultMessage": "上下文压缩"
+  },
+  "modelsAndRuntime.compactionDescription": {
+    "defaultMessage": "为上下文压缩选择可选的兜底模型。"
   },
   "modelsAndRuntime.connections": {
     "defaultMessage": "模型与连接"

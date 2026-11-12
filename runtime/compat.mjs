@@ -39,7 +39,7 @@ import { WorkspaceService } from "./workspaces.mjs";
 import { CodeProRuns } from "./codepro.mjs";
 import { SUBAGENT_TEMPLATES_KEY, validateSubagentTemplates, resolveSubagentModels, resolveCustomSubagentTemplates } from './subagent-templates.mjs';
 import { SUBAGENT_LIMITS_KEY, DEFAULT_SUBAGENT_LIMITS, validateSubagentLimits } from './subagent-limits.mjs';
-import { COMPACTION_FALLBACKS_KEY, validateCompactionFallbacks, resolveCompactionFallbacks } from './compaction-settings.mjs';
+import { COMPACTION_FALLBACKS_KEY, COMPACTION_MODEL_KEY, validateCompactionFallbacks, validateCompactionFallbackModel, resolveCompactionFallbacks } from './compaction-settings.mjs';
 import { codeproInstructions } from "./task-tools.mjs";
 import { openTranscriptJournal } from "./transcripts.mjs";
 import { ProjectMemory } from "./memory.mjs";
@@ -2692,6 +2692,7 @@ export class Compat {
         if (p.key === SUBAGENT_TEMPLATES_KEY) p.value = validateSubagentTemplates(p.value, this.store.read(["providers"]).providers, p.isSecret);
         if (p.key === SUBAGENT_LIMITS_KEY) p.value = validateSubagentLimits(p.value, p.isSecret);
         if (p.key === COMPACTION_FALLBACKS_KEY) p.value = validateCompactionFallbacks(p.value, this.store.read(['providers']).providers, p.isSecret);
+        if (p.key === COMPACTION_MODEL_KEY) p.value = validateCompactionFallbackModel(p.value, this.store.read(['providers']).providers, p.isSecret);
         const entry = p.isSecret
           ? { secret: await protectSecret(String(p.value)) }
           : { value: p.value };

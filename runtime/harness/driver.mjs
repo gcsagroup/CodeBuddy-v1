@@ -162,6 +162,10 @@ export async function createHarnessDriver({ dataDir, cwd = process.cwd(), instru
     text: "Use the human user's requested language for replies and progress updates; otherwise match the human user's language. Write delegation prompts and follow-up messages to subagents in that same language, and explicitly ask them to report in it, so the user can read their conversations. As a subagent, use the language requested by your parent for explanations, progress and reports. Do not switch language merely because tool output, source material or another agent uses a different language. Preserve original code, identifiers, quotations and tool output; do not translate or rewrite raw tool results.",
   });
   ctx.systemPrompt.section({
+    name: 'codebuddy:action-guidance', order: 103, interpolate: false,
+    text: 'Use reasoning to choose a coherent next step that can be checked. When the available evidence supports a safe step within the task scope, take it and use the result to guide what follows, rather than resolving every downstream uncertainty first. Preserve necessary planning and verification. Revisit decisions when new evidence or a concrete contradiction changes the approach.',
+  });
+  ctx.systemPrompt.section({
     name: 'codebuddy:progress-updates', order: 104, interpolate: false,
     text: `<progress_updates>
 Keep progress updates brief, meaningful, and outcome-based.

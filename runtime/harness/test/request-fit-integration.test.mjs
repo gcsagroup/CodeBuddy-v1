@@ -111,6 +111,63 @@ test('default summary output reaches 32768 on large windows and scales down on s
   }
 });
 
+test('switching a connection or model then compacting immediately uses the live selection, including after restart', { timeout: 30000 }, async t => {
+  for (const cold of [false, true]) for (const model of ['fixture', 'other-model']) {
+    const f = await fixture(t, (request, res) => reply(res, request.summary
+      ? 'Preserve ORION-739 and integer cents. Continue with verification.' : WARM_HISTORY));
+    await f.driver.prompt(f.sessionId, 'Remember ORION-739 and integer cents.');
+    const original = await f.driver.history(f.sessionId);
+    const oldHeader = original.events.findLast(event => event.type === 'request/header');
+    // Register only the replacement connection in the restarted Host. Keeping
+    // the old adapter live would hide the reported NO_ADAPTER failure.
+    f.provider.id = 'replacement-connection';
+    f.provider.contextWindow = 32768;
+    if (cold) await f.reopen();
+    await f.driver.createSession({ sessionId: f.sessionId, cwd: f.root, provider: f.provider, model });
+    const selected = (await f.driver.history(f.sessionId)).events.findLast(event => event.type === 'model/selection').data;
+    assert.notEqual(selected.provider, oldHeader.data.header.config.provider);
+    const sent = f.requests.length;
+    assert.ok(await f.driver.compact(f.sessionId));
+    const after = await f.driver.history(f.sessionId);
+    assert.deepEqual(f.requests.slice(sent).map(request => [request.summary, request.body.model]), [[true, model]],
+      'manual maintenance sends only the summary, with no preliminary chat request');
+    const checkpoint = summaries(after).at(-1);
+    assert.deepEqual([checkpoint.data.provider, checkpoint.data.model, checkpoint.data.maxTokens], [selected.provider, model, 8192]);
+    assert.deepEqual(after.events.slice(0, original.events.length), original.events, 'historical request and work facts remain unchanged');
+    assert.deepEqual(after.events.filter(event => event.type === 'request/header'), original.events.filter(event => event.type === 'request/header'));
+    assert.equal(after.events.findLast(event => event.type === 'compaction/end').data.error, undefined);
+    assert.deepEqual(after.events.findLast(event => event.type === 'model/selection').data, selected,
+      'maintenance leaves the selected next chat model intact');
+    await f.reopen();
+    assert.deepEqual(summaries(await f.driver.history(f.sessionId)), summaries(after), 'the native checkpoint survives a cold reload');
+  }
+});
+
+test('a failed manual summary preserves history and switching models permits an immediate explicit retry', { timeout: 20000 }, async t => {
+  const f = await fixture(t, (request, res) => {
+    if (request.summary && request.body.model === 'rejecting-model') return res.writeHead(400, { 'content-type': 'application/json' })
+      .end(JSON.stringify({ error: { message: 'Unsupported fixture parameter', code: 'invalid_request_error' } }));
+    reply(res, request.summary ? 'Preserve ORION-739 and integer cents.' : WARM_HISTORY);
+  });
+  await warm(f);
+  const original = await f.driver.history(f.sessionId);
+  const sent = f.requests.length;
+  await f.driver.createSession({ sessionId: f.sessionId, cwd: f.root, provider: f.provider, model: 'rejecting-model' });
+  await assert.rejects(f.driver.compact(f.sessionId));
+  const failed = await f.driver.history(f.sessionId);
+  assert.equal(summaries(failed).length, 0);
+  assert.deepEqual(failed.events.slice(0, original.events.length), original.events);
+  assert.match(failed.events.findLast(event => event.type === 'compaction/end').data.error, /Unsupported fixture parameter/);
+  await f.driver.createSession({ sessionId: f.sessionId, cwd: f.root, provider: f.provider, model: 'working-model' });
+  assert.ok(await f.driver.compact(f.sessionId));
+  const recovered = await f.driver.history(f.sessionId);
+  assert.deepEqual(f.requests.slice(sent).map(request => [request.summary, request.body.model]),
+    [[true, 'rejecting-model'], [true, 'working-model']]);
+  assert.equal(summaries(recovered).length, 1);
+  assert.equal(summaries(recovered)[0].data.model, 'working-model');
+  assert.deepEqual(recovered.events.filter(event => event.type === 'request/header'), original.events.filter(event => event.type === 'request/header'));
+});
+
 test('service capacity, explicit user budget and unknown fallback reach the real HTTP envelope', { timeout: 20000 }, async t => {
   for (const scenario of [
     { outputTokenCapacity: 131072, useDefaultBudget: true, expected: 131072 },
@@ -672,12 +729,14 @@ test('a summary that makes no useful reduction does not authorize retry', { time
 test('summary input that cannot reserve its own output never reaches HTTP and preserves the original failure', { timeout: 15000 }, async t => {
   const fits = await observeFits(t);
   let modelCalls = 0;
+  // Leave room for the shared guidance on the first request. The retained
+  // history must exhaust the next request, rather than failing during setup.
   const f = await fixture(t, (request, res) => {
     modelCalls++;
-    // Enough retained history to exhaust this 8K fixture without making the
+    // Enough retained history to exhaust this small fixture without making the
     // auxiliary report itself larger than the model's entire usable context.
     reply(res, modelCalls === 1 ? 'large fixture history '.repeat(100) : 'UNEXPECTED_HTTP');
-  }, { contextWindow: 8192 });
+  }, { contextWindow: 8448 });
   await warm(f);
   await assert.rejects(f.driver.prompt(f.sessionId, 'Continue the fixture.'), { code: 'LOCAL_OUTPUT_BUDGET_EXHAUSTED' });
   assert.equal(modelCalls, 1);

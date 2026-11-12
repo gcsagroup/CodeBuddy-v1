@@ -93,6 +93,7 @@ export function installCompactionRequestCompatibility(ctx, currentEffort = () =>
 export default class CompactionEngine extends BasicCompactionEngine {
   pressureAttempts = new WeakMap();
   manualSurfaces = new WeakMap();
+  manualTargets = new WeakMap();
   summaryFailures = new WeakMap();
 
   constructor(ctx, config) {
@@ -163,10 +164,27 @@ export default class CompactionEngine extends BasicCompactionEngine {
     if (this.pressureAttempts.has(agent) && input.messages.length === first + 1 &&
         message?.role === 'user' && message.source?.kind === 'compact-checkpoint')
       throw new UnchangedCheckpoint();
-    const target = agent.session.requestHeader()?.config ?? agent.options;
+    const operation = agent.session.log.findLast(event => event.type === 'compaction/start' || event.type === 'compaction/end');
+    let target = agent.session.requestHeader()?.config ?? agent.options;
+    // Native maintenance owns the null-turn marker. Only its idle summary may
+    // consume the Controller's pending selection; active turns keep their route.
+    // Bind fit continuations to the same target even if the next selection changes.
+    if (operation?.type === 'compaction/start' && operation.data.turn === null) {
+      let selected = this.manualTargets.get(operation);
+      if (!selected) {
+        const pending = this.ctx.sessionProjections.stateOf(agent.session, 'modelSelection')?.pending;
+        selected = { provider: (pending ?? target).provider, model: (pending ?? target).model };
+        this.manualTargets.set(operation, selected);
+      }
+      target = selected;
+    }
     const policy = this.config.modelPolicies.find(p => p.provider === target.provider && p.model === target.model);
-    const summaryProvider = policy?.summarizationProvider || this.config.summarizationProvider || target.provider;
-    const summaryModel = policy?.summarizationModel || this.config.summarizationModel || target.model;
+    // Match the native policy's nullish inheritance: an empty pair explicitly
+    // clears an inherited dedicated summarizer and follows the conversation.
+    const configuredProvider = policy?.summarizationProvider ?? this.config.summarizationProvider;
+    const configuredModel = policy?.summarizationModel ?? this.config.summarizationModel;
+    const summaryProvider = configuredProvider || target.provider;
+    const summaryModel = configuredProvider ? configuredModel : target.model;
     const info = await this.ctx.llm.resolveModelInfo?.(summaryProvider, summaryModel, signal);
     const window = info?.context?.contextWindow;
     const capacity = Number.isSafeInteger(window) && window > 0 ? window : Infinity;
@@ -184,8 +202,11 @@ export default class CompactionEngine extends BasicCompactionEngine {
       const summaryStream = options => stream({ ...options, ...(effort ? { reasoningEffort: effort } : {}) });
       const owner = {
         ctx: { llm: { stream: summaryStream } },
-        config: { ...this.config, maxTokens,
-          modelPolicies: this.config.modelPolicies.map(p => ({ ...p, maxTokens })) },
+        // The policy has already been resolved for this operation. Give the
+        // native summarizer that exact target rather than selecting it again
+        // from the historical request header. This is a call-local config.
+        config: { ...this.config, maxTokens, summarizationProvider: summaryProvider,
+          summarizationModel: summaryModel, modelPolicies: [] },
       };
       try {
         const result = await BasicCompactionEngine.prototype.summarize.call(owner,

@@ -1,5 +1,5 @@
 import { deliverMainConversationMessage } from '../pets/mainConversation';
-import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, within, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { IntlTestWrapper } from '../i18n/test-utils';
@@ -168,6 +168,19 @@ describe('large pasted drafts', () => {
     vi.mocked(getSessionExtensions).mockResolvedValue([]);
   });
   afterEach(() => vi.unstubAllGlobals());
+  it('uses the send button for continuation only when the stopped composer is empty', () => {
+    const onContinue = vi.fn();
+    const props = { sessionId: 'stopped', handleSubmit: vi.fn(), onStop: vi.fn(), setView: vi.fn(), chatState: ChatState.Idle, onContinue };
+    render(<ChatInput {...props} />, { wrapper: IntlTestWrapper });
+    const button = screen.getByRole('button', { name: 'Continue task' });
+    expect(screen.queryByRole('button', { name: /^Send$/ })).toBeNull();
+    fireEvent.change(screen.getByTestId('chat-input'), { target: { value: 'new request' } });
+    expect(screen.getByRole('button', { name: /^Send$/ })).toBe(button);
+    fireEvent.change(screen.getByTestId('chat-input'), { target: { value: '' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Continue task' }));
+    expect(onContinue).toHaveBeenCalledTimes(1);
+    expect(props.handleSubmit).not.toHaveBeenCalled();
+  });
   it('appends a toolbox skill draft once without submitting or replacing existing text', () => {
     const handleSubmit = vi.fn();
     const props = { sessionId: 'skill-draft', handleSubmit, onStop: vi.fn(), setView: vi.fn(), chatState: ChatState.Idle };
@@ -421,7 +434,7 @@ describe('compact queue presentation', () => {
     expect(screen.queryByRole('button', { name: 'Expand queue' })).toBeNull();
     expect(screen.queryByText('Queue Paused')).toBeNull();
   });
-  it('leaves editing when its message is removed and collapses the last remaining entry', async () => {
+  it('leaves editing when its message is removed and keeps the remaining row accessible', async () => {
     const editing = { current: null as string | null };
     const remove = vi.fn();
     const props = {
@@ -435,7 +448,6 @@ describe('compact queue presentation', () => {
     const view = render(<MessageQueue {...props} queuedMessages={[item, second]} />, {
       wrapper: IntlTestWrapper,
     });
-    await userEvent.click(screen.getByRole('button', { name: 'Expand queue' }));
     await userEvent.click(screen.getByText(item.content));
     expect(sendNow()).toBeDisabled();
     expect(editing.current).toBe(item.id);
@@ -448,7 +460,7 @@ describe('compact queue presentation', () => {
     expect(screen.getByText(second.content)).toBeVisible();
     expect(sendNow()).toBeEnabled();
   });
-  it('keeps the next message and send action compact and expands only on request', async () => {
+  it('shows queued rows by default and lets the user collapse and reopen them', async () => {
     const send = vi.fn();
     render(
       <MessageQueue
@@ -460,7 +472,9 @@ describe('compact queue presentation', () => {
       { wrapper: IntlTestWrapper }
     );
     expect(screen.queryByText('Message Queue')).toBeNull();
-    expect(screen.getByRole('button', { name: 'Expand queue' })).toBeVisible();
+    expect(screen.getByText('Second queued request')).toBeVisible();
+    await userEvent.click(screen.getByRole('button', { name: 'Collapse queue' }));
+    expect(screen.queryByText('Second queued request')).toBeNull();
     expect(screen.getByText('2 messages queued')).toBeVisible();
     const action = screen.getByRole('button', { name: 'Send all now' });
     expect(action).toHaveAttribute('title', 'Send all waiting messages together now');
@@ -1509,6 +1523,21 @@ describe('ChatInput queue delivery', () => {
     view.changeBlocked(false);
     await waitFor(() => expect(submit).toHaveBeenCalledOnce());
     expect(submit.mock.calls[0][0].msg).toBe('replacement after stop');
+  });
+
+  it('steers only the selected message and drains the rest in order while collapsed', async () => {
+    const steer = vi.fn(async (_input: UserInput) => true);
+    const submit = vi.fn(async (_input: UserInput, lifecycle?: MessageSubmissionLifecycle) => lifecycle?.onAccepted());
+    const view = setup(submit, steer);
+    for (const text of ['first', 'middle', 'last']) await queue(text);
+    const row = screen.getByText('middle').closest('[data-queue-row]')! as HTMLElement;
+    await userEvent.click(within(row).getByRole('button', { name: 'Steer' }));
+    expect(steer.mock.calls.map(([input]) => input.msg)).toEqual(['middle']);
+    expect(screen.queryByText('middle')).toBeNull();
+    await userEvent.click(screen.getByRole('button', { name: 'Collapse queue' }));
+    expect(screen.queryByText('last')).toBeNull();
+    view.changeState(ChatState.Idle);
+    await waitFor(() => expect(submit.mock.calls.map(([input]) => input.msg)).toEqual(['first', 'last']));
   });
 
   it('steers the running turn without cancelling or waiting for its prompt RPC to finish', async () => {

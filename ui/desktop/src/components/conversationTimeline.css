@@ -1,14 +1,17 @@
 .conversation-timeline {
   position: absolute;
   left: 2px;
-  top: 16px;
-  bottom: 24px;
-  width: 22px;
+  top: 50%;
+  transform: translateY(-50%);
+  max-height: min(80%, 760px);
+  width: 26px;
+  padding-block: 4px;
+  border-radius: 8px;
   z-index: 15;
   display: flex;
   flex-direction: column;
-  justify-content: safe center;
   overflow-y: auto;
+  overscroll-behavior-y: contain;
   scrollbar-width: none;
 }
 .conversation-timeline::-webkit-scrollbar {
@@ -18,30 +21,36 @@
   display: flex;
   align-items: center;
   width: 100%;
-  min-height: 7px;
-  max-height: 18px;
-  flex: 1 1 18px;
+  flex: 0 1 24px;
+  min-height: 12px;
   padding: 0 5px;
   cursor: pointer;
 }
 .conversation-timeline-tick span {
   height: 2px;
-  width: 8px;
+  width: 7px;
   border-radius: 2px;
   background: var(--color-text-secondary);
-  opacity: 0.3;
+  opacity: 0.4;
   transition:
     width 0.15s ease,
     opacity 0.15s ease;
 }
+.conversation-timeline-tick:nth-of-type(5n) span {
+  width: 11px;
+}
 .conversation-timeline-tick:hover span,
 .conversation-timeline-tick:focus-visible span,
-.conversation-timeline-tick[data-visible='true'] span {
+.conversation-timeline-tick[aria-current='location'] span {
   width: 16px;
   opacity: 0.95;
 }
 .conversation-timeline-tick[data-visible='true'] span {
   background: var(--color-text-primary);
+  opacity: 0.8;
+}
+.conversation-timeline-tick[aria-current='location'] span {
+  height: 3px;
   opacity: 1;
 }
 .conversation-timeline-tick:focus-visible {

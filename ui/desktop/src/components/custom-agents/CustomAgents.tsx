@@ -1,3 +1,4 @@
+import { buttonVariants } from '../ui/button';
 import { AppEvents } from '../../constants/events';
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
@@ -15,7 +16,7 @@ interface Catalog {
 }
 const blank = (): Profile => ({ name: '', avatar: 'app-logo', prompt: '', skills: [], tools: [], mcpServers: [], capabilities: 'inherit' });
 const fieldClass = 'w-full rounded-lg border border-border-primary bg-background-primary px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-text-secondary';
-const buttonClass = 'inline-flex items-center justify-center gap-2 rounded-lg border border-border-primary px-4 py-2 text-sm hover:bg-background-secondary disabled:opacity-50';
+const buttonClass = buttonVariants({ variant: 'outline', size: 'sm' });
 
 function AgentCard({ profile, description, tags, applyLabel, applyAriaLabel, disabled, onApply, confirmation, children }: {
   profile: Profile; description: string; tags: string[];
@@ -125,7 +126,7 @@ export function CustomAgents() {
   function update<K extends keyof Profile>(key: K, value: Profile[K]) { setDraft(d => d ? { ...d, [key]: value } : d); }
   return <main className="h-full overflow-y-auto bg-background-primary text-text-primary">
     <div className="mx-auto max-w-6xl space-y-6 px-5 py-8 md:px-10">
-      <header className="flex flex-wrap items-start justify-between gap-4"><div><h1 className="flex items-center gap-3 text-2xl font-semibold"><Bot size={27} />自定义智能体</h1><p className="mt-2 max-w-2xl text-sm text-text-secondary">为不同工作配置专属助手，在同一对话中随时选用、切换或恢复默认助手。</p></div>
+      <header className="flex flex-wrap items-start justify-between gap-4"><div><h1 className="flex items-center gap-3 app-page-heading"><Bot className="size-5" />自定义智能体</h1><p className="mt-2 max-w-2xl text-sm text-text-secondary">为不同工作配置专属助手，在同一对话中随时选用、切换或恢复默认助手。</p></div>
         <div className="flex flex-wrap gap-2"><button className={buttonClass} onClick={() => navigate(returnPath)}><ArrowLeft size={16} />{sessionId ? '返回对话' : '返回新对话'}</button>{!draft && <button className={buttonClass} disabled={!catalog || busy} onClick={() => { setDraft(blank()); setNotice(''); setError(''); }}><Plus size={16} />新建智能体</button>}</div>
       </header>
       {error && <div role="alert" className="rounded-xl border border-red-400/40 p-4 text-sm">{error} <button className="ml-3 underline" onClick={() => void load()} disabled={busy}>重新加载</button></div>}

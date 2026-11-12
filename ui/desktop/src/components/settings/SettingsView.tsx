@@ -2,16 +2,16 @@ import PetSettings from '../../pets/PetSettings';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   AppWindow,
-  Bot,
+  Cpu,
+  ChevronDown,
+  PawPrint,
   Brain,
   Keyboard,
   KeyRound,
   MessageSquare,
   Search,
-  Mic,
   ShieldCheck,
 } from 'lucide-react';
-import { ScrollArea } from '../ui/scroll-area';
 import { View, ViewOptions } from '../../utils/navigationUtils';
 import ModelsAndRuntimeSettings from './models/ModelsAndRuntimeSettings';
 import AppSettingsSection from './app/AppSettingsSection';
@@ -23,7 +23,6 @@ import AuthSettingsSection from './auth/AuthSettingsSection';
 import { trackSettingsTabViewed } from '../../utils/analytics';
 import { defineMessages, useIntl } from '../../i18n';
 import MemorySettingsSection from './memory/MemorySettingsSection';
-import InputSettingsSection from './input/InputSettingsSection';
 import SecurityAndPermissionsSection from './security/SecurityAndPermissionsSection';
 import {
   matchesSettingsQuery,
@@ -83,7 +82,6 @@ const i18n = defineMessages({
     id: 'settingsCenter.pageAuth',
     defaultMessage: 'Accounts and credentials',
   },
-  pageInput: { id: 'settingsCenter.pageInput', defaultMessage: 'Input' },
   pageSecurity: {
     id: 'settingsCenter.pageSecurity',
     defaultMessage: 'Security and permissions',
@@ -107,7 +105,6 @@ const pageMessages: Record<SettingsPageId, (typeof i18n)[keyof typeof i18n]> = {
   chat: i18n.pageChat,
   memory: i18n.pageMemory,
   auth: i18n.pageAuth,
-  input: i18n.pageInput,
   security: i18n.pageSecurity,
 };
 
@@ -116,21 +113,19 @@ function SettingsPageIcon({ page }: { page: SettingsPageId }) {
 
   switch (page) {
     case 'pets':
-      return <Bot className={className} />;
+      return <PawPrint className={className} />;
     case 'app':
       return <AppWindow className={className} />;
     case 'keyboard':
       return <Keyboard className={className} />;
     case 'models':
-      return <Bot className={className} />;
+      return <Cpu className={className} />;
     case 'chat':
       return <MessageSquare className={className} />;
     case 'memory':
       return <Brain className={className} />;
     case 'auth':
       return <KeyRound className={className} />;
-    case 'input':
-      return <Mic className={className} />;
     case 'security':
       return <ShieldCheck className={className} />;
   }
@@ -155,6 +150,9 @@ export default function SettingsView({
   const [activePage, setActivePage] = useState<SettingsPageId>(initialPage);
   const [visitedEditors, setVisitedEditors] = useState<SettingsPageId[]>([initialPage]);
   const [searchQuery, setSearchQuery] = useState('');
+  const [navigationOpen, setNavigationOpen] = useState(false);
+  const contentRef = useRef<HTMLDivElement>(null);
+  const compactNavButton = useRef<HTMLButtonElement>(null);
   const [subagentDirty, setSubagentDirty] = useState(false);
   const hasTrackedInitialPage = useRef(false);
   const intl = useIntl();
@@ -184,8 +182,15 @@ export default function SettingsView({
 
   const handlePageChange = (page: SettingsPageId) => {
     setActivePage(page);
+    setNavigationOpen(false);
+    setSearchQuery('');
+    if (compactNavButton.current?.offsetWidth) compactNavButton.current.focus();
     trackSettingsTabViewed(page);
   };
+
+  useEffect(() => {
+    if (contentRef.current) contentRef.current.scrollTop = 0;
+  }, [activePage]);
 
   useEffect(() => {
     if (activePage === 'models' || activePage === 'chat') {
@@ -214,8 +219,6 @@ export default function SettingsView({
       case 'models':
       case 'chat':
         return null;
-      case 'input':
-        return <InputSettingsSection />;
       case 'security':
         return <SecurityAndPermissionsSection />;
       case 'keyboard':
@@ -225,11 +228,7 @@ export default function SettingsView({
       case 'memory':
         return <MemorySettingsSection />;
       case 'app':
-        return (
-          <div className="space-y-8 pb-8">
-            <AppSettingsSection scrollToSection={viewOptions.section} />
-          </div>
-        );
+        return <AppSettingsSection scrollToSection={viewOptions.section} />;
     }
   })();
 
@@ -243,83 +242,105 @@ export default function SettingsView({
       <DialogContent
         data-testid="settings-dialog"
         aria-describedby={undefined}
+        onEscapeKeyDown={(event) => {
+          if (navigationOpen && compactNavButton.current?.offsetWidth) {
+            event.preventDefault();
+            setNavigationOpen(false);
+            compactNavButton.current.focus();
+          }
+        }}
         overlayClassName="bg-black/25 backdrop-blur-[1px]"
-        className="h-[min(88vh,960px)] max-h-[calc(100vh-1rem)] w-[min(92vw,1200px)] !max-w-none gap-0 overflow-hidden rounded-2xl border-border-subtle p-0 shadow-2xl"
+        className="h-[min(88vh,800px)] max-sm:h-[calc(100dvh-1rem)] w-[min(calc(100vw-1rem),1080px)] !max-w-none gap-0 overflow-hidden rounded-2xl border-border-primary p-0 shadow-xl [&>button]:z-20"
       >
         <DialogTitle className="sr-only">{intl.formatMessage(i18n.title)}</DialogTitle>
-        <div className="flex h-full min-h-0 bg-background-primary">
+        <div className="flex h-full min-h-0 flex-col bg-background-primary sm:flex-row">
           <aside
             data-testid="settings-navigation"
-            className="flex w-64 shrink-0 flex-col border-r border-border-subtle bg-background-default/70"
+            className="relative z-10 flex min-h-0 shrink-0 flex-col border-b border-border-primary bg-background-secondary sm:w-52 sm:border-r sm:border-b-0 md:w-56"
           >
-            <header className="space-y-4 border-b border-border-subtle px-5 pb-5 pt-6">
-              <h1 className="text-2xl font-semibold text-text-primary">
+            <header className="flex flex-wrap items-center gap-2 px-4 py-3 max-sm:pr-14 sm:block sm:space-y-4 sm:px-4 sm:pt-6">
+              <h1 className="w-full text-base font-semibold tracking-tight text-text-primary sm:px-2 sm:text-xl">
                 {intl.formatMessage(i18n.title)}
               </h1>
-              <label className="flex w-full items-center gap-2 rounded-lg border border-border-subtle bg-background-primary px-3 py-2 focus-within:border-border-default">
+              <button
+                type="button"
+                ref={compactNavButton}
+                aria-expanded={navigationOpen}
+                aria-controls="settings-category-nav"
+                onClick={() => setNavigationOpen(!navigationOpen)}
+                className="flex items-center gap-2 rounded-lg border border-border-primary bg-background-primary px-2.5 py-2 text-sm font-medium text-text-primary sm:hidden"
+              >
+                <SettingsPageIcon page={activePage} />
+                {intl.formatMessage(pageMessages[activePage])}
+                <ChevronDown className="size-3.5" aria-hidden />
+              </button>
+              <label className="flex min-w-28 flex-1 items-center gap-2 rounded-lg border border-border-primary bg-background-primary px-2.5 py-2 focus-within:border-border-info">
                 <Search className="h-4 w-4 text-text-muted" />
                 <input
                   data-testid="settings-search"
                   value={searchQuery}
-                  onChange={(event) => setSearchQuery(event.target.value)}
+                  onChange={(event) => {
+                    setSearchQuery(event.target.value);
+                    setNavigationOpen(true);
+                  }}
                   placeholder={intl.formatMessage(i18n.searchPlaceholder)}
                   aria-label={intl.formatMessage(i18n.searchPlaceholder)}
-                  className="w-full bg-transparent text-sm text-text-primary outline-none placeholder:text-text-muted"
+                  className="min-w-0 w-full bg-transparent text-sm text-text-primary outline-none placeholder:text-text-secondary"
                 />
               </label>
             </header>
-            <ScrollArea className="min-h-0 flex-1 px-3 py-5">
-              <nav aria-label={intl.formatMessage(i18n.title)} className="space-y-5">
-                {settingsGroups.map((group) => {
-                  const items = filteredNavigationItems.filter((item) => item.group === group.id);
-                  if (items.length === 0) return null;
+            <nav
+              id="settings-category-nav"
+              aria-label={intl.formatMessage(i18n.title)}
+              className={`min-h-0 space-y-4 overflow-y-auto px-3 py-3 max-sm:absolute max-sm:inset-x-0 max-sm:top-full max-sm:max-h-[52vh] max-sm:border-b max-sm:border-border-primary max-sm:bg-background-secondary max-sm:shadow-lg sm:flex-1 ${navigationOpen ? '' : 'max-sm:hidden'}`}
+            >
+              {settingsGroups.map((group) => {
+                const items = filteredNavigationItems.filter((item) => item.group === group.id);
+                if (items.length === 0) return null;
 
-                  return (
-                    <section key={group.id}>
-                      <h2 className="mb-1 px-3 text-xs font-semibold uppercase tracking-wide text-text-muted">
-                        {intl.formatMessage(group.message)}
-                      </h2>
-                      <div className="space-y-1">
-                        {items.map((item) => {
-                          const selected = activePage === item.id;
-                          return (
-                            <button
-                              key={item.id}
-                              type="button"
-                              data-testid={`settings-nav-${item.id}`}
-                              aria-current={selected ? 'page' : undefined}
-                              onClick={() => handlePageChange(item.id)}
-                              className={`flex w-full items-center gap-3 rounded-lg px-3 py-2 text-left text-sm transition-colors ${
-                                selected
-                                  ? 'bg-background-muted font-medium text-text-primary'
-                                  : 'text-text-secondary hover:bg-background-muted/60 hover:text-text-primary'
-                              }`}
-                            >
-                              <SettingsPageIcon page={item.id} />
-                              <span>{intl.formatMessage(pageMessages[item.id])}</span>
-                            </button>
-                          );
-                        })}
-                      </div>
-                    </section>
-                  );
-                })}
+                return (
+                  <section key={group.id}>
+                    <h2 className="mb-1.5 px-3 text-xs font-medium text-text-secondary">
+                      {intl.formatMessage(group.message)}
+                    </h2>
+                    <div className="space-y-0.5">
+                      {items.map((item) => {
+                        const selected = activePage === item.id;
+                        return (
+                          <button
+                            key={item.id}
+                            type="button"
+                            data-testid={`settings-nav-${item.id}`}
+                            aria-current={selected ? 'page' : undefined}
+                            onClick={() => handlePageChange(item.id)}
+                            className="app-nav-link w-full"
+                          >
+                            <SettingsPageIcon page={item.id} />
+                            <span>{intl.formatMessage(pageMessages[item.id])}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </section>
+                );
+              })}
 
-                {filteredNavigationItems.length === 0 && (
-                  <p className="px-3 py-8 text-center text-sm text-text-muted">
-                    {intl.formatMessage(i18n.noSearchResults)}
-                  </p>
-                )}
-              </nav>
-            </ScrollArea>
+              {filteredNavigationItems.length === 0 && (
+                <p className="px-3 py-8 text-center text-sm text-text-muted">
+                  {intl.formatMessage(i18n.noSearchResults)}
+                </p>
+              )}
+            </nav>
           </aside>
 
-          <main className="min-w-0 flex-1 bg-background-primary pt-8">
-            <ScrollArea className="h-full">
-              <div className="mx-auto w-full max-w-5xl px-8 pb-8 pt-2">
-                <h2 className="mb-5 text-2xl font-semibold text-text-primary">
-                  {intl.formatMessage(pageMessages[activePage])}
-                </h2>
+          <main className="flex min-h-0 min-w-0 flex-1 flex-col">
+            <header className="max-sm:sr-only shrink-0 border-b border-border-primary px-7 py-5 pr-14">
+              <h2 className="app-page-heading">
+                {intl.formatMessage(pageMessages[activePage])}
+              </h2>
+            </header>
+            <div ref={contentRef} className="min-h-0 flex-1 overflow-auto overscroll-contain">
+              <div className="mx-auto w-full max-w-4xl px-4 py-5 sm:px-7 sm:py-6 [&_[data-slot=card-title]]:font-semibold [&_[data-slot=card-description]]:mt-1 [&_[data-slot=card-description]]:leading-relaxed">
                 {activeContent}
                 <div hidden={activePage !== 'models'}>
                   {(activePage === 'models' || visitedEditors.includes('models')) && (
@@ -336,7 +357,7 @@ export default function SettingsView({
                   )}
                 </div>
               </div>
-            </ScrollArea>
+            </div>
           </main>
         </div>
       </DialogContent>

@@ -32,13 +32,18 @@ async function fixture(t) {
       res.writeHead(200, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ jsonrpc: '2.0', id: data.id, result })); return;
     }
     requests.push(data);
+    if (data.messages.some(message => message.role === 'user' && JSON.stringify(message.content).includes('TITLE_PROVIDER_UNAVAILABLE'))) {
+      res.writeHead(400, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: { message: 'Title fixture unavailable' } }));
+      return;
+    }
     const prompt = [...data.messages].reverse().find(m => m.role === 'user' && JSON.stringify(m.content).includes('USER_'));
     const index = data.messages.indexOf(prompt);
     res.writeHead(200, { 'Content-Type': 'text/event-stream' });
     const emit = (delta, finish_reason = null) => res.write(`data: ${JSON.stringify({ id: 'edit-fixture', object: 'chat.completion.chunk', created: 1, model: data.model, choices: [{ index: 0, delta, finish_reason }] })}\n\n`);
-    if (JSON.stringify(prompt?.content).includes('USER_CHILD_ROOT') && !data.messages.slice(index + 1).some(m => m.role === 'tool')) {
+    if (JSON.stringify(prompt?.content ?? "").includes('USER_CHILD_ROOT') && !data.messages.slice(index + 1).some(m => m.role === 'tool')) {
       emit({ role: 'assistant', tool_calls: [{ index: 0, id: 'spawn-fixture', type: 'function', function: { name: 'subagent', arguments: JSON.stringify({ description: 'Identity mapping child fixture', prompt: 'USER_CALL_HOST CHILD' }) } }] }); emit({}, 'tool_calls');
-    } else if (JSON.stringify(prompt?.content).includes('USER_CALL_HOST') && !data.messages.slice(index + 1).some(m => m.role === 'tool')) {
+    } else if (JSON.stringify(prompt?.content ?? "").includes('USER_CALL_HOST') && !data.messages.slice(index + 1).some(m => m.role === 'tool')) {
       emit({ role: 'assistant', tool_calls: [{ index: 0, id: 'call-fixture', type: 'function', function: { name: 'identity_receipt', arguments: '{}' } }] }); emit({}, 'tool_calls');
     } else { emit({ role: 'assistant', content: 'FIXTURE_ANSWER' }); emit({}, 'stop'); }
     res.end('data: [DONE]\n\n');
@@ -81,6 +86,17 @@ test('auxiliary title inference uses the conversation route and both sides witho
   assert.match(JSON.stringify(request.messages), /USER_FIRST_TITLE/);
   assert.match(JSON.stringify(request.messages), /ASSISTANT_TITLE_CONTEXT/);
   assert.equal(request.tools?.length ?? 0, 0);
+});
+
+test('tool-only output and unavailable auxiliary inference use the native first-request title', async t => {
+  const f = await fixture(t), id = await f.create();
+  const user = '帮我生成一张关于小猫的图片';
+  await f.turn(id, user, 10);
+  const count = f.requests.length;
+  assert.equal(await f.driver.generateTitle(id, { user, assistant: '' }), user);
+  assert.equal(f.requests.length, count);
+  assert.equal(await f.driver.generateTitle(id, { user, assistant: 'TITLE_PROVIDER_UNAVAILABLE' }), user);
+  assert.ok(f.requests.length > count);
 });
 
 test('clearing main history keeps its identity and memory, drops model context and survives restart', async t => {

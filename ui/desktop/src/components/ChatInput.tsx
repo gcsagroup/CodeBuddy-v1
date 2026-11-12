@@ -20,7 +20,7 @@ import {
 } from '../workspace-panel/workspaceFilePanel';
 import { getSessionExtensions, addSessionExtension } from '../acp/session-extensions';
 import React, { useRef, useState, useEffect, useLayoutEffect, useMemo, useCallback } from 'react';
-import { ArrowUp, Plus, ScrollText } from 'lucide-react';
+import { ArrowUp, Play, Plus, ScrollText } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipTrigger } from './ui/Tooltip';
 import { Button } from './ui/button';
 import type { View, ViewOptions } from '../utils/navigationUtils';
@@ -35,6 +35,7 @@ import { readNewTaskDraft, updateNewTaskDraft, type NewTaskDraftKey } from '../u
 import { DirSwitcher } from './bottom_menu/DirSwitcher';
 import ModelsBottomBar from './settings/models/bottom_bar/ModelsBottomBar';
 import { ComposerStats } from './ComposerStats';
+import { ChatInputCard } from './ChatInputCard';
 import type { TokenState } from '../types/chat';
 import { cn } from '../utils';
 import { useAlerts } from './alerts';
@@ -214,6 +215,7 @@ const i18n = defineMessages({
     id: 'chatInput.stop',
     defaultMessage: 'Stop',
   },
+  continueTask: { id: 'chatInput.continueTask', defaultMessage: 'Continue task' },
   pastedImage: {
     id: 'chatInput.pastedImage',
     defaultMessage: 'Pasted image {id}',
@@ -229,6 +231,7 @@ interface ChatInputProps {
   onSubmissionAccepted?: () => void;
   chatState: ChatState;
   onStop?: () => void;
+  onContinue?: () => void;
   onSteerQueuedMessage?: (input: UserInput) => Promise<boolean>;
   onPendingMessageChange?: (sessionId: string, message: Message | undefined) => void;
   pauseQueueOnStop?: boolean;
@@ -248,6 +251,7 @@ interface ChatInputProps {
   contextUsageSource?: 'provider_actual' | 'local_estimate' | 'streaming_estimate';
   sessionStats?: TokenState['sessionStats'];
   liveSpeed?: TokenState['liveSpeed'];
+  lastSampledSpeed?: TokenState['lastSampledSpeed'];
   contextCapacitySource?: 'service' | 'catalog' | 'configured' | 'fallback';
   accumulatedInputTokens?: number;
   accumulatedOutputTokens?: number;
@@ -293,6 +297,7 @@ export default function ChatInput({
   onSubmissionAccepted,
   chatState = ChatState.Idle,
   onStop,
+  onContinue,
   onSteerQueuedMessage,
   onPendingMessageChange,
   pauseQueueOnStop = false,
@@ -312,6 +317,7 @@ export default function ChatInput({
   contextUsageSource,
   sessionStats,
   liveSpeed,
+  lastSampledSpeed,
   contextCapacitySource,
   messages = [],
   disableAnimation = false,
@@ -355,7 +361,6 @@ export default function ChatInput({
   useEffect(() => {
     if (newTaskDraftKey) updateNewTaskDraft(newTaskDraftKey, { text: draftText });
   }, [draftText, newTaskDraftKey]);
-  const [isFocused, setIsFocused] = useState(false);
   const [attachmentPreview, setAttachmentPreview] = useState<{ src: string; title: string } | null>(
     null
   );
@@ -1997,15 +2002,18 @@ export default function ChatInput({
   );
   const isAnyImageLoading = pastedImages.some((img) => img.isLoading);
   const isAnyDroppedFileLoading = allDroppedFiles.some((file) => file.isLoading);
-
-  const isSubmitButtonDisabled =
+  const continueAction = chatState === ChatState.Idle && !draftText.trim() &&
+    !pastedImages.length && !allDroppedFiles.length && !isRecording && !isTranscribing
+    ? onContinue : undefined;
+  const primaryActionDisabled = !continueAction && (
     isCurrentDraftSubmitted ||
     !hasSubmittableContent ||
     isAnyImageLoading ||
     isAnyDroppedFileLoading ||
     isRecording ||
     isTranscribing ||
-    chatState === ChatState.RestartingAgent;
+    chatState === ChatState.RestartingAgent
+  );
 
   const getSubmitButtonTooltip = (): string => {
     if (chatState === ChatState.RestartingAgent) return intl.formatMessage(i18n.restartingSession);
@@ -2044,7 +2052,20 @@ export default function ChatInput({
     if (reorderedMessages.some((message) => sendNowInFlightMessageIdsRef.current.has(message.id))) {
       return;
     }
-    setQueuedMessages(reorderedMessages);
+    const reorderedIds = new Set(reorderedMessages.map((message) => message.id));
+    let index = 0;
+    setQueuedMessages((items) => items.map((item) =>
+      reorderedIds.has(item.id) ? reorderedMessages[index++] : item
+    ));
+  };
+
+  const handleSteerMessage = (id: string) => {
+    const item = queuedMessagesRef.current.find((message) => message.id === id);
+    if (!item || pendingSendMessageIdRef.current || editingMessageIdRef.current) return;
+    void submitQueuedMessage(
+      { ...item, desktopGeneration: getDesktopOwnership().generation ?? '' },
+      queuePausedRef.current, false, 'steer'
+    );
   };
 
   const handleEditMessage = (messageId: string, newContent: string) => {
@@ -2148,15 +2169,45 @@ export default function ChatInput({
     setQueuedMessages((previous) => [...previous]);
   };
 
-  return (
-    <div
+  const canSteerCurrentTurn = (chatState === ChatState.Thinking || chatState === ChatState.Streaming)
+    && !canSubmitQueuedMessageWhileLoading && !!onSteerQueuedMessage;
+  const visibleQueuedMessages = queuedMessages.filter(
+    (message) => !message.presentation || message.id !== pendingSendMessageId
+  );
+  const messageQueue = visibleQueuedMessages.length > 0 && (
+    <MessageQueue
+      queuedMessages={visibleQueuedMessages}
+      onRemoveMessage={handleRemoveQueuedMessage}
+      onConfirmNotSent={handleConfirmNotSent}
+      onClearQueue={handleClearQueue}
+      onSendNow={handleSendNow}
+      onSteerMessage={canSteerCurrentTurn ? handleSteerMessage : undefined}
+      onReorderMessages={handleReorderMessages}
+      onEditMessage={handleEditMessage}
+      onTriggerQueueProcessing={handleQueueEditComplete}
+      editingMessageIdRef={editingMessageIdRef}
+      sendingMessageIds={sendNowInFlightMessageIds}
+      waitingMessageId={pendingSendMessageId}
+      isPaused={queuePausedRef.current}
+      isBusy={isLoading || queueProcessingBlocked}
+      blockedReason={queueBlockedReason ?? (
+        queueProcessingBlocked && (!isLoading || !!pendingSendMessageId || cancellationRequestedForQueueRef.current)
+          ? intl.formatMessage(
+              cancellationRequestedForQueueRef.current
+                ? i18n.waitingForCancellation
+                : i18n.waitingForPreviousPrompt
+            )
+          : undefined
+      )}
+      className="mx-2 rounded-t-xl border border-b-0 border-border-primary bg-background-primary px-1 py-1"
+    />
+  );
+
+  const inputCard = (
+    <ChatInputCard
       className={`shell-composer @container/composer flex min-w-0 flex-col relative h-auto p-3 transition-colors ${
         disableAnimation ? '' : 'page-transition'
-      } ${
-        isFocused
-          ? 'border-border-secondary hover:border-border-secondary'
-          : 'border-border-primary hover:border-border-primary'
-      } bg-background-primary z-10`}
+      } z-10`}
       data-drop-zone="true"
       onDrop={handleLocalDrop}
       onDragOver={handleLocalDragOver}
@@ -2208,37 +2259,6 @@ export default function ChatInput({
             </Button>
           )}
         </div>
-      )}
-      {queuedMessages.some(
-        (message) => !message.presentation || message.id !== pendingSendMessageId
-      ) && (
-        <MessageQueue
-          queuedMessages={queuedMessages.filter(
-            (message) => !message.presentation || message.id !== pendingSendMessageId
-          )}
-          onRemoveMessage={handleRemoveQueuedMessage}
-          onConfirmNotSent={handleConfirmNotSent}
-          onClearQueue={handleClearQueue}
-          onSendNow={handleSendNow}
-          onReorderMessages={handleReorderMessages}
-          onEditMessage={handleEditMessage}
-          onTriggerQueueProcessing={handleQueueEditComplete}
-          editingMessageIdRef={editingMessageIdRef}
-          sendingMessageIds={sendNowInFlightMessageIds}
-          waitingMessageId={pendingSendMessageId}
-          isPaused={queuePausedRef.current}
-          isBusy={isLoading || queueProcessingBlocked}
-          blockedReason={
-            queueProcessingBlocked
-              ? intl.formatMessage(
-                  cancellationRequestedForQueueRef.current
-                    ? i18n.waitingForCancellation
-                    : i18n.waitingForPreviousPrompt
-                )
-              : undefined
-          }
-          className="border-b border-border-primary"
-        />
       )}
       {pendingSendMessageId &&
         queuedMessages.some(
@@ -2484,8 +2504,6 @@ export default function ChatInput({
             onCompositionEnd={handleCompositionEnd}
             onKeyDown={handleKeyDown}
             onPaste={handlePaste}
-            onFocus={() => setIsFocused(true)}
-            onBlur={() => setIsFocused(false)}
             ref={textAreaRef}
             rows={1}
             readOnly={isRecording}
@@ -2647,7 +2665,6 @@ export default function ChatInput({
             </Tooltip>
           )}
 
-          {/* Right: send / stop — soft gray circle with up-arrow */}
           {actionVisibility.showStop && (
             <ChatInputStopButton label={intl.formatMessage(i18n.stop)} onStop={handleStop} />
           )}
@@ -2660,22 +2677,22 @@ export default function ChatInput({
                     size="sm"
                     shape="round"
                     variant="ghost"
-                    disabled={isSubmitButtonDisabled}
-                    aria-label={intl.formatMessage(i18n.send)}
-                    onClick={onFormSubmit}
+                    disabled={primaryActionDisabled}
+                    aria-label={intl.formatMessage(continueAction ? i18n.continueTask : i18n.send)}
+                    onClick={continueAction ?? onFormSubmit}
                     className={cn(
-                      'bg-background-tertiary',
-                      isSubmitButtonDisabled
+                      continueAction ? 'bg-text-primary text-background-primary hover:bg-text-primary/90' : 'bg-background-tertiary',
+                      primaryActionDisabled
                         ? 'text-text-secondary cursor-not-allowed opacity-60'
-                        : 'text-text-primary hover:bg-background-tertiary/70 hover:cursor-pointer'
+                        : !continueAction && 'text-text-primary hover:bg-background-tertiary/70 hover:cursor-pointer'
                     )}
                   >
-                    <ArrowUp className="w-4 h-4" strokeWidth={2.25} />
+                    {continueAction ? <Play className="w-4 h-4" fill="currentColor" /> : <ArrowUp className="w-4 h-4" strokeWidth={2.25} />}
                   </Button>
                 </span>
               </TooltipTrigger>
               <TooltipContent>
-                <p>{getSubmitButtonTooltip()}</p>
+                <p>{continueAction ? intl.formatMessage(i18n.continueTask) : getSubmitButtonTooltip()}</p>
               </TooltipContent>
             </Tooltip>
           )}
@@ -2697,7 +2714,17 @@ export default function ChatInput({
           sessionId={sessionId}
         />
       </div>
-      <ComposerStats messages={messages} stats={sessionStats} liveSpeed={chatState === ChatState.Streaming || chatState === ChatState.Thinking ? liveSpeed : null}>
+    </ChatInputCard>
+  );
+
+  const showStats = sessionId && (messages.length > 0 || !!liveSpeed || !!lastSampledSpeed || !!sessionStats?.decodeTokens);
+  const generating = chatState === ChatState.Streaming || chatState === ChatState.Thinking;
+  return (
+    <>
+      {messageQueue}
+      {inputCard}
+      {showStats && <ComposerStats messages={messages} stats={sessionStats}
+        liveSpeed={generating ? liveSpeed : null} lastSampledSpeed={generating ? lastSampledSpeed : undefined}>
         <ContextWindowIndicator
           showLabel
           requestBudget={requestBudget?.model === effectiveModel ? requestBudget : undefined}
@@ -2707,7 +2734,7 @@ export default function ChatInput({
           capacitySource={capacity?.contextLimit === contextLimit ? contextCapacitySource : undefined}
           alerts={alerts}
         />
-      </ComposerStats>
-    </div>
+      </ComposerStats>}
+    </>
   );
 }

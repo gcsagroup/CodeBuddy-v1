@@ -8,12 +8,40 @@ export interface BrowserControlInput {
   text?: string;
   key?: string;
 }
+
+// This isolated world holds only the decoration; it exposes no browser control to the page.
+const feedbackWorld = 1701;
+function paintClick(x: number, y: number) {
+  const world = globalThis as typeof globalThis & { codeBuddyClickRing?: HTMLElement };
+  world.codeBuddyClickRing?.remove();
+  const ring = document.createElement('span');
+  world.codeBuddyClickRing = ring;
+  ring.setAttribute('aria-hidden', 'true');
+  ring.inert = true;
+  ring.style.cssText = 'all:initial;display:block!important;position:fixed!important;pointer-events:none!important;' +
+    'z-index:2147483647!important;box-sizing:border-box!important;border-radius:50%!important;' +
+    'border:2px solid #3bb4ff!important;background:rgba(59,180,255,.18)!important;' +
+    'box-shadow:0 0 0 4px rgba(59,180,255,.25)!important;width:24px!important;height:24px!important;' +
+    `left:${x - 12}px!important;top:${y - 12}px!important;`;
+  (document.fullscreenElement ?? document.documentElement).append(ring);
+  if (!matchMedia('(prefers-reduced-motion: reduce)').matches)
+    ring.animate([{ scale: '0.65' }, { scale: '1.3', offset: 0.4 }, { scale: '1' }], 650);
+  setTimeout(() => {
+    ring.remove();
+    if (world.codeBuddyClickRing === ring) delete world.codeBuddyClickRing;
+  }, 1100);
+}
+
 export class BrowserController {
   private nodes = new Set<number>();
   private messages: string[] = [];
+  private hasClickMarker = false;
   constructor(private wc: WebContents) {
     wc.on('did-start-navigation', (_e, _url, inPlace, main) => {
-      if (main && !inPlace) this.nodes.clear();
+      if (main && !inPlace) {
+        this.nodes.clear();
+        this.hasClickMarker = false;
+      }
     });
     wc.on('console-message', (_e, level, message) => {
       this.messages.push(`${level}: ${message}`.slice(0, 2000));
@@ -24,6 +52,7 @@ export class BrowserController {
     if (this.wc.isDestroyed()) throw new Error('Browser tab was closed');
     if (input.operation === 'console') return { messages: [...this.messages] };
     if (input.operation === 'screenshot') {
+      await this.clearClickMarker();
       const png = await this.wc.capturePage();
       return {
         content: [{ type: 'image', mimeType: 'image/png', data: png.toPNG().toString('base64') }],
@@ -121,6 +150,7 @@ export class BrowserController {
           await this.selectOption(input.node!);
         } else {
           const { x, y } = await this.clickPoint(input.node!);
+          await this.markClick(x, y);
           await debug.sendCommand('Input.dispatchMouseEvent', {
             type: 'mousePressed',
             x,
@@ -197,6 +227,37 @@ export class BrowserController {
     }
   }
 
+  private async markClick(x: number, y: number) {
+    if (!Number.isFinite(x) || !Number.isFinite(y)) return;
+    try {
+      await this.wc.executeJavaScriptInIsolatedWorld(feedbackWorld, [{ code: `(${paintClick})(${x},${y})` }]);
+      this.hasClickMarker = true;
+    } catch {
+      // Navigation or a closed renderer can race a decorative frame.
+    }
+  }
+
+  private async clearClickMarker() {
+    if (!this.hasClickMarker) return;
+    this.hasClickMarker = false;
+    await this.wc.executeJavaScriptInIsolatedWorld(feedbackWorld, [{
+      // capturePage can return the previous compositor frame just after a DOM removal.
+      // Background tabs may suspend animation frames, so keep the wait bounded.
+      code: `(() => {
+        if (!globalThis.codeBuddyClickRing) return;
+        globalThis.codeBuddyClickRing.remove();
+        delete globalThis.codeBuddyClickRing;
+        return new Promise(resolve => {
+          const fallback = setTimeout(resolve, 120);
+          requestAnimationFrame(() => requestAnimationFrame(() => {
+            clearTimeout(fallback);
+            resolve();
+          }));
+        });
+      })()`,
+    }]).catch(() => {});
+  }
+
   private async selectOption(backendNodeId: number) {
     const debug = this.wc.debugger;
     const { object } = await debug.sendCommand('DOM.resolveNode', { backendNodeId });
@@ -209,7 +270,7 @@ export class BrowserController {
       selectId = owner.result?.objectId;
       if (!selectId) throw new Error('Option has no owning select. Observe the page again.');
       const { node } = await debug.sendCommand('DOM.describeNode', { objectId: selectId });
-      await this.clickPoint(node.backendNodeId);
+      const point = await this.clickPoint(node.backendNodeId);
       // macOS native select menus are outside the renderer's CDP keyboard path.
       // Select the exact observed option and emit the standard form events, as
       // browser automation selectOption does; never infer a value from its label.
@@ -234,6 +295,7 @@ export class BrowserController {
         throw new Error('Option selection failed. Observe the page again.');
       if (result.result?.value !== null)
         throw new Error(result.result?.value || 'Option selection returned no result.');
+      await this.markClick(point.x, point.y);
     } finally {
       if (selectId) await debug.sendCommand('Runtime.releaseObject', { objectId: selectId });
       await debug.sendCommand('Runtime.releaseObject', { objectId: object.objectId });

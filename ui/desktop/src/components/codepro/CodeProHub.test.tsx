@@ -222,8 +222,10 @@ describe('CodeProHub', () => {
   it('renders product copy in the current language', () => {
     render(<CodeProHub />, { wrapper: IntlTestWrapper });
 
-    expect(screen.getByText('Multi-Agent development workspace')).toBeVisible();
-    expect(screen.getByRole('heading', { name: 'Welcome to CodeBuddy' })).toBeVisible();
+    expect(screen.getByRole('heading', { name: "I'm CodeBuddy. Let's work together." })).toBeVisible();
+    expect(screen.getByText('Write and debug code')).toBeVisible();
+    expect(screen.getByText('Organize documents and data')).toBeVisible();
+    expect(screen.getByText('Plan, execute and check')).toBeVisible();
     expect(screen.queryByText('Automatic task breakdown')).not.toBeInTheDocument();
     expect(screen.queryByText('Multi-model collaboration')).not.toBeInTheDocument();
     expect(screen.queryByText('Edit in place with a complete activity trail')).not.toBeInTheDocument();

@@ -25,17 +25,7 @@ describe('settings navigation', () => {
 
   it('includes every existing top-level settings page exactly once', () => {
     expect(settingsNavigationItems.map((item) => item.id).sort()).toEqual(
-      [
-        'app',
-        'auth',
-        'chat',
-        'input',
-        'keyboard',
-        'memory',
-        'models',
-        'pets',
-        'security',
-      ].sort()
+      ['app', 'auth', 'chat', 'keyboard', 'memory', 'models', 'pets', 'security'].sort()
     );
   });
 
@@ -49,7 +39,9 @@ describe('settings navigation', () => {
   it('moves legacy search language to the setting that owns the effect', () => {
     const pageFor = (query: string) =>
       settingsNavigationItems.find((item) => matchesSettingsQuery(item, query))?.id;
-    expect(pageFor('dictation')).toBe('input');
+    expect(resolveSettingsPage('input')).toBeUndefined();
+    expect(pageFor('dictation')).toBeUndefined();
+    expect(pageFor('拼写')).toBeUndefined();
     expect(pageFor('prompt injection')).toBe('security');
     expect(pageFor('maximum turns')).toBeUndefined();
     expect(pageFor('response style')).toBe('chat');

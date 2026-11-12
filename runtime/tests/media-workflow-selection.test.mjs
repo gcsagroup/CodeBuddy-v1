@@ -51,6 +51,33 @@ test('direct delivery requires current semantic scope and exactly one successful
   assert.equal(await eligible(value), false);
 });
 
+test('a multi-image turn concludes only on the requested saved count and only for images-only scope', async () => {
+  const f = fixture();
+  const base = (await f.select()).receipt;
+  const result = { status: 'completed', workflow: { id: base.workflow_id }, images: [{path: 'third.png'}],
+    workflow_selection: { ...base, image_count: 3, images_only: true }, completed_image_count: 3 };
+  const eligible = r => canDeliverMediaDirectly(f.ctx, f.agent, r);
+  assert.equal(await eligible(result), true);
+  assert.equal(await eligible({ ...result, completed_image_count: 2 }), false);
+  assert.equal(await eligible({ ...result, workflow_selection: { ...result.workflow_selection, images_only: false } }), false);
+  assert.equal(await eligible({ ...result, status: 'queued' }), false);
+  f.events.push(user('Wait, change the third picture.', 5));
+  assert.equal(await eligible(result), false);
+});
+
+test('image submission requires an interpreted count and rejects malformed counts', async () => {
+  for (const count of [undefined, -1, '3', 1.5, 3, null]) {
+    const choice = { workflow_id: workflows[0].id, mode: workflows[0].mode, reason: 'fixture', image_count: count, images_only: true };
+    const f = fixture({chunks: [
+      {type: 'block-end', index: 0, block: {type: 'tool-call', id: 'scope', name: 'select_workflow', arguments: JSON.stringify(choice)}},
+      {type: 'finish', reason: {kind: 'tool-calls'}},
+    ]});
+    const selection = f.select({ kind: 'image' });
+    if (count === 3 || count === null) assert.equal((await selection).receipt.image_count, count);
+    else await assert.rejects(selection, /image count/);
+  }
+});
+
 test('the real switch-back request is isolated from old workflow choices and injected runtime context', async () => {
   const f = fixture(); const result = await f.select();
   assert.equal(result.workflow_name, 'TextToVideo');

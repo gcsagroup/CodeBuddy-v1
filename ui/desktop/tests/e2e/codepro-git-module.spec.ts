@@ -320,7 +320,7 @@ test('recovers detached HEAD and completes safe restore, branch, merge, cherry-p
       path: new URL(response.url()).pathname,
     });
   });
-  const codeProHome = appPage.getByRole('heading', { name: '欢迎使用 CodeBuddy' });
+  const codeProHome = appPage.getByRole('heading', { name: '我是 CodeBuddy，一起把事情做好。' });
   const codeProSwitch = appPage.getByRole('button', { name: 'CodePro', exact: true });
   for (let attempt = 0; attempt < 240; attempt += 1) {
     if (await codeProHome.isVisible().catch(() => false)) break;

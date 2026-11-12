@@ -197,7 +197,7 @@ export default function AuthSettingsSection() {
   const isActiveProvider = secretToDelete?.provider === currentProvider;
 
   return (
-    <section id="auth" className="space-y-4 pr-4 mt-1">
+    <section id="auth" className="space-y-4">
       <GitHubAuthCard />
 
       <Card className="pb-2">

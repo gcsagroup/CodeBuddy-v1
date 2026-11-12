@@ -20,7 +20,7 @@ describe('ChatSettingsSection', () => {
     render(<ChatSettingsSection />, { wrapper: IntlTestWrapper });
 
     expect(screen.queryByText('global-instructions-section')).not.toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: 'CodeBuddy instructions' }));
+    fireEvent.click(screen.getByRole('button', { name: 'CodeBuddy rules' }));
     expect(screen.getByText('global-instructions-section')).toBeVisible();
     fireEvent.click(screen.getByRole('button', { name: 'Back to menu' }));
     fireEvent.click(screen.getByRole('button', { name: 'Tool Process Display' }));

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { isTurnTerminalRecord, parseTurnTerminalRecord } from './turnTerminal';
+import { isTurnTerminalRecord, parseTurnTerminalRecord, stoppedRequestToContinue } from './turnTerminal';
+import { createUserMessage, type Message } from './message';
 
 const base = {
   schema_version: 1,
@@ -15,6 +16,27 @@ const base = {
   copy_artifact_ref: null,
   finished_at: '2026-08-06T00:00:00Z',
 } as const;
+
+it('continues only the latest stopped request, including a stopped hidden continuation', () => {
+  const user = { ...createUserMessage('Create my project'), id: 'user-1' };
+  const stopped: Message = { ...user, role: 'assistant', id: 'terminal-1', content: [{
+    type: 'systemNotification', notificationType: 'turnTerminal', msg: 'Stopped',
+    data: { ...base, status: 'cancelled' },
+  }] };
+  const resumed: Message = { ...user, id: 'resume', metadata: { ...user.metadata, userVisible: false,
+    presentation: { afterMessageId: 'terminal-1', continuation: true } } };
+  expect(stoppedRequestToContinue([user, stopped])).toBe(user.id);
+  const toolResult: Message = { ...user, id: 'receipt', content: [
+    { type: 'toolResponse', id: 'write-8', toolResult: { status: 'success', value: {} } },
+  ] };
+  expect(stoppedRequestToContinue([user, toolResult, stopped])).toBe(user.id);
+  expect(stoppedRequestToContinue([user, stopped, resumed])).toBeUndefined();
+  expect(stoppedRequestToContinue([user, resumed, stopped])).toBeUndefined();
+  expect(stoppedRequestToContinue([user, stopped, createUserMessage('Another task')])).toBeUndefined();
+  const repeated: Message = { ...stopped, content: [{ type: 'systemNotification', notificationType: 'turnTerminal',
+    msg: 'Stopped', data: { ...base, source_user_message_id: resumed.id, status: 'cancelled' } }] };
+  expect(stoppedRequestToContinue([user, stopped, resumed, repeated])).toBe(user.id);
+});
 
 it('degrades malformed optional output budget details without rejecting old terminals', () => {
   expect(parseTurnTerminalRecord(base)?.stop_reason).toBeUndefined();

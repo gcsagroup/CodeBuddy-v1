@@ -1,6 +1,7 @@
 import React from 'react';
 import { createRoot } from 'react-dom/client';
 import DesktopPet from '../../src/pets/DesktopPet';
+import { ThemeProvider } from '../../src/contexts/ThemeContext';
 import type { PetSnapshot, PetTaskState, PetRequest } from '../../src/pets/petTypes';
 import spriteUrl from '../../src/pets/assets/red-panda/sprites.png';
 
@@ -32,6 +33,7 @@ const petRequests: PetRequest[] = [];
 Object.assign(window, {
   petRequests,
   electron: {
+    getSetting: async (key: string) => key === 'useSystemTheme' ? true : 'light',
     desktopPet: async (request: PetRequest) => { petRequests.push(request); return snapshot; },
     petSignal: () => {},
     on: (event: string, listener: (event: unknown, value: unknown) => void) =>
@@ -45,7 +47,7 @@ function publish(state: PetTaskState) {
 }
 createRoot(document.getElementById('root')!).render(
   <>
-    <DesktopPet />
+    <ThemeProvider><DesktopPet /></ThemeProvider>
     <nav style={{ position: 'fixed', left: 380, top: 20 }}>
       <button onClick={() => publish('blocked')}>blocked</button>
       <button onClick={() => publish('working')}>working</button>

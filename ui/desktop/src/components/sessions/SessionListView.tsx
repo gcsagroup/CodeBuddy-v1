@@ -18,6 +18,7 @@ import {
   ArchiveRestore,
   MoreHorizontal,
   Search,
+  History,
 } from 'lucide-react';
 import {
   DropdownMenu,
@@ -1226,7 +1227,8 @@ const SessionListView: React.FC<SessionListViewProps> = React.memo(
             <div className="bg-background-primary px-4 pb-5 pt-8 sm:px-8">
               <div className="flex flex-col page-transition">
                 <div className="mb-2 flex flex-wrap items-center justify-between gap-3">
-                  <h1 className="text-2xl font-semibold tracking-tight">
+                  <h1 className="app-page-heading flex items-center gap-2">
+                    <History className="size-5" aria-hidden="true" />
                     {workspaceMode === 'unified'
                       ? null
                       : workspaceMode === 'codepro'

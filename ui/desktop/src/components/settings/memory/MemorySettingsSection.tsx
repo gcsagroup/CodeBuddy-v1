@@ -5,8 +5,6 @@ import { readPreferences, savePreferences } from '../../../acp/preferences';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../ui/card';
 import { Switch } from '../../ui/switch';
 import { defineMessages, useIntl } from '../../../i18n';
-import { Button } from '../../ui/button';
-import ProjectMemoryRecords from './ProjectMemoryRecords';
 
 const PROJECT_MEMORY_EXTENSION = 'projectmemory';
 const PERSONALIZED_MEMORY_PREFERENCE = 'personalizedMemoryEnabled' as const;
@@ -51,7 +49,6 @@ const i18n = defineMessages({
   },
   on: { id: 'memorySettings.on', defaultMessage: 'On' },
   off: { id: 'memorySettings.off', defaultMessage: 'Off' },
-  manage: { id: 'memorySettings.manage', defaultMessage: 'Manage project memory' },
 });
 
 function errorText(error: unknown): string {
@@ -67,7 +64,6 @@ export default function MemorySettingsSection() {
   const [personalizedMemoryEditable, setPersonalizedMemoryEditable] = useState(false);
   const [personalizedMemoryPending, setPersonalizedMemoryPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [showRecords, setShowRecords] = useState(false);
 
   useEffect(() => {
     void getConfiguredExtensions()
@@ -141,7 +137,7 @@ export default function MemorySettingsSection() {
   };
 
   return (
-    <section className="mt-1 space-y-4 pr-4 pb-8" aria-label={intl.formatMessage(i18n.title)}>
+    <section className="space-y-4" aria-label={intl.formatMessage(i18n.title)}>
       <Card className="gap-0 overflow-hidden rounded-lg py-0">
         <CardHeader className="gap-1 border-b border-border-subtle py-4">
           <CardTitle>{intl.formatMessage(i18n.controls)}</CardTitle>
@@ -203,15 +199,6 @@ export default function MemorySettingsSection() {
           </div>
         </CardContent>
       </Card>
-
-      <Button
-        variant="outline"
-        aria-expanded={showRecords}
-        onClick={() => setShowRecords(!showRecords)}
-      >
-        {intl.formatMessage(i18n.manage)}
-      </Button>
-      {showRecords && <ProjectMemoryRecords />}
 
       {error && (
         <p role="alert" className="text-sm text-red-700 dark:text-red-300">

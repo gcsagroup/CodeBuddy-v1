@@ -22,6 +22,33 @@ import {
   useAcpChatSessionSnapshot,
 } from '../chatSessionStore';
 
+it('keeps the last valid speed across request boundaries in its own chat', () => {
+  const first = 'speed-first';
+  const second = 'speed-second';
+  const speed = (id: string, rate: number | null, estimated = false) =>
+    acpChatSessionActions.applyAcpGooseSessionNotification({ sessionId: id, update: {
+      sessionUpdate: 'status_message', status: { type: 'progress', message: '', data: {
+        event: 'context_meter', schema_version: 1, used: 10, contextLimit: 1000, liveSpeed: { rate, estimated },
+      } },
+    } }).tokenState;
+  try {
+    for (const id of [first, second]) acpChatSessionActions.startPromptAttempt(id, 'attempt', 'user');
+    speed(first, 25, true);
+    expect(speed(second, null).lastSampledSpeed).toBeUndefined();
+    speed(second, 80);
+    acpChatSessionActions.applyAcpGooseSessionNotification({ sessionId: first, update: {
+      sessionUpdate: 'status_message', status: { type: 'progress', message: '', data: {
+        event: 'live_decode_speed', schema_version: 1, liveSpeed: null,
+      } },
+    } });
+    expect(speed(first, null)).toMatchObject({ liveSpeed: { rate: null }, lastSampledSpeed: { rate: 25, estimated: true } });
+    expect(speed(first, 0).lastSampledSpeed).toEqual({ rate: 0, estimated: false });
+    expect(speed(second, null).lastSampledSpeed?.rate).toBe(80);
+  } finally {
+    for (const id of [first, second]) acpChatSessionActions.deleteSnapshot(id);
+  }
+});
+
 function message(id: string, text: string): Message {
   return {
     id,
@@ -767,6 +794,40 @@ function completedSkippedTurnTerminalNotification(
 }
 
 describe('acpChatSessionStore', () => {
+  it('keeps the published task working while its transcript is being restored', () => {
+    const id = sessionId('restore-working-indicator');
+    const petSignal = vi.fn();
+    const original = window.electron;
+    window.electron = { ...original, desktopPet: vi.fn(), petSignal };
+    try {
+      acpChatSessionActions.startPromptAttempt(id, 'attempt', 'request');
+      acpChatSessionActions.startSessionLoad(id);
+      acpChatSessionActions.applyAcpSessionNotification(activeRunNotification(id, 'run'));
+      acpChatSessionActions.finishSessionLoad(id, session(id));
+      const states = () => petSignal.mock.calls.map(([, task]) => task.state);
+      expect(states()).toContain('working');
+      expect(states()).not.toContain('idle');
+      acpChatSessionActions.finishPromptAttemptIfCurrent(id, 'attempt');
+      expect(states().pop()).toBe('idle');
+    } finally { window.electron = original; }
+  });
+  it('observes a delegated project independently of the manager without occupying a local prompt', () => {
+    const main = sessionId('manager'), child = sessionId('project');
+    acpChatSessionActions.startPromptAttempt(main, 'main-attempt', 'assignment');
+    const admission = (requestId: string): SessionNotification => ({
+      sessionId: child, update: { sessionUpdate: 'session_info_update',
+        _meta: { 'codebuddy/agent-input': { requestId, seq: 9 } } },
+    });
+    acpChatSessionActions.applyAcpSessionNotification(activeRunNotification(child, 'run-1'));
+    const working = acpChatSessionActions.applyAcpSessionNotification(admission('child-1'));
+    expect(working).toMatchObject({ chatState: ChatState.Streaming, activePromptAttemptId: null, promptRequestId: null });
+    acpChatSessionActions.finishPromptAttemptIfCurrent(main, 'main-attempt');
+    expect(acpChatSessionStore.getSnapshot(child)?.chatState).toBe(ChatState.Streaming);
+    acpChatSessionActions.applyAcpGooseSessionNotification(completedSkippedTurnTerminalNotification(child, 'run-1', 'child-1'));
+    expect(acpChatSessionActions.applyAcpSessionNotification(admission('child-1')).chatState).toBe(ChatState.Idle);
+    expect(acpChatSessionActions.applyAcpSessionNotification(admission('child-2')).chatState).toBe(ChatState.Streaming);
+    expect(acpChatSessionStore.getSnapshot(main)?.chatState).toBe(ChatState.Idle);
+  });
   it('restores one live background approval after loading its history', async () => {
     const id = sessionId('background-permission-replay');
     const response = requestAcpPermission(permissionRequest(id));
@@ -2433,6 +2494,35 @@ describe('useAcpChatSessionSnapshot', () => {
 
   afterEach(() => {
     acpChatSessionActions.deleteSnapshot(sessionId);
+  });
+
+  it('animates live reasoning received from a host-owned run without a local prompt attempt', () => {
+    acpChatSessionActions.applyAcpSessionNotification({ sessionId, update: {
+      sessionUpdate: 'session_info_update', _meta: { goose: { activeRunId: 'native-run' } },
+    } });
+    acpChatSessionActions.setChatState(sessionId, ChatState.Thinking);
+    acpChatSessionActions.applyAcpSessionNotification({ sessionId, update: {
+      sessionUpdate: 'agent_thought_chunk', messageId: 'native-thought',
+      content: { type: 'text', text: 'Inspect' },
+    } });
+    expect(acpChatSessionStore.getSnapshot(sessionId)?.thinkingActivity?.messageId).toBe('native-thought');
+    acpChatSessionActions.applyAcpSessionNotification({ sessionId, update: {
+      sessionUpdate: 'session_info_update', _meta: { goose: { activeRunId: null } },
+    } });
+    expect(acpChatSessionStore.getSnapshot(sessionId)?.thinkingActivity).toBeUndefined();
+  });
+
+  it('displays one delegated result after the main turn stops and keeps the main chat idle', () => {
+    acpChatSessionActions.startPromptAttempt(sessionId, 'main-attempt', 'main-user');
+    acpChatSessionActions.startPromptCancellation(sessionId, 'main-attempt');
+    const notice = { sessionId, update: { sessionUpdate: 'status_message' as const, status: {
+      type: 'notice' as const, message: '项目对话「开发」的本轮任务已完成。',
+      data: { event: 'managed_turn_result', requestId: 'assignment-1', finishedAt: '2026-11-12T03:00:00Z' },
+    } } };
+    acpChatSessionActions.applyAcpGooseSessionNotification(notice);
+    const state = acpChatSessionActions.applyAcpGooseSessionNotification(notice);
+    expect(state.messages.filter(m => m.id === 'managed_turn_result_assignment-1')).toHaveLength(1);
+    expect(state.chatState).toBe(ChatState.Idle);
   });
 
   it('tracks only live thought arrivals and clears them on tool activity, stop and replay', () => {

@@ -155,16 +155,28 @@ it('keeps a long conversation heading intact instead of cutting it at 28 charact
   expect(screen.getByRole('heading', { name: fixture.title })).toHaveTextContent(fixture.title);
 });
 
-it('introduces the empty main conversation and removes the greeting once history exists', () => {
+it('introduces the empty main conversation without submitting a message', () => {
   fixture.global = true;
   fixture.readonly = false;
   fixture.history = [];
-  const view = show({ startAgent: false });
-  expect(screen.getByRole('heading', { name: "I'm CodeBuddy. Let's work together." })).toBeVisible();
-  expect(fixture.submit).not.toHaveBeenCalled();
-  fixture.history = [{ id: 'hello', created: 1, role: 'user', content: [{ type: 'text', text: 'Hello' }], metadata: { userVisible: true, agentVisible: true } }];
-  view.rerender(<MemoryRouter><BaseChat sessionId="imported" isActiveSession suppressEmptyState setChat={vi.fn()} /></MemoryRouter>);
+  show({ startAgent: false });
+  expect(screen.getByRole('article')).toHaveTextContent('CodeBuddy');
+  expect(screen.getByRole('heading', { name: 'Hi, I’m CodeBuddy, your project assistant.' })).toBeVisible();
+  expect(screen.queryByRole('button', { name: /Project progress/i })).not.toBeInTheDocument();
+  expect(screen.getByText(/adjust permissions for a single chat/)).toBeVisible();
+  expect(screen.getByText(/Can you check my project’s progress/)).toBeVisible();
   expect(screen.queryByRole('heading', { name: "I'm CodeBuddy. Let's work together." })).not.toBeInTheDocument();
+  expect(fixture.submit).not.toHaveBeenCalled();
+});
+
+it.each([
+  { global: false, loading: false, history: [] },
+  { global: true, loading: true, history: [] },
+  { global: true, loading: false, history: undefined },
+])('hides the main introduction for other chats, replay and existing history %#', overrides => {
+  Object.assign(fixture, overrides, { readonly: false });
+  show({ startAgent: false });
+  expect(screen.queryByRole('heading', { name: 'Hi, I’m CodeBuddy, your project assistant.' })).not.toBeInTheDocument();
 });
 
 it('moves the actual footer from A through model output to B and resets its action clock', () => {

@@ -890,14 +890,8 @@
   "codeProHub.chooseProjectFolder": {
     "defaultMessage": "Devam etmek için bir proje klasörü seçin"
   },
-  "codeProHub.description": {
-    "defaultMessage": "It plans, edits, tests, and reviews directly in the current project, so results are immediately available in your editor."
-  },
   "codeProHub.directoryChooserFailed": {
     "defaultMessage": "Proje klasörü seçilemedi. Yeniden deneyin."
-  },
-  "codeProHub.eyebrow": {
-    "defaultMessage": "Multi-Agent development workspace"
   },
   "codeProHub.goalPlaceholder": {
     "defaultMessage": "Describe your task, expected result, and how to check it…"
@@ -916,9 +910,6 @@
   },
   "codeProHub.taskBreakdown": {
     "defaultMessage": "Automatic task breakdown"
-  },
-  "codeProHub.title": {
-    "defaultMessage": "Welcome to CodeBuddy"
   },
   "codeProHub.workspaceIdentityUnavailable": {
     "defaultMessage": "Seçilen çalışma alanı güvenli biçimde doğrulanamadı. Desteklenen bir yerel proje klasörü seçip yeniden deneyin."
@@ -2606,12 +2597,6 @@
   "dirSwitcher.failedToUpdateWorkingDir": {
     "defaultMessage": "Çalışma dizini güncellenemedi"
   },
-  "dirSwitcher.gitWorktrees": {
-    "defaultMessage": "Git çalışma ağaçları"
-  },
-  "dirSwitcher.noWorktreesFound": {
-    "defaultMessage": "Hiçbir çalışma ağacı bulunamadı"
-  },
   "dirSwitcher.openInFinder": {
     "defaultMessage": "Dosya yöneticisinde aç"
   },
@@ -3630,7 +3615,7 @@
     "defaultMessage": "Genel kurallarınızı buraya girin..."
   },
   "globalInstructions.title": {
-    "defaultMessage": "CodeBuddy talimatları"
+    "defaultMessage": "CodeBuddy kuralları"
   },
   "globalInstructions.unavailable": {
     "defaultMessage": "CodeBuddy ana dizini kullanılamıyor."
@@ -4484,9 +4469,6 @@
   "memorySettings.enableProjectMemory": {
     "defaultMessage": "Enable project memory"
   },
-  "memorySettings.manage": {
-    "defaultMessage": "Manage project memory"
-  },
   "memorySettings.off": {
     "defaultMessage": "Off"
   },
@@ -4595,6 +4577,9 @@
   "messageCopyLink.retry": {
     "defaultMessage": "Retry"
   },
+  "messageQueue.attachments": {
+    "defaultMessage": "Görsel: {count}"
+  },
   "messageQueue.cancel": {
     "defaultMessage": "İptal"
   },
@@ -4622,6 +4607,9 @@
   "messageQueue.continueSending": {
     "defaultMessage": "İletiler korundu. Hazır olduğunuzda gönderin."
   },
+  "messageQueue.edit": {
+    "defaultMessage": "Mesajı düzenle"
+  },
   "messageQueue.expandDrafts": {
     "defaultMessage": "Expand saved drafts"
   },
@@ -4630,6 +4618,9 @@
   },
   "messageQueue.messageCount": {
     "defaultMessage": "{count,plural,one{# mesaj {status}} other{# mesaj {status}}}"
+  },
+  "messageQueue.more": {
+    "defaultMessage": "Diğer mesaj işlemleri"
   },
   "messageQueue.next": {
     "defaultMessage": "Sonraki"
@@ -4663,6 +4654,9 @@
   },
   "messageQueue.sendTogether": {
     "defaultMessage": "Bekleyen tüm iletileri şimdi birlikte gönder"
+  },
+  "messageQueue.steer": {
+    "defaultMessage": "Yönlendir"
   },
   "messageQueue.storageConflict": {
     "defaultMessage": "This queue changed in another window. Sending and saving are paused to avoid overwriting it. Keep this window open and compare the queued messages."
@@ -5471,6 +5465,9 @@
   "navigationPanel.untitledSession": {
     "defaultMessage": "Başlıksız oturum"
   },
+  "navigationPanel.workspaceChats": {
+    "defaultMessage": "Son sohbetler: {count} · Devam eden: {active}"
+  },
   "navigationPanel.workspaces": {
     "defaultMessage": "Workspaces"
   },
@@ -6067,69 +6064,6 @@
   },
   "projectMemoryApproval.warning": {
     "defaultMessage": "Bu bellek isteği hatalı biçimlendirilmiş. Kaydetme kullanılamıyor; isteği yine de reddedebilirsiniz."
-  },
-  "projectMemoryRecords.active": {
-    "defaultMessage": "Approved"
-  },
-  "projectMemoryRecords.approve": {
-    "defaultMessage": "Approve for recall"
-  },
-  "projectMemoryRecords.cancel": {
-    "defaultMessage": "Cancel"
-  },
-  "projectMemoryRecords.candidate": {
-    "defaultMessage": "Pending review"
-  },
-  "projectMemoryRecords.changed": {
-    "defaultMessage": "The record changed. Review the refreshed content before approving again."
-  },
-  "projectMemoryRecords.confirmRemove": {
-    "defaultMessage": "Confirm deletion"
-  },
-  "projectMemoryRecords.content": {
-    "defaultMessage": "Memory content"
-  },
-  "projectMemoryRecords.description": {
-    "defaultMessage": "Choose a project and review its records. Only approved, unexpired records are recalled in that project."
-  },
-  "projectMemoryRecords.directory": {
-    "defaultMessage": "Project directory"
-  },
-  "projectMemoryRecords.disable": {
-    "defaultMessage": "Disable recall"
-  },
-  "projectMemoryRecords.disabled": {
-    "defaultMessage": "Disabled"
-  },
-  "projectMemoryRecords.edit": {
-    "defaultMessage": "Edit"
-  },
-  "projectMemoryRecords.empty": {
-    "defaultMessage": "No saved records in this project."
-  },
-  "projectMemoryRecords.expired": {
-    "defaultMessage": "Expired"
-  },
-  "projectMemoryRecords.export": {
-    "defaultMessage": "Export project memory"
-  },
-  "projectMemoryRecords.load": {
-    "defaultMessage": "Load records"
-  },
-  "projectMemoryRecords.more": {
-    "defaultMessage": "Load more"
-  },
-  "projectMemoryRecords.reason": {
-    "defaultMessage": "Reason"
-  },
-  "projectMemoryRecords.remove": {
-    "defaultMessage": "Delete record"
-  },
-  "projectMemoryRecords.save": {
-    "defaultMessage": "Save changes"
-  },
-  "projectMemoryRecords.title": {
-    "defaultMessage": "Saved project memory"
   },
   "promptsSettings.allPromptsReset": {
     "defaultMessage": "Tüm istemler varsayılanlara sıfırlandı"
@@ -7889,6 +7823,9 @@
   "settings.notifications.description": {
     "defaultMessage": "Bildirimler işletim sisteminiz tarafından yönetilir - {link}"
   },
+  "settings.notifications.modal.linuxInstructions": {
+    "defaultMessage": "Masaüstü ayarlarında Bildirimler bölümünü açın ve CodeBuddy bildirimlerine izin verin."
+  },
   "settings.notifications.modal.macInstructions": {
     "defaultMessage": "MacOS'ta bildirimleri etkinleştirmek için:"
   },
@@ -7923,7 +7860,7 @@
     "defaultMessage": "Bildirimleri açın ve ayarları istediğiniz gibi yapın"
   },
   "settings.notifications.openSettings": {
-    "defaultMessage": "Ayarları Aç"
+    "defaultMessage": "Sistem ayarlarını aç"
   },
   "settings.notifications.task.description": {
     "defaultMessage": "Pencere arka plandayken CodeBuddy bir görevi tamamladığında bildirim al"
@@ -7932,7 +7869,7 @@
     "defaultMessage": "Görev tamamlama bildirimleri"
   },
   "settings.notifications.title": {
-    "defaultMessage": "Bildirimler"
+    "defaultMessage": "Sistem bildirimleri"
   },
   "settings.preventSleep.description": {
     "defaultMessage": "CodeBuddy bir görevi çalıştırırken bilgisayarınızı uyanık tutun (ekran hala kilitlenebilir)"
@@ -7975,9 +7912,6 @@
   },
   "settingsCenter.pageChat": {
     "defaultMessage": "Behavior and responses"
-  },
-  "settingsCenter.pageInput": {
-    "defaultMessage": "Input"
   },
   "settingsCenter.pageKeyboard": {
     "defaultMessage": "Keyboard shortcuts"

@@ -2,7 +2,59 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
+import { mkdtemp, rename, rm, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import path from 'node:path';
+import { openStore } from '../store.mjs';
+import { RuntimeSettings } from '../settings.mjs';
+import { CodeProRuns } from '../codepro.mjs';
+import { CodeProReviews } from '../codepro-review.mjs';
+import { createCompatServer } from '../server.mjs';
+import { acquireProfileLock } from '../profile-lock.mjs';
 const run = promisify(execFile);
+
+test('a damaged profile fails startup and releases its lease after runtime loading', async t => {
+  const dataDir = await mkdtemp(path.join(tmpdir(), 'codebuddy-startup-invalid-'));
+  t.after(() => rm(dataDir, { recursive: true, force: true }));
+  await writeFile(path.join(dataDir, 'state.json'), 'truncated');
+  let runtimeLoaded = false;
+  await assert.rejects(createCompatServer({ dataDir, secret: 'isolated-startup-test', onRuntimeLoaded() {
+    runtimeLoaded = true;
+  } }), SyntaxError);
+  assert.equal(runtimeLoaded, true);
+  const lease = await acquireProfileLock(dataDir);
+  lease.close();
+});
+
+test('restarting a healthy profile does not rewrite history; interrupted reviews still recover once', async t => {
+  const directory = await mkdtemp(path.join(tmpdir(), 'codebuddy-startup-recovery-'));
+  t.after(() => rm(directory, { recursive: true, force: true }));
+  let writes = 0;
+  const boot = async () => {
+    const store = await openStore(directory, { replaceFile: async (from, to) => {
+      await rename(from, to);
+      writes++;
+    } });
+    await new RuntimeSettings(store).initialize();
+    await new CodeProRuns(store).initialize();
+    await new CodeProReviews(store, {}).initialize();
+    return store;
+  };
+  const initial = await boot();
+  await initial.update(state => {
+    state.sessions.push({ id: 'existing', title: 'Saved conversation' });
+    state.reviews.records.previous = { result: { status: 'running', revision: 1 } };
+  });
+  writes = 0;
+  const recovered = await boot();
+  assert.equal(writes, 1);
+  assert.equal(recovered.read(['reviews']).reviews.records.previous.result.status, 'interrupted');
+  writes = 0;
+  const clean = await boot();
+  assert.equal(writes, 0);
+  assert.equal(clean.readSession('existing').title, 'Saved conversation');
+  assert.equal(clean.read(['reviews']).reviews.records.previous.result.revision, 2);
+});
 
 test('the real server import graph can boot its lazily loaded native driver', { timeout: 15000 }, async () => {
   const script = `

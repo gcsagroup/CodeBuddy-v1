@@ -346,6 +346,37 @@ export class WorkspaceService {
     );
   }
 
+  createManagedProject(root, folder, title, projectId, { reuseDirectory = false } = {}) {
+    return this.serial(async () => {
+      const parent = await directorySnapshot(absoluteDirectory(root));
+      const cwd = path.join(parent.canonical, folder);
+      if (path.dirname(cwd) !== parent.canonical || !/^[^<>:"/\\|?*\x00-\x1f]+$/u.test(folder) ||
+          /[. ]$/u.test(folder) || /^(con|nul|prn|aux|com[1-9]|lpt[1-9])(?:\.|$)/iu.test(folder))
+        throw invalid('Choose a single valid folder name');
+      const identity = workspaceIdentity(cwd);
+      const projects = await this.listProjects();
+      const existing = projects.find(item => item.properties.codeproWorkspaceIdentity === identity);
+      if (existing) {
+        if (existing.properties.title !== title) throw invalid('The folder is already registered under another title');
+        await directorySnapshot(cwd);
+        return existing;
+      }
+      if (!reuseDirectory) await mkdir(cwd);
+      let snapshot;
+      try {
+        snapshot = await directorySnapshot(cwd);
+        if (!sameSnapshot(parent, await directorySnapshot(root))) throw invalid('Workspace root changed');
+        return (await this.writeProject('create', {
+          name: projectId, description: '', content: '', target: { scope: 'global' },
+          properties: { title, workingDirs: [snapshot.canonical], codeproWorkspaceIdentity: identity },
+        }, projects)).source;
+      } catch (error) {
+        if (snapshot && !reuseDirectory) await this.discard({ snapshot, created: true });
+        throw error;
+      }
+    });
+  }
+
   async resolveProjectDirectory(projectId, explicitDirectory) {
     if (typeof projectId !== "string" || !projectId)
       throw invalid("A project id is required", "project_not_found");
@@ -388,9 +419,16 @@ export class WorkspaceService {
     return (await directorySnapshot(selected)).canonical;
   }
 
-  projectRequest(action, input) {
+  projectRequest(action, input, approvedProject) {
     return this.serial(async () => {
       const projects = await this.listProjects();
+      if (approvedProject && JSON.stringify(projects.find(p => p.path === input.path)) !== JSON.stringify(approvedProject))
+        throw invalid('Project changed during approval');
+      return this.writeProject(action, input, projects);
+    });
+  }
+
+  async writeProject(action, input, projects) {
       if (action === "list") return { sources: projects };
       const existing = projects.find((entry) => entry.path === input.path);
       if (action === "export") {
@@ -482,7 +520,6 @@ export class WorkspaceService {
         await writeFile(file, text, { mode: 0o600, flag: "wx" });
       }
       return { source: await this.readProject(file) };
-    });
   }
 
   async importProject(input) {

@@ -7,6 +7,8 @@ description: Select saved ComfyUI workflows through CodeBuddy, generate or edit 
 
 Use `generate_image` / `generate_video`. Loading this guide reveals registered tools within the current scope. If absent, find those exact names with `search_mcp_tools`. Loading guidance neither connects a service nor grants permission.
 
+If inspect returns service and model, use the listed cloud model modes and tool arguments. For image editing pass reference_images. For image-to-video pass the saved PNG from the previous completed receipt as image_path. The workflow catalog and node guidance below apply only to ComfyUI.
+
 ## Read on demand and preserve scope
 
 - For modes, references, tuning or failures, read [operations and diagnosis](references/operations.en.md). [Request examples](references/requests.json) require live substitutions; they are not an automatic batch.

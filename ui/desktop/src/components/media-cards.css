@@ -80,7 +80,8 @@
 .media-gallery-thumbnails button[aria-pressed='true'] {
   border-color: var(--color-text-primary, #171717);
 }
-.media-gallery-thumbnails img {
+.media-gallery-thumbnails img,
+.media-gallery-thumbnails canvas {
   width: 100%;
   height: 100%;
   object-fit: cover;

@@ -2,6 +2,7 @@ import {
   generateMessageId,
   getTextAndImageContent,
   getToolRequests,
+  isConversationTurnStart,
   type Message,
   type SystemNotificationContent,
 } from './message';
@@ -32,6 +33,7 @@ export type MessageEditType =
   | 'continue'
   | 'replay'
   | 'retry_validation'
+  | 'resume_stopped'
   | 'retry';
 
 export interface ValidationRetryEvidence {
@@ -162,6 +164,28 @@ export function getTurnTerminalRecord(message: Message): TurnTerminalRecord | un
     }
   }
 
+  return undefined;
+}
+
+export function stoppedRequestToContinue(messages: Message[]): string | undefined {
+  let stoppedSource: string | undefined;
+  for (let index = messages.length - 1; index >= 0; index--) {
+    const message = messages[index];
+    const terminal = getTurnTerminalRecord(message);
+    if (terminal && !stoppedSource) {
+      if (terminal.status !== 'cancelled' && !terminal.user_requested_stop) return;
+      stoppedSource = terminal.source_user_message_id;
+    }
+    if (message.role !== 'user' || message.metadata.steer || message.metadata.pendingDelivery) continue;
+    // ACP tool receipts also have role=user; they never start a user request.
+    if (!message.metadata.presentation?.continuation && !isConversationTurnStart(message)) continue;
+    if (!stoppedSource) return;
+    if (message.id === stoppedSource && message.metadata.presentation?.continuation) {
+      return messages.slice(0, index).reverse().find(m => isConversationTurnStart(m) && !m.metadata.pendingDelivery)?.id ?? undefined;
+    }
+    if (message.metadata.presentation?.continuation) return;
+    if (message.metadata.userVisible) return message.id === stoppedSource ? message.id : undefined;
+  }
   return undefined;
 }
 

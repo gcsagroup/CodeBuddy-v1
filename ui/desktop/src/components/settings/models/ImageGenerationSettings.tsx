@@ -1,99 +1,330 @@
 import { useEffect, useState } from 'react';
-import { readPreferences, savePreferences } from '../../../acp/preferences';
-import { currentLocale } from '../../../i18n';
-import { selectNativeText } from '../../../utils/nativeLocalization';
+import {
+  Boxes,
+  Braces,
+  Cloud,
+  Film,
+  Image as ImageIcon,
+  Network,
+  Plus,
+  Settings2,
+  Sparkles,
+} from 'lucide-react';
+import { Dialog, DialogContent, DialogTitle } from '../../ui/dialog';
+import landscape from '../../../images/media-landscape.jpg';
+import MediaServiceForm from './MediaServiceForm';
+import MediaServiceTest from './MediaServiceTest';
+import {
+  button,
+  field,
+  hints,
+  kindOf,
+  mediaRequest,
+  modes,
+  names,
+  primary,
+  t,
+  type Choice,
+  type Kind,
+  type Registry,
+  type Service,
+} from './mediaServices';
 
-const t = (en: string, cn: string, tw: string) => selectNativeText(currentLocale, en, cn, tw);
+const icons = {
+  bailian: Braces,
+  ark: Cloud,
+  comfy: Network,
+  openai: Sparkles,
+  fal: Boxes,
+  custom: Settings2,
+};
+const choices: Choice[] = ['bailian', 'ark', 'comfy', 'openai', 'fal', 'custom'];
+type View = 'choose' | 'edit' | 'manage' | 'remove' | 'test';
 export default function ImageGenerationSettings() {
-  const [url, setUrl] = useState('http://192.168.9.111:8188');
-  const [ready, setReady] = useState(false);
-  const [busy, setBusy] = useState(false);
-  const [message, setMessage] = useState('');
+  const [state, setState] = useState<Registry | null>(null),
+    [view, setView] = useState<View | null>(null);
+  const [choice, setChoice] = useState<Choice>('bailian'),
+    [serviceId, setServiceId] = useState('');
+  const [message, setMessage] = useState(''),
+    [busy, setBusy] = useState(false);
+  const service = state?.services.find((s) => s.id === serviceId);
   useEffect(() => {
-    let mounted = true;
-    void readPreferences(['comfyuiBaseUrl'])
-      .then((snapshot) => {
-        if (!mounted) return;
-        const saved = snapshot.values.find((entry) => entry.key === 'comfyuiBaseUrl')?.value;
-        if (typeof saved === 'string') setUrl(saved);
-        setReady(true);
+    let live = true;
+    mediaRequest<Registry>('read')
+      .then((r) => {
+        if (live) setState(r);
       })
-      .catch((error) => {
-        if (mounted) setMessage(String(error));
+      .catch((e) => {
+        if (live) setMessage(String(e));
       });
     return () => {
-      mounted = false;
+      live = false;
     };
   }, []);
-  async function save() {
+  async function mutate(op: string, p: Record<string, unknown>) {
     setBusy(true);
     setMessage('');
     try {
-      const parsed = new URL(url.trim());
-      if (
-        !['http:', 'https:'].includes(parsed.protocol) ||
-        parsed.username ||
-        parsed.password ||
-        parsed.search ||
-        parsed.hash
-      )
-        throw new Error(
-          t(
-            'Enter an HTTP(S) service URL without credentials, query or fragment.',
-            '请输入 HTTP(S) 服务地址，不含凭据、查询参数或页面锚点。',
-            '請輸入 HTTP(S) 服務位址，不含憑證、查詢參數或頁面錨點。'
-          )
-        );
-      await savePreferences([
-        { key: 'comfyuiBaseUrl', value: parsed.href.replace(/\/$/, ''), isMutable: true },
-      ]);
-      setMessage(
-        t(
-          'Saved. New image and video requests use this address.',
-          '已保存，后续图片和视频任务使用此地址。',
-          '已儲存，後續圖片和影片任務使用此位址。'
-        )
-      );
-    } catch (error) {
-      setMessage(String(error));
+      setState(await mediaRequest<Registry>(op, { ...p, revision: state?.revision }));
+      setView(null);
+    } catch (e) {
+      setMessage(String(e));
     } finally {
       setBusy(false);
     }
   }
+  function manage(s: Service) {
+    setServiceId(s.id);
+    setChoice(s.custom ? 'custom' : s.type);
+    setView('manage');
+    setMessage('');
+  }
+  const title =
+    view === 'choose'
+      ? t('Add generation service', '添加生成服务', '新增生成服務')
+      : view === 'test'
+        ? t('Generation test', '生成测试', '生成測試')
+        : view === 'edit'
+          ? service
+            ? t('Edit service', '编辑服务', '編輯服務')
+            : names[choice]
+          : view === 'remove'
+            ? t('Remove service', '移除服务', '移除服務')
+            : (service?.name ?? '');
   return (
-    <section className="space-y-3 rounded-lg border border-border-subtle p-4">
-      <h3 className="font-semibold">
-        {t('Images and videos · ComfyUI', '图片与视频 · ComfyUI', '圖片與影片 · ComfyUI')}
-      </h3>
+    <section className="space-y-5 text-text-primary">
       <p className="text-sm text-text-secondary">
         {t(
-          'Ask your Agent to generate images, create pet artwork, or turn text and images into video. Uses Qwen Image 2.1 for images and MiniMax H3 for video. Results are saved in the conversation workspace.',
-          '直接让 Agent 生图、制作宠物素材，或使用文字和图片生成视频。图片使用 Qwen Image 2.1，视频使用 MiniMax H3，结果保存到对话工作区。',
-          '直接讓 Agent 生圖、製作寵物素材，或使用文字和圖片生成影片。圖片使用 Qwen Image 2.1，影片使用 MiniMax H3，結果儲存至聊天工作區。'
+          'Choose the services used by image and video requests in chat. Your chat model is selected separately.',
+          '在这里选择对话中生图和生成视频的服务。聊天继续使用你在对话中选择的模型。',
+          '在此選擇對話中生圖和生成影片的服務。聊天繼續使用你在對話中選擇的模型。'
         )}
       </p>
-      <label className="block space-y-1 text-sm">
-        {t('Service address', '服务地址', '服務位址')}
-        <input
-          aria-label={t('ComfyUI URL', 'ComfyUI 服务地址', 'ComfyUI 服務位址')}
-          className="block w-full rounded border border-border-subtle bg-background-default px-3 py-2"
-          value={url}
-          onChange={(event) => setUrl(event.target.value)}
-          disabled={!ready || busy}
-        />
-      </label>
-      <button
-        className="rounded border border-border-subtle px-3 py-2 text-sm disabled:opacity-50"
-        disabled={!ready || busy}
-        onClick={() => void save()}
-      >
-        {t('Save media service', '保存生成服务', '儲存生成服務')}
-      </button>
-      {message && (
-        <p role="status" className="text-sm">
-          {message}
-        </p>
+      {state && (
+        <>
+          <div className="grid gap-3 sm:grid-cols-2">
+            {(['image', 'video'] as Kind[]).map((kind) => {
+              const label =
+                kind === 'image'
+                  ? t('Default image model', '默认图片模型', '預設圖片模型')
+                  : t('Default video model', '默认视频模型', '預設影片模型');
+              const selected = state.defaults[kind];
+              return (
+                <div key={kind} className="overflow-hidden rounded-xl border border-border-subtle">
+                  <div
+                    aria-hidden="true"
+                    className={
+                      'flex h-14 overflow-hidden ' + (kind === 'video' ? 'gap-1 bg-black py-1' : '')
+                    }
+                  >
+                    {Array.from({ length: kind === 'video' ? 3 : 1 }, (_, i) => (
+                      <img
+                        key={i}
+                        src={landscape}
+                        alt=""
+                        className="h-full min-w-0 flex-1 object-cover object-center"
+                      />
+                    ))}
+                  </div>
+                  <label className="block space-y-2 p-3 text-sm font-medium">
+                    <span className="flex items-center gap-2">
+                      {kind === 'image' ? <ImageIcon size={16} /> : <Film size={16} />} {label}
+                    </span>
+                    <select
+                      className={field}
+                      aria-label={label}
+                      disabled={busy || !selected}
+                      value={JSON.stringify(selected)}
+                      onChange={(e) =>
+                        void mutate('default', { kind, ...JSON.parse(e.target.value) })
+                      }
+                    >
+                      {!selected && (
+                        <option value="null">
+                          {t(
+                            'Add a compatible service',
+                            '请先添加支持此类型的服务',
+                            '請先新增支援此類型的服務'
+                          )}
+                        </option>
+                      )}
+                      {state.services.flatMap((s) =>
+                        s.models
+                          .filter((m) => kindOf(m) === kind)
+                          .map((m) => (
+                            <option
+                              key={JSON.stringify([s.id, m.id])}
+                              value={JSON.stringify({ service: s.id, model: m.id })}
+                            >
+                              {s.name} · {m.label}
+                            </option>
+                          ))
+                      )}
+                    </select>
+                  </label>
+                </div>
+              );
+            })}
+          </div>
+          <div className="flex items-center justify-between gap-3">
+            <h3 className="text-base font-semibold">
+              {t('Configured services', '已配置的服务', '已設定的服務')}{' '}
+              <span className="text-sm text-text-secondary">{state.services.length}</span>
+            </h3>
+            <button
+              className={primary + ' flex items-center gap-1'}
+              onClick={() => {
+                setServiceId('');
+                setChoice('bailian');
+                setView('choose');
+                setMessage('');
+              }}
+            >
+              <Plus size={15} />
+              {t('Add service', '添加服务', '新增服務')}
+            </button>
+          </div>
+          <div className="divide-y divide-border-subtle rounded-xl border border-border-subtle">
+            {state.services.map((s) => {
+              const Icon = icons[s.custom ? 'custom' : s.type];
+              return (
+                <div key={s.id} className="flex items-center gap-3 px-4 py-3">
+                  <Icon size={20} />
+                  <div className="min-w-0 flex-1">
+                    <strong className="text-sm">{s.name}</strong>
+                    <p className="truncate text-xs text-text-secondary">
+                      {names[s.type]} · {new URL(s.url).host}
+                    </p>
+                  </div>
+                  <button
+                    className={button}
+                    aria-label={t('Manage ', '管理', '管理') + s.name}
+                    onClick={() => manage(s)}
+                  >
+                    {t('Manage', '管理', '管理')}
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+        </>
       )}
+      {message && !view && <p role="alert">{message}</p>}
+      {(!state || message) && !view && (
+        <button
+          className={button}
+          onClick={() =>
+            void mediaRequest<Registry>('read')
+              .then((r) => {
+                setState(r);
+                setMessage('');
+              })
+              .catch((e) => setMessage(String(e)))
+          }
+        >
+          {t('Refresh', '刷新', '重新整理')}
+        </button>
+      )}
+      <Dialog
+        open={view !== null}
+        onOpenChange={(open) => {
+          if (!open) setView(null);
+        }}
+      >
+        <DialogContent className="max-h-[86vh] overflow-y-auto sm:max-w-lg">
+          <DialogTitle>{title}</DialogTitle>
+          {view === 'choose' && (
+            <>
+              <div className="grid gap-2">
+                {choices.map((key) => {
+                  const Icon = icons[key];
+                  return (
+                    <button
+                      key={key}
+                      aria-pressed={choice === key}
+                      className={
+                        'flex items-center gap-3 rounded-lg border p-3 text-left ' +
+                        (choice === key
+                          ? 'border-text-primary bg-background-secondary'
+                          : 'border-border-subtle')
+                      }
+                      onClick={() => setChoice(key)}
+                    >
+                      <Icon size={21} />
+                      <span>
+                        <strong className="text-sm">{names[key]}</strong>
+                        <small className="block text-text-secondary">{hints[key]}</small>
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+              <button className={primary + ' justify-self-end'} onClick={() => setView('edit')}>
+                {t('Next', '下一步', '下一步')}
+              </button>
+            </>
+          )}
+          {view === 'edit' && state && (
+            <MediaServiceForm
+              choice={choice}
+              existing={service}
+              state={state}
+              onBack={() => setView(service ? 'manage' : 'choose')}
+              onSaved={(r) => {
+                setState(r);
+                setView(null);
+                setMessage('');
+              }}
+            />
+          )}
+          {view === 'manage' && service && (
+            <>
+              <p className="break-all text-sm">{service.url}</p>
+              {service.models.map((m) => (
+                <div key={m.id} className="text-sm">
+                  {m.label} · {m.modes.map((k) => modes[k]).join(' / ')}
+                </div>
+              ))}
+              <div className="flex flex-wrap gap-2">
+                <button className={primary} onClick={() => setView('test')}>
+                  {t('Generation test', '生成测试', '生成測試')}
+                </button>
+                <button className={button} onClick={() => setView('edit')}>
+                  {t('Edit', '编辑配置', '編輯設定')}
+                </button>
+                <button className={button} onClick={() => setView('remove')}>
+                  {t('Remove', '移除服务', '移除服務')}
+                </button>
+              </div>
+            </>
+          )}
+          {view === 'remove' && service && (
+            <>
+              <p>
+                {t(
+                  'Remove this connection? Pending jobs may lose access.',
+                  '移除此连接后，进行中的任务可能无法继续查询。',
+                  '移除此連線後，進行中的任務可能無法繼續查詢。'
+                )}
+              </p>
+              <div className="flex justify-end gap-2">
+                <button className={button} onClick={() => setView('manage')}>
+                  {t('Keep', '保留', '保留')}
+                </button>
+                <button
+                  className={primary}
+                  disabled={busy}
+                  onClick={() => void mutate('remove', { id: service.id })}
+                >
+                  {t('Remove', '确认移除', '確認移除')}
+                </button>
+              </div>
+            </>
+          )}
+          {view === 'test' && service && <MediaServiceTest service={service} />}
+          {message && view && <p role="alert">{message}</p>}
+        </DialogContent>
+      </Dialog>
     </section>
   );
 }

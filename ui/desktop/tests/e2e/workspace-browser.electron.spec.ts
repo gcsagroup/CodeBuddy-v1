@@ -14,7 +14,8 @@ test('native embedded browser observes, types, clicks, rejects covered targets a
     const preload = path.join(root, 'preload.cjs');
     await fs.writeFile(
       preload,
-      `const {contextBridge, ipcRenderer}=require('electron'); contextBridge.exposeInMainWorld('panel', request=>ipcRenderer.invoke('workspace-panel',request));`
+      `const {contextBridge, ipcRenderer}=require('electron'); const panel=request=>ipcRenderer.invoke('workspace-panel',request);
+       contextBridge.exposeInMainWorld('panel', panel); contextBridge.exposeInMainWorld('electron', { workspacePanel: panel });`
     );
     const entry = `
       import {app,BrowserWindow} from 'electron';
@@ -42,6 +43,7 @@ test('native embedded browser observes, types, clicks, rejects covered targets a
       <label>版本<select oninput="document.querySelector('#selected-input').textContent='input:'+this.value" onchange="document.querySelector('#selected-change').textContent='change:'+this.value"><option>基础版</option><option>专业版</option><option disabled>停用版</option></select></label>
       <output id="selected-input"></output><output id="selected-change"></output>
       <button onclick="document.querySelector('output').textContent='你好，'+document.querySelector('input').value">验证</button><output></output>
+      <button onmousedown="const end=performance.now()+1400;while(performance.now()<end){}">测试耗时操作</button>
       <div id="shadow-host"></div>
       <script>
         const outer = document.querySelector('#shadow-host').attachShadow({mode:'open'});
@@ -109,6 +111,53 @@ test('native embedded browser observes, types, clicks, rejects covered targets a
       .toBe(true);
     let observed = (await call({ operation: 'observe', id })).result;
     expect(observed.title).toBe('本机预览验收');
+    // Mount the product toolbar around the real child WebContentsView.
+    const toolbar = await build({
+      stdin: { contents: `
+        import React from 'react';
+        import {createRoot} from 'react-dom/client';
+        import {IntlProvider} from 'react-intl';
+        import {WorkspaceBrowser} from './src/workspace-panel/WorkspaceBrowser';
+        import messages from './src/i18n/compiled/zh-CN.json';
+        createRoot(document.getElementById('panel')).render(<IntlProvider locale="zh-CN" messages={messages}>
+          <WorkspaceBrowser scope={${JSON.stringify(scope)}} id={${JSON.stringify(id)}} />
+        </IntlProvider>);
+      `, resolveDir: process.cwd(), loader: 'tsx' },
+      bundle: true, write: false, jsx: 'automatic', define: { 'process.env.NODE_ENV': '"production"' },
+    });
+    await page.evaluate(() => {
+      const panel = document.createElement('aside');
+      panel.id = 'panel';
+      panel.className = 'workspace-panel';
+      document.body.append(panel);
+    });
+    await page.addStyleTag({ path: path.resolve('src/workspace-panel/workspacePanel.css') });
+    await page.addStyleTag({ content: '#panel{position:absolute;inset:0 0 0 45%}.wb-browser{height:100%;display:flex;flex-direction:column}.wb-browser>.relative{flex:1}' });
+    await page.addScriptTag({ content: toolbar.outputFiles[0].text });
+    const status = page.getByRole('status');
+    await call({ operation: 'observe', id });
+    await expect(status).toHaveAttribute('data-phase', 'completed');
+    const edge = page.locator('.wb-control-surface .glow');
+    const guestBounds = () => win.evaluate(window => window.contentView.children[0].getBounds());
+    await expect(edge).toHaveCSS('animation-name', 'edge-breathe');
+    const before = await guestBounds();
+    const frame = (await edge.boundingBox())!;
+    expect(frame.x).toBeGreaterThan(0);
+    expect(before.x).toBeGreaterThan(frame.x);
+    expect(before.x + before.width).toBeLessThan(frame.x + frame.width);
+    expect(before.y + before.height).toBeLessThan(frame.y + frame.height);
+    const banner = (await status.boundingBox())!;
+    expect(banner.y + banner.height).toBeLessThanOrEqual(before.y);
+    const slow = observed.nodes.find((n: any) => n.name === '测试耗时操作' && n.role === 'button');
+    const clicking = call({ operation: 'click', id, node: slow.node });
+    await expect(status).toHaveAttribute('data-phase', 'running');
+    await expect(status).toContainText('网页控制');
+    await fs.writeFile(test.info().outputPath('right-panel-control.png'),
+      Buffer.from(await win.evaluate(async window => (await window.capturePage()).toPNG().toString('base64')), 'base64'));
+    await clicking;
+    await expect(status).toHaveAttribute('data-phase', 'completed');
+    await expect(edge).toHaveCount(0);
+    expect(await guestBounds()).toEqual(before);
     const name = observed.nodes.find((n: any) => n.role === 'textbox' && n.name === '姓名').node;
     const verify = observed.nodes.find((n: any) => n.role === 'button' && n.name === '验证').node;
     const verifyText = observed.nodes.find(
@@ -117,8 +166,31 @@ test('native embedded browser observes, types, clicks, rejects covered targets a
     await expect(call({ operation: 'click', id, node: verifyText })).rejects.toThrow(
       'text node, not an element'
     );
+    await expect(status).toHaveText(/点击.*失败/);
     await call({ operation: 'type', id, node: name, text: '浏览器测试' });
     await call({ operation: 'click', id, node: verify });
+    const captureGuest = () => application!.evaluate(async ({ webContents }, url) => {
+      const guest = webContents.getAllWebContents().find(wc => wc.getURL() === url)!;
+      return (await guest.capturePage()).toPNG().toString('base64');
+    }, opened.result.url);
+    const ringPixels = (png: string) => application!.evaluate(({ nativeImage }, data) => {
+      const pixels = nativeImage.createFromBuffer(Buffer.from(data, 'base64')).toBitmap();
+      let count = 0;
+      for (let i = 0; i < pixels.length; i += 4)
+        if (pixels[i] >= 252 && Math.abs(pixels[i + 1] - 180) <= 4 && Math.abs(pixels[i + 2] - 59) <= 4) count++;
+      return count;
+    }, png);
+    let marker = '';
+    await expect.poll(async () => {
+      marker = await captureGuest();
+      return ringPixels(marker);
+    }, { intervals: [25, 50], timeout: 1100 }).toBeGreaterThan(15);
+    await fs.writeFile(test.info().outputPath('clicked-page.png'), Buffer.from(marker, 'base64'));
+    await expect(status).toHaveText(/点击/);
+    await expect(status).toHaveAttribute('data-phase', 'completed');
+    await status.screenshot({ path: test.info().outputPath('click-feedback.png') });
+    const clean = (await call({ operation: 'screenshot', id })).result.content[0].data;
+    expect(await ringPixels(clean)).toBe(0);
     observed = (await call({ operation: 'observe', id })).result;
     expect(JSON.stringify(observed)).toContain('你好，浏览器测试');
     const consent = observed.nodes.find((n: any) => n.role === 'checkbox');

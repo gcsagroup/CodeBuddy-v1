@@ -1,5 +1,32 @@
 {
+  "projectBrief.heading": { "defaultMessage": "项目简报" },
+  "projectBrief.task": { "defaultMessage": "本轮任务" },
+  "projectBrief.result": { "defaultMessage": "项目回复摘要" },
+  "projectBrief.files": { "defaultMessage": "已修改文件（{count}）" },
+  "projectBrief.noReply": { "defaultMessage": "本轮没有留下最终文字回复。" },
+  "projectBrief.loading": { "defaultMessage": "正在读取本轮记录…" },
+  "projectBrief.unavailable": { "defaultMessage": "暂时无法读取这轮项目记录。" },
+  "projectBrief.retry": { "defaultMessage": "重试" },
+  "codeProHub.clearWorkspace": { "defaultMessage": "取消选择工作区" },
+  "messageQueue.attachments": {
+    "defaultMessage": "{count} 张图片"
+  },
+  "messageQueue.edit": {
+    "defaultMessage": "编辑消息"
+  },
+  "messageQueue.more": {
+    "defaultMessage": "更多消息操作"
+  },
+  "messageQueue.steer": {
+    "defaultMessage": "引导"
+  },
+  "navigationPanel.newWorkspaceChat": { "defaultMessage": "选择工作区并新建对话" },
+  "navigationPanel.newTaskChat": { "defaultMessage": "新建任务对话" },
+  "navigationPanel.sectionActions": { "defaultMessage": "{section}选项" },
+  "navigationPanel.collapseGroup": { "defaultMessage": "收起分组" },
+  "navigationPanel.expandGroup": { "defaultMessage": "展开分组" },
   "composerStats.live": { "defaultMessage": "当前生成速度" },
+  "composerStats.previous": { "defaultMessage": "上次采样的生成速度" },
   "composerStats.liveDetail": { "defaultMessage": "本次请求最近一个采样时段内每秒收到的输出 token 数。≈ 表示估算值。" },
   "composerStats.speed": { "defaultMessage": "平均生成速度" },
   "composerStats.speedDetail": { "defaultMessage": "当前会话已完成模型请求的平均生成速度。不含首字等待和工具执行时间，每次请求完成后更新。" },
@@ -176,6 +203,15 @@
   "baseChat.mainTasks": {
     "defaultMessage": "规划、执行与验证"
   },
+  "baseChat.mainConversationHeading": {
+    "defaultMessage": "你好，我是 CodeBuddy，你的项目助手。"
+  },
+  "baseChat.mainConversationHelp": {
+    "defaultMessage": "我可以帮你查项目进度、找回之前提过的要求，也可以单独调整某个对话的权限。要做新项目时，我可以建好文件夹，把任务交给项目对话，等它做完再回来向你汇报。"
+  },
+  "baseChat.mainConversationExample": {
+    "defaultMessage": "你可以直接问我：“帮我查一下项目进度。”"
+  },
   "baseChat.mainWelcome": {
     "defaultMessage": "我是 CodeBuddy，一起把事情做好。"
   },
@@ -337,6 +373,9 @@
   },
   "chatInput.send": {
     "defaultMessage": "发送"
+  },
+  "chatInput.continueTask": {
+    "defaultMessage": "继续任务"
   },
   "chatInput.stop": {
     "defaultMessage": "停止"
@@ -899,14 +938,8 @@
   "codeProHub.chooseProjectFolder": {
     "defaultMessage": "请选择项目文件夹以继续"
   },
-  "codeProHub.description": {
-    "defaultMessage": "它会直接在当前项目中规划、编辑、测试和审查，结果可立即在编辑器中使用。"
-  },
   "codeProHub.directoryChooserFailed": {
     "defaultMessage": "无法选择项目文件夹，请重试。"
-  },
-  "codeProHub.eyebrow": {
-    "defaultMessage": "多 Agent 协作开发"
   },
   "codeProHub.goalPlaceholder": {
     "defaultMessage": "描述任务，/ 查看功能，@ 文件或对话…"
@@ -925,9 +958,6 @@
   },
   "codeProHub.taskBreakdown": {
     "defaultMessage": "自动拆分任务"
-  },
-  "codeProHub.title": {
-    "defaultMessage": "欢迎使用 CodeBuddy"
   },
   "codeProHub.workspaceIdentityUnavailable": {
     "defaultMessage": "无法安全验证所选工作区。请选择受支持的本地项目文件夹后重试。"
@@ -2615,12 +2645,6 @@
   "dirSwitcher.failedToUpdateWorkingDir": {
     "defaultMessage": "更新工作目录失败"
   },
-  "dirSwitcher.gitWorktrees": {
-    "defaultMessage": "Git 工作树"
-  },
-  "dirSwitcher.noWorktreesFound": {
-    "defaultMessage": "未找到工作树"
-  },
   "dirSwitcher.openInFinder": {
     "defaultMessage": "在文件管理器中打开"
   },
@@ -3633,13 +3657,13 @@
     "defaultMessage": "GitHub 未能更新该 Issue。"
   },
   "globalInstructions.description": {
-    "defaultMessage": "为这台电脑上的所有新会话提供规则。项目说明会覆盖冲突的全局规则。"
+    "defaultMessage": "为这台电脑上的所有新会话提供规则。项目规则会覆盖冲突的全局规则。"
   },
   "globalInstructions.placeholder": {
     "defaultMessage": "在此输入你的全局规则…"
   },
   "globalInstructions.title": {
-    "defaultMessage": "CodeBuddy 说明"
+    "defaultMessage": "CodeBuddy 规则"
   },
   "globalInstructions.unavailable": {
     "defaultMessage": "CodeBuddy 主目录不可用。"
@@ -4492,9 +4516,6 @@
   },
   "memorySettings.enableProjectMemory": {
     "defaultMessage": "启用项目记忆"
-  },
-  "memorySettings.manage": {
-    "defaultMessage": "管理项目记忆"
   },
   "memorySettings.off": {
     "defaultMessage": "关闭"
@@ -6076,69 +6097,6 @@
   },
   "projectMemoryApproval.warning": {
     "defaultMessage": "这个记忆请求格式无效。无法保存；你仍可拒绝该请求。"
-  },
-  "projectMemoryRecords.active": {
-    "defaultMessage": "已批准"
-  },
-  "projectMemoryRecords.approve": {
-    "defaultMessage": "批准召回"
-  },
-  "projectMemoryRecords.cancel": {
-    "defaultMessage": "取消"
-  },
-  "projectMemoryRecords.candidate": {
-    "defaultMessage": "待审核"
-  },
-  "projectMemoryRecords.changed": {
-    "defaultMessage": "记录已变化，请重新审核刷新后的内容再批准。"
-  },
-  "projectMemoryRecords.confirmRemove": {
-    "defaultMessage": "确认删除"
-  },
-  "projectMemoryRecords.content": {
-    "defaultMessage": "记忆内容"
-  },
-  "projectMemoryRecords.description": {
-    "defaultMessage": "选择项目并审核记录。只有已批准且未过期的记忆会在该项目中被召回。"
-  },
-  "projectMemoryRecords.directory": {
-    "defaultMessage": "项目目录"
-  },
-  "projectMemoryRecords.disable": {
-    "defaultMessage": "停用召回"
-  },
-  "projectMemoryRecords.disabled": {
-    "defaultMessage": "已停用"
-  },
-  "projectMemoryRecords.edit": {
-    "defaultMessage": "编辑"
-  },
-  "projectMemoryRecords.empty": {
-    "defaultMessage": "此项目暂无保存的记忆。"
-  },
-  "projectMemoryRecords.expired": {
-    "defaultMessage": "已过期"
-  },
-  "projectMemoryRecords.export": {
-    "defaultMessage": "导出项目记忆"
-  },
-  "projectMemoryRecords.load": {
-    "defaultMessage": "加载记录"
-  },
-  "projectMemoryRecords.more": {
-    "defaultMessage": "加载更多"
-  },
-  "projectMemoryRecords.reason": {
-    "defaultMessage": "原因"
-  },
-  "projectMemoryRecords.remove": {
-    "defaultMessage": "删除记录"
-  },
-  "projectMemoryRecords.save": {
-    "defaultMessage": "保存修改"
-  },
-  "projectMemoryRecords.title": {
-    "defaultMessage": "已保存的项目记忆"
   },
   "promptsSettings.allPromptsReset": {
     "defaultMessage": "所有提示词已重置为默认"
@@ -7898,6 +7856,9 @@
   "settings.notifications.description": {
     "defaultMessage": "通知由你的操作系统管理 - {link}"
   },
+  "settings.notifications.modal.linuxInstructions": {
+    "defaultMessage": "请在桌面环境的系统设置中打开「通知」，允许 CodeBuddy 发送通知。"
+  },
   "settings.notifications.modal.macInstructions": {
     "defaultMessage": "在 macOS 上启用通知："
   },
@@ -7932,7 +7893,7 @@
     "defaultMessage": "开启通知并按需调整设置"
   },
   "settings.notifications.openSettings": {
-    "defaultMessage": "打开设置"
+    "defaultMessage": "打开系统设置"
   },
   "settings.notifications.task.description": {
     "defaultMessage": "窗口在后台时，CodeBuddy 完成任务后通知你"
@@ -7941,7 +7902,7 @@
     "defaultMessage": "任务完成通知"
   },
   "settings.notifications.title": {
-    "defaultMessage": "通知"
+    "defaultMessage": "系统通知"
   },
   "settings.preventSleep.description": {
     "defaultMessage": "CodeBuddy 运行任务期间保持电脑不休眠（屏幕仍可锁定）"
@@ -7984,9 +7945,6 @@
   },
   "settingsCenter.pageChat": {
     "defaultMessage": "行为与回答"
-  },
-  "settingsCenter.pageInput": {
-    "defaultMessage": "输入"
   },
   "settingsCenter.pageKeyboard": {
     "defaultMessage": "键盘快捷键"
@@ -9827,6 +9785,8 @@
   "workspacePanel.fileDenied": {
     "defaultMessage": "Windows 拒绝访问此文件，请检查权限或选择可读取的副本。"
   },
+  "workspacePanel.browserActionFailed": { "defaultMessage": "{action}失败" },
+  "workspacePanel.browserControl": { "defaultMessage": "网页控制" },
   "workspacePanel.fileMissing": {
     "defaultMessage": "文件已移动或删除，请确认位置后重新打开链接。"
   },
@@ -10048,6 +10008,9 @@
   },
   "workspaceSubagents.unknownState": {
     "defaultMessage": "状态未知 · {count}"
+  },
+  "navigationPanel.workspaceChats": {
+    "defaultMessage": "{count} 个最近对话 · {active} 个运行中"
   },
   "navigationPanel.noWorkspace": {
     "defaultMessage": "未关联工作区"

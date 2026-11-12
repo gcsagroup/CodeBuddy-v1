@@ -25,7 +25,7 @@ test('native direct media delivery skips final inference while complex scope con
       if (!selection) generated = true;
       emit({ tool_calls: [{ index: 0, id: selection ? 'route' : 'generate', type: 'function', function: {
         name: selection ? 'select_workflow' : 'generate_image', arguments: JSON.stringify(selection
-          ? { workflow_id: 'saved:test', mode: 'text_to_image', reason: 'fixture scope', single_media_only: single }
+          ? { workflow_id: 'saved:test', mode: 'text_to_image', reason: 'fixture scope', single_media_only: single, image_count: 1, images_only: single }
           : { operation: 'generate' }) } }] }); emit({}, 'tool_calls');
     } else { emit({ content: 'Requested follow-up analysis.' }); emit({}, 'stop'); }
     res.end('data: [DONE]\n\n');

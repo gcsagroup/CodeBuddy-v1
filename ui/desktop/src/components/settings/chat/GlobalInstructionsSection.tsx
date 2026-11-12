@@ -6,12 +6,12 @@ import { InstructionFileEditor } from '../instructions/InstructionFileEditor';
 const i18n = defineMessages({
   title: {
     id: 'globalInstructions.title',
-    defaultMessage: 'CodeBuddy instructions',
+    defaultMessage: 'CodeBuddy rules',
   },
   description: {
     id: 'globalInstructions.description',
     defaultMessage:
-      'Provide rules for every new conversation on this computer. Project instructions override conflicting global rules.',
+      'Provide rules for every new conversation on this computer. Project rules override conflicting global rules.',
   },
   placeholder: {
     id: 'globalInstructions.placeholder',

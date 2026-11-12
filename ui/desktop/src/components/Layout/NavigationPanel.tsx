@@ -5,7 +5,7 @@ import { useNativeSchedules } from '../../acp/nativeSchedules';
 import { sessionHasPendingPermission, subscribeAcpPermissionRequests } from '../../acp/permissionRequests';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { Archive, MoreHorizontal, Pin, Clock3, ChevronRight, Folder, FolderOpen, Pencil, MessageCirclePlus } from 'lucide-react';
+import { Archive, MoreHorizontal, Pin, MessagesSquare, Clock3, ChevronRight, Folder, FolderOpen, Pencil, MessageCirclePlus } from 'lucide-react';
 import { toast } from 'react-toastify';
 import { motion, useReducedMotion } from 'framer-motion';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '../ui/collapsible';
@@ -19,6 +19,7 @@ import {
 } from '../../hooks/useNavigationItems';
 import { AppEvents } from '../../constants/events';
 import { SessionIndicators } from '../SessionIndicators';
+import type { PetSnapshot, PetTask } from '../../pets/petTypes';
 import { acpArchiveSession, type SessionListItem } from '../../acp/sessions';
 import { errorMessage } from '../../utils/conversionUtils';
 import { cn } from '../../utils';
@@ -49,6 +50,12 @@ interface SessionStatus {
 }
 
 const i18n = defineMessages({
+  workspaceChats: { id: 'navigationPanel.workspaceChats', defaultMessage: '{count, plural, one {# recent conversation} other {# recent conversations}} · {active} running' },
+  newWorkspaceChat: { id: 'navigationPanel.newWorkspaceChat', defaultMessage: 'Choose a workspace and start a conversation' },
+  newTaskChat: { id: 'navigationPanel.newTaskChat', defaultMessage: 'New task conversation' },
+  sectionActions: { id: 'navigationPanel.sectionActions', defaultMessage: '{section} options' },
+  collapseGroup: { id: 'navigationPanel.collapseGroup', defaultMessage: 'Collapse group' },
+  expandGroup: { id: 'navigationPanel.expandGroup', defaultMessage: 'Expand group' },
   pinProject: { id: 'navigationPanel.pinProject', defaultMessage: 'Pin project' },
   unpinProject: { id: 'navigationPanel.unpinProject', defaultMessage: 'Unpin project' },
   pinned: { id: 'navigationPanel.pinned', defaultMessage: 'Pinned' },
@@ -80,17 +87,24 @@ const i18n = defineMessages({
   },
 });
 
-const navItemClass = (active: boolean) =>
-  cn(
-    'flex flex-row items-center gap-2.5 outline-none no-drag w-full',
-    'min-h-[34px] rounded-[10px] px-3 py-1.5 text-sm font-normal transition-colors',
-    active
-      ? 'bg-background-tertiary text-text-primary'
-      : 'text-text-secondary hover:text-text-primary'
-  );
+const sidebarCardClass = 'w-80 max-w-[calc(100vw-24px)] max-h-[var(--radix-tooltip-content-available-height)] overflow-y-auto rounded-xl border border-border-primary bg-background-primary p-3 text-text-primary text-left text-wrap shadow-lg animate-none data-[state=closed]:animate-none';
+
+function SidebarTooltip({ children, onOpen }: { children: React.ReactNode; onOpen?: () => void }) {
+  const [open, setOpen] = useState(false);
+  useEffect(() => {
+    if (!open) return;
+    const dismiss = () => setOpen(false);
+    window.addEventListener('blur', dismiss);
+    return () => window.removeEventListener('blur', dismiss);
+  }, [open]);
+  return <Tooltip delayDuration={240} skipDelayDuration={0} disableHoverableContent open={open} onOpenChange={value => {
+    setOpen(value);
+    if (value) onOpen?.();
+  }}>{children}</Tooltip>;
+}
 
 export const projectGroupLabelClassName =
-  'min-h-7 rounded-[10px] px-2 py-0.5 text-[13px] font-medium text-text-secondary transition-colors hover:text-text-primary';
+  'min-h-7 rounded-[10px] px-2 py-0.5 text-sm font-medium text-text-primary transition-colors hover:bg-background-tertiary';
 
 interface NavRowProps {
   item: NavItem;
@@ -102,8 +116,8 @@ const NavRow: React.FC<NavRowProps> = ({ item, active, onClick }) => {
   const intl = useIntl();
   const Icon = item.icon;
   return (
-    <button onClick={onClick} className={cn('shell-nav-item', navItemClass(active))} aria-current={active ? 'page' : undefined}>
-      <Icon className="size-[18px] flex-shrink-0 text-text-secondary" />
+    <button onClick={onClick} className="app-nav-link no-drag w-full" aria-current={active ? 'page' : undefined}>
+      <Icon className="size-4 shrink-0" />
       <span className="text-left flex-1 truncate">{getNavItemLabel(item, intl)}</span>
       {item.getTag && (
         <span className="text-xs font-mono text-text-secondary">{item.getTag()}</span>
@@ -184,7 +198,7 @@ export const SessionRow: React.FC<SessionRowProps> = ({
 
   return (
     <SessionActionsContextMenu session={session} onSessionRenamed={onRenamed} onSessionForked={onForked}>
-      <Tooltip delayDuration={0} onOpenChange={open => { if (open) setCardOpenedAt(Date.now()); }}>
+      <SidebarTooltip onOpen={() => setCardOpenedAt(Date.now())}>
         <TooltipTrigger asChild>
           <div
             data-session-row
@@ -199,11 +213,11 @@ export const SessionRow: React.FC<SessionRowProps> = ({
               onClick();
             }}
             className={cn(
-              'group/session-row relative flex min-h-7 items-center gap-1.5 py-1 rounded-[10px] cursor-pointer text-sm font-normal',
+              'group/session-row relative flex min-h-7 items-center gap-1.5 py-0.5 rounded-[10px] cursor-pointer text-sm font-normal',
               nested ? '-ml-3 mr-0 pl-6 pr-2' : 'ml-1 mr-0 min-h-8 px-3',
               !nested && hasSchedule && 'pl-7',
               'hover:text-text-primary transition-colors',
-              active && 'bg-background-tertiary'
+              active ? 'bg-background-tertiary' : 'hover:bg-background-tertiary'
             )}
           >
             {hasSchedule && (
@@ -256,7 +270,7 @@ export const SessionRow: React.FC<SessionRowProps> = ({
         </TooltipTrigger>
         <TooltipContent side="right" align="start" sideOffset={8} collisionPadding={12}
           arrowClassName="invisible pointer-events-none"
-          className="w-80 max-w-[calc(100vw-24px)] max-h-[var(--radix-tooltip-content-available-height)] overflow-y-auto rounded-xl border border-border-primary bg-background-primary p-3 text-text-primary text-left text-wrap shadow-lg">
+          className={sidebarCardClass}>
           <div className="text-sm font-medium leading-5 [overflow-wrap:anywhere]">{fullTitle}</div>
           <div className="mt-2 flex items-center gap-1.5 text-xs text-text-secondary">
             <Clock3 className="size-3.5 shrink-0" aria-hidden="true" />
@@ -276,7 +290,7 @@ export const SessionRow: React.FC<SessionRowProps> = ({
           </div>
         </TooltipContent>
 
-      </Tooltip>
+      </SidebarTooltip>
     </SessionActionsContextMenu>
   );
 };
@@ -285,11 +299,13 @@ interface ProjectSessionGroupProps {
   onNewChat?: (path: string) => void;
   avatars?: Record<string, string>;
   group: ProjectGroup;
+  activeCount?: number;
   renderSession: (session: SessionListItem) => React.ReactNode;
 }
 
 export const ProjectSessionGroup: React.FC<ProjectSessionGroupProps> = ({
   group,
+  activeCount = 0,
   avatars = {},
   renderSession,
   onNewChat,
@@ -380,23 +396,13 @@ export const ProjectSessionGroup: React.FC<ProjectSessionGroupProps> = ({
   return (
     <Collapsible open={expanded} onOpenChange={setExpanded} className="mb-1.5">
       <div
+        data-workspace-row
         onContextMenu={event => { event.preventDefault(); setMenuOpen(true); }}
         className={cn(
           projectGroupLabelClassName,
           'group/project-row relative flex w-full items-center gap-1.5'
         )}
       >
-        <CollapsibleTrigger
-          type="button"
-          aria-expanded={expanded}
-          aria-label={displayName}
-          title={group.path}
-          disabled={isEditing}
-          className="absolute inset-0 w-full cursor-pointer rounded-[10px] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-border-primary disabled:cursor-default"
-        />
-        <span className="pointer-events-none flex size-5 shrink-0 items-center justify-center text-text-secondary transition-colors group-hover/project-row:text-text-primary group-focus-within/project-row:text-text-primary">
-          {agent ? <AgentAvatar avatar={avatars[agent.id] ?? agent.avatar} className="size-4" /> : <Folder className="size-4" aria-hidden="true" />}
-        </span>
         {isEditing ? (
           <input
             ref={inputRef}
@@ -418,14 +424,36 @@ export const ProjectSessionGroup: React.FC<ProjectSessionGroupProps> = ({
             className="relative min-w-0 flex-1 rounded border border-border-primary bg-background-primary px-1.5 py-0.5 text-[13px] font-medium outline-none focus:ring-1 focus:ring-ring"
           />
         ) : (
-          <span className="pointer-events-none min-w-0 flex-1 truncate">{displayName}</span>
+          <SidebarTooltip>
+            <TooltipTrigger asChild>
+              <CollapsibleTrigger type="button" aria-label={displayName}
+                className="flex min-h-7 min-w-0 flex-1 items-center gap-2 rounded-md text-left group-hover/project-row:pr-14 group-focus-within/project-row:pr-14 [@media(hover:none)]:pr-14 focus-visible:ring-2 focus-visible:ring-ring">
+                {agent ? <AgentAvatar avatar={avatars[agent.id] ?? agent.avatar} className="size-4 shrink-0" /> :
+                  <Folder className="size-4 shrink-0" aria-hidden="true" />}
+                <ConversationTitle>{displayName}</ConversationTitle>
+              </CollapsibleTrigger>
+            </TooltipTrigger>
+            {!menuOpen && <TooltipContent side="right" align="start" sideOffset={8} collisionPadding={12}
+              arrowClassName="invisible pointer-events-none" className={sidebarCardClass}>
+              <div className="flex items-start gap-2 text-sm font-semibold leading-5">
+                <Folder className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
+                <span className="min-w-0 flex-1 [overflow-wrap:anywhere]">{displayName}</span>
+                {pinned && <Pin className="size-3.5 shrink-0 text-text-secondary" aria-label={intl.formatMessage(i18n.pinned)} />}
+              </div>
+              <div className="mt-2 flex items-center gap-2 text-xs text-text-secondary">
+                <MessagesSquare className="size-4 shrink-0" aria-hidden="true" />
+                {intl.formatMessage(i18n.workspaceChats, { count: group.sessions.length, active: activeCount })}
+              </div>
+              <div className="mt-2 border-t border-border-primary pt-2 text-xs leading-5 text-text-secondary [overflow-wrap:anywhere]">{group.path}</div>
+            </TooltipContent>}
+          </SidebarTooltip>
         )}
         {!isEditing && (
-          <>
+          <div className="absolute right-2 flex items-center gap-1">
           <DropdownMenu open={menuOpen} onOpenChange={setMenuOpen}>
             <DropdownMenuTrigger asChild>
               <button type="button" aria-label={intl.formatMessage({ id: 'navigationPanel.projectActions', defaultMessage: 'Project actions' })}
-                className="relative flex size-6 shrink-0 items-center justify-center rounded opacity-0 group-hover/project-row:opacity-100 group-focus-within/project-row:opacity-100 focus-visible:opacity-100">
+                className="project-row-action">
                 <MoreHorizontal className="size-3.5" />
               </button>
             </DropdownMenuTrigger>
@@ -450,11 +478,11 @@ export const ProjectSessionGroup: React.FC<ProjectSessionGroupProps> = ({
             aria-label={intl.formatMessage({ id: 'navigationPanel.newProjectChat', defaultMessage: 'New conversation in project' })}
             title={intl.formatMessage({ id: 'navigationPanel.newProjectChat', defaultMessage: 'New conversation in project' })}
             onClick={() => onNewChat?.(group.path)}
-            className="relative flex size-5 flex-shrink-0 items-center justify-center rounded text-text-secondary opacity-0 transition-[color,opacity] group-hover/project-row:opacity-60 hover:text-text-primary hover:!opacity-100 focus-visible:text-text-primary focus-visible:!opacity-100 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-border-primary"
+            className="project-row-action"
           >
             <MessageCirclePlus className="size-3.5" aria-hidden="true" />
           </button>
-          </>
+          </div>
         )}
       </div>
       <CollapsibleContent className="codepro-disclosure-content">
@@ -484,23 +512,48 @@ interface NavigationProps {
 export function NavigationChatsSection({
   children,
   title,
+  newChat,
+  menuItems,
 }: {
   children: React.ReactNode;
   title?: string;
+  newChat?: { label: string; open: () => void };
+  menuItems?: React.ReactNode;
 }) {
   const intl = useIntl();
   const [expanded, setExpanded] = useState(true);
+  const section = title ?? intl.formatMessage(i18n.chats);
+  const more = intl.formatMessage(i18n.sectionActions, { section });
+  const actionClass = 'grid size-7 shrink-0 place-items-center rounded-md text-text-secondary hover:bg-background-secondary hover:text-text-primary focus-visible:ring-1 opacity-0 pointer-events-none group-hover/heading:opacity-100 group-hover/heading:pointer-events-auto group-has-[:focus-visible]/heading:opacity-100 data-[state=open]:opacity-100 [@media(hover:none)]:opacity-100 [@media(hover:none)]:pointer-events-auto';
   return (
     <Collapsible open={expanded} onOpenChange={setExpanded} className="min-h-0 flex flex-col mt-4">
-      <CollapsibleTrigger className="flex items-center gap-1 px-4 py-1 text-xs font-medium text-text-secondary hover:text-text-primary transition-colors self-start">
-        <ChevronRight
-          className={cn(
-            'w-3 h-3 transition-transform motion-reduce:transition-none',
-            expanded && 'rotate-90'
-          )}
-        />
-        <span>{title ?? intl.formatMessage(i18n.chats)}</span>
-      </CollapsibleTrigger>
+      <div className="group/heading flex min-w-0 items-center pl-4 pr-2">
+        <CollapsibleTrigger className="flex min-w-0 flex-1 items-center gap-1 py-1 text-xs font-medium text-text-secondary hover:text-text-primary">
+          <ChevronRight
+            className={cn(
+              'w-3 h-3 transition-transform motion-reduce:transition-none',
+              expanded && 'rotate-90'
+            )}
+          />
+          <span className="truncate">{section}</span>
+        </CollapsibleTrigger>
+        {newChat && <>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button type="button" className={actionClass} aria-label={more} title={more}><MoreHorizontal size={15} /></button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              {menuItems}
+              <DropdownMenuItem onSelect={() => setExpanded(!expanded)}>
+                {intl.formatMessage(expanded ? i18n.collapseGroup : i18n.expandGroup)}
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+          <button type="button" className={actionClass} onClick={newChat.open} title={newChat.label} aria-label={newChat.label}>
+            <MessageCirclePlus size={15} />
+          </button>
+        </>}
+      </div>
       <CollapsibleContent className="codepro-disclosure-content min-h-0">
         <div className="pl-2 pr-1 pb-2 pt-1">{children}</div>
       </CollapsibleContent>
@@ -586,6 +639,7 @@ export const Navigation: React.FC<NavigationProps> = ({
   );
 
   const {
+    recentSessions,
     recentTaskSessions,
     recentSessionsByProject,
     activeSessionId,
@@ -594,6 +648,13 @@ export const Navigation: React.FC<NavigationProps> = ({
     handleSessionClick,
   } = useNavigationSessions();
   const navigate = useNavigate();
+  const openDraft = (workingDir: string) => navigate(withWorkspaceMode('/pair', workspaceMode), { state: { draftOnly: true, workingDir } });
+  const chooseWorkspace = async () => {
+    try {
+      const result = await window.electron.directoryChooser();
+      if (!result.canceled && result.filePaths[0]) openDraft(result.filePaths[0]);
+    } catch (error) { toast.error(errorMessage(error)); }
+  };
   const pinnedProjects = useProjectPins();
   const sortedProjects = [...recentSessionsByProject].sort((a, b) => {
     const rank = (path: string) => {
@@ -604,21 +665,25 @@ export const Navigation: React.FC<NavigationProps> = ({
   });
 
   const [sessionStatuses, setSessionStatuses] = useState<Map<string, SessionStatus>>(new Map());
-  const [petUnread, setPetUnread] = useState<Set<string> | null>(null);
+  const [petTasks, setPetTasks] = useState<PetTask[] | null>(null);
+  const taskStates = useMemo(() => petTasks && new Map(
+    petTasks.map(task => [task.sessionId, task.state] as const)
+  ), [petTasks]);
   useEffect(() => {
     if (!window.electron?.desktopPet) return;
+    let waitingForInitial = true;
     const receive = (_event: unknown, value: unknown) => {
-      const snapshot = value as import('../../pets/petTypes').PetSnapshot;
-      // The sidebar dot and pet check consume one shared unread snapshot.
-      setPetUnread(
-        new Set(
-          (snapshot.tasks ?? []).filter((t) => t.state === 'completed').map((t) => t.sessionId)
-        )
-      );
+      waitingForInitial = false;
+      setPetTasks((value as PetSnapshot).tasks ?? []);
     };
-    void window.electron.desktopPet({ action: 'get' }).then((value) => receive(null, value));
     window.electron.on('pet-changed', receive);
-    return () => window.electron.off('pet-changed', receive);
+    void window.electron.desktopPet({ action: 'get' }).then(value => {
+      if (waitingForInitial) receive(null, value);
+    });
+    return () => {
+      waitingForInitial = false;
+      window.electron.off('pet-changed', receive);
+    };
   }, []);
 
   useEffect(() => {
@@ -626,6 +691,9 @@ export const Navigation: React.FC<NavigationProps> = ({
       const { sessionId, streamState } = (event as CustomEvent).detail;
       setSessionStatuses((prev) => {
         const existing = prev.get(sessionId);
+        // Opening history is a view transition. Only the reconciled session
+        // state can conclude a turn that this window has already observed.
+        if (streamState === 'loading' && existing?.streamState === 'streaming') return prev;
         const shouldMarkUnread = existing?.streamState === 'streaming' && streamState === 'idle';
         const next = new Map(prev);
         next.set(sessionId, {
@@ -661,26 +729,43 @@ export const Navigation: React.FC<NavigationProps> = ({
     }
   }, [isNavExpanded, fetchSessions]);
 
-  const renderSession = (session: SessionListItem, nested = true) => (
-    <SessionRow
-      key={session.id}
-      session={session}
-      nested={nested}
-      hasSchedule={scheduledSessions.has(session.id)}
-      active={session.id === activeSessionId}
-      status={{
-        streamState: sessionStatuses.get(session.id)?.streamState ?? 'idle',
-        hasUnreadActivity:
-          petUnread?.has(session.id) ?? sessionStatuses.get(session.id)?.hasUnreadActivity ?? false,
-      }}
-      onClick={() => {
-        clearUnread(session.id);
-        handleSessionClick(session.id);
-      }}
-      onRenamed={fetchSessions}
-      onForked={handleSessionClick}
-    />
-  );
+  const streamStateFor = (id: string): StreamState => {
+    const task = taskStates?.get(id);
+    if (task === 'working') return 'streaming';
+    if (task === 'blocked') return 'error';
+    if (task === 'completed' || task === 'input') return 'idle';
+    return sessionStatuses.get(id)?.streamState ?? 'idle';
+  };
+
+  const mainTask = petTasks?.find(task => task.globalConversation);
+  const mainId = mainTask?.sessionId ?? recentSessions.find(session => session.globalConversation)?.id;
+  const mainActive = !!mainId && activeSessionId === mainId;
+  const mainState = taskStates?.get(mainId ?? '') ??
+    (mainId && sessionStatuses.get(mainId)?.streamState === 'streaming' ? 'working' : undefined);
+
+  const renderSession = (session: SessionListItem, nested = true) => {
+    const task = taskStates?.get(session.id);
+    const local = sessionStatuses.get(session.id);
+    return (
+      <SessionRow
+        key={session.id}
+        session={session}
+        nested={nested}
+        hasSchedule={scheduledSessions.has(session.id)}
+        active={session.id === activeSessionId}
+        status={{
+          streamState: streamStateFor(session.id),
+          hasUnreadActivity: taskStates ? task === 'completed' : local?.hasUnreadActivity ?? false,
+        }}
+        onClick={() => {
+          clearUnread(session.id);
+          handleSessionClick(session.id);
+        }}
+        onRenamed={fetchSessions}
+        onForked={handleSessionClick}
+      />
+    );
+  };
 
   return (
     <motion.div
@@ -707,16 +792,22 @@ export const Navigation: React.FC<NavigationProps> = ({
         ))}
       </div>
 
-      <MainConversationRow onOpen={handleSessionClick} />
+      <MainConversationRow onOpen={handleSessionClick} active={mainActive} taskState={mainState} />
       <div className="sidebar-scrollbar min-h-0 flex-1 overflow-y-auto overflow-x-hidden pb-2">
-        {recentSessionsByProject.length > 0 && (
-          <NavigationChatsSection title={intl.formatMessage(i18n.workspaces)}>
+        {sortedProjects.length > 0 && (
+          <NavigationChatsSection title={intl.formatMessage(i18n.workspaces)}
+            newChat={{ label: intl.formatMessage(i18n.newWorkspaceChat), open: chooseWorkspace }}
+            menuItems={<DropdownMenuItem onSelect={chooseWorkspace}>{intl.formatMessage(i18n.newWorkspaceChat)}</DropdownMenuItem>}>
             {sortedProjects.map((group: ProjectGroup) => (
-              <ProjectSessionGroup key={group.path} group={group} avatars={agentAvatars} renderSession={renderSession} onNewChat={path => navigate(withWorkspaceMode('/pair', workspaceMode), { state: { draftOnly: true, workingDir: path } })} />
+              <ProjectSessionGroup key={group.path} group={group}
+                activeCount={group.sessions.filter(s => streamStateFor(s.id) === 'streaming').length} avatars={agentAvatars} renderSession={renderSession} onNewChat={openDraft} />
             ))}
           </NavigationChatsSection>
         )}
-        <NavigationChatsSection>
+        <NavigationChatsSection newChat={{ label: intl.formatMessage(i18n.newTaskChat), open: () => openDraft('') }}
+          menuItems={<DropdownMenuItem onSelect={() => handleNavClick('/sessions')}>
+            {intl.formatMessage({ id: 'navigation.itemSessions', defaultMessage: 'History' })}
+          </DropdownMenuItem>}>
           {recentTaskSessions.length === 0 ? (
             <div className="px-3 py-2 text-xs text-text-secondary">
               {intl.formatMessage(i18n.noChats)}

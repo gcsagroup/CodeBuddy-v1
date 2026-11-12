@@ -260,15 +260,17 @@ describe('useChatSession steering acceptance', () => {
   );
 
   it.each([
-    ['interrupted', 'paused', false],
-    ['completed', 'completed', true],
+    ['interrupted', 'paused', true, false, false],
+    ['completed', 'completed', true, false, true],
+    ['completed', 'completed', true, true, false],
+    ['completed', 'completed', false, false, false],
   ] as const)(
     'shows a completion notification only for terminal evidence: %s',
-    async (status, outcome, expectedNotification) => {
+    async (status, outcome, enabled, focused, expectedNotification) => {
       const showNotification = vi.fn();
       Object.assign(window.electron, {
-        getSetting: vi.fn().mockResolvedValue(true),
-        isAnyWindowFocused: vi.fn().mockResolvedValue(false),
+        getSetting: vi.fn().mockResolvedValue(enabled),
+        isAnyWindowFocused: vi.fn().mockResolvedValue(focused),
         showNotification,
       });
       state.snapshot = {

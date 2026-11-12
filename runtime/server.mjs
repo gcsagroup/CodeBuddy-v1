@@ -4,7 +4,6 @@ import { WebSocketServer } from "ws";
 import { pathToFileURL, fileURLToPath } from "node:url";
 import path from "node:path";
 import { openStore } from "./store.mjs";
-import { Compat } from "./compat.mjs";
 import { createConversationDriver } from "./conversation-driver.mjs";
 import { createMcpAppProxy } from "./mcp-app-proxy.mjs";
 import { acquireProfileLock } from "./profile-lock.mjs";
@@ -21,16 +20,27 @@ const equal = (a, b) => {
     right = Buffer.from(b);
   return left.length === right.length && timingSafeEqual(left, right);
 };
-export async function createCompatServer({ dataDir, secret, driver, defaultModel }) {
+export async function createCompatServer({ dataDir, secret, driver, defaultModel, onRuntimeLoaded }) {
   if (typeof secret !== "string" || secret.length < 16)
     throw Error("A local server secret of at least 16 characters is required");
   const profileLock = await acquireProfileLock(path.resolve(dataDir));
   let compat, appProxy;
   try {
-    const store = await openStore(profileLock.directory, {
-      defaultModel,
-      onTiming: timing => console.info(`[Store ${timing.operation ?? 'commit'} timing]`, JSON.stringify(timing)),
-    });
+    // Keep the lease until both startup operations settle, including on failure.
+    const [runtime, profile] = await Promise.allSettled([
+      import("./compat.mjs").then(module => {
+        onRuntimeLoaded?.();
+        return module;
+      }),
+      openStore(profileLock.directory, {
+        defaultModel,
+        onTiming: timing => console.info(`[Store ${timing.operation ?? 'commit'} timing]`, JSON.stringify(timing)),
+      }),
+    ]);
+    if (runtime.status === 'rejected') throw runtime.reason;
+    if (profile.status === 'rejected') throw profile.reason;
+    const { Compat } = runtime.value;
+    const store = profile.value;
     let warmup;
     if (!driver) {
       let loaded;
@@ -68,6 +78,7 @@ export async function createCompatServer({ dataDir, secret, driver, defaultModel
           "mainAgentUnavailable",
           "agentInputIds",
           "questions",
+          "lastUserStop",
           "answerQuestion",
           "getGoal",
           "controlGoal",

@@ -552,7 +552,7 @@ const SchedulesView: React.FC<SchedulesViewProps> = ({ onClose: _onClose }) => {
             <div className="mx-auto w-full max-w-5xl bg-background-primary px-6 pb-6 pt-10">
               <div className="flex flex-col page-transition">
                 <div className="flex justify-between items-center mb-1">
-                  <h1 className="text-2xl font-semibold tracking-tight">
+                  <h1 className="app-page-heading">
                     {intl.formatMessage(i18n.scheduler)}
                   </h1>
                   <div className="flex gap-2">

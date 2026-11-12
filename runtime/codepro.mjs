@@ -315,7 +315,7 @@ export class CodeProRuns {
         updated.push(copy(row));
       }
       return updated;
-    }, ['codeproRuns']);
+    }, ['codeproRuns'], { skipUnchanged: true });
     for (const row of changed) this.publish(row);
     return changed.length;
   }

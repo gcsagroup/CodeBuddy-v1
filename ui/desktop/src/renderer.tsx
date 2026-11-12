@@ -1,4 +1,3 @@
-import DesktopPet from './pets/DesktopPet';
 import React, { Suspense, lazy } from 'react';
 import ReactDOM from 'react-dom/client';
 import { IntlProvider } from 'react-intl';
@@ -13,7 +12,10 @@ import { initializeNewTaskDrafts } from './utils/newTaskDraft';
 // Apply theme tokens to :root before first paint.
 applyThemeTokens();
 
-const App = lazy(() => import('./App'));
+const App = lazy(async () => {
+  const [app] = await Promise.all([import('./App'), initializeNewTaskDrafts()]);
+  return app;
+});
 
 let warnedFallbackLocale = false;
 function handleIntlError(err: { code: string; message?: string }) {
@@ -31,13 +33,13 @@ function handleIntlError(err: { code: string; message?: string }) {
 
 (async () => {
   if (window.location.hash.startsWith('#/desktop-pet')) {
-    ReactDOM.createRoot(document.getElementById('root')!).render(<DesktopPet />);
+    const [{ default: DesktopPet }, { ThemeProvider }] = await Promise.all([
+      import('./pets/DesktopPet'), import('./contexts/ThemeContext'),
+    ]);
+    ReactDOM.createRoot(document.getElementById('root')!).render(<ThemeProvider><DesktopPet /></ThemeProvider>);
     return;
   }
-  const [messages] = await Promise.all([
-    loadMessages(currentMessageLocale),
-    initializeNewTaskDrafts(),
-  ]);
+  const messages = await loadMessages(currentMessageLocale);
 
   ReactDOM.createRoot(document.getElementById('root')!).render(
     <React.StrictMode>

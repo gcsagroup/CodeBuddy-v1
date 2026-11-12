@@ -4,6 +4,7 @@ import { useEffect, useRef } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import BaseChat from './BaseChat';
 import { ChatType } from '../types/chat';
+import { ChatState } from '../types/chatState';
 import { UserInput } from '../types/message';
 import { subscribeToAcpRecovery } from '../acp/acpConnection';
 import { acpChatSessionController } from '../acp/chatSessionController';
@@ -58,7 +59,7 @@ export default function ChatSessionsContainer({
     const markRead = () => {
       if (document.visibilityState !== 'visible' || !document.hasFocus()) return;
       const snapshot = acpChatSessionStore.getSnapshot(currentSessionId);
-      if (!snapshot) return;
+      if (!snapshot || snapshot.chatState === ChatState.LoadingConversation) return;
       const task = petTaskFromSnapshot(currentSessionId, snapshot);
       if (task.terminalId)
         window.electron.petSignal('pet-read', {

@@ -1,4 +1,4 @@
-import { Bot, Clock, History, Images, MessageSquarePlus, Settings, Wrench } from 'lucide-react';
+import { Bot, BriefcaseBusiness, CalendarClock, History, Images, Settings, SquarePen } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { defineMessages, type IntlShape, type MessageDescriptor } from 'react-intl';
 
@@ -18,21 +18,21 @@ export const NAV_ITEMS: NavItem[] = [
     id: 'home',
     path: '/',
     label: 'New Task',
-    icon: MessageSquarePlus,
+    icon: SquarePen,
     searchAliases: ['New Chat'],
   },
   {
     id: 'scheduler',
     path: '/schedules',
     label: 'Automatic Tasks',
-    icon: Clock,
+    icon: CalendarClock,
     searchAliases: ['Scheduler'],
   },
   {
     id: 'toolbox',
     path: '/toolbox',
     label: 'Toolbox',
-    icon: Wrench,
+    icon: BriefcaseBusiness,
     searchAliases: ['Skills', 'Apps', 'Extensions', 'MCP'],
   },
   {

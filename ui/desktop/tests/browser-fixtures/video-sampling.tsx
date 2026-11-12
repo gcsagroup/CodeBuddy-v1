@@ -1,5 +1,6 @@
 import React from 'react';
 import { createRoot } from 'react-dom/client';
+import { VideoFirstFrame } from '../../src/components/VideoFirstFrame';
 import { useFileDrop } from '../../src/hooks/useFileDrop';
 import { videoEvidenceContext, videoTimestamp } from '../../src/utils/videoEvidence';
 
@@ -7,10 +8,26 @@ window.electron = {
   getPathForFile: (file: File) => '/fixture/' + file.name,
 } as typeof window.electron;
 function App() {
+  const [previewUrls, setPreviewUrls] = React.useState<string[]>([]);
+  React.useEffect(
+    () => () => previewUrls.forEach((url) => URL.revokeObjectURL(url)),
+    [previewUrls]
+  );
   const { droppedFiles, addFiles } = useFileDrop();
   return (
     <main>
       <h1>Video sampling</h1>
+      <input
+        type="file"
+        multiple
+        aria-label="Gallery previews"
+        onChange={(event) =>
+          setPreviewUrls(Array.from(event.target.files ?? [], (file) => URL.createObjectURL(file)))
+        }
+      />
+      {previewUrls.map((url) => (
+        <VideoFirstFrame key={url} src={url} />
+      ))}
       <input
         type="file"
         aria-label="Video"

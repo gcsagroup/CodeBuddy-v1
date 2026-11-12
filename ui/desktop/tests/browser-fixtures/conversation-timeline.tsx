@@ -20,7 +20,9 @@ Object.assign(window, {
     workspacePanel: async () => ({}),
   },
 });
-const messages: Message[] = Array.from({ length: 80 }, (_, i) => ({
+const density = new URLSearchParams(location.search).get('density');
+const turnCount = density === 'short' ? 8 : density === 'long' ? 80 : 40;
+const messages: Message[] = Array.from({ length: turnCount * 2 }, (_, i) => ({
   id: `message-${i}`,
   role: i % 2 ? 'assistant' : 'user',
   created: i + 1,

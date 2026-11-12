@@ -473,7 +473,7 @@ export default function KeyboardShortcutsSection() {
   }
 
   return (
-    <div className="space-y-4 pr-4 pb-8 mt-1">
+    <div className="@container space-y-4 pb-4">
       {showRestartNotice && (
         <Card className="rounded-lg border-yellow-600/50 bg-yellow-600/10">
           <CardContent className="pt-4 px-4 pb-4">
@@ -506,15 +506,15 @@ export default function KeyboardShortcutsSection() {
               {intl.formatMessage(categoryDescriptionMessages[category])}
             </CardDescription>
           </CardHeader>
-          <CardContent className="pt-4 space-y-4 px-4">
+          <CardContent className="divide-y divide-border-primary px-4">
             {configs.map((config) => {
               const shortcut = shortcuts[config.key];
               const isEditing = editingKey === config.key;
 
               return (
-                <div key={config.key} className="flex items-center justify-between">
+                <div key={config.key} className="flex flex-col items-start gap-2 py-3 first:pt-0 last:pb-0 @min-[32rem]:flex-row @min-[32rem]:items-center @min-[32rem]:gap-4">
                   <div className="flex-1">
-                    <h3 className="text-text-primary text-xs">
+                    <h3 className="text-sm font-medium text-text-primary">
                       {intl.formatMessage(config.label)}
                     </h3>
                     <p className="text-xs text-text-secondary max-w-md mt-[2px]">

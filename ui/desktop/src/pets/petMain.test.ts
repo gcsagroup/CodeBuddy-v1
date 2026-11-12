@@ -10,7 +10,7 @@ const host = vi.hoisted(() => ({
   handlers: new Map<string, (...args: unknown[]) => Promise<unknown>>(),
   signals: new Map<string, (...args: unknown[]) => void>(),
   cursor: { x: 1800, y: 900 },
-  sender: { send: vi.fn() },
+  sender: { send: vi.fn(), on: vi.fn() },
   show: vi.fn(),
   focus: vi.fn(),
   minimized: false,
@@ -21,7 +21,7 @@ const host = vi.hoisted(() => ({
   extraWindows: [] as Array<{
     id: number;
     isDestroyed: () => boolean;
-    webContents: { send: (...args: unknown[]) => void };
+    webContents: { send: (...args: unknown[]) => void; on: ReturnType<typeof vi.fn> };
     once: (...args: unknown[]) => void;
     show: () => void;
     focus: () => void;
@@ -134,8 +134,9 @@ describe('bundled pet registry and saved selection', () => {
     vi.useRealTimers();
     await fs.rm(host.root, { recursive: true, force: true });
   });
-  const start = () =>
+  const start = (onWorkingChange?: (working: boolean) => void) =>
     registerDesktopPet({
+      onWorkingChange,
       preload: 'unused',
       rendererUrl: 'http://localhost/',
       builtinDirectory: path.join(host.root, 'bundled'),
@@ -146,6 +147,23 @@ describe('bundled pet registry and saved selection', () => {
       { sender: BrowserWindow.getAllWindows()[0].webContents },
       value
     ) as Promise<PetSnapshot>;
+
+  it('keeps the system awake while any task is working with the pet hidden', async () => {
+    const working = vi.fn();
+    await start(working);
+    const publish = (sessionId: string, state: string) =>
+      host.signals.get('pet-task')!({ sender: host.sender }, { sessionId, title: sessionId, state });
+    publish('a', 'working');
+    publish('b', 'working');
+    publish('a', 'completed');
+    expect(working).toHaveBeenLastCalledWith(true);
+    publish('b', 'input');
+    expect(working).toHaveBeenLastCalledWith(false);
+    publish('b', 'working');
+    const [, onCrash] = host.sender.on.mock.calls.find(([event]) => event === 'render-process-gone')!;
+    onCrash();
+    expect(working).toHaveBeenLastCalledWith(false);
+  });
 
   it('loads all three bundled choices and persists the chosen animal separately from visibility', async () => {
     await start();
@@ -236,7 +254,7 @@ describe('bundled pet registry and saved selection', () => {
       isDestroyed: () => false,
       isMinimized: () => false,
       restore: vi.fn(),
-      webContents: { send: vi.fn() },
+      webContents: { send: vi.fn(), on: vi.fn() },
       once: vi.fn(),
       show: vi.fn(),
       focus: vi.fn(),
@@ -358,6 +376,9 @@ describe('bundled pet registry and saved selection', () => {
     });
     await start();
     await request({ action: 'configure', preferences: { selectedId: 'red-panda', visible: true } });
+    const theme = { mode: 'dark', theme: 'dark', useSystemTheme: false };
+    host.signals.get('broadcast-theme-change')!({ sender: host.sender }, theme);
+    expect(contents.send).toHaveBeenCalledWith('theme-changed', theme);
     expect(host.createWindow).toHaveBeenCalledWith(
       expect.objectContaining({
         webPreferences: expect.objectContaining({ backgroundThrottling: false }),
@@ -467,6 +488,11 @@ describe('bundled pet registry and saved selection', () => {
     );
     await host.handlers.get('desktop-pet')!(event, { action: 'compose', composing: true });
     expect(host.createWindow).toHaveBeenCalledWith(expect.objectContaining({ focusable: true, skipTaskbar: true }));
+    if (process.platform === 'darwin') {
+      expect(host.createWindow).toHaveBeenCalledWith(expect.objectContaining({
+        type: 'panel', hiddenInMissionControl: true,
+      }));
+    }
     expect(floating.setFocusable).not.toHaveBeenCalled();
     expect(floating.setSkipTaskbar).toHaveBeenLastCalledWith(true);
     expect(floating.focus).toHaveBeenCalledOnce();

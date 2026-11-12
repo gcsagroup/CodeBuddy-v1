@@ -12,7 +12,7 @@ test('Message identity keeps separate answers when a provider reuses its respons
 }, testInfo) => {
   const workspace = join(isolatedProfileRoot, 'identity-workspace');
   mkdirSync(workspace, { recursive: true });
-  await expect(appPage.getByRole('heading', { name: '欢迎使用 CodeBuddy' })).toBeVisible();
+  await expect(appPage.getByRole('heading', { name: '我是 CodeBuddy，一起把事情做好。' })).toBeVisible();
   await appPage.evaluate((dir) => window.electron.addRecentDir(dir), workspace);
   await appPage.getByRole('button', { name: '请选择目录' }).click();
   await appPage.getByRole('menuitem').filter({ hasText: 'identity-workspace' }).click();

@@ -7,6 +7,8 @@ description: 使用 CodeBuddy 的 ComfyUI 工具选择已保存工作流，生�
 
 使用当前会话中的 `generate_image` / `generate_video`。加载本技能后，可用工具会随当前权限范围展示；如果缺少工具，用 `search_mcp_tools` 按这两个精确名称查询。技能不建立连接或授予权限。
 
+如果 inspect 返回 service 和 model，则当前默认项是云端模型。按该模型列出的 modes 和工具参数提交；参考图编辑使用 reference_images，图生视频用 image_path 传入上轮完成回执中的 PNG。下面的工作流目录与节点参数仅适用于 ComfyUI。
+
 ## 按需读取与任务边界
 
 - 首次选择模式、传参考图、调参数或处理失败时，读 [操作与故障处理](references/operations.md)。其中 [调用样例](references/requests.json) 要替换真实检查结果，不是一批待自动执行的任务。

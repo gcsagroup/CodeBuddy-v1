@@ -232,6 +232,18 @@ describe('project group label', () => {
     expect(role.avatar).toBe('📚');
   });
 
+  it('describes the folder and its running chats on keyboard focus without toggling the group', async () => {
+    const group = { path: 'D:/Studio', label: 'Studio', sessions: [{ id: 'one' }, { id: 'two' }] } as never;
+    render(<ProjectSessionGroup group={group} activeCount={1} renderSession={s => <span key={s.id}>{s.id}</span>} />);
+    await userEvent.tab();
+    const card = await screen.findByRole('tooltip');
+    expect(card).toHaveTextContent('2 recent conversations · 1 running');
+    expect(card).toHaveTextContent('D:/Studio');
+    expect(screen.getByRole('button', { name: 'Studio' })).toHaveAttribute('aria-expanded', 'true');
+    await userEvent.keyboard('{Escape}');
+    await waitFor(() => expect(screen.queryByRole('tooltip')).not.toBeInTheDocument());
+  });
+
   it('preserves the project directory casing', () => {
     expect(projectGroupLabelClassName.split(' ')).not.toContain('uppercase');
   });
@@ -267,10 +279,11 @@ describe('project group label', () => {
     fireEvent.keyDown(input, { key: 'Enter' });
 
     expect(screen.getByText('旗舰项目')).toBeVisible();
-    expect(screen.getByRole('button', { name: '旗舰项目' })).toHaveAttribute(
-      'title',
-      'D:\\Code-Agent'
-    );
+    const folder = screen.getByRole('button', { name: '旗舰项目' });
+    expect(folder).not.toHaveAttribute('title');
+    fireEvent.focus(folder);
+    const card = await screen.findByRole('tooltip');
+    expect(within(card).getByText('D:\\Code-Agent')).toBeInTheDocument();
     expect(window.localStorage.getItem(PROJECT_ALIAS_STORAGE_KEY)).toContain('旗舰项目');
   });
 
@@ -325,6 +338,7 @@ it('keeps pins in their workspace or task group and preserves recency below them
     id, name: id, workingDir, createdAt: '2026-11-01', updatedAt: `2026-11-0${day}`, messageCount: 1,
   });
   const result = groupNavigationSessions([
+    { ...item('main', 6, ''), globalConversation: true },
     item('old-project', 1, 'D:/project'), item('new-project', 6, 'D:/project'),
     item('old-task', 1, ''), item('new-task', 6, ''), item('middle-task', 5, ''),
   ], '', ['old-project', 'old-task']);

@@ -67,6 +67,41 @@ beforeEach(() => {
 afterEach(() => cancelAcpPermissionRequestsForSession('between-replies'));
 
 describe('processes between public replies', () => {
+  it('identifies the main assistant once per reply and renders an independent project report', () => {
+    const reply = assistant('reply', [{ type: 'text', text: 'I sent the task to the project.' }]);
+    reply.metadata.inference = { provider: 'test', requestedModel: 'model-A', resolvedModel: 'model-A' };
+    const notice = assistant('receipt', [{ type: 'systemNotification', notificationType: 'inlineMessage', msg: '', data: {
+      event: 'managed_turn_result', outcome: 'completed', requestId: 'task-1', sessionId: 'plane',
+      brief: { title: 'Plane', task: 'Build', result: 'Controls work.', files: [], fileCount: 0 },
+    } }]);
+    const { container } = render(<ProgressiveMessageList mainConversation messages={[user, reply, notice]}
+      chat={{ sessionId: 'main' }} isUserMessage={m => m.role === 'user'} />, { wrapper: IntlTestWrapper });
+    expect(container.querySelector('.user svg.lucide-user-round')).toBeTruthy();
+    expect(screen.getAllByText('CodeBuddy')).toHaveLength(2);
+    expect(screen.getByText('model-A')).toBeVisible();
+    expect(screen.getByRole('article', { name: 'Project brief · Plane' }).closest('[data-chat-turn-id]')).toBeNull();
+    expect(screen.getByText('Controls work.')).toBeVisible();
+  });
+  it.each([false, true])('shows one footer per user turn with an interruption receipt: %s', (stopped) => {
+    const stage = assistant('stage', [{ type: 'text', text: 'Checking the workspace' }]);
+    stage.metadata.usage = { inputTokens: 10, outputTokens: 4, totalTokens: 14 };
+    const reply = assistant('reply', [{ type: 'text', text: 'Starting the server file' }]);
+    reply.metadata.usage = { inputTokens: 20, outputTokens: 7, totalTokens: 27 };
+    const terminal = assistant('stop', [{ type: 'systemNotification', notificationType: 'turnTerminal', msg: '',
+      data: { schema_version: 1, session_id: 'between-replies', run_id: 'run', terminal_message_id: 'stop',
+        source_user_message_id: user.id, status: 'interrupted', last_response_text_available: true,
+        user_requested_stop: true, visible_text_available: true, tool_action_count: 1,
+        checkpoint_id: null, retry_strategy: 'not_available', copy_artifact_ref: null,
+        finished_at: new Date(62_000).toISOString() },
+    }]);
+    const { container } = render(show([user, stage, assistant('read', [request('one')]), receipt('one'),
+      reply, ...(stopped ? [terminal] : [])]), { wrapper: IntlTestWrapper });
+    expect(screen.getByText('Starting the server file')).toBeVisible();
+    expect(screen.getByText('Output 11')).toBeVisible();
+    expect(container.querySelectorAll('.codepro-message-actions')).toHaveLength(1);
+    if (stopped) expect(screen.getByText('Stopped after 1 min 1 sec')).toBeVisible();
+    else expect(screen.getByText('Checking the workspace')).toBeVisible();
+  });
   it.each(['completed', 'cancelled'] as const)('times the active turn and freezes on %s even without tool history', (status) => {
     vi.useFakeTimers();
     try {

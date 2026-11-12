@@ -9,6 +9,7 @@ import {
 } from '../acp/permissionRequests';
 import { collectMediaJobs, mediaJobObservation } from './mediaJobPresentation';
 import { MediaTaskRows, MediaTaskCards } from './MediaTaskRows';
+import { OPEN_GENERATION_JOB } from '../workspace-panel/workspaceFilePanel';
 import ProgressiveMessageList from './ProgressiveMessageList';
 
 const { extMethod, verifiedFiles } = vi.hoisted(() => ({
@@ -89,6 +90,24 @@ const rows = (messages: Message[], readOnly = false) => (
 const owner = (children: React.ReactNode) => (
   <MediaJobsProvider sessionId={sessionId}>{children}</MediaJobsProvider>
 );
+it('opens the clicked job when two generation cards share a conversation', async () => {
+  extMethod.mockResolvedValue({ sessionId, jobs: [current(jobA, 'running'), current(jobB, 'queued')] });
+  const jobs = [...new Set(collectMediaJobs([
+    request('first'), response('first', jobA), request('second'), response('second', jobB),
+  ]).values())];
+  const view = render(owner(<MediaTaskCards jobs={jobs} sessionId={sessionId} />), { wrapper: IntlTestWrapper });
+  await act(async () => { await Promise.resolve(); });
+  const listener = vi.fn();
+  window.addEventListener(OPEN_GENERATION_JOB, listener);
+  try {
+    for (const id of [jobB, jobA]) {
+      fireEvent.click(view.container.querySelector(`button[data-media-card-id="${id}"]`)!);
+      expect(listener.mock.lastCall?.[0].detail).toEqual({ sessionId, jobId: id });
+    }
+  } finally {
+    window.removeEventListener(OPEN_GENERATION_JOB, listener);
+  }
+});
 beforeEach(() => {
   window.sessionStorage.clear();
   extMethod.mockReset().mockResolvedValue({ sessionId, jobs: [] });

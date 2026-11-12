@@ -52,6 +52,7 @@ export async function acpPromptSession(
       : {}),
     ...(message.metadata.goalRequest ? { 'codebuddy/goal': message.metadata.goalRequest } : {}),
     ...(message.id ? { [CODEPRO_SOURCE_MESSAGE_ID_META_KEY]: message.id } : {}),
+    ...(message.metadata.resumedRequestId ? { 'codebuddy/resumed-request-id': message.metadata.resumedRequestId } : {}),
     ...(message.metadata.presentation
       ? { 'codebuddy/message-presentation': message.metadata.presentation }
       : {}),

@@ -52,6 +52,23 @@ it('shows the empty page without a native blank view covering it, then submits t
   view.unmount();
 });
 
+it('shows only the native action for the displayed tab, including failures and expiry', async () => {
+  let browser = { id: 'first', url: 'https://example.com', feedback: { operation: 'click', phase: 'running' } };
+  invoke.mockImplementation(async (r: PanelRequest) => r.action === 'browser-state' ? { browser } : {});
+  const view = render(<WorkspaceBrowser scope={scope} id="first" />, { wrapper: IntlTestWrapper });
+  await waitFor(() => expect(screen.getByRole('status')).toHaveTextContent('Running: Click page element'));
+  expect(view.container.querySelector('.wb-control-surface .glow')).toBeInTheDocument();
+  browser = { ...browser, feedback: { operation: 'click', phase: 'failed' } };
+  await waitFor(() => expect(screen.getByRole('status')).toHaveTextContent('Click page element failed'));
+  view.rerender(<WorkspaceBrowser scope={scope} id="second" />);
+  expect(screen.getByRole('status')).toBeEmptyDOMElement();
+  expect(view.container.querySelector('.glow')).not.toBeInTheDocument();
+  browser = { id: 'second', url: 'https://example.com', feedback: { operation: 'observe', phase: 'completed' } };
+  await waitFor(() => expect(screen.getByRole('status')).toHaveTextContent('Completed: Read page'));
+  invoke.mockImplementation(async () => ({ browser: { id: 'second', url: browser.url } }));
+  await waitFor(() => expect(screen.getByRole('status')).toBeEmptyDOMElement());
+});
+
 it('uses stop while loading and displays navigation failures', async () => {
   invoke.mockImplementation(async (r: PanelRequest) => {
     if (r.action === 'browser-state')
@@ -86,7 +103,7 @@ it('keeps a loaded native page visible beside popovers and restores it after a c
   );
   const page = new DOMRect(600, 100, 400, 500);
   const view = render(<WorkspaceBrowser scope={scope} id="loaded" />, { wrapper: IntlTestWrapper });
-  const host = view.container.querySelector('.wb-statusbar')!.previousElementSibling!;
+  const host = view.container.querySelector('.wb-native-viewport')!;
   vi.spyOn(host, 'getBoundingClientRect').mockReturnValue(page);
   const bounds = () => {
     const calls = invoke.mock.calls.filter(([request]) => request.action === 'browser-bounds');

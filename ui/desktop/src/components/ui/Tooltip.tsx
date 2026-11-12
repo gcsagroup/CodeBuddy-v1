@@ -16,9 +16,11 @@ function TooltipProvider({
   );
 }
 
-function Tooltip({ ...props }: React.ComponentProps<typeof TooltipPrimitive.Root>) {
+function Tooltip({ skipDelayDuration, ...props }: React.ComponentProps<typeof TooltipPrimitive.Root> & {
+  skipDelayDuration?: number;
+}) {
   return (
-    <TooltipProvider>
+    <TooltipProvider skipDelayDuration={skipDelayDuration}>
       <TooltipPrimitive.Root data-slot="tooltip" {...props} />
     </TooltipProvider>
   );

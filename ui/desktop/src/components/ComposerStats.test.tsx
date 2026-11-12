@@ -11,14 +11,18 @@ const message = (usage: MessageUsage): Message => ({
 
 it('switches from live measured or estimated output to the completed session speed', () => {
   const stats = { decodeTokens: 32, decodeMs: 1000 };
-  const view = (liveSpeed: { rate: number | null; estimated: boolean } | null) =>
-    <ComposerStats messages={[]} stats={stats} liveSpeed={liveSpeed}>{null}</ComposerStats>;
+  const view = (liveSpeed: { rate: number | null; estimated: boolean } | null, lastSampledSpeed?: { rate: number; estimated: boolean }) =>
+    <ComposerStats messages={[]} stats={stats} liveSpeed={liveSpeed} lastSampledSpeed={lastSampledSpeed}>{null}</ComposerStats>;
   const { rerender } = render(view({ rate: null, estimated: false }), { wrapper: IntlTestWrapper });
-  expect(screen.getByText('— tok/s')).toBeVisible();
+  expect(screen.getByRole('button', { name: 'Average generation speed' })).toHaveTextContent('32.0 tok/s');
   rerender(view({ rate: 25, estimated: false }));
   expect(screen.getByRole('button', { name: 'Current generation speed' })).toHaveTextContent('25.0 tok/s');
   rerender(view({ rate: 15, estimated: true }));
   expect(screen.getByText('≈15.0 tok/s')).toBeVisible();
+  rerender(view({ rate: null, estimated: false }, { rate: 15, estimated: true }));
+  expect(screen.getByRole('button', { name: 'Last sampled generation speed' })).toHaveTextContent('≈15.0 tok/s');
+  rerender(view({ rate: 0, estimated: false }, { rate: 15, estimated: true }));
+  expect(screen.getByRole('button', { name: 'Current generation speed' })).toHaveTextContent('0.00 tok/s');
   rerender(view(null));
   expect(screen.getByRole('button', { name: 'Average generation speed' })).toHaveTextContent('32.0 tok/s');
 });

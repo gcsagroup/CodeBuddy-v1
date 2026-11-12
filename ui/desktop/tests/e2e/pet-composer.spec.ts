@@ -22,6 +22,14 @@ test('pet add menu transfers a draft across real Electron windows without sendin
   const editor = pet.getByRole('textbox');
   await expect(editor).toBeVisible();
   await editor.fill('pet handoff acceptance draft');
+  for (const mode of ['dark', 'light'] as const) {
+    await appPage.evaluate(theme => window.electron.broadcastThemeChange({
+      mode: theme, theme, useSystemTheme: false,
+    }), mode);
+    await expect(pet.locator('.pet-compose-panel')).toHaveCSS('background-color',
+      mode === 'dark' ? 'rgb(34, 37, 42)' : 'rgb(255, 255, 255)');
+    await pet.locator('.pet-compose-panel').screenshot({ path: testInfo.outputPath(`pet-chat-${mode}.png`) });
+  }
   await pet.getByRole('button', { name: /添加附件或功能|Add attachments or features/ }).click();
   await expect(pet.getByRole('button', { name: /^(文件|File)$/ })).toBeVisible();
   await pet.getByRole('button', { name: /在主对话选择技能和工具|Skills and tools in main conversation/ }).click();

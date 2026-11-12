@@ -38,7 +38,7 @@ export class RuntimeSettings {
       if (!s.extensions.some(e => e.configKey === 'developer')) s.extensions.push({ configKey: 'developer', enabled: true, extension: { type: 'builtin', name: 'developer', description: 'Official Harness file, search and shell tools' } });
       if (!s.extensions.some(e => e.configKey === 'projectmemory')) s.extensions.push({ configKey: 'projectmemory', enabled: true, extension: { type: 'platform', name: 'projectmemory', description: 'Project memory stored by Harness with candidate review and controlled recall' } });
       if (!s.extensions.some(e => e.configKey === 'git')) s.extensions.push({ configKey: 'git', enabled: true, extension: { type: 'builtin', name: 'git', description: 'Inspect repository changes and manage staging, commits, and local branches' } });
-    });
+    }, ['extensions'], { skipUnchanged: true });
     this.extensionRevision += 1;
     this.decodedExtensions.clear();
   }

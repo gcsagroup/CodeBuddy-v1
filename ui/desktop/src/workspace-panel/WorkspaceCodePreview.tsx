@@ -1,5 +1,6 @@
-import { memo, useEffect, useRef } from 'react';
-import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
+import { lazy, memo, Suspense, useEffect, useRef } from 'react';
+
+const SyntaxHighlighter = lazy(() => import('react-syntax-highlighter/dist/esm/prism'));
 
 const languages: Record<string, string> = {
   js: 'javascript',
@@ -48,46 +49,51 @@ export const WorkspaceCodePreview = memo(function WorkspaceCodePreview({
         ?.scrollIntoView({ block: 'center' });
   }, [line, content]);
   const language = languages[path.split('.').pop()?.toLowerCase() ?? ''] ?? 'text';
-  // Bound tokenization cost for large files; retain their full, selectable contents.
+  const plainPreview = (
+    <pre>
+      {line
+        ? content.split('\n').map((text, index) => (
+            <span
+              key={index}
+              className={`wb-code-line ${index + 1 === line ? 'wb-code-line-selected' : ''}`}
+              data-source-line={index + 1}
+            >
+              <span className="react-syntax-highlighter-line-number">{index + 1}</span>
+              {text || '\n'}
+            </span>
+          ))
+        : content}
+    </pre>
+  );
+  // Keep linked lines selectable while loading the grammar and for large files.
   return (
     <div ref={root} className={'wb-code ' + (wrap ? 'wb-code-wrap' : '')}>
       <div className="wb-code-language">{language}</div>
       {content.length > 100_000 ? (
-        <pre>
-          {line
-            ? content.split('\n').map((text, index) => (
-                <span
-                  key={index}
-                  className={`wb-code-line ${index + 1 === line ? 'wb-code-line-selected' : ''}`}
-                  data-source-line={index + 1}
-                >
-                  <span className="react-syntax-highlighter-line-number">{index + 1}</span>
-                  {text || '\n'}
-                </span>
-              ))
-            : content}
-        </pre>
+        plainPreview
       ) : (
-        <SyntaxHighlighter
-          language={language}
-          style={{}}
-          useInlineStyles={false}
-          showLineNumbers
-          wrapLines
-          lineProps={(number) => ({
-            className: `wb-code-line ${number === line ? 'wb-code-line-selected' : ''}`,
-            'data-source-line': number,
-          })}
-          codeTagProps={{ style: { font: 'inherit', color: 'inherit', textShadow: 'none' } }}
-          lineNumberStyle={{
-            minWidth: '3.5em',
-            paddingRight: '1.5em',
-            userSelect: 'none',
-            opacity: 0.45,
-          }}
-        >
-          {content}
-        </SyntaxHighlighter>
+        <Suspense fallback={plainPreview}>
+          <SyntaxHighlighter
+            language={language}
+            style={{}}
+            useInlineStyles={false}
+            showLineNumbers
+            wrapLines
+            lineProps={(number: number) => ({
+              className: `wb-code-line ${number === line ? 'wb-code-line-selected' : ''}`,
+              'data-source-line': number,
+            })}
+            codeTagProps={{ style: { font: 'inherit', color: 'inherit', textShadow: 'none' } }}
+            lineNumberStyle={{
+              minWidth: '3.5em',
+              paddingRight: '1.5em',
+              userSelect: 'none',
+              opacity: 0.45,
+            }}
+          >
+            {content}
+          </SyntaxHighlighter>
+        </Suspense>
       )}
     </div>
   );

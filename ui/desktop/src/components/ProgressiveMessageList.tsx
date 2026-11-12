@@ -26,6 +26,8 @@ import {
   useSyncExternalStore,
 } from 'react';
 import ThinkingIcon from './ThinkingIcon';
+import { UserRound } from 'lucide-react';
+import { MainConversationAuthor } from './MainConversationAuthor';
 import { defineMessages, useIntl } from '../i18n';
 import GooseMessage, { codeProTerminalPresentation, hasMissingFinalReply } from './GooseMessage';
 import { resolveToolLoadingStatus } from './ToolCallWithResponse';
@@ -169,6 +171,8 @@ const i18n = defineMessages({
 });
 
 interface ProgressiveMessageListProps {
+  mainConversation?: boolean;
+  currentModel?: string | null;
   messages: Message[];
   sessionType?: import('../types/session').SessionType;
   readOnly?: boolean;
@@ -490,6 +494,8 @@ function TurnProcessHistory({
 
 function ProgressiveMessageListContent({
   messages,
+  mainConversation,
+  currentModel,
   sessionType,
   readOnly = false,
   messageEditingDisabled = false,
@@ -537,7 +543,7 @@ function ProgressiveMessageListContent({
   sharedMediaJobs?: MediaJobsByCall;
   processSettled?: boolean;
   contentClip?: readonly [number, number, number];
-  footer?: { hidden?: boolean; messageId?: string; usage?: import('../types/message').MessageUsage; created?: number };
+  footer?: { hidden?: boolean; messageIndex?: number; usage?: import('../types/message').MessageUsage; created?: number };
 }) {
   const intl = useIntl();
   const mediaSnapshot = useMediaJobs(readOnly ? '' : chat.sessionId);
@@ -652,7 +658,7 @@ function ProgressiveMessageListContent({
               );
             }
           }
-          return <SystemNotificationInline notification={notification} />;
+          return <SystemNotificationInline sessionId={chat.sessionId} notification={notification} />;
         }
         default:
           return null;
@@ -1602,17 +1608,20 @@ function ProgressiveMessageListContent({
               previousResolvedModel &&
               renderModelChangeDisclosure(previousResolvedModel, currentResolvedModel)}
             <div
-              className={`relative ${localIndex === 0 ? 'mt-0' : compactTools ? 'mt-3' : 'mt-4'} ${isUser ? 'user' : 'assistant'} ${messageIsInChain ? 'in-chain' : ''}`}
+              className={`relative ${localIndex === 0 ? 'mt-0' : compactTools ? 'mt-3' : 'mt-4'} ${isUser ? 'user' : 'assistant'} ${mainConversation && isUser ? 'pr-9' : ''} ${messageIsInChain ? 'in-chain' : ''}`}
               data-testid="message-container"
             >
               {isUser ? (
                 !hasOnlyToolResponses(message) && (
+                  <>
+                  {mainConversation && <span aria-hidden="true" className="absolute right-0 top-0 grid size-7 place-items-center rounded-full bg-teal-500/15 text-teal-700 dark:text-teal-300"><UserRound size={17} /></span>}
                   <UserMessage
                     message={message}
                     readOnly={readOnly || messageEditingDisabled}
                     onMessageUpdate={onMessageUpdate}
                     sessionType={sessionType}
                   />
+                  </>
                 )
               ) : (
                 <GooseMessage
@@ -1625,7 +1634,7 @@ function ProgressiveMessageListContent({
                       ? [part.start, part.end]
                       : undefined
                   }
-                  showMessageFooter={!footer?.hidden && (!footer?.messageId || footer.messageId === message.id) && (!part || part.footer)}
+                  showMessageFooter={!footer?.hidden && (footer?.messageIndex === undefined || footer.messageIndex === index) && (!part || part.footer)}
                   usageOverride={footer?.usage}
                   createdOverride={footer?.created}
                   messages={sourceMessages}
@@ -1690,6 +1699,7 @@ function ProgressiveMessageListContent({
     getPreviousResolvedModel,
     getResolvedModel,
     renderModelChangeDisclosure,
+    mainConversation,
     isRepresentedToolTransport,
     renderSystemNotification,
     suppressProviderThinking,
@@ -1714,7 +1724,7 @@ function ProgressiveMessageListContent({
       clip?: readonly [number, number, number],
       footer?: {
         hidden?: boolean;
-        messageId?: string;
+        messageIndex?: number;
         usage?: import('../types/message').MessageUsage;
         created?: number;
       }
@@ -1732,6 +1742,7 @@ function ProgressiveMessageListContent({
         footer={footer}
         renderRange={[start, end]}
         sessionType={sessionType}
+        mainConversation={mainConversation}
         readOnly={readOnly}
         messageEditingDisabled={messageEditingDisabled}
         chat={chat}
@@ -1758,7 +1769,19 @@ function ProgressiveMessageListContent({
     return (
       <>
         {starts.map((start, turnIndex) => {
-          const turn = messages.slice(start, starts[turnIndex + 1] ?? messages.length);
+          const items = messages.slice(start, starts[turnIndex + 1] ?? messages.length);
+          // An incoming project report has its own author and lifetime. Keep it
+          // outside the current prompt's collapsible tool history and footer.
+          const reports = mainConversation ? items.filter(message => {
+            const data = getInlineSystemNotification(message)?.data;
+            return data && typeof data === 'object' && 'event' in data && data.event === 'managed_turn_result' &&
+              'outcome' in data && data.outcome === 'completed';
+          }) : [];
+          const reportRows = reports.map(message => <Fragment key={message.id}>
+            {renderSystemNotification(getInlineSystemNotification(message)!, false)}
+          </Fragment>);
+          const turn = reports.length ? items.filter(message => !reports.includes(message)) : items;
+          if (!turn.length) return <Fragment key={items[0].id ?? start}>{reportRows}</Fragment>;
           const latest = turnIndex === starts.length - 1;
           const streaming = isStreamingMessage && latest;
           // Queued presentation can outlive transport streaming. It belongs to
@@ -1770,7 +1793,7 @@ function ProgressiveMessageListContent({
           const continued = continuations.length > 0;
           const source = continuations[continuations.length - 1] ?? turn[0];
           const sourceUserId = source.id ?? turn[0]?.id;
-          let lastReplyId: string | undefined;
+          let lastReplyIndex = -1;
           let terminalIndex = -1;
           let lastToolIndex = -1;
           let answerBoundaryIndex = -1;
@@ -1779,7 +1802,6 @@ function ProgressiveMessageListContent({
             if (getToolRequests(message).length > 0) lastToolIndex = index;
             const record = getTurnTerminalRecord(message);
             if (
-              continued &&
               message.role === 'assistant' &&
               message.metadata.userVisible &&
               !record &&
@@ -1787,7 +1809,7 @@ function ProgressiveMessageListContent({
                 (part) => part.type === 'image' || (part.type === 'text' && !!part.text.trim())
               )
             ) {
-              lastReplyId = message.id ?? undefined;
+              lastReplyIndex = index;
             }
             if (
               record &&
@@ -1936,7 +1958,13 @@ function ProgressiveMessageListContent({
               break;
             }
           }
-          const usage = hasTerminalBoundary
+          // Both the body and a stop notice can render a footer. Assign the
+          // turn's actions and usage once, including chats without a terminal.
+          const footerIndex = continued || !hasTerminalBoundary
+            ? lastReplyIndex
+            : answerIndex >= 0 ? answerIndex : terminalIndex;
+          const messageIndex = isConversationTurnStart(turn[0]) && footerIndex >= 0 ? footerIndex : undefined;
+          const usage = hasTerminalBoundary || (messageIndex !== undefined && !streaming && !pending)
             ? conversationUsage(rawStart >= 0 ? sourceMessages.slice(rawStart, rawEnd) : turn, {
                 attributedOnly: true,
               })
@@ -1950,8 +1978,12 @@ function ProgressiveMessageListContent({
           const deliveredPaths = turnMedia.flatMap(job => mediaOutputPaths(mediaJobObservation(job, mediaSnapshot).receipt));
           return (
             <DeliveredMediaScope key={turn[0]?.id ?? start} paths={deliveredPaths}>
-            <section data-chat-turn-id={turn[0]?.id} className="mb-6">
+            <section data-chat-turn-id={turn[0]?.id} className={mainConversation ? 'main-conversation-turn mb-6' : 'mb-6'}>
               {renderSlice(turn, 0, userEnd, streaming, pending, settled)}
+              {mainConversation && (hasProcess || lastReplyIndex >= 0 || streaming) && <MainConversationAuthor
+                model={turn.find(m => getResolvedModel(m))?.metadata.inference?.resolvedModel ??
+                  source.metadata.inference?.requestedModel ?? (streaming ? currentModel : null)} />}
+              <div className={mainConversation ? 'pl-9' : 'contents'}>
               <TurnProcessHistory
                 settled={!continued && settled && hasHistory}
                 label={processLabel}
@@ -1966,7 +1998,7 @@ function ProgressiveMessageListContent({
                   pending && !settled,
                   settled,
                   !continued && answerIndex >= 0 ? [answerIndex, 0, answerStart] : undefined,
-                  { hidden: settled || streaming || pending }
+                  { hidden: settled || streaming || pending, messageIndex, usage }
                 )}
               </TurnProcessHistory>
               <AnswerFiles.Provider value={conversationChanges.find(change => change.id === turn[0]?.id)?.files ?? []}>
@@ -1980,7 +2012,7 @@ function ProgressiveMessageListContent({
                 !continued && answerIndex >= 0
                   ? [answerIndex, answerStart, turn[answerIndex].content.length]
                   : undefined,
-                { usage, created: completedAt, messageId: lastReplyId, hidden: continued && (streaming || pending) }
+                { usage, created: completedAt, messageIndex, hidden: continued && (streaming || pending) }
               )}
               </AnswerFiles.Provider>
               {terminal?.status === 'completed' && !continued && turn[0]?.role === 'user' && turn.some(m => getToolRequests(m).length > 0) && (
@@ -1999,7 +2031,9 @@ function ProgressiveMessageListContent({
                   workspaceRoot={workspaceRoot}
                 />
               )}
+              </div>
             </section>
+            {reportRows}
             </DeliveredMediaScope>
           );
         })}

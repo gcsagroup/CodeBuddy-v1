@@ -85,7 +85,9 @@ export function profileEntries(dataDir, cwd, instructionsHome = dataDir, sharedS
     entry('tool-fs', 'dsh-tool-fs', { readMaxLineLength: 16 * 1024 }),
     entry('tool-working-directory', 'dsh-tool-working-directory'),
     entry('tool-fs-search', 'dsh-tool-fs-search', { sampleOverCapGlobResults: false }),
-    entry('subprocess', 'dsh-subprocess-local'),
+    process.platform === 'win32'
+      ? { id: 'subprocess', name: new URL('./windows-shell-output.mjs', import.meta.url).href }
+      : entry('subprocess', 'dsh-subprocess-local'),
     entry('shell-env', 'dsh-shell-env'),
     process.platform === 'win32'
       ? { id: 'shell', name: new URL('./pwsh-executor.mjs', import.meta.url).href }

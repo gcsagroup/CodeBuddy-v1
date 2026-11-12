@@ -1,7 +1,6 @@
 /* These rules belong to conversation records, not navigation or the composer. */
 .codepro-chat-history {
-  /* Windows' system-ui CJK fallback can snap fractional sizes to the same glyphs. */
-  --conversation-font-family: 'Noto Sans SC', 'Noto Sans CJK SC', var(--font-sans);
+  --conversation-font-family: var(--font-sans);
   --conversation-text-size: 13.5px;
   --conversation-code-size: 12px;
   --conversation-secondary-size: 12.5px;
@@ -233,4 +232,8 @@
 .codepro-conversation .codepro-plan[data-plan-card] :is(.prose, .prose :where(p, li)) {
   font-size: var(--text-sm, 0.875rem);
   line-height: 1.5;
+}
+.main-conversation-turn .user .message .bg-text-primary {
+  background-color: var(--color-background-secondary);
+  color: var(--color-text-primary);
 }

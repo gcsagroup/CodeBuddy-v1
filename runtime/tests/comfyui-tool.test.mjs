@@ -11,7 +11,7 @@ import { createHarnessDriver } from '../harness/index.mjs';
 import { readMediaLibrary } from '../media-library.mjs';
 
 const id = 'bafe8f1d-310a-4e29-92e7-73e7ba920ade';
-async function fixture(t, saveNode = '461') {
+async function fixture(t, saveNode = '461', batch = 1) {
   const root = await realpath(await mkdtemp(path.join(os.tmpdir(), 'codebuddy-comfy-')));
   const cwd = path.join(root, 'workspace'); await mkdir(cwd);
   t.after(async () => {
@@ -27,7 +27,7 @@ async function fixture(t, saveNode = '461') {
     if (url.endsWith('/prompt')) return Response.json({ prompt_id: id });
     if (url.includes('/upload/image')) return Response.json({ name: 'reference.png', subfolder: 'input', type: 'input' });
     if (url.includes('/cancel')) { state = 'cancelled'; return Response.json({ cancelled: true }); }
-    if (url.includes('/history/')) return Response.json(state === 'completed' ? { [id]: { status: { completed: true, status_str: 'success' }, outputs: { [saveNode]: { images: [{ filename: '../../remote.png', subfolder: 'CodeBuddy', type: 'output' }] } } } }
+    if (url.includes('/history/')) return Response.json(state === 'completed' ? { [id]: { status: { completed: true, status_str: 'success' }, outputs: { [saveNode]: { images: Array.from({ length: batch }, (_, i) => ({ filename: i ? i + '.png' : '../../remote.png', subfolder: 'CodeBuddy', type: 'output' })) } } } }
       : state === 'cancelled' ? { [id]: { status: { status_str: 'error', messages: [['execution_interrupted', {}]] } } }
         : state === 'failed' ? { [id]: { status: { status_str: 'error', messages: [['execution_error', { exception_message: 'GPU OOM' }]] } } } : {});
     if (url.endsWith('/queue')) return Response.json({ queue_running: state === 'running' ? [[1, id]] : [], queue_pending: state === 'queued' ? [[1, id]] : [] });
@@ -38,6 +38,93 @@ async function fixture(t, saveNode = '461') {
   return { root, cwd, png, calls, options, tool: comfyuiTool(options), state: value => { state = value; } };
 }
 const generate = { operation: 'generate', prompt: 'A watercolor mountain', request_id: id };
+
+function requestedImages(count, ids = ['kitten-turn'], only = true) {
+  return { selectWorkflow: async ({ workflows }) => {
+    const selected = workflows.find(w => w.compatible);
+    return { workflow_name: selected.label, assertCurrent: async () => {}, receipt: {
+      source: 'current_request', request_hash: ids.join('/'), request_ids: ids,
+      workflow_id: selected.id, image_count: count, images_only: only,
+    } };
+  } };
+}
+
+test('three requested kittens cap 39 changing prompts across concurrent cloud submissions and recreated tools', async t => {
+  const f = await fixture(t);
+  const posted = [];
+  const route = { type: 'openai', serviceId: 'fixture', url: 'http://gateway.test/v1',
+    model: { id: 'fixture', label: 'fixture', modes: ['text_to_image'] } };
+  const png = await readFile(new URL('../assets/media-test.png', import.meta.url));
+  const makeTool = () => comfyuiTool({ ...f.options, mediaRoute: route, fetchImpl: async (url, options) => {
+    assert.match(url, /images\/generations$/);
+    const body = JSON.parse(options.body);
+    assert.equal(body.n, 1);
+    posted.push(body.prompt);
+    return Response.json({ data: [{ b64_json: png.toString('base64') }] });
+  } });
+  const generate = (prompt, scope) => makeTool().execute({ operation: 'generate', prompt }, scope);
+  const scope = requestedImages(3);
+  const results = await Promise.allSettled(Array.from({ length: 39 }, (_, i) => generate('kitten variant ' + i, scope)));
+  const delivered = results.filter(r => r.status === 'fulfilled').map(r => r.value);
+  assert.equal(delivered.length, 3, results.filter(r => r.status === 'rejected' && !/本次未提交/.test(r.reason.message)).map(r => r.reason.stack).join('\n'));
+  assert.equal(results.filter(r => r.status === 'rejected' && /本次未提交/.test(r.reason.message)).length, 36);
+  assert.equal(new Set(posted).size, 3);
+  assert.equal(new Set(delivered.map(r => r.images[0].path)).size, 3);
+  for (const r of delivered) assert.deepEqual(await readFile(r.images[0].path), png);
+  const retry = await generate(posted[0], scope);
+  assert.equal(retry.completed_image_count, 3);
+  await assert.rejects(generate('another cat', requestedImages(39)), /本次未提交/);
+  await assert.rejects(generate('different style', requestedImages(3, ['kitten-turn', 'change-style'])), /本次未提交/);
+  assert.equal(posted.length, 3);
+  await generate('one more', requestedImages(4, ['kitten-turn', 'add-one']));
+  await generate('new turn', requestedImages(1, ['new-request']));
+  assert.equal(posted.length, 5);
+});
+
+test('an unacknowledged cloud submission still occupies its slot after reopening the tool', async t => {
+  const f = await fixture(t);
+  let posts = 0;
+  const makeTool = () => comfyuiTool({ ...f.options, mediaRoute: {
+    type: 'openai', serviceId: 'fixture', url: 'http://gateway.test/v1',
+    model: { id: 'fixture', label: 'fixture', modes: ['text_to_image'] },
+  }, fetchImpl: async () => { posts++; throw new Error('connection lost after submission'); } });
+  const scope = requestedImages(1);
+  const input = {operation: 'generate', prompt: 'first kitten'};
+  const unknown = await makeTool().execute(input, scope);
+  assert.equal(unknown.status, 'submission_unknown');
+  assert.equal((await makeTool().execute(input, scope)).job_id, unknown.job_id);
+  await assert.rejects(makeTool().execute({...input, prompt: 'different kitten'}, scope), /待确认 1/);
+  assert.equal(posts, 1);
+});
+
+test('queued ComfyUI images reserve capacity, confirmed failure frees it and status remains queryable', async t => {
+  const f = await fixture(t);
+  const scope = requestedImages(1);
+  const run = prompt => f.tool.execute({ operation: 'generate', prompt }, scope);
+  const first = await run('kitten');
+  assert.equal(first.status, 'queued');
+  await assert.rejects(run('other kitten'), /待确认 1/);
+  f.state('failed');
+  assert.equal((await f.tool.execute({ operation: 'status', job_id: first.job_id })).status, 'failed');
+  const replacement = await run('replacement kitten');
+  f.state('completed');
+  const completed = await f.tool.execute({ operation: 'status', job_id: replacement.job_id });
+  assert.equal(completed.completed_image_count, 1);
+  await assert.rejects(run('another'), /已保存 1/);
+  assert.equal(f.calls.filter(call => call.url.endsWith('/prompt')).length, 2);
+});
+
+test('a batch workflow publishes the requested three images from one job', async t => {
+  const f = await fixture(t, '461', 4);
+  const scope = requestedImages(3);
+  const first = await f.tool.execute({ operation: 'generate', prompt: 'kitten batch' }, scope);
+  f.state('completed');
+  const delivery = await f.tool.execute({ operation: 'status', job_id: first.job_id });
+  assert.equal(delivery.images.length, 3);
+  assert.equal(delivery.completed_image_count, 3);
+  assert.equal(f.calls.filter(call => call.url.endsWith('/prompt')).length, 1);
+  await assert.rejects(f.tool.execute({ operation: 'generate', prompt: 'more cats' }, scope), /本次未提交/);
+});
 
 test('native request identity deduplicates automatic retries including changed labels, while new requests and variants remain distinct', async t => {
   for (const kind of ['image', 'video']) await t.test(kind, async t => {

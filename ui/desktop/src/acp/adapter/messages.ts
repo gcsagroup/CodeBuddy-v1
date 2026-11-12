@@ -31,6 +31,7 @@ export function applyContentChunk(
   const existing = findMessageForChunk(state, role, messageId, gooseMeta.created);
 
   if (existing) {
+    if (role === 'user' && gooseMeta.inference) existing.metadata.inference = gooseMeta.inference;
     const lastContent = existing.content[existing.content.length - 1];
     if (reconcileLocalSteerTextChunk(state, existing, content, gooseMeta.steer)) {
       return messagesChangeWithLocalSteerConfirmation(state, existing, gooseMeta.steer);
@@ -64,6 +65,7 @@ export function applyContentChunk(
       content: [content],
       metadata: {
         ...DEFAULT_VISIBLE_MESSAGE_METADATA,
+        ...(role === 'user' && gooseMeta.inference ? { inference: gooseMeta.inference } : {}),
         ...(role === 'user' && gooseMeta.presentation?.continuation ? { userVisible: false } : {}),
         ...(gooseMeta.steer ? { steer: true } : {}),
         ...(role === 'user' && gooseMeta.scheduled ? { scheduled: true } : {}),

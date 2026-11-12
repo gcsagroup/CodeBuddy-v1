@@ -1,6 +1,8 @@
 import { registerDesktopControl } from './desktopControlMain';
 import { registerWindowMenu } from './windowMenu';
+import { revealChatOnActivate } from './utils/revealChatOnActivate';
 import { maintainVisibleWindowFrames } from './utils/windowAnimation';
+import { TaskWakelock } from './taskWakelock';
 import { applicationWindows, markAuxiliaryWindow, registerDesktopPet } from './pets/petMain';
 import { registerTrayLifecycle } from './utils/trayLifecycle';
 import { registerGitHubCliAuth } from './github/githubCliMain';
@@ -1115,7 +1117,7 @@ const appWindows = new Map<string, BrowserWindow>();
 
 const gooseServeLeases = new GooseServeLeaseRegistry(log);
 
-const windowPowerSaveBlockers = new Map<number, number>(); // windowId -> blockerId
+const taskWakelock = new TaskWakelock(powerSaveBlocker);
 // Track pending initial messages per window
 const pendingInitialMessages = new Map<
   number,
@@ -1715,21 +1717,6 @@ const createChat = async (
     pendingDeepLinks.delete(windowId);
     reactReadyWindows.delete(windowId);
 
-    if (windowPowerSaveBlockers.has(windowId)) {
-      const blockerId = windowPowerSaveBlockers.get(windowId)!;
-      try {
-        powerSaveBlocker.stop(blockerId);
-        console.log(
-          `[Main] Stopped power save blocker ${blockerId} for closing window ${windowId}`
-        );
-      } catch (error) {
-        console.error(
-          `[Main] Failed to stop power save blocker ${blockerId} for window ${windowId}:`,
-          error
-        );
-      }
-      windowPowerSaveBlockers.delete(windowId);
-    }
   });
   return mainWindow;
 };
@@ -2301,6 +2288,7 @@ ipcMain.handle('set-setting', (_event, key: SettingKey, value: unknown) => {
   (settings as any)[key] = value;
   fsSync.writeFileSync(SETTINGS_FILE, JSON.stringify(settings, null, 2));
 
+  if (key === 'enableWakelock') taskWakelock.setEnabled(value === true);
   if (key === 'language') {
     appConfig.GOOSE_LOCALE = getConfiguredGooseLocale();
   }
@@ -2393,11 +2381,11 @@ ipcMain.handle('get-dock-icon-state', () => {
 ipcMain.handle('open-notifications-settings', async () => {
   try {
     if (process.platform === 'darwin') {
-      spawn('open', ['x-apple.systempreferences:com.apple.preference.notifications']);
+      await shell.openExternal('x-apple.systempreferences:com.apple.preference.notifications');
       return true;
     } else if (process.platform === 'win32') {
       // Windows: Open notification settings in Settings app
-      spawn('ms-settings:notifications', { shell: true });
+      await shell.openExternal('ms-settings:notifications');
       return true;
     } else if (process.platform === 'linux') {
       // Linux: Try different desktop environments
@@ -2410,22 +2398,21 @@ ipcMain.handle('open-notifications-settings', async () => {
         }
       }
 
-      // GNOME
-      if (canSpawn('gnome-control-center')) {
-        spawn('gnome-control-center', ['notifications']);
-        return true;
-      }
-
-      // KDE Plasma
-      if (canSpawn('systemsettings5')) {
-        spawn('systemsettings5', ['kcm_notifications']);
-        return true;
-      }
-
-      // XFCE
-      if (canSpawn('xfce4-settings-manager')) {
-        spawn('xfce4-settings-manager', ['--socket-id=notifications']);
-        return true;
+      const managers = [
+        ['gnome-control-center', 'notifications'],
+        ['systemsettings', 'kcm_notifications'],
+        ['systemsettings5', 'kcm_notifications'],
+        ['xfce4-notifyd-config'],
+      ];
+      for (const [command, ...args] of managers) {
+        if (canSpawn(command)) {
+          await new Promise<void>((resolve, reject) => {
+            const child = spawn(command, args, { stdio: 'ignore' });
+            child.once('error', reject);
+            child.once('spawn', resolve);
+          });
+          return true;
+        }
       }
 
       console.warn('Could not find a suitable settings application for Linux');
@@ -2448,24 +2435,7 @@ ipcMain.handle('set-wakelock', async (_event, enable: boolean) => {
     s.enableWakelock = enable;
   });
 
-  // Stop all existing power save blockers when disabling the setting
-  if (!enable) {
-    for (const [windowId, blockerId] of windowPowerSaveBlockers.entries()) {
-      try {
-        powerSaveBlocker.stop(blockerId);
-        console.log(
-          `[Main] Stopped power save blocker ${blockerId} for window ${windowId} due to wakelock setting disabled`
-        );
-      } catch (error) {
-        console.error(
-          `[Main] Failed to stop power save blocker ${blockerId} for window ${windowId}:`,
-          error
-        );
-      }
-    }
-    windowPowerSaveBlockers.clear();
-  }
-
+  taskWakelock.setEnabled(enable);
   return true;
 });
 
@@ -3228,8 +3198,12 @@ async function appMain() {
   }
 
   app.on('activate', () => {
-    if (!fileOpenQueue.hasPending && applicationWindows().length === 0) {
-      createNewWindow(app);
+    if (fileOpenQueue.hasPending) return;
+    const windows = applicationWindows();
+    if (!windows.length) {
+      void createNewWindow(app);
+    } else if (process.platform === 'darwin') {
+      revealChatOnActivate(windows);
     }
   });
 
@@ -3547,7 +3521,9 @@ app.whenReady().then(async () => {
       6 * 60 * 60 * 1000
     );
     cacheTimer.unref();
+    taskWakelock.setEnabled(getSettings().enableWakelock ?? false);
     await registerDesktopPet({
+      onWorkingChange: (working) => taskWakelock.setWorking(working),
       preload: path.join(__dirname, 'preload.js'),
       rendererUrl: formatUrl(getAppUrl()),
       builtinDirectory: path.join(
@@ -3622,26 +3598,12 @@ app.on('before-quit', (event) => {
 });
 
 app.on('will-quit', async () => {
+  taskWakelock.setEnabled(false);
   const gooseServeLeaseCount = gooseServeLeases.activeLeaseCount();
   if (gooseServeLeaseCount > 0) {
     log.info(`App quitting, cleaning up ${gooseServeLeaseCount} backend lease(s)`);
     await gooseServeLeases.cleanupAll();
   }
-
-  for (const [windowId, blockerId] of windowPowerSaveBlockers.entries()) {
-    try {
-      powerSaveBlocker.stop(blockerId);
-      console.log(
-        `[Main] Stopped power save blocker ${blockerId} for window ${windowId} during app quit`
-      );
-    } catch (error) {
-      console.error(
-        `[Main] Failed to stop power save blocker ${blockerId} for window ${windowId}:`,
-        error
-      );
-    }
-  }
-  windowPowerSaveBlockers.clear();
 
   globalShortcut.unregisterAll();
 });

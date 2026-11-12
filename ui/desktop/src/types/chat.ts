@@ -11,6 +11,7 @@ export type RequestBudget = {
 
 export type TokenState = {
   liveSpeed?: { rate: number | null; estimated: boolean } | null;
+  lastSampledSpeed?: { rate: number; estimated: boolean };
   sessionStats?: { decodeTokens: number; decodeMs: number };
   requestBudget?: RequestBudget;
   contextLimit?: number;

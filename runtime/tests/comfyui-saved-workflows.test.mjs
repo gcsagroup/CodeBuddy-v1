@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtemp, rm } from 'node:fs/promises';
+import { mkdtemp, readFile, rm } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { randomUUID } from 'node:crypto';
@@ -9,6 +9,24 @@ import { comfyuiTool } from '../comfyui-tool.mjs';
 import { comfyuiVideoTool } from '../comfyui-video-tool.mjs';
 import { savedFixtureGraphs, savedFixtureInventory } from './comfyui-catalog-fixture.mjs';
 import { workflowCandidates } from '../comfyui-workflows.mjs';
+
+test('MiniMax image editing binds the active user prompt and the uploaded reference', async () => {
+  const source = JSON.parse(await readFile(new URL('../assets/comfyui/image_edit.json', import.meta.url), 'utf8'));
+  const info = Object.fromEntries(Object.values(source).map(n => [n.class_type, { input: { required: {} }, output: [] }]));
+  const read = async route => route.startsWith('/userdata?') ? ['image_edit.json'] : source;
+  const catalog = await savedWorkflowCatalog(read, info, 'image', 'image_to_image', 1);
+  const entry = selectSavedWorkflow(catalog, { workflow_name: 'image_edit' });
+  const { graph } = prepareSavedWorkflow(entry, { prompt: 'Turn the scarf blue', seed: 12 }, ['uploaded.png'], 'job', info);
+  assert.equal(graph['43'].inputs.value, 'Turn the scarf blue');
+  assert.equal(graph['45'].inputs.image, 'uploaded.png');
+  assert.equal(graph['38'].inputs.seed, 12);
+  assert.deepEqual(graph['32'].inputs, source['32'].inputs);
+  assert.equal(graph['36'].inputs.value, source['36'].inputs.value);
+  source['61'].inputs.value = true;
+  const changed = await savedWorkflowCatalog(read, info, 'image', 'image_to_image', 1);
+  assert.equal(changed.public.workflows.length, 0);
+  assert.match(changed.public.blockers[0].error, /raw prompt branch/);
+});
 
 function uiFixture() {
   const input = (name, link = null, widget = true) => ({ name, link, ...(widget ? { widget: { name } } : {}) });

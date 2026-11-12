@@ -6,11 +6,11 @@ import { FileText, ListTree } from 'lucide-react';
 import SettingsMenu from '../SettingsMenu';
 
 const i18n = defineMessages({
-  instructions: { id: 'globalInstructions.title', defaultMessage: 'CodeBuddy instructions' },
+  instructions: { id: 'globalInstructions.title', defaultMessage: 'CodeBuddy rules' },
   instructionsDescription: {
     id: 'globalInstructions.description',
     defaultMessage:
-      'Provide rules for every new conversation on this computer. Project instructions override conflicting global rules.',
+      'Provide rules for every new conversation on this computer. Project rules override conflicting global rules.',
   },
   responseStylesTitle: {
     id: 'chatSettings.responseStylesTitle',

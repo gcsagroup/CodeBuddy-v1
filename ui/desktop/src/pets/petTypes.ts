@@ -37,6 +37,7 @@ export interface PetPreferences {
 }
 export interface PetTask {
   sessionId: string;
+  globalConversation?: boolean;
   title: string;
   state: PetTaskState;
   terminalId?: string;

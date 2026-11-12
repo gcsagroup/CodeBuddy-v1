@@ -1,4 +1,12 @@
 {
+  "projectBrief.heading": { "defaultMessage": "Project brief" },
+  "projectBrief.task": { "defaultMessage": "Assignment" },
+  "projectBrief.result": { "defaultMessage": "Project reply" },
+  "projectBrief.files": { "defaultMessage": "Changed files ({count})" },
+  "projectBrief.noReply": { "defaultMessage": "This turn has no final text reply." },
+  "projectBrief.loading": { "defaultMessage": "Reading this turn…" },
+  "projectBrief.unavailable": { "defaultMessage": "Could not read this project turn." },
+  "projectBrief.retry": { "defaultMessage": "Try again" },
   "alertBox.compactNow": {
     "defaultMessage": "Compact now"
   },
@@ -157,6 +165,15 @@
   },
   "baseChat.mainCode": {
     "defaultMessage": "Write and debug code"
+  },
+  "baseChat.mainConversationHeading": {
+    "defaultMessage": "Hi, I’m CodeBuddy, your project assistant."
+  },
+  "baseChat.mainConversationHelp": {
+    "defaultMessage": "I can check how a project is going, find an earlier requirement, or adjust permissions for a single chat. I can also create a project folder, hand the work to a project chat, and bring you a brief when it’s done."
+  },
+  "baseChat.mainConversationExample": {
+    "defaultMessage": "Try asking me, “Can you check my project’s progress?”"
   },
   "baseChat.mainData": {
     "defaultMessage": "Organize documents and data"
@@ -328,6 +345,9 @@
   },
   "chatInput.send": {
     "defaultMessage": "Send"
+  },
+  "chatInput.continueTask": {
+    "defaultMessage": "Continue task"
   },
   "chatInput.stop": {
     "defaultMessage": "Stop"
@@ -890,14 +910,11 @@
   "codeProHub.chooseProjectFolder": {
     "defaultMessage": "Choose a project folder to continue"
   },
-  "codeProHub.description": {
-    "defaultMessage": "It plans, edits, tests, and reviews directly in the current project, so results are immediately available in your editor."
+  "codeProHub.clearWorkspace": {
+    "defaultMessage": "Clear selected workspace"
   },
   "codeProHub.directoryChooserFailed": {
     "defaultMessage": "Unable to choose a project folder. Try again."
-  },
-  "codeProHub.eyebrow": {
-    "defaultMessage": "Multi-Agent development workspace"
   },
   "codeProHub.goalPlaceholder": {
     "defaultMessage": "Describe your task, / for commands, @ for files or conversations…"
@@ -916,9 +933,6 @@
   },
   "codeProHub.taskBreakdown": {
     "defaultMessage": "Automatic task breakdown"
-  },
-  "codeProHub.title": {
-    "defaultMessage": "Welcome to CodeBuddy"
   },
   "codeProHub.workspaceIdentityUnavailable": {
     "defaultMessage": "The selected workspace could not be safely verified. Choose a supported local project folder and try again."
@@ -1805,6 +1819,7 @@
   "composerStats.cacheUnknown": {
     "defaultMessage": "The latest request has no usable cache receipt yet. Missing data does not mean a 0% hit rate."
   },
+  "composerStats.previous": { "defaultMessage": "Last sampled generation speed" },
   "composerStats.live": {
     "defaultMessage": "Current generation speed"
   },
@@ -1856,17 +1871,17 @@
   "confirmationModal.processing": {
     "defaultMessage": "Processing..."
   },
-  "conversation.turnStoppedAfter": {
-    "defaultMessage": "Stopped after {duration}"
-  },
-  "conversation.turnWorkingFor": {
-    "defaultMessage": "Working for {duration}"
-  },
   "conversation.turnDuration": {
     "defaultMessage": "Time spent {minutes} min {seconds} sec"
   },
   "conversation.turnRecord": {
     "defaultMessage": "Work history {count} operations"
+  },
+  "conversation.turnStoppedAfter": {
+    "defaultMessage": "Stopped after {duration}"
+  },
+  "conversation.turnWorkingFor": {
+    "defaultMessage": "Working for {duration}"
   },
   "conversationBranch.action": {
     "defaultMessage": "Branch after this turn"
@@ -2632,12 +2647,6 @@
   },
   "dirSwitcher.failedToUpdateWorkingDir": {
     "defaultMessage": "Failed to update working directory"
-  },
-  "dirSwitcher.gitWorktrees": {
-    "defaultMessage": "Git worktrees"
-  },
-  "dirSwitcher.noWorktreesFound": {
-    "defaultMessage": "No worktrees found"
   },
   "dirSwitcher.openInFinder": {
     "defaultMessage": "Open in file manager"
@@ -3651,13 +3660,13 @@
     "defaultMessage": "GitHub did not update the Issue."
   },
   "globalInstructions.description": {
-    "defaultMessage": "Provide rules for every new conversation on this computer. Project instructions override conflicting global rules."
+    "defaultMessage": "Provide rules for every new conversation on this computer. Project rules override conflicting global rules."
   },
   "globalInstructions.placeholder": {
     "defaultMessage": "Enter your global rules here..."
   },
   "globalInstructions.title": {
-    "defaultMessage": "CodeBuddy instructions"
+    "defaultMessage": "CodeBuddy rules"
   },
   "globalInstructions.unavailable": {
     "defaultMessage": "The CodeBuddy home directory is unavailable."
@@ -4511,9 +4520,6 @@
   "memorySettings.enableProjectMemory": {
     "defaultMessage": "Enable project memory"
   },
-  "memorySettings.manage": {
-    "defaultMessage": "Manage project memory"
-  },
   "memorySettings.off": {
     "defaultMessage": "Off"
   },
@@ -4622,6 +4628,9 @@
   "messageCopyLink.retry": {
     "defaultMessage": "Retry"
   },
+  "messageQueue.attachments": {
+    "defaultMessage": "{count,plural,one{# image} other{# images}}"
+  },
   "messageQueue.cancel": {
     "defaultMessage": "Cancel"
   },
@@ -4649,6 +4658,9 @@
   "messageQueue.continueSending": {
     "defaultMessage": "Messages kept. Send now when you are ready."
   },
+  "messageQueue.edit": {
+    "defaultMessage": "Edit message"
+  },
   "messageQueue.expandDrafts": {
     "defaultMessage": "Expand saved drafts"
   },
@@ -4657,6 +4669,9 @@
   },
   "messageQueue.messageCount": {
     "defaultMessage": "{count,plural,one{# message {status}} other{# messages {status}}}"
+  },
+  "messageQueue.more": {
+    "defaultMessage": "More message actions"
   },
   "messageQueue.next": {
     "defaultMessage": "Next"
@@ -4690,6 +4705,9 @@
   },
   "messageQueue.sendTogether": {
     "defaultMessage": "Send all waiting messages together now"
+  },
+  "messageQueue.steer": {
+    "defaultMessage": "Steer"
   },
   "messageQueue.storageConflict": {
     "defaultMessage": "This queue changed in another window. Sending and saving are paused to avoid overwriting it. Keep this window open and compare the queued messages."
@@ -5465,8 +5483,20 @@
   "navigationPanel.chats": {
     "defaultMessage": "Tasks"
   },
+  "navigationPanel.collapseGroup": {
+    "defaultMessage": "Collapse group"
+  },
+  "navigationPanel.expandGroup": {
+    "defaultMessage": "Expand group"
+  },
   "navigationPanel.newProjectChat": {
     "defaultMessage": "New conversation in project"
+  },
+  "navigationPanel.newTaskChat": {
+    "defaultMessage": "New task conversation"
+  },
+  "navigationPanel.newWorkspaceChat": {
+    "defaultMessage": "Choose a workspace and start a conversation"
   },
   "navigationPanel.noChats": {
     "defaultMessage": "No recent tasks"
@@ -5495,6 +5525,9 @@
   "navigationPanel.resetProjectNameHint": {
     "defaultMessage": "Clear the name to restore the folder name"
   },
+  "navigationPanel.sectionActions": {
+    "defaultMessage": "{section} options"
+  },
   "navigationPanel.unknownTime": {
     "defaultMessage": "Time unavailable"
   },
@@ -5506,6 +5539,9 @@
   },
   "navigationPanel.updatedAt": {
     "defaultMessage": "Updated"
+  },
+  "navigationPanel.workspaceChats": {
+    "defaultMessage": "{count,plural,one{# recent conversation · {active} running} other{# recent conversations · {active} running}}"
   },
   "navigationPanel.workspaces": {
     "defaultMessage": "Workspaces"
@@ -6103,69 +6139,6 @@
   },
   "projectMemoryApproval.warning": {
     "defaultMessage": "This memory request is malformed. Saving is unavailable; you can still deny the request."
-  },
-  "projectMemoryRecords.active": {
-    "defaultMessage": "Approved"
-  },
-  "projectMemoryRecords.approve": {
-    "defaultMessage": "Approve for recall"
-  },
-  "projectMemoryRecords.cancel": {
-    "defaultMessage": "Cancel"
-  },
-  "projectMemoryRecords.candidate": {
-    "defaultMessage": "Pending review"
-  },
-  "projectMemoryRecords.changed": {
-    "defaultMessage": "The record changed. Review the refreshed content before approving again."
-  },
-  "projectMemoryRecords.confirmRemove": {
-    "defaultMessage": "Confirm deletion"
-  },
-  "projectMemoryRecords.content": {
-    "defaultMessage": "Memory content"
-  },
-  "projectMemoryRecords.description": {
-    "defaultMessage": "Choose a project and review its records. Only approved, unexpired records are recalled in that project."
-  },
-  "projectMemoryRecords.directory": {
-    "defaultMessage": "Project directory"
-  },
-  "projectMemoryRecords.disable": {
-    "defaultMessage": "Disable recall"
-  },
-  "projectMemoryRecords.disabled": {
-    "defaultMessage": "Disabled"
-  },
-  "projectMemoryRecords.edit": {
-    "defaultMessage": "Edit"
-  },
-  "projectMemoryRecords.empty": {
-    "defaultMessage": "No saved records in this project."
-  },
-  "projectMemoryRecords.expired": {
-    "defaultMessage": "Expired"
-  },
-  "projectMemoryRecords.export": {
-    "defaultMessage": "Export project memory"
-  },
-  "projectMemoryRecords.load": {
-    "defaultMessage": "Load records"
-  },
-  "projectMemoryRecords.more": {
-    "defaultMessage": "Load more"
-  },
-  "projectMemoryRecords.reason": {
-    "defaultMessage": "Reason"
-  },
-  "projectMemoryRecords.remove": {
-    "defaultMessage": "Delete record"
-  },
-  "projectMemoryRecords.save": {
-    "defaultMessage": "Save changes"
-  },
-  "projectMemoryRecords.title": {
-    "defaultMessage": "Saved project memory"
   },
   "promptsSettings.allPromptsReset": {
     "defaultMessage": "All prompts reset to defaults"
@@ -7925,6 +7898,9 @@
   "settings.notifications.description": {
     "defaultMessage": "Notifications are managed by your OS - {link}"
   },
+  "settings.notifications.modal.linuxInstructions": {
+    "defaultMessage": "Open Notifications in your desktop settings and allow notifications for CodeBuddy."
+  },
   "settings.notifications.modal.macInstructions": {
     "defaultMessage": "To enable notifications on macOS:"
   },
@@ -7959,7 +7935,7 @@
     "defaultMessage": "Toggle notifications on and adjust settings as desired"
   },
   "settings.notifications.openSettings": {
-    "defaultMessage": "Open Settings"
+    "defaultMessage": "Open system settings"
   },
   "settings.notifications.task.description": {
     "defaultMessage": "Notify when CodeBuddy finishes a task while the window is in the background"
@@ -7968,7 +7944,7 @@
     "defaultMessage": "Task completion notifications"
   },
   "settings.notifications.title": {
-    "defaultMessage": "Notifications"
+    "defaultMessage": "System notifications"
   },
   "settings.preventSleep.description": {
     "defaultMessage": "Keep your computer awake while CodeBuddy is running a task (screen can still lock)"
@@ -8011,9 +7987,6 @@
   },
   "settingsCenter.pageChat": {
     "defaultMessage": "Behavior and responses"
-  },
-  "settingsCenter.pageInput": {
-    "defaultMessage": "Input"
   },
   "settingsCenter.pageKeyboard": {
     "defaultMessage": "Keyboard shortcuts"
@@ -9854,6 +9827,8 @@
   "workspacePanel.fileDenied": {
     "defaultMessage": "Windows denied access to this file. Check its permissions or choose a readable copy."
   },
+  "workspacePanel.browserActionFailed": { "defaultMessage": "{action} failed" },
+  "workspacePanel.browserControl": { "defaultMessage": "Browser control" },
   "workspacePanel.fileMissing": {
     "defaultMessage": "This file was moved or deleted. Check its location and open the link again."
   },

@@ -19,6 +19,14 @@ export interface WorkspaceImageAttachment {
   dataUrl: string;
 }
 export const OPEN_WORKSPACE_WEB = 'codebuddy:open-workspace-web';
+export const OPEN_GENERATION_JOB = 'codebuddy:open-generation-job';
+export interface GenerationJobTarget {
+  sessionId: string;
+  jobId: string;
+}
+export function openGenerationJob(target: GenerationJobTarget) {
+  window.dispatchEvent(new CustomEvent(OPEN_GENERATION_JOB, { detail: target }));
+}
 export interface WorkspaceWebTarget {
   sessionId: string;
   url: string;

@@ -7,6 +7,8 @@ import { SubagentAvatar } from '../SubagentAvatar';
 import { openSubagentConversation } from '../../workspace-panel/subagentPanel';
 import { defineMessages, useIntl } from '../../i18n';
 import { formatSubagentLabel } from '../toolActionPresentation';
+import { isRecord } from '../../acp/adapter/shared';
+import { ProjectBrief } from './ProjectBrief';
 
 const m = defineMessages({
   compactAuto: { id: 'compaction.completedAuto', defaultMessage: 'Context automatically compacted' },
@@ -20,12 +22,19 @@ const m = defineMessages({
 
 interface SystemNotificationInlineProps {
   notification: SystemNotificationContent;
+  sessionId?: string;
 }
 
 export const SystemNotificationInline: React.FC<SystemNotificationInlineProps> = ({
   notification,
+  sessionId,
 }) => {
   const intl = useIntl();
+  const data = notification.data;
+  if (sessionId && isRecord(data) && data.event === 'managed_turn_result' && data.outcome === 'completed' &&
+      typeof data.sessionId === 'string' && typeof data.requestId === 'string')
+    return <ProjectBrief key={JSON.stringify([sessionId, data.sessionId, data.requestId])}
+      mainId={sessionId} childId={data.sessionId} requestId={data.requestId} snapshot={data.brief} title={typeof data.title === 'string' ? data.title : undefined} />;
   const compaction = parseCompactionLifecycle(notification.data);
   if (compaction) {
     if (compaction.status === 'started') return null;

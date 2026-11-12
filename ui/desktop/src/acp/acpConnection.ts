@@ -1,4 +1,5 @@
 import { parseDesktopControl } from '../desktopControl';
+import { AppEvents } from '../constants/events';
 import { updateDesktopOwnership } from '../desktopOwnership';
 import { NATIVE_SCHEDULE_CHANGED } from '../components/schedule/scheduleEvents';
 import {
@@ -351,6 +352,8 @@ function createClientCallbacks(
       throw new Error(`Unhandled desktop request: ${method}`);
     },
     extNotification: async (method) => {
+      if (!controlOnly && method === '_codebuddy/workspace/changed')
+        window.dispatchEvent(new Event(AppEvents.SESSION_CREATED));
       if (method === '_goose/unstable/native-schedules/changed')
         window.dispatchEvent(new Event(NATIVE_SCHEDULE_CHANGED));
     },

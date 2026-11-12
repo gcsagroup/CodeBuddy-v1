@@ -2,7 +2,6 @@ export type SettingsPageId =
   | 'app'
   | 'models'
   | 'chat'
-  | 'input'
   | 'security'
   | 'memory'
   | 'auth'
@@ -20,13 +19,6 @@ export interface SettingsNavigationItem {
 }
 
 export const settingsNavigationItems: SettingsNavigationItem[] = [
-  {
-    id: 'pets',
-    group: 'common',
-    label: 'Virtual pets',
-    description: 'Desktop companion and task notifications',
-    keywords: ['pet', 'companion', '宠物', '寵物'],
-  },
   {
     id: 'app',
     group: 'common',
@@ -55,6 +47,13 @@ export const settingsNavigationItems: SettingsNavigationItem[] = [
     keywords: ['keyboard', 'shortcut', 'hotkey', '键盘', '鍵盤', '快捷键', '快捷鍵'],
   },
   {
+    id: 'pets',
+    group: 'common',
+    label: 'Virtual pets',
+    description: 'Desktop companion and task notifications',
+    keywords: ['pet', 'companion', '宠物', '寵物'],
+  },
+  {
     id: 'models',
     group: 'ai',
     label: 'Models and runtime',
@@ -79,7 +78,7 @@ export const settingsNavigationItems: SettingsNavigationItem[] = [
     id: 'chat',
     group: 'ai',
     label: 'Behavior and responses',
-    description: 'Default mode, CodeBuddy instructions, and tool process display',
+    description: 'Default mode, CodeBuddy rules, and tool process display',
     keywords: [
       'chat',
       'mode',
@@ -89,6 +88,9 @@ export const settingsNavigationItems: SettingsNavigationItem[] = [
       'global rules',
       'global instructions',
       'codebuddy instructions',
+      'codebuddy rules',
+      '规则',
+      '規則',
       'agents.md',
       '聊天',
       '模式',
@@ -104,13 +106,6 @@ export const settingsNavigationItems: SettingsNavigationItem[] = [
     ],
   },
   {
-    id: 'input',
-    group: 'ai',
-    label: 'Input',
-    description: 'Dictation, microphone, and spellcheck',
-    keywords: ['dictation', 'voice', 'microphone', 'spellcheck', '语音', '語音', '拼写', '拼寫'],
-  },
-  {
     id: 'security',
     group: 'connections',
     label: 'Security and permissions',
@@ -121,8 +116,8 @@ export const settingsNavigationItems: SettingsNavigationItem[] = [
     id: 'memory',
     group: 'ai',
     label: 'Memory',
-    description: 'Review and manage project-scoped memory',
-    keywords: ['memory', 'project', 'recall', 'expired', '记忆', '記憶', '项目', '專案', '过期'],
+    description: 'Project memory and automatic personalization',
+    keywords: ['memory', 'project', 'recall', 'personalization', '记忆', '記憶', '项目', '專案', '习惯', '習慣'],
   },
   {
     id: 'auth',
@@ -156,7 +151,6 @@ const legacySectionToPage: Record<string, SettingsPageId> = {
   styles: 'chat',
   tools: 'chat',
   chat: 'chat',
-  input: 'input',
   security: 'security',
   permissions: 'security',
   advanced: 'chat',

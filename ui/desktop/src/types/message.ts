@@ -230,6 +230,7 @@ export type MessageMetadata = {
   pendingDelivery?: 'pending' | 'unconfirmed';
   scheduled?: true;
   presentation?: { afterMessageId: string; continuation?: true };
+  resumedRequestId?: string;
   inference?: InferenceMetadata | null;
   steer?: boolean;
   usage?: MessageUsage | null;

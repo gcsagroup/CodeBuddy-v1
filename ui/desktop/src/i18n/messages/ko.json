@@ -890,14 +890,8 @@
   "codeProHub.chooseProjectFolder": {
     "defaultMessage": "계속하려면 프로젝트 폴더를 선택하세요"
   },
-  "codeProHub.description": {
-    "defaultMessage": "It plans, edits, tests, and reviews directly in the current project, so results are immediately available in your editor."
-  },
   "codeProHub.directoryChooserFailed": {
     "defaultMessage": "프로젝트 폴더를 선택할 수 없습니다. 다시 시도하세요."
-  },
-  "codeProHub.eyebrow": {
-    "defaultMessage": "Multi-Agent development workspace"
   },
   "codeProHub.goalPlaceholder": {
     "defaultMessage": "Describe your task, expected result, and how to check it…"
@@ -916,9 +910,6 @@
   },
   "codeProHub.taskBreakdown": {
     "defaultMessage": "Automatic task breakdown"
-  },
-  "codeProHub.title": {
-    "defaultMessage": "Welcome to CodeBuddy"
   },
   "codeProHub.workspaceIdentityUnavailable": {
     "defaultMessage": "선택한 작업 공간을 안전하게 확인할 수 없습니다. 지원되는 로컬 프로젝트 폴더를 선택하고 다시 시도하세요."
@@ -2606,12 +2597,6 @@
   "dirSwitcher.failedToUpdateWorkingDir": {
     "defaultMessage": "작업 디렉터리를 업데이트하지 못했습니다."
   },
-  "dirSwitcher.gitWorktrees": {
-    "defaultMessage": "Git 워크트리"
-  },
-  "dirSwitcher.noWorktreesFound": {
-    "defaultMessage": "작업 트리를 찾을 수 없습니다."
-  },
   "dirSwitcher.openInFinder": {
     "defaultMessage": "파일 관리자에서 열기"
   },
@@ -3630,7 +3615,7 @@
     "defaultMessage": "전역 규칙을 입력하세요..."
   },
   "globalInstructions.title": {
-    "defaultMessage": "CodeBuddy 지침"
+    "defaultMessage": "CodeBuddy 규칙"
   },
   "globalInstructions.unavailable": {
     "defaultMessage": "CodeBuddy 홈 디렉터리를 사용할 수 없습니다."
@@ -4484,9 +4469,6 @@
   "memorySettings.enableProjectMemory": {
     "defaultMessage": "Enable project memory"
   },
-  "memorySettings.manage": {
-    "defaultMessage": "Manage project memory"
-  },
   "memorySettings.off": {
     "defaultMessage": "Off"
   },
@@ -4595,6 +4577,9 @@
   "messageCopyLink.retry": {
     "defaultMessage": "Retry"
   },
+  "messageQueue.attachments": {
+    "defaultMessage": "이미지 {count}개"
+  },
   "messageQueue.cancel": {
     "defaultMessage": "취소"
   },
@@ -4622,6 +4607,9 @@
   "messageQueue.continueSending": {
     "defaultMessage": "메시지가 보관되어 있습니다. 준비되면 전송하세요."
   },
+  "messageQueue.edit": {
+    "defaultMessage": "메시지 편집"
+  },
   "messageQueue.expandDrafts": {
     "defaultMessage": "Expand saved drafts"
   },
@@ -4630,6 +4618,9 @@
   },
   "messageQueue.messageCount": {
     "defaultMessage": "{count,plural,one{#개 메시지 {status}} other{#개 메시지 {status}}}"
+  },
+  "messageQueue.more": {
+    "defaultMessage": "메시지 추가 작업"
   },
   "messageQueue.next": {
     "defaultMessage": "다음"
@@ -4663,6 +4654,9 @@
   },
   "messageQueue.sendTogether": {
     "defaultMessage": "대기 중인 모든 메시지를 지금 함께 전송"
+  },
+  "messageQueue.steer": {
+    "defaultMessage": "추가 지시"
   },
   "messageQueue.storageConflict": {
     "defaultMessage": "This queue changed in another window. Sending and saving are paused to avoid overwriting it. Keep this window open and compare the queued messages."
@@ -5471,6 +5465,9 @@
   "navigationPanel.untitledSession": {
     "defaultMessage": "제목 없는 세션"
   },
+  "navigationPanel.workspaceChats": {
+    "defaultMessage": "최근 대화 {count}개 · 실행 중 {active}개"
+  },
   "navigationPanel.workspaces": {
     "defaultMessage": "Workspaces"
   },
@@ -6067,69 +6064,6 @@
   },
   "projectMemoryApproval.warning": {
     "defaultMessage": "이 메모리 요청의 형식이 잘못되었습니다. 저장할 수 없지만 요청을 거부할 수는 있습니다."
-  },
-  "projectMemoryRecords.active": {
-    "defaultMessage": "Approved"
-  },
-  "projectMemoryRecords.approve": {
-    "defaultMessage": "Approve for recall"
-  },
-  "projectMemoryRecords.cancel": {
-    "defaultMessage": "Cancel"
-  },
-  "projectMemoryRecords.candidate": {
-    "defaultMessage": "Pending review"
-  },
-  "projectMemoryRecords.changed": {
-    "defaultMessage": "The record changed. Review the refreshed content before approving again."
-  },
-  "projectMemoryRecords.confirmRemove": {
-    "defaultMessage": "Confirm deletion"
-  },
-  "projectMemoryRecords.content": {
-    "defaultMessage": "Memory content"
-  },
-  "projectMemoryRecords.description": {
-    "defaultMessage": "Choose a project and review its records. Only approved, unexpired records are recalled in that project."
-  },
-  "projectMemoryRecords.directory": {
-    "defaultMessage": "Project directory"
-  },
-  "projectMemoryRecords.disable": {
-    "defaultMessage": "Disable recall"
-  },
-  "projectMemoryRecords.disabled": {
-    "defaultMessage": "Disabled"
-  },
-  "projectMemoryRecords.edit": {
-    "defaultMessage": "Edit"
-  },
-  "projectMemoryRecords.empty": {
-    "defaultMessage": "No saved records in this project."
-  },
-  "projectMemoryRecords.expired": {
-    "defaultMessage": "Expired"
-  },
-  "projectMemoryRecords.export": {
-    "defaultMessage": "Export project memory"
-  },
-  "projectMemoryRecords.load": {
-    "defaultMessage": "Load records"
-  },
-  "projectMemoryRecords.more": {
-    "defaultMessage": "Load more"
-  },
-  "projectMemoryRecords.reason": {
-    "defaultMessage": "Reason"
-  },
-  "projectMemoryRecords.remove": {
-    "defaultMessage": "Delete record"
-  },
-  "projectMemoryRecords.save": {
-    "defaultMessage": "Save changes"
-  },
-  "projectMemoryRecords.title": {
-    "defaultMessage": "Saved project memory"
   },
   "promptsSettings.allPromptsReset": {
     "defaultMessage": "모든 프롬프트가 기본값으로 재설정됩니다."
@@ -7889,6 +7823,9 @@
   "settings.notifications.description": {
     "defaultMessage": "알림은 운영체제에서 관리됩니다 — {link}"
   },
+  "settings.notifications.modal.linuxInstructions": {
+    "defaultMessage": "데스크톱 설정에서 알림을 열고 CodeBuddy 알림을 허용하세요."
+  },
   "settings.notifications.modal.macInstructions": {
     "defaultMessage": "macOS에서 알림을 켜려면:"
   },
@@ -7923,7 +7860,7 @@
     "defaultMessage": "알림을 켜고 원하는 대로 설정을 조정하세요."
   },
   "settings.notifications.openSettings": {
-    "defaultMessage": "설정 열기"
+    "defaultMessage": "시스템 설정 열기"
   },
   "settings.notifications.task.description": {
     "defaultMessage": "창이 백그라운드에 있을 때 CodeBuddy가 작업을 완료하면 알림을 보냅니다."
@@ -7932,7 +7869,7 @@
     "defaultMessage": "작업 완료 알림"
   },
   "settings.notifications.title": {
-    "defaultMessage": "알림"
+    "defaultMessage": "시스템 알림"
   },
   "settings.preventSleep.description": {
     "defaultMessage": "CodeBuddy가 작업을 실행하는 동안 컴퓨터가 잠자기 상태로 전환되지 않도록 합니다. 화면은 잠길 수 있습니다."
@@ -7975,9 +7912,6 @@
   },
   "settingsCenter.pageChat": {
     "defaultMessage": "Behavior and responses"
-  },
-  "settingsCenter.pageInput": {
-    "defaultMessage": "Input"
   },
   "settingsCenter.pageKeyboard": {
     "defaultMessage": "Keyboard shortcuts"

@@ -9,11 +9,11 @@ import defaultModel from './default-model.json' with { type: 'json' };
 const startup = phase => process.send?.({ type: 'starting', phase, pid: process.pid });
 startup('loading-runtime');
 const { createCompatServer } = await import('./server.mjs');
-startup('opening-profile');
 const service = await createCompatServer({
   dataDir: path.join(process.env.CODEBUDDY_HOME, 'backend'),
   secret: process.env.CODEBUDDY_SERVER__SECRET_KEY,
   defaultModel,
+  onRuntimeLoaded: () => startup('opening-profile'),
 });
 startup('binding-listener');
 let closing;

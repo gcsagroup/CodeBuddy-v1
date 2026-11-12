@@ -1,3 +1,4 @@
+import { mediaCloud } from './media-cloud.mjs';
 import { fallbackProperties, prepareFallback } from './comfyui-fallback.mjs';
 import { approvedWorkflow, validateWorkflowInput, videoDuration } from './comfyui-workflows.mjs';
 import { savedWorkflowCatalog, selectSavedWorkflow, prepareSavedWorkflow, workflowParameterProperties, workflowSelectionCatalog } from './comfyui-saved-workflows.mjs';
@@ -5,6 +6,7 @@ import { watchMedia, mediaStreamKey, mediaObservation, stopMedia, waitMediaCheck
 import { createHash, randomUUID } from 'node:crypto';
 import { mkdir, readFile, realpath, stat, statfs, open, unlink, writeFile, rename, readdir } from 'node:fs/promises';
 import path from 'node:path';
+import { setTimeout as delay } from 'node:timers/promises';
 import { registerToolSessionApproval, toolSessionApprovalScope } from './tool-session-approval.mjs';
 
 export const IMAGE_TOOL_NAME = 'generate_image';
@@ -12,6 +14,17 @@ export const DEFAULT_COMFYUI_URL = 'http://192.168.9.111:8188';
 const refreshes = new Map();
 const refreshStartedAt = new Map();
 const receiptWrites = new Map();
+// The runtime owns submissions for the session. Serialize only local receipt admission,
+// including across recreated tools; provider calls and publication stay concurrent.
+const admissions = new Map();
+async function withAdmission(records, action) {
+  const key = path.resolve(records);
+  const previous = admissions.get(key) ?? Promise.resolve();
+  const pending = previous.catch(() => {}).then(action);
+  admissions.set(key, pending);
+  try { return await pending; }
+  finally { if (admissions.get(key) === pending) admissions.delete(key); }
+}
 const submissions = new Set();
 const observationErrors = new Map();
 const errorContexts = new WeakMap();
@@ -113,6 +126,8 @@ export function comfyuiTool(options) {
   const imageTool = { ...tool, async execute(input, context = {}) {
     const result = await tool.execute(input, context);
     if (input.operation === 'cancel' || result.status !== 'completed' || !result.images?.length) return result;
+    if (result.workflow_selection?.images_only && Number.isSafeInteger(result.workflow_selection.image_count))
+      result.completed_image_count = await tool.completedImageCount(result.workflow_selection);
     const receipt = { type: 'text', text: JSON.stringify(result) };
     try {
       const images = []; let totalBytes = 0;
@@ -136,11 +151,14 @@ export function comfyuiTool(options) {
 }
 
 // Both media tools share the same receipts, cancellation and output-publication rules.
-export function comfyuiMediaTool({ cwd, dataDir, sessionId, baseUrl = DEFAULT_COMFYUI_URL, fetchImpl = fetch, statfsImpl = statfs }, media) {
+export function comfyuiMediaTool({ cwd, dataDir, sessionId, baseUrl = DEFAULT_COMFYUI_URL, fetchImpl = fetch, statfsImpl = statfs, mediaRoute, disabled = false, authorize = async () => '' }, media) {
   const toolName = media?.name ?? IMAGE_TOOL_NAME;
   const kind = media ? 'video' : 'image';
   const outputKey = media ? 'videos' : 'images';
   const server = comfyuiUrl(baseUrl);
+  const cloud = mediaRoute && mediaRoute.type !== 'comfy';
+  const pinnedWorkflow = mediaRoute?.type === 'comfy' && mediaRoute.model.id.startsWith('saved:') ? mediaRoute.model.id : null;
+  const scopeRoute = mediaRoute && (mediaRoute.serviceId !== 'legacy' || mediaRoute.hasKey || pinnedWorkflow) ? mediaRoute : undefined;
   // Receipts belong to this session, independent of a model-supplied filesystem path.
   const records = path.join(dataDir, `${kind}-jobs`, Buffer.from(sessionId).toString('hex'));
   async function checkSpace(directory, bytes = 0) {
@@ -151,13 +169,15 @@ export function comfyuiMediaTool({ cwd, dataDir, sessionId, baseUrl = DEFAULT_CO
       throw new Error(`磁盘空间不足：${directory} 剩余 ${Math.floor(available / 1024 / 1024)} MiB。请释放空间或选择其他磁盘后重试；已有作品会保留。Low disk space; keep at least 512 MiB free plus the output size.`);
     }
   }
-  async function request(base, route, { signal, ...options } = {}) {
+  async function request(base, route, { signal, binding = mediaRoute, ...options } = {}) {
     const timeout = AbortSignal.timeout(300_000);
+    const credential = binding && binding.url === base ? await authorize(binding) : '';
     const response = await fetchImpl(`${comfyuiUrl(base)}${route}`, {
-      ...options, redirect: 'error', signal: signal ? AbortSignal.any([signal, timeout]) : timeout,
+      ...options, headers: { ...options.headers, ...(credential ? {Authorization: 'Bearer '+credential} : {}) }, redirect: 'error', signal: signal ? AbortSignal.any([signal, timeout]) : timeout,
     });
     if (!response.ok) {
-      const body = (await limitedBody(response, 4000)).toString();
+      const raw = (await limitedBody(response, 4000)).toString();
+      const body = credential ? raw.replaceAll(credential, '[redacted]') : raw;
       const error = new Error(`ComfyUI ${route.split('?')[0]} returned HTTP ${response.status}: ${body.slice(0, 1000)}`);
       error.status = response.status;
       try {
@@ -185,7 +205,20 @@ export function comfyuiMediaTool({ cwd, dataDir, sessionId, baseUrl = DEFAULT_CO
       if (current?.cancel_requested) next.cancel_requested = true;
       await mkdir(records, { recursive: true });
       const temp = `${file}.${randomUUID()}.tmp`;
-      await writeFile(temp, JSON.stringify(next)); await rename(temp, file);
+      await writeFile(temp, JSON.stringify(next));
+      try {
+        // Windows can briefly deny replacement while another consumer reads the receipt.
+        for (let attempt = 0; ; attempt++) {
+          try { await rename(temp, file); break; }
+          catch (error) {
+            if (process.platform !== 'win32' || !['EPERM', 'EACCES', 'EBUSY'].includes(error.code) || attempt >= 8) throw error;
+            await delay(Math.min(10 * 2 ** attempt, 200));
+          }
+        }
+      } catch (error) {
+        await unlink(temp).catch(() => {});
+        throw error;
+      }
       for (const key of Object.keys(job)) if (!(key in next)) delete job[key];
       Object.assign(job, next);
     });
@@ -197,12 +230,76 @@ export function comfyuiMediaTool({ cwd, dataDir, sessionId, baseUrl = DEFAULT_CO
     if (!uuid.test(id ?? '')) throw new Error('A valid job_id from generate is required');
     return JSON.parse(await readFile(path.join(records, `${id}.json`), 'utf8'));
   }
+  async function allReceipts() {
+    const files = await readdir(records).catch(error => { if (error.code === 'ENOENT') return []; throw error; });
+    return Promise.all(files.filter(file => file.endsWith('.json') && uuid.test(file.slice(0, -5)))
+      .map(file => load(file.slice(0, -5))));
+  }
+  async function turnReceipts(selection) {
+    const firstId = selection.request_ids?.[0];
+    return (await allReceipts()).filter(job => firstId
+      ? job.workflow_selection?.request_ids?.[0] === firstId
+      : job.workflow_selection?.request_hash === selection.request_hash);
+  }
+  const savedImages = job => job.status === 'completed'
+    ? (job.images ?? []).filter(image => typeof image.path === 'string' && image.path.trim()).length : 0;
+  function imageUsage(jobs) {
+    const pending = jobs.filter(job => !['completed', 'failed', 'cancelled'].includes(job.status));
+    const reserved = pending.reduce((sum, job) => sum + (job.image_slots ?? 1), 0);
+    const completed = jobs.reduce((sum, job) => sum + savedImages(job), 0);
+    return { pending, reserved, completed };
+  }
+  async function publishableOutputs(job, available) {
+    const scope = job.workflow_selection;
+    if (kind !== 'image' || !Number.isSafeInteger(scope?.image_count) || available <= 1)
+      return available;
+    // A custom graph may return a batch. Claim any still-free slots before
+    // downloading candidates, without taking slots held by concurrent jobs.
+    return withAdmission(records, async () => {
+      const other = (await turnReceipts(scope)).filter(other => other.job_id !== job.job_id);
+      const { completed, reserved } = imageUsage(other);
+      const slots = Math.min(available, Math.max(1, scope.image_count - completed - reserved));
+      await save(job, current => ({ ...current, image_slots: slots }));
+      return slots;
+    });
+  }
+  async function reserve(job, selection) {
+    return withAdmission(records, async () => {
+      await selection?.assertCurrent();
+      const old = await load(job.job_id).catch(error => { if (error.code === 'ENOENT') return null; throw error; });
+      if (old) {
+        if (job.input.request_id && JSON.stringify(canonical(old.input)) !== JSON.stringify(canonical(job.input)))
+          throw new Error('request_id already belongs to a different request');
+        return old;
+      }
+      const scope = job.workflow_selection;
+      if (kind === 'image' && scope?.source === 'current_request' && Object.hasOwn(scope, 'image_count')) {
+        const jobs = await turnReceipts(scope);
+        // Changing the prompt, seed or workflow cannot revise the first admitted quantity.
+        const fixed = jobs.find(j => j.workflow_selection.request_hash === scope.request_hash &&
+          Object.hasOwn(j.workflow_selection, 'image_count'))?.workflow_selection;
+        if (fixed) {
+          scope.image_count = fixed.image_count;
+          scope.images_only = fixed.images_only;
+          scope.single_media_only = fixed.single_media_only;
+        }
+        if (scope.image_count !== null) {
+          const { pending, reserved, completed } = imageUsage(jobs);
+          if (completed + reserved >= scope.image_count)
+            throw new Error(`当前请求需要 ${scope.image_count} 张图片，已保存 ${completed} 张，待确认 ${reserved} 张。本次未提交。请交付已保存的图片或查询已有任务。${pending.map(j => j.job_id).join(', ')}`);
+        }
+      }
+      await mkdir(records, { recursive: true });
+      await writeFile(path.join(records, job.job_id + '.json'), JSON.stringify(job), { flag: 'wx' });
+      return null;
+    });
+  }
   const streamKey = job => mediaStreamKey(dataDir, sessionId, kind, job.job_id);
   const foregroundRemaining = job => Math.max(0, 240_000 - Math.max(0, Date.now() - (Date.parse(job.created_at) || Date.now())));
   function result(job) {
     const live = mediaObservation(streamKey(job));
     const progress = ['completed', 'failed', 'cancelled'].includes(job.status) ? null : {
-      connected: live.connected, node: live.node ?? null, stage: job.workflow?.stages?.[live.node] ?? null,
+      connected: live.connected, node: live.node ?? null, stage: job.delivery_stage ?? job.workflow?.stages?.[live.node] ?? null,
       step: live.step ?? null, total: live.total ?? null, updatedAt: live.updatedAt ?? null,
     };
     const observation = observationErrors.get(streamKey(job));
@@ -218,20 +315,179 @@ export function comfyuiMediaTool({ cwd, dataDir, sessionId, baseUrl = DEFAULT_CO
       ...(observation ? { observation_error: true, observation_error_info: observation } : {}),
       waiting_in_background: background,
       progress,
-      kind, created_at: job.created_at, workflow: job.workflow ? { id: job.workflow.id, label: job.workflow.label, source: job.workflow.source, sha256: job.workflow.sha256 } : null, queue_position: job.queue_position ?? null,
+      kind, created_at: job.created_at,
+      workflow: job.workflow ? {
+        id: job.workflow.id, label: job.workflow.label, source: job.workflow.source,
+        ...(job.workflow.sha256 ? { sha256: job.workflow.sha256 } : {}),
+      } : null,
+      queue_position: job.queue_position ?? null,
       next: ['completed', 'failed', 'cancelled'].includes(job.status) ? null
         : background ? 'End this turn now. Tell the user the submitted job is still queued or generating (use status accurately) and the result will appear in the right-side generation panel. The panel continues observing this job. Do not call status again unless the user asks; do not resubmit or cancel it.'
         : ['submission_unknown', 'unavailable'].includes(job.status) ? 'Submission or server history is uncertain. Check this job_id with status; do not generate again automatically.'
           : `Call ${toolName} with operation=status, this job_id and wait_seconds=240. The host waits for completion events within a total foreground budget of 240 seconds from submission. When waiting_in_background=true, end the turn and tell the user the right-side generation panel will show the result. Do not poll again automatically or resubmit. Running only means the server still lists this job in its execution queue; it does not prove healthy GPU computation. progress.updatedAt is the last observed node/step change, not a heartbeat. Report meaningful changes, completion or errors; do not narrate each unchanged wait or estimate completion from elapsed time.` };
   }
+  async function publish(job, bytes, i, previewUrl) {
+    const { root, directory } = await inErrorStage('output_publication', 'host', async () => {
+      const root = await realpath(cwd);
+      const output = path.join(root, `generated-${outputKey}`);
+      await mkdir(output, { recursive: true });
+      await inside(root, output);
+      const directory = path.join(output, job.job_id);
+      await mkdir(directory, { recursive: true });
+      await inside(root, directory);
+      return { root, directory };
+    });
+    const dimensions = await inErrorStage('output_validation', 'host', () =>
+      media
+        ? media.inspect(bytes, job.route && job.route.type !== 'comfy' ? 4096 * 2160 : undefined)
+        : pngDimensions(bytes)
+    );
+    const file = path.join(directory, `${i + 1}.${media?.extension ?? 'png'}`);
+    // Exclusive writes preserve user changes, including links placed at an output path.
+    await inErrorStage('output_publication', 'host', async () => {
+      try {
+        await checkSpace(directory, bytes.length);
+        const handle = await open(file, 'wx');
+        try {
+          await handle.writeFile(bytes);
+        } catch (error) {
+          await handle.close();
+          await unlink(file);
+          throw error;
+        }
+        await handle.close();
+      } catch (error) {
+        if (error.code !== 'EEXIST' || !bytes.equals(await readFile(await inside(root, file)))) throw error;
+      }
+    });
+    return {
+      path: file,
+      ...dimensions,
+      ...(media && previewUrl ? { preview_url: previewUrl } : {}),
+      markdown: media ? videoMarkdown(file) : `![Generated image](${file.replaceAll('\\', '/')})`
+    };
+  }
+
+  async function cloudClient(route, signal) {
+    return mediaCloud(route, { fetchImpl, key: await authorize(route), signal });
+  }
+  async function generateCloud(input, refs, id, proposedName, selectWorkflow, signal) {
+    const mode = kind === 'image' ? (refs.length ? 'image_to_image' : 'text_to_image') : input.mode;
+    const model = mediaRoute.model;
+    if (
+      !model.modes.includes(mode) ||
+      (kind === 'video' && refs.length > 1) ||
+      (input.mode === 'image_to_image' && !refs.length)
+    )
+      throw Error('默认模型不支持本次输入。请选择支持所需任务的模型并提供原图。');
+    if (
+      input.fallback_workflow !== undefined ||
+      input.workflow_parameters ||
+      input.seed !== undefined ||
+      (kind === 'video' && (input.width || input.height)) ||
+      (input.transparent_background && !['openai', 'ark'].includes(mediaRoute.type))
+    )
+      throw Error('默认云模型不支持这些工作流参数，请检查设置。');
+    const workflows = model.modes.map((m) => ({
+      id: model.id + '#' + m,
+      label: model.label,
+      mode: m,
+      compatible: m === mode,
+      dependencies_available: true
+    }));
+    const selection = await selectWorkflow?.({ workflows, kind, mode, referenceCount: refs.length });
+    const workflow = { id: model.id + '#' + mode, label: model.label, source: mediaRoute.type };
+    if (selection && selection.receipt.workflow_id !== workflow.id) throw Error('当前请求与所选媒体模型不匹配');
+    if (!input.request_id && selection?.receipt?.request_hash)
+      id = automaticRequestId(selection, { route: mediaRoute, id: workflow.id }, input);
+    const bytes = [];
+    for (const file of refs) {
+      const local = await inside(cwd, path.resolve(cwd, file)),
+        info = await stat(local);
+      if (!info.isFile() || info.size > 20 * 1024 * 1024)
+        throw Error('参考图片必须是工作区内 20 MiB 以内的 PNG 文件');
+      const data = await readFile(local);
+      pngDimensions(data);
+      bytes.push(data);
+    }
+    const client = await cloudClient(mediaRoute, signal);
+    await mkdir(records, { recursive: true });
+    const job = {
+      job_id: id,
+      prompt_id: id,
+      server,
+      route: mediaRoute,
+      status: 'submission_unknown',
+      created_at: new Date().toISOString(),
+      input,
+      workflow,
+      display_name: displayName(proposedName),
+      workflow_selection: selection?.receipt
+    };
+    const existing = await reserve(job, selection);
+    if (existing) return result(existing);
+    submissions.add(streamKey(job));
+    try {
+      const out = await client.submit(kind, input, bytes);
+      if (out.remoteId) {
+        job.remote_id = out.remoteId;
+        job.prompt_id = out.remoteId;
+        job.status = 'queued';
+      } else if (out.url) {
+        job.output_url = out.url;
+        job.status = 'running';
+      } else {
+        job.status = 'failed';
+        job[outputKey] = [await publish(job, out.bytes, 0)];
+        job.status = 'completed';
+      }
+      await save(job);
+    } catch (e) {
+      if (e.status >= 400 && e.status < 500 && e.status !== 408) job.status = 'failed';
+      job.error = e.message;
+      if (job.status === 'failed')
+        job.failure_info = errorContexts.get(e) ?? errorContext('submission', 'provider', e);
+      await save(job);
+    } finally {
+      submissions.delete(streamKey(job));
+    }
+    if (job.output_url) await refresh(job, signal).catch(() => {});
+    return result(job);
+  }
+  async function refreshCloud(job, signal) {
+    if (['completed', 'failed', 'cancelled'].includes(job.status) || (!job.remote_id && !job.output_url))
+      return result(job);
+    const client = await cloudClient(job.route, signal);
+    const update = job.output_url ? { url: job.output_url } : await client.query(job.remote_id);
+    if (update.url) {
+      if (job.delivery_stage !== 'download') {
+        job.status = 'running';
+        job.delivery_stage = 'download';
+        await save(job);
+      }
+      const bytes = await client.download(update.url, media?.maxBytes ?? 32 * 1024 * 1024);
+      job[outputKey] = [await publish(job, bytes, 0)];
+      job.status = 'completed';
+      delete job.output_url;
+      delete job.delivery_stage;
+    } else {
+      job.status = update.status;
+      job.error = update.error;
+      if (job.status === 'failed')
+        job.failure_info = errorContext('remote_execution', 'provider', new Error(job.error));
+    }
+    await save(job);
+    return result(job);
+  }
   async function refreshJob(job, signal, recheckTerminal = false) {
-    if (!['completed', 'failed', 'cancelled'].includes(job.status) && fetchImpl === fetch)
+    if (job.route && job.route.type !== 'comfy') return refreshCloud(job, signal);
+    if (!job.route && !['completed', 'failed', 'cancelled'].includes(job.status) && fetchImpl === fetch)
       await watchMedia(streamKey(job), job.server, job);
     // Preserve optional remote preview metadata for older receipts. Local playback
     // links are derived from the saved path even when the service is offline.
     const needsVideoLink = media && job.status === 'completed' && job.videos?.some(video => !video.preview_url);
     if (['completed', 'failed', 'cancelled'].includes(job.status) && !needsVideoLink && !recheckTerminal) return result(job);
-    const history = await inErrorStage('query', 'comfyui', () => json(job.server, `/history/${encodeURIComponent(job.prompt_id)}`, { signal })).catch(error => {
+    const history = await inErrorStage('query', 'comfyui', () => json(job.server, `/history/${encodeURIComponent(job.prompt_id)}`, { signal, binding:job.route ?? null })).catch(error => {
       // A missing optional playback link must not invalidate an already saved output.
       if (needsVideoLink) return {};
       throw error;
@@ -256,49 +512,19 @@ export function comfyuiMediaTool({ cwd, dataDir, sessionId, baseUrl = DEFAULT_CO
         job.failure_info = errorContext('output_retrieval', 'comfyui');
       }
       else {
-        const { root, directory } = await inErrorStage('output_publication', 'host', async () => {
-          const root = await realpath(cwd);
-          const output = path.join(root, `generated-${outputKey}`);
-          await mkdir(output, { recursive: true }); await inside(root, output);
-          const directory = path.join(output, job.job_id);
-          await mkdir(directory, { recursive: true }); await inside(root, directory);
-          return { root, directory };
-        });
+        const publishLimit = await publishableOutputs(job, Math.min(outputs.length, 8));
         job[outputKey] = [];
-        for (const [i, image] of outputs.slice(0, 8).entries()) {
-          await inErrorStage('output_publication', 'host', () => checkSpace(directory));
+        for (const [i, image] of outputs.slice(0, publishLimit).entries()) {
+          await inErrorStage('output_publication', 'host', () => checkSpace(cwd));
           const query = new URLSearchParams({ filename: image.filename, subfolder: image.subfolder ?? '', type: 'output' });
-          const bytes = await inErrorStage('output_retrieval', 'comfyui', async () => limitedBody(await request(job.server, `/view?${query}`, { signal }), media?.maxBytes ?? 32 * 1024 * 1024));
-          const dimensions = await inErrorStage('output_validation', 'host', () => media ? media.inspect(bytes) : pngDimensions(bytes));
-          const file = path.join(directory, `${i + 1}.${media?.extension ?? 'png'}`);
-          // Exclusive writes preserve user changes, including links placed at an output path.
-          await inErrorStage('output_publication', 'host', async () => {
-            try {
-              await checkSpace(directory, bytes.length);
-              const handle = await open(file, 'wx');
-              try { await handle.writeFile(bytes); }
-              catch (error) {
-                await handle.close();
-                await unlink(file);
-                throw error;
-              }
-              await handle.close();
-            }
-            catch (error) {
-              if (error.code !== 'EEXIST' || !bytes.equals(await readFile(await inside(root, file)))) throw error;
-            }
-          });
+          const bytes = await inErrorStage('output_retrieval', 'comfyui', async () => limitedBody(await request(job.server, `/view?${query}`, { signal, binding:job.route ?? null }), media?.maxBytes ?? 32 * 1024 * 1024));
           const previewUrl = `${comfyuiUrl(job.server)}/view?${query}`;
-          job[outputKey].push({ path: file, ...dimensions,
-            ...(media
-              ? { preview_url: previewUrl, markdown: videoMarkdown(file) }
-              : { markdown: `![Generated image](${file.replaceAll('\\', '/')})` }),
-          });
+          job[outputKey].push(await publish(job, bytes, i, previewUrl));
         }
         job.status = 'completed';
       }
     } else {
-      const queue = await inErrorStage('query', 'comfyui', () => json(job.server, '/queue', { signal }));
+      const queue = await inErrorStage('query', 'comfyui', () => json(job.server, '/queue', { signal, binding:job.route ?? null }));
       const position = queue.queue_pending?.findIndex(x => x[1] === job.prompt_id) ?? -1;
       job.queue_position = position >= 0 ? position + 1 : undefined;
       job.status = queue.queue_running?.some(x => x[1] === job.prompt_id) ? 'running'
@@ -332,16 +558,19 @@ export function comfyuiMediaTool({ cwd, dataDir, sessionId, baseUrl = DEFAULT_CO
       observationErrors.delete(key);
       return result(job);
     })().catch(error => {
-      observationErrors.set(key, errorContexts.get(error) ?? errorContext('query', 'comfyui', error));
+      observationErrors.set(key, errorContexts.get(error) ?? errorContext('query', job.route && job.route.type!=='comfy'?'provider':'comfyui', error));
       throw error;
     }).finally(() => { refreshes.delete(key); refreshStartedAt.delete(key); });
     refreshes.set(key, pending); return pending;
   }
   const tool = {
     currentRequestWorkflow: true,
+    async completedImageCount(selection) {
+      return withAdmission(records, async () =>
+        (await turnReceipts(selection)).reduce((sum, job) => sum + savedImages(job), 0));
+    },
     async jobs() {
-      const files = await readdir(records).catch(error => { if (error.code === 'ENOENT') return []; throw error; });
-      const jobs = await Promise.all(files.filter(file => uuid.test(file.replace(/\.json$/, '')) && file.endsWith('.json')).map(async file => JSON.parse(await readFile(path.join(records, file), 'utf8'))));
+      const jobs = await allReceipts();
       const latest = jobs.sort((a,b) => b.created_at.localeCompare(a.created_at)).slice(0, 20);
       return latest.map(job => {
         // Publish local receipts immediately, even while the service or download
@@ -354,7 +583,7 @@ export function comfyuiMediaTool({ cwd, dataDir, sessionId, baseUrl = DEFAULT_CO
         const startedAt = refreshStartedAt.get(streamKey(job));
         // This expires an observation, never the generation or its download.
         const stale = startedAt !== undefined && Date.now() - startedAt >= 15_000;
-        return { ...result(job), observation_error: observationErrors.has(streamKey(job)) || stale, live: { ...live, stage: job.workflow?.stages?.[live.node] } };
+        return { ...result(job), observation_error: observationErrors.has(streamKey(job)) || stale, live: { ...live, stage: job.delivery_stage ?? job.workflow?.stages?.[live.node] } };
       });
     },
     name: toolName,
@@ -377,6 +606,8 @@ export function comfyuiMediaTool({ cwd, dataDir, sessionId, baseUrl = DEFAULT_CO
       signal?.throwIfAborted();
       const { display_name: proposedName, ...input } = rawInput;
       validateWorkflowInput(input);
+      if (['inspect','generate'].includes(input.operation) && disabled) throw Error('请在图片与视频生成设置中选择默认模型');
+      if (input.operation === 'inspect' && cloud) return {service:mediaRoute.type, model:mediaRoute.model, creation_allowed:false};
       if (input.operation === 'inspect') {
         const count = kind === 'image'
           ? (input.mode === 'image_to_image' ? Math.max(1, input.reference_images?.length ?? 0) : input.reference_images?.length ?? 0)
@@ -416,9 +647,11 @@ export function comfyuiMediaTool({ cwd, dataDir, sessionId, baseUrl = DEFAULT_CO
         // Check again at submission, rather than trusting an earlier model-visible inspection.
         await checkSpace(cwd, media?.maxBytes ?? 32 * 1024 * 1024);
         await checkSpace(dataDir);
+        if (cloud) return generateCloud(input, refs, id, proposedName, selectWorkflow, signal);
         const inventory = await json(server, '/object_info', { signal });
         const catalog = await savedWorkflowCatalog(route => json(server, route, { signal }), inventory, kind, input.mode, refs.length);
-        const selectionCatalog = workflowSelectionCatalog(catalog);
+        const selectionCatalog = workflowSelectionCatalog(catalog).filter(w => !pinnedWorkflow || w.id===pinnedWorkflow);
+        if(pinnedWorkflow && hasFallback)throw Error('指定的工作流不能用临时工作流替代');
         const fallbackCandidate = hasFallback && catalog.public.creation_allowed ? [{ id: 'fallback:provided-graph', label: 'Fallback graph proposal',
           mode: kind === 'image' ? refs.length ? 'image_to_image' : 'text_to_image' : input.mode,
           compatible: true, dependencies_available: true, fallback: true }] : [];
@@ -426,34 +659,28 @@ export function comfyuiMediaTool({ cwd, dataDir, sessionId, baseUrl = DEFAULT_CO
           mode: kind === 'image' ? refs.length ? 'image_to_image' : 'text_to_image' : input.mode, referenceCount: refs.length }) : null;
         if (selection && hasFallback !== (selection.fallback === true)) throw new Error('The current request does not select the proposed saved/fallback source; do not substitute another workflow.');
         const effectiveInput = selection ? { ...input, workflow_id: undefined, workflow_name: selection.workflow_name } : input;
-        const selected = hasFallback ? null : selectSavedWorkflow(catalog, effectiveInput);
+        const selected = hasFallback ? null : selectSavedWorkflow(catalog, pinnedWorkflow ? {...effectiveInput,workflow_id:pinnedWorkflow,workflow_name:undefined} : effectiveInput);
         if (selection) {
           const currentCatalog = await savedWorkflowCatalog(route => json(server, route, { signal }), await json(server, '/object_info', { signal }), kind, input.mode, refs.length);
-          if (JSON.stringify(workflowSelectionCatalog(currentCatalog)) !== JSON.stringify(selectionCatalog))
+          if (JSON.stringify(workflowSelectionCatalog(currentCatalog).filter(w=>!pinnedWorkflow || w.id===pinnedWorkflow)) !== JSON.stringify(selectionCatalog))
             throw new Error('The saved workflow catalog changed during selection; inspect and select again before generating.');
-          await selection.assertCurrent();
         }
         const prepare = uploaded => hasFallback
           ? prepareFallback(input, kind, uploaded, id, inventory, catalog.public)
           : prepareSavedWorkflow(selected, input, uploaded, id, inventory);
         const prepared = prepare(placeholders);
         if (!input.request_id && selection?.receipt?.source === 'current_request' && selection.receipt.request_hash) {
-          id = automaticRequestId(selection, { server, id: selection.receipt.workflow_id, sha256: selected?.sha256 }, input);
+          id = automaticRequestId(selection, { server, ...(scopeRoute?{serviceId:scopeRoute.serviceId}:{}), id: selection.receipt.workflow_id, sha256: selected?.sha256 }, input);
           const prior = await load(id).catch(error => { if (error.code === 'ENOENT') return null; throw error; });
-          if (prior) return result(prior);
+          if (prior) { await selection.assertCurrent(); return result(prior); }
         }
         await mkdir(records, { recursive: true });
         const name = displayName(proposedName);
-        const job = { job_id: id, prompt_id: id, server, status: 'preparing', created_at: new Date().toISOString(), input, workflow: prepared.metadata,
+        const job = { job_id: id, prompt_id: id, server, ...(mediaRoute && (scopeRoute || mediaRoute.hasKey) ? {route:mediaRoute}:{}), status: 'preparing', created_at: new Date().toISOString(), input, workflow: prepared.metadata,
           ...(selection ? { workflow_selection: selection.receipt } : {}),
           ...(name ? { display_name: name } : {}) };
-        try { await writeFile(path.join(records, `${id}.json`), JSON.stringify(job), { flag: 'wx' }); }
-        catch (error) {
-          if (error.code !== 'EEXIST') throw error;
-          const old = await load(id);
-          if (input.request_id && JSON.stringify(old.input) !== JSON.stringify(input)) throw new Error(`request_id already belongs to a different ${kind} request`);
-          return result(old);
-        }
+        const previous = await reserve(job, selection);
+        if (previous) return result(previous);
         submissions.add(streamKey(job));
         try {
           const uploaded = [];
@@ -469,7 +696,7 @@ export function comfyuiMediaTool({ cwd, dataDir, sessionId, baseUrl = DEFAULT_CO
           }
           await selection?.assertCurrent();
           job.status = 'submission_unknown'; await save(job);
-          if (fetchImpl === fetch) await watchMedia(streamKey(job), server, job);
+          if (!job.route && fetchImpl === fetch) await watchMedia(streamKey(job), server, job);
           // Keep progress events while skipping latent preview computation on the server.
           const execution = prepare(uploaded);
           const receipt = await inErrorStage('submission', 'comfyui', () => json(server, '/prompt', post({ prompt_id: id, client_id: id,
@@ -488,13 +715,14 @@ export function comfyuiMediaTool({ cwd, dataDir, sessionId, baseUrl = DEFAULT_CO
       }
       const job = await load(input.job_id);
       if (input.operation === 'cancel') {
+        if(job.route && job.route.type!=='comfy')return {...result(job),cancellation_confirmed:false,error:'请在厂商控制台取消此任务。'};
         await refresh(job, signal);
         if (['completed', 'failed', 'cancelled'].includes(job.status)) return result(job);
         try {
           // Cancellation changes remote state; let the sidebar observe its
           // progress immediately while the acknowledgement is still pending.
           checks.delete(streamKey(job));
-          const receipt = await json(job.server, `/api/jobs/${job.prompt_id}/cancel`, post({}, signal));
+          const receipt = await json(job.server, `/api/jobs/${job.prompt_id}/cancel`, {...post({}, signal),binding:job.route ?? null});
           if (receipt.cancelled) {
             // A completed download may have been saved while the POST was pending.
             await save(job, current => ({ ...current, cancel_requested: true }));
@@ -545,8 +773,13 @@ export function comfyuiMediaTool({ cwd, dataDir, sessionId, baseUrl = DEFAULT_CO
     display_name: { description: 'For generate, supply a short string naming this specific result in the user\'s language, up to 80 characters. Include the subject and purpose/action, e.g. 小熊猫招手动作图 or 门店开业宣传短片. Distinguish real variants by their purpose rather than numbers. Omit status words such as completed/failed. Display only; omitted or invalid values are ignored.' },
   } };
   tool.description += ' CodeBuddy independently resolves the saved workflow from the CURRENT admitted request and current catalog, without this conversation history. Supply the creative prompt, mode and references; omit workflow_name. If selection reports incompatible references/mode, correct those arguments without substituting a different workflow. Completed artifacts are rendered automatically in chat from the saved receipt; do not repeat raw paths or remote preview URLs in the reply.';
+  if(cloud) {
+    tool.description = `Generate ${kind} with the user-configured ${mediaRoute.type} model ${mediaRoute.model.label}. Inspect capabilities, then generate once with a creative prompt and display_name. For image edits pass workspace-local PNG reference_images. For image_to_video set image_path to the actual saved PNG from the previous generate_image receipt. Check status with the same job_id and wait_seconds=240. Never resubmit a submission_unknown job. The right-side panel delivers saved files.`;
+    const supported=['operation','mode','prompt','display_name','request_id','job_id','wait_seconds',...(media?['image_path','duration_seconds']:['reference_images','width','height','transparent_background'])];
+    tool.inputSchema.properties=Object.fromEntries(Object.entries(tool.inputSchema.properties).filter(([k])=>supported.includes(k)));
+  }
   return registerToolSessionApproval(tool, {
-    key: JSON.stringify([toolName, path.resolve(cwd), path.resolve(dataDir), sessionId, server]),
+    key: JSON.stringify([toolName, path.resolve(cwd), path.resolve(dataDir), sessionId, server,...(scopeRoute?[scopeRoute.serviceId,scopeRoute.type,scopeRoute.model.id,scopeRoute.identity]:[])]),
     dependencies: [fetchImpl, statfsImpl],
     business: { id: media ? 'video-generation' : 'image-generation', service: server,
       workspace: path.resolve(cwd), outputDirectory: path.resolve(cwd, `generated-${outputKey}`) },
@@ -555,7 +788,7 @@ export function comfyuiMediaTool({ cwd, dataDir, sessionId, baseUrl = DEFAULT_CO
       if (!['status', 'cancel'].includes(input.operation)) return false;
       // Old jobs keep their original destination. A grant for the newly
       // selected service must not silently authorize a different old service.
-      try { return comfyuiUrl((await load(input.job_id)).server) === server; }
+      try { const job=await load(input.job_id); return comfyuiUrl(job.server) === server && (job.route?.serviceId??'legacy')===(mediaRoute?.serviceId??'legacy') && job.route?.identity===scopeRoute?.identity; }
       catch { return false; }
     },
   });

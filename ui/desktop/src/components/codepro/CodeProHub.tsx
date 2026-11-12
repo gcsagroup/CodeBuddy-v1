@@ -5,7 +5,7 @@ import {
 } from '../../utils/nextChatExtensions';
 import { useNavigate } from 'react-router-dom';
 import ChatInput from '../ChatInput';
-import { ChatInputCard } from '../ChatInputCard';
+import { CodeBuddyMark } from '../CodeBuddyMark';
 import { DirSwitcher } from '../bottom_menu/DirSwitcher';
 import { useConfig } from '../ConfigContext';
 import { AppEvents } from '../../constants/events';
@@ -71,13 +71,11 @@ interface PendingCodeProStart {
 }
 
 const i18n = defineMessages({
-  eyebrow: { id: 'codeProHub.eyebrow', defaultMessage: 'Multi-Agent development workspace' },
-  title: { id: 'codeProHub.title', defaultMessage: 'Welcome to CodeBuddy' },
-  description: {
-    id: 'codeProHub.description',
-    defaultMessage:
-      'It plans, edits, tests, and reviews directly in the current project, so results are immediately available in your editor.',
-  },
+  title: { id: 'baseChat.mainWelcome', defaultMessage: "I'm CodeBuddy. Let's work together." },
+  introduction: { id: 'baseChat.mainIntroduction', defaultMessage: 'I can help you understand code, work with documents and data, and carry a task through to checked results. Tell me what you want to get done.' },
+  code: { id: 'baseChat.mainCode', defaultMessage: 'Write and debug code' },
+  data: { id: 'baseChat.mainData', defaultMessage: 'Organize documents and data' },
+  tasks: { id: 'baseChat.mainTasks', defaultMessage: 'Plan, execute and check' },
   capabilities: { id: 'codeProHub.capabilities', defaultMessage: 'CodePro capabilities' },
   taskBreakdown: { id: 'codeProHub.taskBreakdown', defaultMessage: 'Automatic task breakdown' },
   modelCollaboration: {
@@ -378,100 +376,112 @@ export function CodeProHub({ launchIntent }: { launchIntent?: CodeProLaunchInten
 
   return (
     <main
-      className="flex h-full min-h-0 overflow-y-auto px-4 py-6 sm:px-6"
+      className="flex h-full min-h-0 flex-col overflow-y-auto px-4 py-4 sm:px-6 sm:pb-6"
       aria-labelledby="codepro-title"
     >
-      <div className="m-auto w-full min-w-0 max-w-2xl">
-        <div className="mb-7">
-          <p className="mb-2 text-sm font-medium text-text-secondary">
-            {intl.formatMessage(i18n.eyebrow)}
-          </p>
+      <div className="mx-auto flex w-full max-w-3xl flex-1 flex-col">
+        <div className="mx-auto flex w-full max-w-2xl flex-1 flex-col justify-center py-8">
+          <div className="mb-6 flex size-14 items-center justify-center rounded-2xl bg-gradient-to-br from-blue-100/70 to-violet-100/50 text-text-primary dark:from-blue-950/60 dark:to-violet-950/40">
+            <CodeBuddyMark className="size-8" />
+          </div>
           <h1
             id="codepro-title"
-            className="text-3xl font-semibold tracking-tight text-text-primary"
+            className="text-2xl font-semibold tracking-tight text-text-primary sm:text-3xl"
           >
             {intl.formatMessage(i18n.title)}
           </h1>
-          <p className="mt-2 text-base text-text-secondary">
-            {intl.formatMessage(i18n.description)}
+          <p className="mt-3 max-w-xl text-base leading-7 text-text-secondary">
+            {intl.formatMessage(i18n.introduction)}
           </p>
+          <ul className="mt-7 flex flex-wrap gap-2 text-sm text-text-secondary">
+            {[i18n.code, i18n.data, i18n.tasks].map(message => (
+              <li key={message.id} className="rounded-full border border-border-primary/70 bg-background-secondary/60 px-3 py-1.5">
+                {intl.formatMessage(message)}
+              </li>
+            ))}
+          </ul>
         </div>
 
-        <fieldset disabled={inputBlocked} className="mb-2 flex min-w-0 items-center px-2">
-          <DirSwitcher className="" sessionId={undefined} workingDir={workingDir || rootContainer || ''} onWorkingDirChange={handleWorkingDirChange} />
+        <fieldset
+          disabled={inputBlocked}
+          className="mx-2 -mb-2 flex min-w-0 items-center rounded-t-2xl border border-b-0 border-border-primary/60 bg-background-secondary px-2 pt-1 pb-3"
+        >
+          <DirSwitcher
+            allowClear
+            className=""
+            sessionId={undefined}
+            workingDir={workingDir || rootContainer || ''}
+            onWorkingDirChange={handleWorkingDirChange}
+          />
         </fieldset>
 
-        <ChatInputCard>
-          <>
-            <fieldset
-              disabled={inputBlocked}
-              aria-busy={isInspecting || isCreating}
-              className="min-w-0"
-              onDragOverCapture={(event) => {
-                if (!inputBlocked) return;
-                event.preventDefault();
-                event.stopPropagation();
-              }}
-              onDropCapture={(event) => {
-                if (!inputBlocked) return;
-                event.preventDefault();
-                event.stopPropagation();
-              }}
-            >
-              <ChatInput
-                onOpenPermissions={() => setPermissionOpenRequest((value) => value + 1)}
-                placeholder={intl.formatMessage(i18n.goalPlaceholder)}
-                modelToolbarSlot={
-                  <PermissionPicker
-                    openRequest={permissionOpenRequest}
-                    inline
-                    draft
-                    mode={initialPermissionPreset}
-                    onModeChange={setInitialPermissionPreset}
-                    workingDirectory={workingDir || rootContainer || ''}
-                  />
-                }
-                sessionId={null}
-                handleSubmit={handleSubmit}
-                nextChatExtensionDraft={draftForMenu}
-                onNextChatExtensionDraftChange={setExtensionDraft}
-                chatState={ChatState.Idle}
-                onStop={() => {}}
-                initialValue={draftMessage}
-                newTaskDraftKey="codepro"
-                setView={setView}
-                totalTokens={0}
-                accumulatedInputTokens={0}
-                accumulatedOutputTokens={0}
-                droppedFiles={[]}
-                onFilesProcessed={() => {}}
-                messages={[]}
-                disableAnimation={false}
-                onWorkingDirChange={handleWorkingDirChange}
-                hideWorkingDirSwitcher
-                workingDir={workingDir || rootContainer || ''}
-                inputRef={inputRef}
+        <fieldset
+          disabled={inputBlocked}
+          aria-busy={isInspecting || isCreating}
+          className="min-w-0"
+          onDragOverCapture={(event) => {
+            if (!inputBlocked) return;
+            event.preventDefault();
+            event.stopPropagation();
+          }}
+          onDropCapture={(event) => {
+            if (!inputBlocked) return;
+            event.preventDefault();
+            event.stopPropagation();
+          }}
+        >
+          <ChatInput
+            onOpenPermissions={() => setPermissionOpenRequest((value) => value + 1)}
+            placeholder={intl.formatMessage(i18n.goalPlaceholder)}
+            modelToolbarSlot={
+              <PermissionPicker
+                openRequest={permissionOpenRequest}
+                inline
+                draft
+                mode={initialPermissionPreset}
+                onModeChange={setInitialPermissionPreset}
+                workingDirectory={workingDir || rootContainer || ''}
               />
-            </fieldset>
-            {setupError && (
-              <div className="px-4 pb-3 text-sm text-text-primary">
-                <p role="alert">{intl.formatMessage(setupMessages[setupError])}</p>
-                {retryIntent && (
-                  <button
-                    type="button"
-                    className="mt-2 rounded bg-background-primary px-3 py-2"
-                    disabled={isInspecting}
-                    onClick={() => {
-                      void inspectAndStage(retryIntent).catch(() => {});
-                    }}
-                  >
-                    {intl.formatMessage(i18n.retryWorkspaceSetup)}
-                  </button>
-                )}
-              </div>
+            }
+            sessionId={null}
+            handleSubmit={handleSubmit}
+            nextChatExtensionDraft={draftForMenu}
+            onNextChatExtensionDraftChange={setExtensionDraft}
+            chatState={ChatState.Idle}
+            onStop={() => {}}
+            initialValue={draftMessage}
+            newTaskDraftKey="codepro"
+            setView={setView}
+            totalTokens={0}
+            accumulatedInputTokens={0}
+            accumulatedOutputTokens={0}
+            droppedFiles={[]}
+            onFilesProcessed={() => {}}
+            messages={[]}
+            disableAnimation={false}
+            onWorkingDirChange={handleWorkingDirChange}
+            hideWorkingDirSwitcher
+            workingDir={workingDir || rootContainer || ''}
+            inputRef={inputRef}
+          />
+        </fieldset>
+        {setupError && (
+          <div className="px-4 pb-3 text-sm text-text-primary">
+            <p role="alert">{intl.formatMessage(setupMessages[setupError])}</p>
+            {retryIntent && (
+              <button
+                type="button"
+                className="mt-2 rounded bg-background-primary px-3 py-2"
+                disabled={isInspecting}
+                onClick={() => {
+                  void inspectAndStage(retryIntent).catch(() => {});
+                }}
+              >
+                {intl.formatMessage(i18n.retryWorkspaceSetup)}
+              </button>
             )}
-          </>
-        </ChatInputCard>
+          </div>
+        )}
       </div>
     </main>
   );

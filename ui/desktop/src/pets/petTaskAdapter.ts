@@ -13,7 +13,10 @@ export function petTaskFromSnapshot(sessionId: string, snapshot: AcpChatSessionS
     !name || (!snapshot.session?.user_set_name && name === 'New Session')
       ? '新对话'
       : name;
-  const task: PetTask = { sessionId, title, state: 'idle' };
+  const task: PetTask = {
+    sessionId, title, state: 'idle',
+    ...(snapshot.session?.global_conversation && { globalConversation: true }),
+  };
   if (snapshot.chatState === ChatState.WaitingForUserInput || snapshot.workspaceReconfirmation) {
     const pending = new Set(snapshot.pendingInputRequestIds ?? []);
     const request = snapshot.messages
@@ -48,7 +51,7 @@ export function petTaskFromSnapshot(sessionId: string, snapshot: AcpChatSessionS
       ChatState.Streaming,
       ChatState.Compacting,
       ChatState.RestartingAgent,
-    ].includes(snapshot.chatState)
+    ].includes(snapshot.chatState) || (snapshot.chatState === ChatState.Idle && !!snapshot.activeRunId)
   ) {
     const active = new Set(snapshot.activeToolCallIds ?? []);
     const request = snapshot.messages.flatMap(getToolRequests).find((item) => active.has(item.id));
@@ -77,6 +80,9 @@ export function petTaskFromSnapshot(sessionId: string, snapshot: AcpChatSessionS
         ...(stage ? { stage } : {}),
       },
     };
+  }
+  if (snapshot.completedPromptAttemptId) {
+    return { ...task, state: 'completed', terminalId: snapshot.completedPromptAttemptId };
   }
   for (const message of [...snapshot.messages].reverse()) {
     for (const content of message.content) {

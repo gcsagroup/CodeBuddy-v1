@@ -1,8 +1,40 @@
-import { render, screen } from '@testing-library/react';
-import { describe, expect, it } from 'vitest';
+import { fireEvent, render, screen } from '@testing-library/react';
+import { describe, expect, it, vi } from 'vitest';
 import { IntlTestWrapper } from '../../i18n/test-utils';
 import type { Message, SystemNotificationContent } from '../../types/message';
 import { getInlineSystemNotification, SystemNotificationInline } from './SystemNotificationInline';
+
+const request = vi.hoisted(() => vi.fn());
+vi.mock('../../acp/acpConnection', () => ({ getAcpControlClient: async () => ({ extMethod: request }) }));
+
+it('automatically resolves a historical receipt and can retry a failed read', async () => {
+  request.mockRejectedValueOnce(Error('offline')).mockResolvedValueOnce({
+    title: 'Airplane', task: 'Build the game', result: 'Keyboard controls are wired.', files: ['game.js'], fileCount: 1,
+  });
+  const notice = { notificationType: 'inlineMessage' as const, msg: '旧完成提示', data: {
+    event: 'managed_turn_result', outcome: 'completed', requestId: 'turn-a', sessionId: 'plane',
+  } };
+  render(<SystemNotificationInline sessionId="main" notification={notice} />, { wrapper: IntlTestWrapper });
+  expect(screen.queryByText('旧完成提示')).toBeNull();
+  fireEvent.click(await screen.findByRole('button', { name: 'Try again' }));
+  expect(await screen.findByText('Keyboard controls are wired.')).toBeVisible();
+  expect(screen.getByText(/game\.js/)).toBeVisible();
+  expect(request).toHaveBeenLastCalledWith('_codebuddy/main-conversation/overview', {
+    sessionId: 'main', detailSessionId: 'plane', requestId: 'turn-a',
+  });
+});
+
+it('displays a delivered snapshot immediately without another read', () => {
+  request.mockClear();
+  render(<SystemNotificationInline sessionId="main" notification={{ notificationType: 'inlineMessage', msg: '', data: {
+    event: 'managed_turn_result', outcome: 'completed', requestId: 'turn-b', sessionId: 'disk', title: 'Disk',
+    brief: { title: 'Disk', task: 'Upload', result: 'Upload is available.', files: ['upload.ts'], fileCount: 1 },
+  } }} />, { wrapper: IntlTestWrapper });
+  expect(screen.getByRole('article', { name: 'Project brief · Disk' })).toHaveTextContent('CodeBuddy');
+  expect(screen.getByText('Upload is available.')).toBeVisible();
+  expect(screen.getByText(/upload\.ts/)).toBeVisible();
+  expect(request).not.toHaveBeenCalled();
+});
 
 describe('durable compaction receipts', () => {
   it('keeps the failure reason in collapsed details instead of a second alert', () => {

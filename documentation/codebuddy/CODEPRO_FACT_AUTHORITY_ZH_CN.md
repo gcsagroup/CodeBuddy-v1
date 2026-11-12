@@ -1,3 +1,27 @@
+## 2026-11-12 主对话进度与项目派发
+
+进度查询只按目标会话聚合当前原生历史、工具回执和运行状态。项目启动和后续派发沿用主对话的目标审批和目标会话自身的 prompt 入口。按原生用户输入的 request ID 确认受理、识别重试，执行和完成仍由目标 Harness 负责。主对话工作区不承担项目运行。
+
+启动后直接返回由审批卡中的范围、目标会话原生受理回执和当前输入共同决定。Harness 检查单个工具调用及待处理的新输入后结束主对话本轮；宿主投递受理文本，工作仍属于项目会话。混合请求继续执行。仅委派的主对话轮次保留协调职责，审批后新增的用户指令可改变范围。
+
+繁體：目標對話的原生輸入事件確認受理，執行結果決定完成。English: The target chat's native input event confirms acceptance. Its run and receipts establish execution and completion.
+
+## 2026-11-11 已批准：主对话管理项目、对话与会话级权限
+
+主对话的可信身份沿用 Compat 的内部标识。`inspect_workspace` 消费 WorkspaceService 的项目来源、会话索引、Harness 运行投影及当前原生历史。`manage_workspace` 仅在主对话根轮次注册，跨目标修改显示精确目标并按次批准。WorkspaceService 写项目资料与分配文件夹；Compat 复用会话创建、归档、重命名与逻辑删除入口。Store 在目标会话中保存可选的 `permissionOverride`；旧会话缺省继承原规则，显式继承恢复默认。运行中的轮次保留准入时的覆盖，Harness 持有实际权限。全局设置及现有 ACP 全局模式语义继续沿用。清空／分叉后的历史查询跟随产品身份解析的新原生 ID。概览只投影事实，不持有执行、授权或完成状态。
+
+繁體：主對話管理工具按專案與對話 ID 操作，權限覆寫存於目標對話，生效範圍由 Harness 執行。English: Main-chat changes bind to project and conversation IDs. A per-chat override is stored on its target; Harness enforces permissions. See `docs/main-conversation-management.en.md`.
+
+## 2026-11-11 已批准：对话的图片和视频生成服务
+
+火山方舟与百炼的模型目录刷新只读取候选模型。用户勾选并保存后，服务才登记新模型。默认模型由设置页的默认选择器指定。对话中的进度卡使用会话 ID 与任务 ID 打开右侧预览，进度和产物沿用该任务的回执。
+
+繁體：重新整理官方模型只讀取候選清單，勾選並儲存後才加入服務。預覽依會話與任務 ID 顯示回執。 English: Catalog refresh reads candidates. The service stores a new model when the user selects and saves it. Previews follow the receipt for the selected session and job.
+
+生成设置由 runtime/media-services.mjs 保存。每项默认选择绑定服务、模型和能力，旧 ComfyUI 地址沿用为两个默认项。密钥由系统凭据机制保护；桌面只读取是否已配置。媒体工具在提交前检查能力和工作区参考文件，当前请求的语义选择继续由 Harness 解析。云适配器翻译厂商请求与回执，媒体工具仍持有本地任务状态和文件发布。切换默认项后，已有任务按回执中的原服务、模型与厂商任务 ID 查询；提交不明时禁止自动重发。移除连接可能中断后续鉴权。旧回执继续按 ComfyUI 处理。
+
+繁體：生成設定保存獨立的圖片與影片預設模型。舊任務依原服務與任務 ID 查詢，產物由媒體工具發布。English: Media settings own the image and video defaults. Existing receipts retain their service and remote task ID. The media tools own publication and job state.
+
 ## 2026-11-10 已批准：界面连接与任务生命周期分离
 
 Harness 继续唯一持有执行、取消及结束事实；WebSocket 关闭仅移除显示客户端并拒绝该连接的待答 RPC，不再取消已接纳任务。Compat 为活动请求提供会话级投递连接，session/load 完成原生回放后绑定新客户端并投影当前 activeRunId；前端恢复连接后加载原会话，不重发用户请求。原生日志负责持久化，连接适配器不另建执行器或持久运行状态。仅权限、问题及配方参数可在同一原生请求与截止时间内重新呈现；浏览器及桌面操作不自动重放。显式停止及服务关闭沿用原生取消。后端进程退出后的自动续跑不在本次范围；旧会话无需迁移。工具错误序列化仅展示有界的原生取消种类，不重判取消来源或结果。详见 `docs/session-reconnect.zh-CN.md`。
@@ -35,6 +59,12 @@ English: Additional authorization covers missing low-integrity labels on writabl
 繁體：已獲使用者授權，僅為目前帳戶擁有且可寫的工作區根目錄補上不繼承的 `WRITE_OWNER`；官方 Provider 繼續持有受限執行。目錄身分、所有權及有效權限由原生句柄核對。
 
 English: The user authorized a non-inheritable `WRITE_OWNER` grant only on a writable workspace root owned by the current account. Native handles verify identity, ownership and effective access. The official sandbox provider retains restricted execution ownership and retries after the scoped repair.
+
+## 按当前请求的张数交付图片
+
+Harness 的媒体选择器按本轮用户原始消息及已接纳的引导解析图片总张数、交付图片后是否还有工作。媒体工具在服务调用前串行登记回执，已保存和待确认任务共同占用名额，确认失败或取消释放名额。修改创作参数不会重置张数。仅需图片的任务达到目标后沿用原生 `concludeTurn()`，另有后续工作的任务继续执行。历史回执仍可查询。
+
+繁體：依已接納的使用者訊息判定圖片總數，送出前計入已儲存與待確認的工作，純圖片請求達標後結束。English: The interpreter reads the requested image count from admitted user messages. The media tool reserves capacity before submission and counts saved files and outstanding jobs. Image-only turns may conclude on verified delivery.
 
 ## 2026-11-07 已批准：单媒体产物直接交付
 
@@ -961,7 +991,8 @@ English: The foreground root chat proposes installation and the desktop confirms
 - 主对话专属 `workspace_memory` 从已登记工作区按需只读召回。ProjectMemory 继续拥有候选／批准／禁用／过期判断，工具不得重新解释原文作为批准；返回来源，普通会话不注册此能力。文件系统与其他工具权限独立，不把记忆可读等同于跨项目可写。
 - UI 消费 `globalConversation` 排除项目分组；角色工作区的列表来源为既有 `agentWorkspaces` 绑定，不另存第二份角色绑定。
 - 宠物审批由现有前端 ACP pending request 注册表继续持有 resolver；宠物只显示该请求允许的操作，携带一次请求令牌交回原窗口。Electron 校验来源及任务归属，注册表拒绝过期令牌，不新增权限持久化或第二套审批策略。问题填答和工作区确认不转换成工具授权。
-- 对话展示标题由 Compat 在首轮结束后更新既有 `title` 字段，上层驱动适配调用 Harness 公开辅助标题推理接口，使用已登记模型路由但不开放工具；首句截断不再作为新对话标题来源。主对话及手动 `userSetName` 名称保持不变。智能体名称作为既有项目别名初始值，和对话标题独立；不迁移历史标题或改变执行历史所有权。
+- 对话展示标题由 Compat 在首轮结束后更新既有 `title` 字段，上层驱动适配调用 Harness 公开辅助标题推理接口，使用已登记模型路由但不开放工具；纯工具交付或辅助推理不可用时采用 Harness 首条用户请求的标题。启动时仅为仍有占位标题的已有对话补投影原生标题。主对话、只读导入和手动 `userSetName` 名称保持不变。智能体名称作为既有项目别名初始值，和对话标题独立。
+  - 繁體：工具直接交付或命名服務不可用時採用首個請求的標題，啟動時僅修復遺漏的標題。English: Tool-only replies and unavailable auxiliary inference use the first request’s title. Startup restores missing product titles from native history.
 - 主对话清空由既有 `ConversationEditing` 在会话锁下执行官方空历史分叉并更新投影，保留产品会话身份与独立记忆；非主对话或活动执行不允许调用。原生日志按既有审计规则保留。Electron 转交 ID 沿用为队列及提交 ID，接收端按 ID 合并重复通知，禁止按消息文本去重。
 
 

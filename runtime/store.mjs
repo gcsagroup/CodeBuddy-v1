@@ -4,6 +4,7 @@ import { setTimeout as delay } from "node:timers/promises";
 import path from "node:path";
 import { randomUUID } from "node:crypto";
 import { performance } from "node:perf_hooks";
+import { isDeepStrictEqual } from "node:util";
 
 export async function openStore(dataDir, { replaceFile = rename, defaultModel, onTiming, replaceDeletionFile } = {}) {
   await mkdir(dataDir, { recursive: true });
@@ -97,7 +98,7 @@ export async function openStore(dataDir, { replaceFile = rename, defaultModel, o
     if (elapsed >= 50) report({ operation: 'read', at_ms: Date.now(), elapsed_ms: elapsed, roots: keys ?? null });
     return result;
   };
-  const update = (fn, keys, sessionId, insertingSession = false, pruningSessions = false) => {
+  const update = (fn, keys, { sessionId, insertingSession, pruningSessions, skipUnchanged } = {}) => {
     const queuedAt = Date.now(), queued = performance.now();
     // A scoped draft never exposes unchanged history to its writer. All
     // updates still share the same queue and atomically replace one snapshot.
@@ -139,6 +140,11 @@ export async function openStore(dataDir, { replaceFile = rename, defaultModel, o
           for (const key of roots) {
             if (Object.hasOwn(draft, key)) next[key] = draft[key];
             else delete next[key];
+          }
+          // Startup recovery often finds nothing to repair. Compare only its
+          // selected roots, inside the commit queue, before encoding history.
+          if (skipUnchanged && roots.every(key => isDeepStrictEqual(next[key], base[key]))) {
+            return value;
           }
         }
         if (deletions.size) {
@@ -257,18 +263,18 @@ export async function openStore(dataDir, { replaceFile = rename, defaultModel, o
       return snapshot(session === undefined || fields === undefined ? session
         : Object.fromEntries(fields.map(key => [key, session[key]])), ['sessions']);
     },
-    update: (fn, keys) => update(fn, keys),
+    update: (fn, keys, { skipUnchanged = false } = {}) => update(fn, keys, { skipUnchanged }),
     // Session projection joins the same commit queue; it cannot see or mutate
     // other conversations, and still replaces the same complete JSON snapshot.
     // Keep the former options argument compatible; all commits are now durable.
     updateSession(id, fn, _options = {}) {
       if (typeof id !== 'string' || !id.length) return Promise.reject(new TypeError('Session id is required'));
-      return update(fn, ['sessions'], id);
+      return update(fn, ['sessions'], { sessionId: id });
     },
     // The factory runs in the same durable commit queue. It can read current
     // metadata for uniqueness checks without copying unrelated transcripts.
     insertSession(create) {
-      return update(create, ['sessions'], undefined, true);
+      return update(create, ['sessions'], { insertingSession: true });
     },
     pendingSessionDeletions: () => deletions.list(),
     isSessionDeleted: id => deletions.has(id),
@@ -287,7 +293,7 @@ export async function openStore(dataDir, { replaceFile = rename, defaultModel, o
     async finishSessionDeletion(id) {
       if (!deletions.has(id)) return;
       // No transcript clone: retain the byte cache of every surviving session.
-      await update(() => {}, ['sessions'], undefined, false, true);
+      await update(() => {}, ['sessions'], { pruningSessions: true });
       await deletions.finish(id);
     },
     flush: async () => { await tail; await deletions.flush(); },

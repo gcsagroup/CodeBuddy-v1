@@ -259,11 +259,16 @@ test('cancellation closes a real in-flight model turn', async () => {
   const created = await session();
   const abort = new AbortController();
   const result = await driver.prompt(created.sessionId, 'fixture_slow', {
+    requestId: 'stopped-request',
     signal: abort.signal,
     onEvent: event => { if (event.type === 'text_delta') abort.abort(); },
   });
   assert.equal(result.stopReason, 'cancelled');
   assert.ok((await driver.history(created.sessionId)).events.some(event => event.type === 'turn/end' && event.data.reason.kind === 'aborted'));
+  assert.equal(typeof await driver.lastUserStop(created.sessionId, 'stopped-request'), 'number');
+  assert.equal(await driver.lastUserStop(created.sessionId, 'unrelated-request'), undefined);
+  await driver.prompt(created.sessionId, 'fixture_chat finished');
+  assert.equal(await driver.lastUserStop(created.sessionId, 'stopped-request'), undefined);
 });
 
 test('provider failure is surfaced and never converted to successful completion', async () => {

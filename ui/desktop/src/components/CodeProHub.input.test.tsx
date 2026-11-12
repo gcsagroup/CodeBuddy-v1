@@ -25,7 +25,6 @@ vi.mock('./alerts', () => ({
   useAlerts: () => ({ alerts: [], addAlert: vi.fn(), clearAlerts: vi.fn() }),
 }));
 vi.mock('../hooks/useAudioRecorder', () => ({ useAudioRecorder: () => ({ isEnabled: false }) }));
-vi.mock('./bottom_menu/DirSwitcher', () => ({ DirSwitcher: () => null }));
 vi.mock('./custom-agents/AgentSelector', () => ({ AgentSelector: () => null }));
 vi.mock('./settings/models/bottom_bar/ModelsBottomBar', () => ({ default: () => null }));
 vi.mock('./bottom_menu/BottomMenuExtensionSelection', () => ({
@@ -120,6 +119,22 @@ describe('CodeProHub real composer setup', () => {
     expect(screen.getByTestId('chat-input')).toHaveValue('未发送任务');
     expect(window.electron.inspectCodeProWorkspace).not.toHaveBeenCalled();
     expect(startCodeProSession).not.toHaveBeenCalled();
+  });
+
+  it('clears the draft workspace, keeps its text and allocates a default workspace on Send', async () => {
+    updateNewTaskDraft('codepro', { text: 'Keep this draft', workingDir: 'D:/old' });
+    const view = render(<CodeProHub />, { wrapper: IntlTestWrapper });
+    await userEvent.click(screen.getByRole('button', { name: 'Clear selected workspace' }));
+    expect(screen.queryByRole('button', { name: 'Clear selected workspace' })).toBeNull();
+    expect(startCodeProSession).not.toHaveBeenCalled();
+    view.unmount();
+    render(<CodeProHub />, { wrapper: IntlTestWrapper });
+    expect(screen.getByTestId('chat-input')).toHaveValue('Keep this draft');
+    await userEvent.click(screen.getByRole('button', { name: 'Send' }));
+    await waitFor(() => expect(window.electron.inspectCodeProWorkspace).toHaveBeenCalledWith({
+      prompt: '', selectedWorkingDir: candidate.normalizedPath,
+    }));
+    expect(window.electron.defaultCodeProWorkspacePath).toHaveBeenCalled();
   });
 
   it('restores attachment previews, persists removal, and retains the remaining attachment on navigation', async () => {

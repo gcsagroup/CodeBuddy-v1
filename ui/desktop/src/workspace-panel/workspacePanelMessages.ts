@@ -1,5 +1,7 @@
 import { defineMessages } from '../i18n';
 export const panelMessages = defineMessages({
+  browserActionFailed: { id: 'workspacePanel.browserActionFailed', defaultMessage: '{action} failed' },
+  browserControl: { id: 'workspacePanel.browserControl', defaultMessage: 'Browser control' },
   fileMissing: {
     id: 'workspacePanel.fileMissing',
     defaultMessage: 'This file was moved or deleted. Check its location and open the link again.',

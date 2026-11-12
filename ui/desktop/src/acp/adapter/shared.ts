@@ -22,6 +22,7 @@ export interface AdapterState {
 }
 
 export interface GooseMessageMeta {
+  inference?: Message['metadata']['inference'];
   messageId?: string;
   created?: number;
   steer?: boolean;
@@ -92,6 +93,9 @@ export function getGooseMessageMeta(update: { _meta?: unknown }): GooseMessageMe
 
   return {
     created: typeof goose.created === 'number' ? goose.created : undefined,
+    inference: isRecord(goose.inference) && typeof goose.inference.provider === 'string' &&
+      typeof goose.inference.requestedModel === 'string'
+      ? { provider: goose.inference.provider, requestedModel: goose.inference.requestedModel } : undefined,
     messageId: typeof goose.messageId === 'string' ? goose.messageId : undefined,
     steer: goose.steer === true ? true : undefined,
     scheduled: goose.scheduled === true ? true : undefined,

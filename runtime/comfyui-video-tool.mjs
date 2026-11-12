@@ -26,7 +26,7 @@ export function comfyVideoWorkflow(input, uploaded, id) {
 
 // Inspect bounded ISO-BMFF boxes before publishing a downloaded MP4 as completed.
 // Playback/codec validation is performed by the real player during acceptance.
-export function inspectMp4(bytes) {
+export function inspectMp4(bytes, maxPixels = 1344 * 768) {
   function boxes(start, end) {
     const result = [];
     for (let p = start; p < end;) {
@@ -59,7 +59,7 @@ export function inspectMp4(bytes) {
     const duration = v1 ? Number(bytes.readBigUInt64BE(mdhd.start + 24)) : bytes.readUInt32BE(mdhd.start + 16);
     const width = bytes.readUInt32BE(tkhd.end - 8) / 65536, height = bytes.readUInt32BE(tkhd.end - 4) / 65536;
     const duration_seconds = duration / timescale;
-    if (!Number.isFinite(duration_seconds) || duration_seconds <= 0 || width <= 0 || height <= 0 || width * height > 1344 * 768)
+    if (!Number.isFinite(duration_seconds) || duration_seconds <= 0 || width <= 0 || height <= 0 || width * height > maxPixels)
       throw new Error('Invalid MP4 video dimensions or duration');
     return { width, height, duration_seconds, mime_type: 'video/mp4' };
   }

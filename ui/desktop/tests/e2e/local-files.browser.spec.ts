@@ -127,6 +127,7 @@ test('timeline previews and jumps to an old unmounted turn without covering narr
   await expect(first.locator('span')).not.toHaveCSS('background-color', 'rgba(0, 0, 0, 0)');
   await expect(page.locator('[data-chat-turn-id="message-0"]')).toHaveCount(0);
   await first.hover();
+  await expect(page.locator('.conversation-timeline')).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)');
   await expect(page.getByRole('tooltip')).toContainText('Reply for turn 1.');
   await page.keyboard.press('Escape');
   await expect(page.getByRole('tooltip')).toHaveCount(0);
@@ -162,4 +163,44 @@ test('timeline previews and jumps to an old unmounted turn without covering narr
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(360);
   expect(errors).toEqual([]);
   await page.close();
+});
+
+test('long timeline scrolls under the pointer without moving the conversation', async () => {
+  const page = await browser.newPage({ viewport: { width: 900, height: 720 } });
+  try {
+    const fixture = server.resolvedUrls!.local[0] + 'tests/browser-fixtures/conversation-timeline.html';
+    const rail = page.getByRole('navigation', { name: 'Conversation timeline' });
+    const first = rail.getByRole('button').first();
+    await page.goto(fixture + '?density=short');
+    await expect(first).toHaveCSS('height', '24px');
+    await page.goto(fixture);
+    await expect(first).toBeVisible();
+    const mediumSpacing = (await first.boundingBox())!.height;
+    expect(mediumSpacing).toBeLessThan(24);
+    expect(mediumSpacing).toBeGreaterThan(12);
+    expect(await rail.evaluate(el => el.scrollHeight - el.clientHeight)).toBeLessThanOrEqual(1);
+    await page.goto(fixture + '?density=long');
+    await expect(first).toHaveCSS('height', '12px');
+    await page.setViewportSize({ width: 900, height: 1080 });
+    await expect(rail).toHaveCSS('height', '760px');
+    await page.setViewportSize({ width: 900, height: 720 });
+    await expect(rail).toHaveCSS('height', '576px');
+    await first.click();
+    const anchor = page.locator('[data-chat-turn-id="message-0"]');
+    await expect.poll(async () => (await anchor.boundingBox())?.y).toBeLessThan(40);
+    const before = (await anchor.boundingBox())!.y;
+    const height = (await rail.boundingBox())!.height;
+    expect(await rail.evaluate(el => el.scrollHeight)).toBeGreaterThan(height);
+    await first.hover();
+    await page.mouse.wheel(0, 1600);
+    await expect.poll(() => rail.evaluate(el => el.scrollTop + el.clientHeight >= el.scrollHeight - 1)).toBe(true);
+    await page.mouse.wheel(0, 700);
+    expect((await anchor.boundingBox())!.y).toBeCloseTo(before);
+    await page.mouse.wheel(0, -96);
+    await expect.poll(() => rail.evaluate(el => el.scrollTop + el.clientHeight < el.scrollHeight - 1)).toBe(true);
+    await rail.getByRole('button', { name: 'Go to turn 35: Question 35', exact: true }).click();
+    await expect(page.locator('[data-chat-turn-id="message-68"]')).toBeInViewport();
+  } finally {
+    await page.close();
+  }
 });

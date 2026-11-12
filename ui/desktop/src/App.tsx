@@ -1,5 +1,5 @@
 import { getMainConversation, deliverMainConversationMessage } from './pets/mainConversation';
-import { useEffect, useState, useRef } from 'react';
+import { lazy, Suspense, useEffect, useState, useRef } from 'react';
 import { WindowMenuBar } from './components/Layout/WindowMenuBar';
 import { RuntimeUpdateNotice } from './components/RuntimeUpdateNotice';
 import './styles/desktop-shell.css';
@@ -38,12 +38,8 @@ interface PairRouteState {
   recipeDeeplink?: string;
   recipeId?: string;
 }
-import SettingsView, { SettingsViewOptions } from './components/settings/SettingsView';
+import type { SettingsViewOptions } from './components/settings/SettingsView';
 import { parsePetMessage, parsePetComposerAction } from './pets/petMessage';
-import SessionsView from './components/sessions/SessionsView';
-import { CustomAgents } from './components/custom-agents/CustomAgents';
-import { MediaLibrary } from './components/media-library/MediaLibrary';
-import SchedulesView from './components/schedule/NativeSchedulesView';
 import ProviderSettings from './components/settings/providers/ProviderSettingsPage';
 import { AppLayout } from './components/Layout/AppLayout';
 import { ChatProvider, DEFAULT_CHAT_TITLE } from './contexts/ChatContext';
@@ -57,9 +53,6 @@ import { ThemeProvider } from './contexts/ThemeContext';
 import { FeaturesProvider } from './contexts/FeaturesContext';
 import PermissionSettingsView from './components/settings/permission/PermissionSetting';
 
-import RecipesView from './components/recipes/RecipesView';
-import ToolboxView from './components/toolbox/ToolboxView';
-import SkillsView from './components/skills/SkillsView';
 import StandaloneAppView from './components/apps/StandaloneAppView';
 import {
   getWorkspaceModeFromPath,
@@ -82,6 +75,19 @@ import { defineMessages, useIntl } from './i18n';
 import { CodeProHub } from './components/codepro/CodeProHub';
 import { CodeProRouteGuard } from './codepro/CodeProRouteGuard';
 import { getLegacyToolboxRedirect } from './utils/toolboxRouting';
+
+const SettingsView = lazy(() => import('./components/settings/SettingsView'));
+const SessionsView = lazy(() => import('./components/sessions/SessionsView'));
+const SchedulesView = lazy(() => import('./components/schedule/NativeSchedulesView'));
+const RecipesView = lazy(() => import('./components/recipes/RecipesView'));
+const ToolboxView = lazy(() => import('./components/toolbox/ToolboxView'));
+const SkillsView = lazy(() => import('./components/skills/SkillsView'));
+const MediaLibrary = lazy(() =>
+  import('./components/media-library/MediaLibrary').then(module => ({ default: module.MediaLibrary }))
+);
+const CustomAgents = lazy(() =>
+  import('./components/custom-agents/CustomAgents').then(module => ({ default: module.CustomAgents }))
+);
 
 const i18n = defineMessages({
   toastNotifications: {
@@ -263,7 +269,7 @@ export const PairRouteWrapper = ({
           recipeDeeplink,
           recipeId,
           noAutoSubmit,
-          ...(launchWorkingDir ? { workingDir: launchWorkingDir } : {}),
+          workingDir: launchWorkingDir,
         }}
       />
     );
@@ -736,8 +742,7 @@ export function AppInner() {
       }
     };
 
-    window.electron.on('set-view', handleSetView);
-    return () => window.electron.off('set-view', handleSetView);
+    return window.electron.on('set-view', handleSetView);
   }, [navigate, isSettingsRoute, settingsBackgroundLocation, location]);
 
   useEffect(() => {
@@ -917,7 +922,11 @@ export function AppInner() {
                 <Route path="codepro/permission" element={<PermissionRoute />} />
               </Route>
             </Routes>
-            {settingsBackgroundLocation && <SettingsRoute />}
+            {settingsBackgroundLocation && (
+              <Suspense fallback={null}>
+                <SettingsRoute />
+              </Suspense>
+            )}
           </CodeProRouteGuard>
         </div>
       </div>

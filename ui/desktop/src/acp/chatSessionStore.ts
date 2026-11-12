@@ -2,7 +2,7 @@ import { petTaskFromSnapshot } from '../pets/petTaskAdapter';
 import { recordSessionReplay, traceSessionReplayComplete } from './sessionLoadTiming';
 import { useEffect, useState } from 'react';
 import type { GooseSessionNotification_unstable } from '@aaif/goose-sdk';
-import type { RequestPermissionRequest, SessionNotification } from '@agentclientprotocol/sdk';
+import type { PromptResponse, RequestPermissionRequest, SessionNotification } from '@agentclientprotocol/sdk';
 import type { TokenState } from '../types/chat';
 import { ChatState } from '../types/chatState';
 import { parseCompactionLifecycle, type CompactionLifecycle } from '../types/compactionLifecycle';
@@ -23,6 +23,7 @@ import {
   getGooseActiveRunId,
   getGooseMessageMeta,
   hasDirectToolOrigin,
+  isRecord,
 } from './adapter/shared';
 import type { AcpElicitationRequest } from './elicitationRequests';
 import {
@@ -63,6 +64,8 @@ export interface AcpChatSessionSnapshot {
   activePromptAttemptId: string | null;
   // Transport occupancy is independent of the authoritative display terminal.
   promptRequestId?: string | null;
+  // Plain user chats acknowledge completion with the live ACP response.
+  completedPromptAttemptId?: string;
   activeRunId: string | null;
   activeToolCallIds?: string[];
   pendingInputRequestIds?: string[];
@@ -80,6 +83,7 @@ interface StoreEntry extends AcpChatSessionSnapshot {
   adapter: AcpSessionNotificationAdapter;
   sessionReplayActive: boolean;
   activePromptSourceUserMessageId: string | null;
+  lastDetachedInputId?: string;
   promptCancellationRestoreState: {
     activeRunId: string | null;
     chatState: ChatState;
@@ -167,7 +171,7 @@ export interface AcpChatSessionActions {
     promptAttemptId: string
   ): AcpChatSessionSnapshot | undefined;
   waitForPromptCancellation(sessionId: string, promptAttemptId: string): Promise<void>;
-  finishPromptAttemptIfCurrent(sessionId: string, promptAttemptId: string, error?: string): boolean;
+  finishPromptAttemptIfCurrent(sessionId: string, promptAttemptId: string, error?: string, stopReason?: PromptResponse['stopReason']): boolean;
   clearActivePromptAttempt(sessionId: string): AcpChatSessionSnapshot | undefined;
   isCurrentPromptAttempt(sessionId: string, promptAttemptId: string): boolean;
 }
@@ -264,12 +268,11 @@ function createAcpChatSessionStoreInternal(): AcpChatSessionStoreInternal {
   const petLiveSessions = new Set<string>();
   const notify = (sessionId: string, entry: StoreEntry): AcpChatSessionSnapshot => {
     const snapshot = snapshotFromEntry(entry);
-    if (typeof window !== 'undefined' && typeof window.electron?.desktopPet === 'function') {
+    // Replay rebuilds the transcript in chunks. Publish the reconciled task once
+    // finishSessionLoad has applied the host's current run and terminal state.
+    if (!entry.sessionReplayActive && typeof window !== 'undefined' && typeof window.electron?.desktopPet === 'function') {
       const task = petTaskFromSnapshot(sessionId, snapshot);
-      if (
-        !entry.sessionReplayActive &&
-        (entry.activePromptAttemptId || task.state === 'working' || task.state === 'input')
-      )
+      if (entry.activePromptAttemptId || task.state === 'working' || task.state === 'input')
         petLiveSessions.add(sessionId);
       if (task.terminalId && !petLiveSessions.has(sessionId)) task.state = 'idle';
       const key = JSON.stringify(task);
@@ -458,6 +461,7 @@ function createAcpChatSessionStoreInternal(): AcpChatSessionStoreInternal {
     const entry = getOrCreateEntry(sessionId);
     discardPendingLocalSteerMessages(entry);
     entry.activePromptAttemptId = promptAttemptId;
+    entry.completedPromptAttemptId = undefined;
     entry.liveToolCallIds.clear();
     entry.liveAgentToolCallIds.clear();
     entry.thinkingActivity = undefined;
@@ -607,7 +611,8 @@ function createAcpChatSessionStoreInternal(): AcpChatSessionStoreInternal {
   const finishPromptAttemptIfCurrent: AcpChatSessionActions['finishPromptAttemptIfCurrent'] = (
     sessionId,
     promptAttemptId,
-    error
+    error,
+    stopReason
   ) => {
     const entry = sessionsById.get(sessionId);
     if (!entry || entry.activePromptAttemptId !== promptAttemptId) {
@@ -621,6 +626,9 @@ function createAcpChatSessionStoreInternal(): AcpChatSessionStoreInternal {
       return false;
     }
 
+    if (stopReason === 'end_turn' && !error && entry.session?.session_type === 'user') {
+      entry.completedPromptAttemptId = promptAttemptId;
+    }
     entry.activePromptAttemptId = null;
     entry.activePromptSourceUserMessageId = null;
     entry.activeRunId = null;
@@ -676,6 +684,21 @@ function createAcpChatSessionStoreInternal(): AcpChatSessionStoreInternal {
       return notify(notification.sessionId, entry);
     }
     const replayStarted = entry.sessionReplayActive ? globalThis.performance.now() : undefined;
+    // A manager can start a project turn before this renderer ever opens its chat.
+    // Observe native admission without acquiring the local prompt request barrier.
+    const admission = notification.update.sessionUpdate === 'session_info_update'
+      ? notification.update._meta?.['codebuddy/agent-input'] : undefined;
+    if (isRecord(admission) && typeof admission.requestId === 'string' && admission.requestId &&
+      !entry.sessionReplayActive && !entry.promptRequestId && !entry.activePromptAttemptId &&
+      !entry.pendingCancelPromptAttemptId && entry.chatState === ChatState.Idle &&
+      entry.lastDetachedInputId !== admission.requestId) {
+      entry.lastDetachedInputId = admission.requestId;
+      entry.sealedIdleBoundaryActive = false;
+      entry.activePromptSourceUserMessageId = admission.requestId;
+      entry.promptError = undefined;
+      entry.completedPromptAttemptId = undefined;
+      entry.chatState = ChatState.Streaming;
+    }
     const nativeSource = getGooseMessageMeta(notification.update);
     const scheduledMessageId =
       notification.update.sessionUpdate === 'user_message_chunk'
@@ -715,7 +738,7 @@ function createAcpChatSessionStoreInternal(): AcpChatSessionStoreInternal {
     const update = notification.update;
     const currentPromptActivity =
       !entry.sessionReplayActive &&
-      entry.activePromptAttemptId !== null &&
+      (entry.activePromptAttemptId !== null || entry.activeRunId !== null) &&
       isCurrentPromptActivity(entry, notification);
     if (currentPromptActivity && entry.promptActivity) {
       const kind =
@@ -1161,6 +1184,7 @@ function shouldClearProgressMessage(
 }
 
 function resetReplayState(entry: StoreEntry): void {
+  entry.completedPromptAttemptId = undefined;
   entry.liveToolCallIds.clear();
   entry.liveAgentToolCallIds.clear();
   entry.thinkingActivity = undefined;
@@ -1330,6 +1354,8 @@ function shouldIgnoreGooseNotificationForSealedTurn(
     return entry.sealedIdleBoundaryActive;
   }
   if (update.status.type !== 'progress') {
+    if (update.status.type === 'notice' && isRecord(update.status.data) &&
+        update.status.data.event === 'managed_turn_result') return false;
     return entry.sealedIdleBoundaryActive;
   }
   // Like usage_update, meter provenance is session maintenance, not late task activity.
@@ -1449,6 +1475,7 @@ function snapshotFromEntry(entry: StoreEntry): AcpChatSessionSnapshot {
     promptError: entry.promptError,
     activePromptAttemptId: entry.activePromptAttemptId,
     promptRequestId: entry.promptRequestId ?? null,
+    completedPromptAttemptId: entry.completedPromptAttemptId,
     activeRunId: entry.activeRunId,
     promptActivity:
       entry.activePromptAttemptId !== null &&
@@ -1459,10 +1486,10 @@ function snapshotFromEntry(entry: StoreEntry): AcpChatSessionSnapshot {
           : undefined
         : undefined,
     thinkingActivity:
-      entry.activePromptAttemptId !== null &&
+      (entry.activePromptAttemptId !== null || entry.activeRunId !== null) &&
       !entry.sealedIdleBoundaryActive &&
       !entry.sessionReplayActive &&
-      chatState === ChatState.Streaming
+      (chatState === ChatState.Streaming || chatState === ChatState.Thinking)
         ? entry.thinkingActivity
         : undefined,
     activeToolCallIds:

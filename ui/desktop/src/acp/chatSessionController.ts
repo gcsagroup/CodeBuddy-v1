@@ -13,9 +13,10 @@ import { showExtensionLoadResults } from '../utils/extensionErrorUtils';
 import {
   createUserMessage,
   getTextAndImageContent,
+  getToolRequests,
   type Message,
 } from '../types/message';
-import { getTurnTerminalRecord, type MessageEditType } from '../types/turnTerminal';
+import { getTurnTerminalRecord, stoppedRequestToContinue, type MessageEditType } from '../types/turnTerminal';
 import {
   CodeProWorkspaceReconfirmationRequiredError,
   resumeCodeProSession as resumeCodeProSessionWithFreshLease,
@@ -502,7 +503,7 @@ async function submitMessage(
         void options.onFinish(stopError);
       return;
     }
-    if (!acpChatSessionActions.finishPromptAttemptIfCurrent(sessionId, promptAttemptId)) {
+    if (!acpChatSessionActions.finishPromptAttemptIfCurrent(sessionId, promptAttemptId, undefined, response.stopReason)) {
       return;
     }
 
@@ -781,7 +782,7 @@ async function updateMessage(
     return;
   }
 
-  if (resolvedEditType === 'retry') {
+  if (resolvedEditType === 'retry' || resolvedEditType === 'resume_stopped') {
     if (activePromptAttemptId) {
       throw new Error('Cannot retry while a prompt is active');
     }
@@ -797,7 +798,33 @@ async function updateMessage(
 
     // Keep the native history and completed tool receipts. Replaying the source
     // prompt (especially its attachments) starts the work over instead of resuming it.
-    const retryMessage = createUserMessage('请从当前对话已有的进度继续完成任务。保留已经完成的工作和工具结果；有执行结果不确定的操作，先检查状态，不要直接重复执行。');
+    let instruction = '请从当前对话已有的进度继续完成任务。保留已经完成的工作和工具结果；有执行结果不确定的操作，先检查状态，不要直接重复执行。';
+    let includeSourceImages = false;
+    if (resolvedEditType === 'resume_stopped') {
+      if (stoppedRequestToContinue(currentMessages) !== message.id) throw new Error('The stopped request has changed');
+      const stoppedTurn = currentMessages.slice(currentMessages.indexOf(message) + 1);
+      const corrections = stoppedTurn
+        .filter(item => item.role === 'user' && item.metadata.steer && !item.metadata.pendingDelivery)
+        .map(item => getTextAndImageContent(item).textContent).filter(Boolean);
+      const hasActions = stoppedTurn.some(item => {
+        const record = getTurnTerminalRecord(item);
+        return getToolRequests(item).length > 0 ||
+          (record?.source_user_message_id === message.id && (record?.tool_action_count ?? 0) > 0);
+      });
+      const partialAnswer = stoppedTurn.some(item => item.role === 'assistant' &&
+        item.content.some(block => block.type === 'text' && block.text.trim()));
+      // A stop can precede native model admission. In that case the model may
+      // only have the previous task in history; deliver this request verbatim.
+      const resumeHint = hasActions ? '继续完成下列请求。复用这轮已有的执行结果，仅核对这轮尚未确认的操作。\n' :
+        partialAnswer ? '接着本轮已经写出的回答，完成下面的要求。\n' : '';
+      instruction = resumeHint +
+        (sourceContent.textContent || (hasActions ? '见原消息的附件。' : '')) +
+        (corrections.length ? '\n本轮后来补充的要求（以最新为准）：\n' + corrections.join('\n') : '');
+      includeSourceImages = !hasActions;
+    }
+    const retryMessage = createUserMessage(instruction);
+    if (resolvedEditType === 'resume_stopped' && message.id) retryMessage.metadata.resumedRequestId = message.id;
+    if (includeSourceImages) retryMessage.content.push(...sourceImages);
     retryMessage.metadata.userVisible = false;
     retryMessage.metadata.presentation = {
       afterMessageId: currentMessages[currentMessages.length - 1]?.id ?? message.id!,

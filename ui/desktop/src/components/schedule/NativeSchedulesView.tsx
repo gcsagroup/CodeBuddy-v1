@@ -1,5 +1,6 @@
+import { buttonVariants } from '../ui/button';
 import { useMemo, useState } from 'react';
-import { Clock3, Plus, Search } from 'lucide-react';
+import { CalendarClock, Clock3, Plus, Search } from 'lucide-react';
 import { useIntl } from '../../i18n';
 import { useNavigation } from '../../hooks/useNavigation';
 import {
@@ -32,7 +33,7 @@ export default function NativeSchedulesView(_props: { onClose: () => void }) {
     <main className="h-full overflow-y-auto bg-background-primary px-5 pb-8 pt-14 text-text-primary sm:px-10">
       <div className="mx-auto max-w-5xl">
         <div className="mb-6 flex items-center justify-between gap-4">
-          <h1 className="text-xl font-medium">{intl.formatMessage(m.title)}</h1>
+          <h1 className="app-page-heading flex items-center gap-2"><CalendarClock className="size-5" aria-hidden="true" />{intl.formatMessage(m.title)}</h1>
           <button
             type="button"
             onClick={() =>
@@ -42,7 +43,7 @@ export default function NativeSchedulesView(_props: { onClose: () => void }) {
                 draftOnly: true,
               })
             }
-            className="flex items-center gap-1 rounded-2xl bg-text-primary px-4 py-2 text-sm text-background-primary hover:opacity-85"
+            className={buttonVariants({ size: 'sm' })}
           >
             <Plus className="size-4" />
             {intl.formatMessage(m.new)}

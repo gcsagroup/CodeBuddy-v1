@@ -43,7 +43,7 @@ export class CodeProReviews {
       for (const record of Object.values(state.reviews.records)) if (record.result.status === 'running') {
         Object.assign(record.result, { status: 'interrupted', revision: record.result.revision + 1, updatedAt: now(), error: { code: 'review_interrupted', message: 'The host stopped before review execution completed.' } });
       }
-    });
+    }, ['reviews'], { skipUnchanged: true });
   }
   async request(method, params) {
     if (!this.handles(method)) return undefined;

@@ -9,11 +9,13 @@ import { cn } from '../utils';
  * Centralizing it here keeps the look in sync and gives a single place
  * to tweak the recipe.
  */
-export const ChatInputCard: React.FC<{
-  className?: string;
-  children: React.ReactNode;
-}> = ({ className, children }) => (
+export const ChatInputCard: React.FC<React.ComponentPropsWithoutRef<'div'>> = ({
+  className,
+  children,
+  ...props
+}) => (
   <div
+    {...props}
     className={cn(
       'shell-composer-card rounded-2xl border border-border-primary/50 shadow-[0_2.5px_12px_rgba(0,0,0,0.05),0_1px_2.5px_rgba(0,0,0,0.022)] dark:border-border-primary dark:shadow-sm overflow-hidden bg-background-primary',
       className

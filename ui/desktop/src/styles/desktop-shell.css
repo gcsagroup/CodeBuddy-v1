@@ -1,16 +1,9 @@
 .desktop-shell {
-  --shell-surface: #f6f7f9;
-  --shell-border: #e6e9ee;
-  --shell-ink: #505867;
-  --shell-accent: #496886;
-  --shell-selected: #e7edf3;
-}
-.dark .desktop-shell {
-  --shell-surface: #202329;
-  --shell-border: #333942;
-  --shell-ink: #c1c7d0;
-  --shell-accent: #a6bfd9;
-  --shell-selected: #303e4d;
+  --shell-surface: var(--color-background-secondary);
+  --shell-border: var(--color-border-primary);
+  --shell-ink: var(--color-text-primary);
+  --shell-accent: var(--color-text-info);
+  --shell-selected: var(--color-background-tertiary);
 }
 .desktop-shell[data-platform='win32'] {
   --workspace-panel-top: 0px;
@@ -53,29 +46,13 @@
 .desktop-shell .shell-navigation {
   background: var(--shell-surface);
 }
-.desktop-shell .shell-nav-item {
-  font-size: 13px;
-  min-height: 34px;
-  border-radius: 7px;
-  color: var(--shell-ink);
-}
-.desktop-shell .shell-nav-item:hover {
-  background: var(--shell-selected);
-}
-.desktop-shell .shell-nav-item[aria-current='page'] {
-  background: var(--shell-selected);
-  color: var(--shell-accent);
-  font-weight: 600;
-}
-.desktop-shell .shell-nav-item[aria-current='page'] svg {
-  color: inherit;
-}
 .desktop-shell .shell-chat-header {
   border-bottom: 1px solid var(--shell-border);
   height: 46px;
 }
 .desktop-shell .shell-chat-header h1 {
-  font-size: 13px;
+  font-size: 0.875rem;
+  font-weight: 600;
 }
 .desktop-shell .shell-composer {
   padding: 10px 12px 6px;

@@ -22,10 +22,11 @@ import './ui/stream-prose.css';
 import rehypeKatex from 'rehype-katex';
 import 'katex/dist/katex.min.css';
 import './ui/disclosure.css';
-import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
+import type { SyntaxHighlighterProps } from 'react-syntax-highlighter';
+import SyntaxHighlighter from 'react-syntax-highlighter/dist/esm/prism-async';
 import { oneDark } from 'react-syntax-highlighter/dist/esm/styles/prism';
 // Improved oneDark theme for better comment contrast and readability
-const customOneDarkTheme = {
+const customOneDarkTheme: NonNullable<SyntaxHighlighterProps['style']> = {
   ...oneDark,
   'code[class*="language-"]': {
     ...oneDark['code[class*="language-"]'],

@@ -16,13 +16,13 @@ import ElicitationDock, { partitionElicitationMessages } from './ElicitationDock
 import { elicitationContent } from '../acp/adapter/elicitations';
 import { MainPanelLayout } from './Layout/MainPanelLayout';
 import ChatInput from './ChatInput';
-import { ChatInputCard } from './ChatInputCard';
 import { SessionPermissionSummary } from './SessionPermissionSummary';
 import { CodeProPlanDock } from './codepro/CodeProPlanDock';
 import { currentWorkStage } from './codepro/currentWorkStage';
 import { ScrollArea, ScrollAreaHandle } from './ui/scroll-area';
 import { useFileDrop } from '../hooks/useFileDrop';
 import { ChatState } from '../types/chatState';
+import { stoppedRequestToContinue } from '../types/turnTerminal';
 import { ChatType } from '../types/chat';
 import { useIsMobile } from '../hooks/use-mobile';
 import { useNavigationContextSafe } from './Layout/NavigationContext';
@@ -47,6 +47,7 @@ import { formatToolAction } from './toolActionPresentation';
 import { substituteParameters } from '../utils/parameterSubstitution';
 import { useAutoSubmit } from '../hooks/useAutoSubmit';
 import { CodeBuddyMark } from './CodeBuddyMark';
+import { MainConversationAuthor } from './MainConversationAuthor';
 import EnvironmentBadge from './GooseSidebar/EnvironmentBadge';
 import { isAcpRecovering, subscribeToAcpRecovery } from '../acp/acpConnection';
 import { CodeProStepSummary } from './codepro/CodeProStepSummary';
@@ -62,12 +63,15 @@ import './chat-history.css';
 import './conversation-presentation.css';
 import { finishSessionLoadTiming, traceSessionLoad } from '../acp/sessionLoadTiming';
 
+const conversationColumn = 'mx-auto w-full max-w-[52rem]';
+
 const i18n = defineMessages({
-  mainWelcome: { id: 'baseChat.mainWelcome', defaultMessage: "I'm CodeBuddy. Let's work together." },
-  mainIntroduction: { id: 'baseChat.mainIntroduction', defaultMessage: 'I can help you understand code, work with documents and data, and carry a task through to checked results. Tell me what you want to get done.' },
-  mainCode: { id: 'baseChat.mainCode', defaultMessage: 'Write and debug code' },
-  mainData: { id: 'baseChat.mainData', defaultMessage: 'Organize documents and data' },
-  mainTasks: { id: 'baseChat.mainTasks', defaultMessage: 'Plan, execute and check' },
+  mainConversationHeading: { id: 'baseChat.mainConversationHeading', defaultMessage: 'Hi, I’m CodeBuddy, your project assistant.' },
+  mainConversationHelp: {
+    id: 'baseChat.mainConversationHelp',
+    defaultMessage: 'I can check how a project is going, find an earlier requirement, or adjust permissions for a single chat. I can also create a project folder, hand the work to a project chat, and bring you a brief when it’s done.',
+  },
+  mainConversationExample: { id: 'baseChat.mainConversationExample', defaultMessage: 'Try asking me, “Can you check my project’s progress?”' },
   readonlyHistory: {
     id: 'baseChat.readonlyHistory',
     defaultMessage: 'Imported history is read-only. Start a new task to continue working.',
@@ -206,6 +210,10 @@ export default function BaseChat({
   });
   const sessionTitle = session?.name || 'CodeBuddy';
   const readonlyHistory = session?.extension_data.readonlyHistory === true;
+  const stoppedRequest = useMemo(
+    () => chatState === ChatState.Idle && !readonlyHistory ? stoppedRequestToContinue(messages) : undefined,
+    [chatState, messages, readonlyHistory]
+  );
   const elicitationPresentation = useMemo(
     () =>
       partitionElicitationMessages(
@@ -438,7 +446,8 @@ export default function BaseChat({
     } else if (
       chatState === ChatState.Streaming ||
       chatState === ChatState.Thinking ||
-      chatState === ChatState.Compacting
+      chatState === ChatState.Compacting ||
+      chatState === ChatState.RestartingAgent
     ) {
       streamState = 'streaming';
     } else if (sessionLoadError) {
@@ -450,11 +459,10 @@ export default function BaseChat({
         detail: {
           sessionId,
           streamState,
-          messageCount: messages.length,
         },
       })
     );
-  }, [sessionId, chatState, messages.length, sessionLoadError]);
+  }, [sessionId, chatState, sessionLoadError]);
 
   // Generate command history from user messages (most recent first)
   const commandHistory = useMemo(() => {
@@ -777,27 +785,16 @@ export default function BaseChat({
             paddingX={6}
             paddingY={0}
           >
-            {session?.global_conversation && presentedHistory.length === 0 &&
-              !showHistoryLoading && chatState === ChatState.Idle && (
-                <section aria-label={intl.formatMessage(i18n.mainWelcome)}
-                  className="mx-auto flex min-h-[55vh] w-full max-w-2xl flex-col justify-center py-12">
-                  <div className="mb-6 flex size-14 items-center justify-center rounded-2xl bg-gradient-to-br from-blue-100/70 to-violet-100/50 text-text-primary dark:from-blue-950/60 dark:to-violet-950/40">
-                    <CodeBuddyMark className="size-8" />
+            {session?.global_conversation && chatState === ChatState.Idle && !showHistoryLoading &&
+              !hasHistory && presentedHistory.length === 0 && (
+                <article className={cn(conversationColumn, 'pt-5')}>
+                  <MainConversationAuthor />
+                  <div className="max-w-prose space-y-2 pl-9 text-sm leading-relaxed text-text-primary">
+                    <h2 className="text-base font-medium">{intl.formatMessage(i18n.mainConversationHeading)}</h2>
+                    <p>{intl.formatMessage(i18n.mainConversationHelp)}</p>
+                    <p className="text-text-secondary">{intl.formatMessage(i18n.mainConversationExample)}</p>
                   </div>
-                  <h2 className="text-2xl font-semibold tracking-tight text-text-primary sm:text-3xl">
-                    {intl.formatMessage(i18n.mainWelcome)}
-                  </h2>
-                  <p className="mt-3 max-w-xl text-base leading-7 text-text-secondary">
-                    {intl.formatMessage(i18n.mainIntroduction)}
-                  </p>
-                  <ul className="mt-7 flex flex-wrap gap-2 text-sm text-text-secondary">
-                    {[i18n.mainCode, i18n.mainData, i18n.mainTasks].map(message => (
-                      <li key={message.id} className="rounded-full border border-border-primary/70 bg-background-secondary/60 px-3 py-1.5">
-                        {intl.formatMessage(message)}
-                      </li>
-                    ))}
-                  </ul>
-                </section>
+                </article>
               )}
             {recipe?.title && (
               <div className="sticky top-0 z-10 bg-background-primary px-0 -mx-6 mb-6 pt-6">
@@ -821,7 +818,7 @@ export default function BaseChat({
                 <div
                   className={cn(
                     'codepro-chat-history',
-                    conversationLayout && 'mx-auto w-full max-w-[52rem]'
+                    conversationLayout && conversationColumn
                   )}
                 >
                   <SearchView
@@ -831,6 +828,8 @@ export default function BaseChat({
                     showNavigation
                   >
                     <ProgressiveMessageList
+                      mainConversation={session?.global_conversation}
+                      currentModel={sessionModel}
                       searchActive={searchActive}
                       messages={presentedHistory}
                       navigationTarget={navigationTarget?.sessionId === sessionId ? navigationTarget : undefined}
@@ -1020,9 +1019,9 @@ export default function BaseChat({
                 }}
               />
             )}
-            <ChatInputCard
+            <div
               className={cn(
-                'relative z-10 mx-4 mb-4',
+                'relative z-10 mx-4 mb-1',
                 !disableAnimation && 'animate-[fadein_400ms_ease-in_forwards]'
               )}
             >
@@ -1051,6 +1050,10 @@ export default function BaseChat({
                 onSubmissionAccepted={handleUserSubmissionAccepted}
                 chatState={loadingHistory ? ChatState.LoadingConversation : chatState}
                 onStop={stopStreaming}
+                onContinue={stoppedRequest && chatState === ChatState.Idle && !activeRunId &&
+                  !loadingHistory && !cancelling && !queueProcessingBlocked && !acpRecovering &&
+                  !modeSaving && !workspaceReconfirmation
+                  ? () => onMessageUpdate(stoppedRequest, '', 'resume_stopped') : undefined}
                 onPendingMessageChange={onPendingMessageChange}
                 onSteerQueuedMessage={onSteerQueuedMessage}
                 globalConversation={session?.global_conversation}
@@ -1080,6 +1083,7 @@ export default function BaseChat({
                 contextUsageSource={tokenState.contextUsageSource}
                 sessionStats={tokenState.sessionStats}
                 liveSpeed={tokenState.liveSpeed}
+                lastSampledSpeed={tokenState.lastSampledSpeed}
                 contextCapacitySource={tokenState.contextCapacitySource}
                 accumulatedInputTokens={
                   tokenState?.accumulatedInputTokens ??
@@ -1111,7 +1115,7 @@ export default function BaseChat({
                 latestInference={latestInference}
                 {...customChatInputProps}
               />
-            </ChatInputCard>
+            </div>
             </>
           )}
         </div>

@@ -890,14 +890,8 @@
   "codeProHub.chooseProjectFolder": {
     "defaultMessage": "Выберите папку проекта, чтобы продолжить"
   },
-  "codeProHub.description": {
-    "defaultMessage": "It plans, edits, tests, and reviews directly in the current project, so results are immediately available in your editor."
-  },
   "codeProHub.directoryChooserFailed": {
     "defaultMessage": "Не удалось выбрать папку проекта. Повторите попытку."
-  },
-  "codeProHub.eyebrow": {
-    "defaultMessage": "Multi-Agent development workspace"
   },
   "codeProHub.goalPlaceholder": {
     "defaultMessage": "Describe your task, expected result, and how to check it…"
@@ -916,9 +910,6 @@
   },
   "codeProHub.taskBreakdown": {
     "defaultMessage": "Automatic task breakdown"
-  },
-  "codeProHub.title": {
-    "defaultMessage": "Welcome to CodeBuddy"
   },
   "codeProHub.workspaceIdentityUnavailable": {
     "defaultMessage": "Не удалось безопасно проверить выбранную рабочую область. Выберите поддерживаемую локальную папку проекта и повторите попытку."
@@ -2606,12 +2597,6 @@
   "dirSwitcher.failedToUpdateWorkingDir": {
     "defaultMessage": "Не удалось обновить рабочий каталог"
   },
-  "dirSwitcher.gitWorktrees": {
-    "defaultMessage": "Git worktrees"
-  },
-  "dirSwitcher.noWorktreesFound": {
-    "defaultMessage": "Git worktrees не найдены"
-  },
   "dirSwitcher.openInFinder": {
     "defaultMessage": "Открыть в файловом менеджере"
   },
@@ -3630,7 +3615,7 @@
     "defaultMessage": "Введите глобальные правила..."
   },
   "globalInstructions.title": {
-    "defaultMessage": "Инструкции CodeBuddy"
+    "defaultMessage": "Правила CodeBuddy"
   },
   "globalInstructions.unavailable": {
     "defaultMessage": "Домашний каталог CodeBuddy недоступен."
@@ -4484,9 +4469,6 @@
   "memorySettings.enableProjectMemory": {
     "defaultMessage": "Enable project memory"
   },
-  "memorySettings.manage": {
-    "defaultMessage": "Manage project memory"
-  },
   "memorySettings.off": {
     "defaultMessage": "Off"
   },
@@ -4595,6 +4577,9 @@
   "messageCopyLink.retry": {
     "defaultMessage": "Retry"
   },
+  "messageQueue.attachments": {
+    "defaultMessage": "Изображений: {count}"
+  },
   "messageQueue.cancel": {
     "defaultMessage": "Отмена"
   },
@@ -4622,6 +4607,9 @@
   "messageQueue.continueSending": {
     "defaultMessage": "Сообщения сохранены. Отправьте их, когда будете готовы."
   },
+  "messageQueue.edit": {
+    "defaultMessage": "Изменить сообщение"
+  },
   "messageQueue.expandDrafts": {
     "defaultMessage": "Expand saved drafts"
   },
@@ -4630,6 +4618,9 @@
   },
   "messageQueue.messageCount": {
     "defaultMessage": "{count, plural, one {# сообщение {status}} few {# сообщения {status}} many {# сообщений {status}} other {# сообщения {status}}}"
+  },
+  "messageQueue.more": {
+    "defaultMessage": "Другие действия с сообщением"
   },
   "messageQueue.next": {
     "defaultMessage": "Далее"
@@ -4663,6 +4654,9 @@
   },
   "messageQueue.sendTogether": {
     "defaultMessage": "Отправить все ожидающие сообщения вместе"
+  },
+  "messageQueue.steer": {
+    "defaultMessage": "Направить"
   },
   "messageQueue.storageConflict": {
     "defaultMessage": "This queue changed in another window. Sending and saving are paused to avoid overwriting it. Keep this window open and compare the queued messages."
@@ -5471,6 +5465,9 @@
   "navigationPanel.untitledSession": {
     "defaultMessage": "Безымянный сеанс"
   },
+  "navigationPanel.workspaceChats": {
+    "defaultMessage": "Недавние чаты: {count} · В работе: {active}"
+  },
   "navigationPanel.workspaces": {
     "defaultMessage": "Workspaces"
   },
@@ -6067,69 +6064,6 @@
   },
   "projectMemoryApproval.warning": {
     "defaultMessage": "Этот запрос памяти имеет неверный формат. Сохранение недоступно, но запрос всё равно можно отклонить."
-  },
-  "projectMemoryRecords.active": {
-    "defaultMessage": "Approved"
-  },
-  "projectMemoryRecords.approve": {
-    "defaultMessage": "Approve for recall"
-  },
-  "projectMemoryRecords.cancel": {
-    "defaultMessage": "Cancel"
-  },
-  "projectMemoryRecords.candidate": {
-    "defaultMessage": "Pending review"
-  },
-  "projectMemoryRecords.changed": {
-    "defaultMessage": "The record changed. Review the refreshed content before approving again."
-  },
-  "projectMemoryRecords.confirmRemove": {
-    "defaultMessage": "Confirm deletion"
-  },
-  "projectMemoryRecords.content": {
-    "defaultMessage": "Memory content"
-  },
-  "projectMemoryRecords.description": {
-    "defaultMessage": "Choose a project and review its records. Only approved, unexpired records are recalled in that project."
-  },
-  "projectMemoryRecords.directory": {
-    "defaultMessage": "Project directory"
-  },
-  "projectMemoryRecords.disable": {
-    "defaultMessage": "Disable recall"
-  },
-  "projectMemoryRecords.disabled": {
-    "defaultMessage": "Disabled"
-  },
-  "projectMemoryRecords.edit": {
-    "defaultMessage": "Edit"
-  },
-  "projectMemoryRecords.empty": {
-    "defaultMessage": "No saved records in this project."
-  },
-  "projectMemoryRecords.expired": {
-    "defaultMessage": "Expired"
-  },
-  "projectMemoryRecords.export": {
-    "defaultMessage": "Export project memory"
-  },
-  "projectMemoryRecords.load": {
-    "defaultMessage": "Load records"
-  },
-  "projectMemoryRecords.more": {
-    "defaultMessage": "Load more"
-  },
-  "projectMemoryRecords.reason": {
-    "defaultMessage": "Reason"
-  },
-  "projectMemoryRecords.remove": {
-    "defaultMessage": "Delete record"
-  },
-  "projectMemoryRecords.save": {
-    "defaultMessage": "Save changes"
-  },
-  "projectMemoryRecords.title": {
-    "defaultMessage": "Saved project memory"
   },
   "promptsSettings.allPromptsReset": {
     "defaultMessage": "Все промпты сброшены к значениям по умолчанию"
@@ -7889,6 +7823,9 @@
   "settings.notifications.description": {
     "defaultMessage": "Уведомления управляются вашей ОС - {link}"
   },
+  "settings.notifications.modal.linuxInstructions": {
+    "defaultMessage": "Откройте настройки уведомлений рабочей среды и разрешите уведомления для CodeBuddy."
+  },
   "settings.notifications.modal.macInstructions": {
     "defaultMessage": "Чтобы включить уведомления в macOS:"
   },
@@ -7923,7 +7860,7 @@
     "defaultMessage": "Включите уведомления и настройте параметры по желанию"
   },
   "settings.notifications.openSettings": {
-    "defaultMessage": "Откройте «Параметры»"
+    "defaultMessage": "Открыть настройки системы"
   },
   "settings.notifications.task.description": {
     "defaultMessage": "Уведомлять, когда CodeBuddy завершает задачу, пока окно в фоне"
@@ -7932,7 +7869,7 @@
     "defaultMessage": "Уведомления о завершении задач"
   },
   "settings.notifications.title": {
-    "defaultMessage": "Уведомления"
+    "defaultMessage": "Системные уведомления"
   },
   "settings.preventSleep.description": {
     "defaultMessage": "Не давать компьютеру засыпать, пока CodeBuddy выполняет задачу (экран все равно может блокироваться)"
@@ -7975,9 +7912,6 @@
   },
   "settingsCenter.pageChat": {
     "defaultMessage": "Behavior and responses"
-  },
-  "settingsCenter.pageInput": {
-    "defaultMessage": "Input"
   },
   "settingsCenter.pageKeyboard": {
     "defaultMessage": "Keyboard shortcuts"

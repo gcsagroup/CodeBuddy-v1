@@ -68,6 +68,7 @@ interface BrowserState {
   view: WebContentsView;
   error?: string;
   controller: BrowserController;
+  feedback?: NonNullable<PanelBrowserState['feedback']> & { expiresAt?: number };
   preview?: Awaited<ReturnType<typeof createWorkspacePreview>>;
   bounds?: { x: number; y: number; width: number; height: number } | null;
 }
@@ -245,7 +246,10 @@ async function bindScope(owner: Owner, scope: PanelScope) {
 
 function browserState(id: string, browser: BrowserState): PanelBrowserState {
   const wc = browser.view.webContents;
+  const feedback = browser.feedback;
   return {
+    ...(feedback && (feedback.expiresAt === undefined || feedback.expiresAt > Date.now())
+      ? { feedback: { operation: feedback.operation, phase: feedback.phase } } : {}),
     id,
     url: wc.getURL(),
     title: wc.getTitle(),
@@ -254,6 +258,22 @@ function browserState(id: string, browser: BrowserState): PanelBrowserState {
     forward: wc.navigationHistory.canGoForward(),
     error: browser.error,
   };
+}
+
+async function withBrowserFeedback<T>(browser: BrowserState,
+  operation: NonNullable<PanelBrowserState['feedback']>['operation'], action: () => Promise<T>) {
+  const feedback: NonNullable<BrowserState['feedback']> = { operation, phase: 'running' };
+  browser.feedback = feedback;
+  try {
+    const result = await action();
+    feedback.phase = 'completed';
+    return result;
+  } catch (error) {
+    feedback.phase = 'failed';
+    throw error;
+  } finally {
+    feedback.expiresAt = Date.now() + 2200;
+  }
 }
 
 function terminalFor(owner: Owner, id: string, scope: string) {
@@ -361,7 +381,7 @@ async function dispatch(owner: Owner, request: PanelRequest): Promise<PanelReply
           id = created.id!;
           const browser = browserFor(owner, id, scope);
           browser.preview = preview;
-          await browser.view.webContents.loadURL(url);
+          await withBrowserFeedback(browser, 'open', () => browser.view.webContents.loadURL(url));
           return {
             id,
             browser: browserState(id, browser),
@@ -380,7 +400,7 @@ async function dispatch(owner: Owner, request: PanelRequest): Promise<PanelReply
         await dispatch(owner, { scope: request.scope, action: 'browser-close', id: request.id! });
         return { result: { closed: true } };
       }
-      return { result: await browser.controller.run(request) };
+      return { result: await withBrowserFeedback(browser, request.operation, () => browser.controller.run(request)) };
     }
     case 'list':
       return listPanelFiles(root, request.path);

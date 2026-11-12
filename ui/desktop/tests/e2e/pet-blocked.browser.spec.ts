@@ -54,6 +54,13 @@ test('blocked pet settles in the real renderer without clearing the task or repl
     await canvas.click();
     await page.clock.runFor(310);
     await page.getByRole('textbox').fill('browser draft');
+    for (const colorScheme of ['light', 'dark'] as const) {
+      await page.emulateMedia({ colorScheme });
+      await expect(page.locator('.pet-compose-panel')).toHaveCSS('background-color',
+        colorScheme === 'light' ? 'rgb(255, 255, 255)' : 'rgb(34, 37, 42)');
+      await expect(page.getByRole('button', { name: 'Send', exact: true })).toBeEnabled();
+      await page.locator('.pet-compose-panel').screenshot({ path: test.info().outputPath(`pet-chat-${colorScheme}.png`) });
+    }
     await page.getByRole('button', { name: 'Add attachments or features' }).click();
     await expect(page.getByRole('button', { name: 'File', exact: true })).toBeVisible();
     await page.getByRole('button', { name: 'Goal', exact: true }).click();

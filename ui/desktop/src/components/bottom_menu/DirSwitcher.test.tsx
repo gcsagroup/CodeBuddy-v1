@@ -50,7 +50,7 @@ describe('DirSwitcher while the workspace is unbound', () => {
     expect(await screen.findByText('Workspace4')).toBeVisible();
     expect(screen.getByText('Workspace12')).toBeInTheDocument();
     const list = screen.getByText('Workspace12').closest('.overflow-y-auto');
-    expect(list).toHaveClass('max-h-44', 'overflow-x-hidden');
+    expect(list).toHaveClass('max-h-56', 'overflow-x-hidden');
     const choose = screen.getByRole('menuitem', { name: 'Choose workspace…' });
     expect(choose).toBeVisible();
     expect(choose.closest('.overflow-y-auto')).toBeNull();
@@ -63,5 +63,14 @@ describe('DirSwitcher while the workspace is unbound', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Select workspace' }));
     expect(await screen.findByRole('menuitem', { name: 'Choose workspace…' })).toBeVisible();
     expect(screen.queryByRole('separator')).not.toBeInTheDocument();
+  });
+
+  it('shows current and recent folders without requesting Git worktrees', async () => {
+    render(<DirSwitcher className="" sessionId="s1" workingDir="D:/Selected" />, { wrapper: IntlTestWrapper });
+    fireEvent.click(screen.getByRole('button', { name: 'D:/Selected' }));
+    expect(await screen.findByText('Recent')).toBeVisible();
+    expect(screen.getByText('Current project')).toBeVisible();
+    expect(screen.queryByText(/worktree/i)).toBeNull();
+    expect(window.electron.listGitWorktreeDirs).not.toHaveBeenCalled();
   });
 });

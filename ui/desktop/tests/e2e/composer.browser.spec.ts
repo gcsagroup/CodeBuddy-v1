@@ -8,7 +8,85 @@ import { fixtureModel, fixtureProvider } from '../browser-fixtures/composer-mode
 let server: ViteDevServer;
 let browser: Browser;
 let cacheDirectory: string;
+test('delegated briefs arrive automatically for their own project turn', async () => {
+  const page = await browser.newPage();
+  const requests: unknown[] = [];
+  try {
+    await page.exposeFunction('fixtureProjectBrief', (args: { detailSessionId: string }) => {
+      requests.push(args);
+      const plane = args.detailSessionId === 'child-1';
+      return { title: plane ? '飞机大战' : '网盘', task: '开发', result: plane ? '键盘操作已接入' : '支持上传文件', files: [], fileCount: 0 };
+    });
+    await page.goto(server.resolvedUrls!.local[0] + 'tests/browser-fixtures/composer.html?brief');
+    const plane = page.getByRole('article', { name: '项目简报 · 飞机大战' });
+    const disk = page.getByRole('article', { name: '项目简报 · 网盘' });
+    await expect(plane.getByText('键盘操作已接入')).toBeVisible();
+    await expect(disk.getByText('支持上传文件')).toBeVisible();
+    await expect(plane.getByText(/game\.js/)).toBeVisible();
+    expect(requests).toEqual([{ sessionId: 'main', detailSessionId: 'child-0', requestId: 'request-0' }]);
+  } finally { await page.close(); }
+});
+test('a draft workspace can be cleared without losing typed text', async () => {
+  const page = await browser.newPage();
+  try {
+    await page.goto(server.resolvedUrls!.local[0] + 'tests/browser-fixtures/composer.html?hub');
+    const input = page.getByTestId('chat-input');
+    await expect(page.getByRole('heading', { name: '我是 CodeBuddy，一起把事情做好。' })).toBeVisible();
+    await expect(page.getByText('写代码与排错')).toBeVisible();
+    await expect(page.getByTestId('composer-stats')).toHaveCount(0);
+    await input.fill('保留这条草稿');
+    const chip = page.getByRole('button', { name: 'D:/Chosen' });
+    const clear = page.getByRole('button', { name: '取消选择工作区' });
+    await expect(clear).toHaveCSS('opacity', '0');
+    await page.screenshot({ path: test.info().outputPath('new-chat.png') });
+    await chip.hover();
+    await expect(clear).toHaveCSS('opacity', '1');
+    await chip.locator('..').screenshot({ path: test.info().outputPath('workspace-hover.png') });
+    await chip.click();
+    await expect(page.getByRole('menu')).toBeVisible();
+    await expect(page.getByRole('menu').getByText(/工作树/)).toHaveCount(0);
+    await page.getByRole('menu').screenshot({ path: test.info().outputPath('workspace-menu.png') });
+    await page.keyboard.press('Escape');
+    await page.mouse.move(0, 0);
+    await chip.focus();
+    await page.keyboard.press('Tab');
+    await expect(clear).toBeFocused();
+    await expect(clear).toHaveCSS('opacity', '1');
+    await page.keyboard.press('Enter');
+    await expect(page.getByRole('button', { name: '选择工作区', exact: true })).toBeFocused();
+    await expect(input).toHaveValue('保留这条草稿');
+    await expect(page.getByRole('button', { name: '取消选择工作区' })).toHaveCount(0);
+    await page.getByRole('button', { name: '选择工作区', exact: true }).click();
+    await page.getByRole('menuitem', { name: /Another/ }).click();
+    await page.getByRole('button', { name: 'D:/Another' }).hover();
+    await clear.click();
+    await expect(chip).toHaveCount(0);
+    await expect(page.getByRole('button', { name: '选择工作区', exact: true })).toBeFocused();
+    await expect(input).toHaveValue('保留这条草稿');
+  } finally { await page.close(); }
+});
 const composerCacheRoot = resolve('../../.local');
+
+test('continue and send share the same composer position after stopping', async () => {
+  const page = await browser.newPage();
+  try {
+    await page.goto(server.resolvedUrls!.local[0] + 'tests/browser-fixtures/composer.html?stopped');
+    const resume = page.getByRole('button', { name: '继续任务', exact: true });
+    const send = page.getByRole('button', { name: '发送', exact: true });
+    const input = page.getByTestId('chat-input');
+    await expect(resume).toBeVisible();
+    const position = await resume.boundingBox();
+    await expect(send).toHaveCount(0);
+    await input.fill('新问题');
+    await expect(send).toBeEnabled();
+    expect(await send.boundingBox()).toEqual(position);
+    await expect(resume).toHaveCount(0);
+    await input.fill('');
+    await resume.click();
+    await expect(page.getByRole('button', { name: '停止', exact: true })).toBeVisible();
+    await expect(resume).toHaveCount(0);
+  } finally { await page.close(); }
+});
 
 test('composer statistics stay readable, explain their scope and preserve send in narrow layouts', async () => {
   const page = await browser.newPage({ viewport: { width: 1280, height: 800 } });
@@ -16,8 +94,13 @@ test('composer statistics stay readable, explain their scope and preserve send i
     await page.goto(server.resolvedUrls!.local[0] + 'tests/browser-fixtures/composer.html?stats=1');
     const stats = page.getByTestId('composer-stats');
     await expect(stats.getByText('220 tok/s')).toBeVisible();
+    const card = page.locator('.shell-composer-card');
+    expect(await stats.evaluate(el => el.closest('.shell-composer-card') === null)).toBe(true);
+    expect((await stats.boundingBox())!.y).toBeGreaterThanOrEqual((await card.boundingBox())!.y + (await card.boundingBox())!.height - 1);
     const toggle = page.getByRole('button', { name: '切换运行状态' });
     await toggle.click();
+    await expect(stats.getByRole('button', { name: '上次采样的生成速度' })).toHaveText('≈35.0 tok/s');
+    await page.getByRole('button', { name: '切换速度采样' }).click();
     await expect(stats.getByRole('button', { name: '当前生成速度' })).toHaveText('42.0 tok/s');
     await toggle.click();
     await expect(stats.getByText('220 tok/s')).toBeVisible();
@@ -30,7 +113,9 @@ test('composer statistics stay readable, explain their scope and preserve send i
     await expect(page.getByRole('tooltip')).toContainText('缓存读取 820 / 总输入 1,000');
     await page.mouse.move(0, 0);
     await page.keyboard.press('Escape');
-    await page.screenshot({ path: test.info().outputPath('composer-stats-wide.png') });
+    await page.getByTestId('chat-input').click();
+    await expect(page.getByRole('tooltip')).toHaveCount(0);
+    await page.getByTestId('composer-container').screenshot({ path: test.info().outputPath('composer-stats-wide.png') });
     await page.getByRole('spinbutton', { name: '左侧宽度' }).fill('0');
     await page.getByRole('spinbutton', { name: '右侧宽度' }).fill('0');
     await page.setViewportSize({ width: 420, height: 800 });
@@ -392,7 +477,7 @@ test('actual composer retains context, permission and send under sidebar pressur
       await expect
         .poll(async () => {
           const area = (await composer.boundingBox())!;
-          const buttons = await composer.getByRole('button').all();
+          const buttons = await composer.locator('[data-compact]').getByRole('button').all();
           const boxes = [];
           for (const button of buttons) {
             if (!(await button.isVisible())) continue;
@@ -414,8 +499,7 @@ test('actual composer retains context, permission and send under sidebar pressur
         .toBe(true);
       const a = (await ring.boundingBox())!,
         b = (await model.boundingBox())!;
-      expect(a.x + a.width).toBeLessThanOrEqual(b.x + 1);
-      expect(Math.abs(a.y + a.height / 2 - b.y - b.height / 2)).toBeLessThan(2);
+      expect(a.y).toBeGreaterThanOrEqual(b.y + b.height);
       await composer.screenshot({
         path: test.info().outputPath(`composer-${viewport}-${left}-${right}.png`),
       });
@@ -581,5 +665,50 @@ test('continuous resizing keeps each toolbar group aligned and its open menu on 
     await expect(menu).not.toBeVisible();
     await expect(page.getByRole('button', { name: '如何批准操作？' })).toHaveText('工作区内修改');
     await composer.screenshot({ path: test.info().outputPath('composer-after-continuous-resize.png') });
+  } finally { await page.close(); }
+});
+
+test('queued rows support steering, editing, sorting, removing and folding without stopping delivery', async () => {
+  const page = await browser.newPage({ viewport: { width: 1320, height: 760 } });
+  try {
+    await page.goto(server.resolvedUrls!.local[0] + 'tests/browser-fixtures/composer.html');
+    const busy = page.getByRole('button', { name: '切换运行状态' });
+    await busy.click();
+    const input = page.getByTestId('chat-input');
+    const panel = page.getByTestId('message-queue');
+    for (const msg of ['核对目录结构', '补充验收条件', '先运行组件测试', '删除临时备注']) {
+      await input.fill(msg);
+      await input.press('Enter');
+    }
+    const rows = panel.locator('[data-queue-row]');
+    await expect(rows).toHaveCount(4);
+    const row = (text: string) => rows.filter({ has: page.getByRole('button', { name: text, exact: true }) });
+    await row('补充验收条件').getByRole('button', { name: '更多消息操作' }).click();
+    await expect(page.getByRole('menuitem')).toHaveCount(2);
+    const bounds = (await page.getByTestId('composer-container').boundingBox())!;
+    const menu = (await page.getByRole('menu').boundingBox())!;
+    const top = Math.max(0, Math.min(bounds.y, menu.y) - 8);
+    await page.screenshot({
+      path: test.info().outputPath('queue-menu.png'),
+      animations: 'disabled',
+      clip: { x: bounds.x - 4, y: top, width: bounds.width + 8, height: bounds.y + bounds.height - top },
+    });
+    await page.getByRole('menuitem', { name: '编辑消息' }).click();
+    await expect(panel.getByRole('textbox')).toBeFocused();
+    await panel.getByRole('textbox').fill('补充 Windows 验收条件');
+    await panel.getByRole('button', { name: '保存', exact: true }).click();
+    await row('先运行组件测试').dragTo(row('核对目录结构'));
+    await expect(rows.first()).toContainText('先运行组件测试');
+    await row('补充 Windows 验收条件').getByRole('button', { name: '引导' }).click();
+    await expect(page.getByRole('status').filter({ hasText: '补充 Windows 验收条件' })).toBeVisible();
+    await row('删除临时备注').getByRole('button', { name: '将此消息从队列中移除' }).click();
+    await expect(rows).toHaveCount(2);
+    await rows.first().getByRole('button', { name: '更多消息操作' }).click();
+    await page.getByRole('menuitem', { name: '收起队列' }).click();
+    await expect(rows).toHaveCount(0);
+    await expect(panel.getByRole('button', { name: '展开队列' })).toBeVisible();
+    await busy.click();
+    await expect(panel).toHaveCount(0);
+    await expect(page.getByRole('status').filter({ hasText: '核对目录结构' })).toBeVisible();
   } finally { await page.close(); }
 });

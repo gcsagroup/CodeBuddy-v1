@@ -40,6 +40,7 @@ export async function registerDesktopPet(options: {
   preload: string;
   rendererUrl: string;
   builtinDirectory: string;
+  onWorkingChange?: (working: boolean) => void;
   openChat: (options: {
     query?: string;
     dir?: string;
@@ -98,7 +99,7 @@ export async function registerDesktopPet(options: {
     );
   };
   const selectedTask = () => visibleTasks()[0] || null;
-  const snapshot = (): PetSnapshot => ({
+  const snapshot = (): PetSnapshot & { tasks: PetTask[] } => ({
     preferences,
     pets: [...pets.values()],
     errors,
@@ -112,6 +113,7 @@ export async function registerDesktopPet(options: {
   };
   const broadcast = () => {
     const value = snapshot();
+    options.onWorkingChange?.(value.tasks.some((task) => task.state === 'working'));
     for (const w of BrowserWindow.getAllWindows())
       if (!w.isDestroyed()) w.webContents.send('pet-changed', value);
   };
@@ -218,6 +220,9 @@ export async function registerDesktopPet(options: {
           screen.getAllDisplays().map((d) => d.workArea)
         ),
         title: 'CodeBuddy Pet',
+        // A regular macOS window can keep Dock activation on the pet's Space
+        // while the chat sits on a separate full-screen Space.
+        ...(process.platform === 'darwin' ? { type: 'panel', hiddenInMissionControl: true } : {}),
         frame: false,
         transparent: true,
         backgroundColor: '#00000000',
@@ -561,6 +566,13 @@ export async function registerDesktopPet(options: {
     );
     return result;
   });
+  // The transparent pet window is excluded from the main-window broadcast.
+  ipcMain.on('broadcast-theme-change', (event, themeData) => {
+    if (petWindow && !petWindow.isDestroyed() && applicationWindows().some(w => w.webContents === event.sender)) {
+      petWindow.webContents.send('theme-changed', themeData);
+    }
+  });
+
   ipcMain.on('pet-hit-test', (event, opaque: unknown) => {
     if (event.sender === petWindow?.webContents && typeof opaque === 'boolean') {
       const ignore = !composing && !opaque && !drag;
@@ -586,6 +598,12 @@ export async function registerDesktopPet(options: {
     if (!tasks) {
       tasks = new Map();
       tasksByWindow.set(window.id, tasks);
+      const clearTasks = () => {
+        tasksByWindow.get(window.id)?.clear();
+        broadcast();
+      };
+      window.webContents.on('render-process-gone', clearTasks);
+      window.webContents.on('did-navigate', clearTasks);
       window.once('closed', () => {
         tasksByWindow.delete(window.id);
         broadcast();

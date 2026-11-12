@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type RefObject } from 'react';
+import { useEffect, useMemo, useRef, useState, type RefObject } from 'react';
 import { defineMessages, useIntl } from '../i18n';
 import { getTextAndImageContent, getToolResponses, type Message } from '../types/message';
 import type { ScrollAreaHandle } from './ui/scroll-area';
@@ -22,6 +22,8 @@ export function ConversationTimeline({
   onNavigate: (messageId: string) => void;
 }) {
   const intl = useIntl();
+  const railRef = useRef<HTMLElement>(null);
+  const currentTickRef = useRef<HTMLButtonElement>(null);
   const [visibility, setVisibility] = useState<{ current?: string; visible: string[] }>({
     visible: [],
   });
@@ -92,13 +94,25 @@ export function ConversationTimeline({
     };
   }, [messages, scrollRef]);
 
+  useEffect(() => {
+    const rail = railRef.current;
+    const tick = currentTickRef.current;
+    // While browsing the timeline, leave its scroll position under user control.
+    if (!rail || !tick || rail.matches(':hover, :focus-within')) return;
+    const top = tick.offsetTop;
+    const bottom = top + tick.offsetHeight;
+    if (top < rail.scrollTop) rail.scrollTop = top;
+    else if (bottom > rail.scrollTop + rail.clientHeight) rail.scrollTop = bottom - rail.clientHeight;
+  }, [visibility.current, turns.length]);
+
   if (turns.length < 2) return null;
   return (
-    <nav className="conversation-timeline" aria-label={intl.formatMessage(labels.navigation)}>
+    <nav ref={railRef} className="conversation-timeline" aria-label={intl.formatMessage(labels.navigation)}>
       {turns.map((turn, index) => (
         <Tooltip key={turn.id} delayDuration={180}>
           <TooltipTrigger asChild>
             <button
+              ref={visibility.current === turn.id ? currentTickRef : undefined}
               type="button"
               className="conversation-timeline-tick"
               aria-label={intl.formatMessage(labels.turn, {

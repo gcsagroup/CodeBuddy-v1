@@ -890,14 +890,8 @@
   "codeProHub.chooseProjectFolder": {
     "defaultMessage": "Scegli una cartella di progetto per continuare"
   },
-  "codeProHub.description": {
-    "defaultMessage": "It plans, edits, tests, and reviews directly in the current project, so results are immediately available in your editor."
-  },
   "codeProHub.directoryChooserFailed": {
     "defaultMessage": "Impossibile scegliere una cartella di progetto. Riprova."
-  },
-  "codeProHub.eyebrow": {
-    "defaultMessage": "Multi-Agent development workspace"
   },
   "codeProHub.goalPlaceholder": {
     "defaultMessage": "Describe your task, expected result, and how to check it…"
@@ -916,9 +910,6 @@
   },
   "codeProHub.taskBreakdown": {
     "defaultMessage": "Automatic task breakdown"
-  },
-  "codeProHub.title": {
-    "defaultMessage": "Welcome to CodeBuddy"
   },
   "codeProHub.workspaceIdentityUnavailable": {
     "defaultMessage": "Non è stato possibile verificare in modo sicuro l’area di lavoro selezionata. Scegli una cartella di progetto locale supportata e riprova."
@@ -2606,12 +2597,6 @@
   "dirSwitcher.failedToUpdateWorkingDir": {
     "defaultMessage": "Impossibile aggiornare la cartella di lavoro"
   },
-  "dirSwitcher.gitWorktrees": {
-    "defaultMessage": "Worktree di Git"
-  },
-  "dirSwitcher.noWorktreesFound": {
-    "defaultMessage": "Nessun worktree trovato"
-  },
   "dirSwitcher.openInFinder": {
     "defaultMessage": "Apri nel file manager"
   },
@@ -3630,7 +3615,7 @@
     "defaultMessage": "Inserisci qui le regole globali..."
   },
   "globalInstructions.title": {
-    "defaultMessage": "Istruzioni di CodeBuddy"
+    "defaultMessage": "Regole di CodeBuddy"
   },
   "globalInstructions.unavailable": {
     "defaultMessage": "La directory principale di CodeBuddy non è disponibile."
@@ -4484,9 +4469,6 @@
   "memorySettings.enableProjectMemory": {
     "defaultMessage": "Enable project memory"
   },
-  "memorySettings.manage": {
-    "defaultMessage": "Manage project memory"
-  },
   "memorySettings.off": {
     "defaultMessage": "Off"
   },
@@ -4595,6 +4577,9 @@
   "messageCopyLink.retry": {
     "defaultMessage": "Retry"
   },
+  "messageQueue.attachments": {
+    "defaultMessage": "Immagini: {count}"
+  },
   "messageQueue.cancel": {
     "defaultMessage": "Annulla"
   },
@@ -4622,6 +4607,9 @@
   "messageQueue.continueSending": {
     "defaultMessage": "I messaggi sono conservati. Inviali quando sei pronto."
   },
+  "messageQueue.edit": {
+    "defaultMessage": "Modifica messaggio"
+  },
   "messageQueue.expandDrafts": {
     "defaultMessage": "Expand saved drafts"
   },
@@ -4630,6 +4618,9 @@
   },
   "messageQueue.messageCount": {
     "defaultMessage": "{count,plural,one{# messaggio {status}} other{# messaggi {status}}}"
+  },
+  "messageQueue.more": {
+    "defaultMessage": "Altre azioni sul messaggio"
   },
   "messageQueue.next": {
     "defaultMessage": "Successivo"
@@ -4663,6 +4654,9 @@
   },
   "messageQueue.sendTogether": {
     "defaultMessage": "Invia ora insieme tutti i messaggi in attesa"
+  },
+  "messageQueue.steer": {
+    "defaultMessage": "Guida"
   },
   "messageQueue.storageConflict": {
     "defaultMessage": "This queue changed in another window. Sending and saving are paused to avoid overwriting it. Keep this window open and compare the queued messages."
@@ -5471,6 +5465,9 @@
   "navigationPanel.untitledSession": {
     "defaultMessage": "Sessione senza titolo"
   },
+  "navigationPanel.workspaceChats": {
+    "defaultMessage": "Conversazioni recenti: {count} · In corso: {active}"
+  },
   "navigationPanel.workspaces": {
     "defaultMessage": "Workspaces"
   },
@@ -6067,69 +6064,6 @@
   },
   "projectMemoryApproval.warning": {
     "defaultMessage": "Questa richiesta di memoria non è valida. Il salvataggio non è disponibile; puoi comunque rifiutare la richiesta."
-  },
-  "projectMemoryRecords.active": {
-    "defaultMessage": "Approved"
-  },
-  "projectMemoryRecords.approve": {
-    "defaultMessage": "Approve for recall"
-  },
-  "projectMemoryRecords.cancel": {
-    "defaultMessage": "Cancel"
-  },
-  "projectMemoryRecords.candidate": {
-    "defaultMessage": "Pending review"
-  },
-  "projectMemoryRecords.changed": {
-    "defaultMessage": "The record changed. Review the refreshed content before approving again."
-  },
-  "projectMemoryRecords.confirmRemove": {
-    "defaultMessage": "Confirm deletion"
-  },
-  "projectMemoryRecords.content": {
-    "defaultMessage": "Memory content"
-  },
-  "projectMemoryRecords.description": {
-    "defaultMessage": "Choose a project and review its records. Only approved, unexpired records are recalled in that project."
-  },
-  "projectMemoryRecords.directory": {
-    "defaultMessage": "Project directory"
-  },
-  "projectMemoryRecords.disable": {
-    "defaultMessage": "Disable recall"
-  },
-  "projectMemoryRecords.disabled": {
-    "defaultMessage": "Disabled"
-  },
-  "projectMemoryRecords.edit": {
-    "defaultMessage": "Edit"
-  },
-  "projectMemoryRecords.empty": {
-    "defaultMessage": "No saved records in this project."
-  },
-  "projectMemoryRecords.expired": {
-    "defaultMessage": "Expired"
-  },
-  "projectMemoryRecords.export": {
-    "defaultMessage": "Export project memory"
-  },
-  "projectMemoryRecords.load": {
-    "defaultMessage": "Load records"
-  },
-  "projectMemoryRecords.more": {
-    "defaultMessage": "Load more"
-  },
-  "projectMemoryRecords.reason": {
-    "defaultMessage": "Reason"
-  },
-  "projectMemoryRecords.remove": {
-    "defaultMessage": "Delete record"
-  },
-  "projectMemoryRecords.save": {
-    "defaultMessage": "Save changes"
-  },
-  "projectMemoryRecords.title": {
-    "defaultMessage": "Saved project memory"
   },
   "promptsSettings.allPromptsReset": {
     "defaultMessage": "Tutti i prompt ripristinati ai valori predefiniti"
@@ -7889,6 +7823,9 @@
   "settings.notifications.description": {
     "defaultMessage": "Le notifiche sono gestite dal tuo sistema operativo - {link}"
   },
+  "settings.notifications.modal.linuxInstructions": {
+    "defaultMessage": "Apri le impostazioni delle notifiche del desktop e consenti le notifiche di CodeBuddy."
+  },
   "settings.notifications.modal.macInstructions": {
     "defaultMessage": "Per abilitare le notifiche su macOS:"
   },
@@ -7923,7 +7860,7 @@
     "defaultMessage": "Attiva le notifiche e regola le impostazioni come preferisci"
   },
   "settings.notifications.openSettings": {
-    "defaultMessage": "Apri Impostazioni"
+    "defaultMessage": "Apri le impostazioni di sistema"
   },
   "settings.notifications.task.description": {
     "defaultMessage": "Notifica quando CodeBuddy completa un'attività mentre la finestra è in secondo piano"
@@ -7932,7 +7869,7 @@
     "defaultMessage": "Notifiche di completamento attività"
   },
   "settings.notifications.title": {
-    "defaultMessage": "Notifiche"
+    "defaultMessage": "Notifiche di sistema"
   },
   "settings.preventSleep.description": {
     "defaultMessage": "Mantieni il computer attivo mentre CodeBuddy esegue un'attività (lo schermo può comunque bloccarsi)"
@@ -7975,9 +7912,6 @@
   },
   "settingsCenter.pageChat": {
     "defaultMessage": "Behavior and responses"
-  },
-  "settingsCenter.pageInput": {
-    "defaultMessage": "Input"
   },
   "settingsCenter.pageKeyboard": {
     "defaultMessage": "Keyboard shortcuts"

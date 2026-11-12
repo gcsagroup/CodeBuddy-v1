@@ -1,3 +1,4 @@
+import { buttonVariants } from '../ui/button';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { FolderOpen, Images, MessageSquare, RefreshCw } from 'lucide-react';
 import { getAcpControlClient } from '../../acp/acpConnection';
@@ -33,7 +34,7 @@ interface LibraryPage {
   unreadableRecords: number;
   nextCursor: string | null;
 }
-const buttonClass = 'rounded-lg border border-border-primary px-3 py-2 text-sm hover:bg-background-secondary disabled:opacity-50';
+const buttonClass = buttonVariants({ variant: 'outline', size: 'sm' });
 
 export function formatBytes(value?: number) {
   if (value === undefined) return '—';
@@ -244,7 +245,7 @@ export function MediaLibrary() {
       <header className="space-y-4 border-b border-border-primary px-6 py-5">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
-            <h1 className="flex items-center gap-2 text-xl font-semibold"><Images className="size-5" />{t('Media Library', '素材库', '素材庫')}</h1>
+            <h1 className="flex items-center gap-2 app-page-heading"><Images className="size-5" />{t('Media Library', '素材库', '素材庫')}</h1>
             <p className="mt-1 text-sm text-text-secondary">{t('Generated images and videos from all project conversations', '所有项目对话中生成的图片与视频', '所有專案對話中產生的圖片與影片')}</p>
           </div>
           <div className="ml-auto flex items-center gap-3 text-sm text-text-secondary">

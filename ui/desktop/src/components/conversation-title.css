@@ -10,7 +10,7 @@
 .conversation-title[data-overflow='true'] {
   mask-image: linear-gradient(to right, #000 calc(100% - 24px), transparent);
 }
-[data-session-row]:hover .conversation-title[data-overflow='true'] .conversation-title-text,
+:is([data-session-row], [data-workspace-row]):hover .conversation-title[data-overflow='true'] .conversation-title-text,
 button:hover .conversation-title[data-overflow='true'] .conversation-title-text,
 button:focus-visible .conversation-title[data-overflow='true'] .conversation-title-text {
   animation: conversation-title-reveal var(--title-duration) linear 0s infinite alternate;

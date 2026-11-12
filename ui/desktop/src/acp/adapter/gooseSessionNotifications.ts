@@ -21,7 +21,10 @@ function liveSpeedState(value: unknown): Partial<TokenState> {
   if (!isRecord(value) || typeof value.estimated !== 'boolean') return {};
   const rate = value.rate;
   if (rate !== null && (typeof rate !== 'number' || !Number.isFinite(rate) || rate < 0)) return {};
-  return { liveSpeed: { rate, estimated: value.estimated } };
+  const estimated = value.estimated;
+  if (rate === null) return { liveSpeed: { rate, estimated } };
+  const sample = { rate, estimated };
+  return { liveSpeed: sample, lastSampledSpeed: sample };
 }
 
 function contextSources(update: unknown): Partial<TokenState> {
@@ -286,6 +289,18 @@ function applyStatusMessage(
   }
 
   const incomplete = update.status.data;
+  if (isRecord(incomplete) && incomplete.event === 'managed_turn_result' &&
+      typeof incomplete.requestId === 'string' && typeof incomplete.finishedAt === 'string') {
+    const id = `managed_turn_result_${incomplete.requestId}`;
+    if (state.messages.some(message => message.id === id)) return [];
+    state.messages.push({
+      id, role: 'assistant', created: Date.parse(incomplete.finishedAt) / 1000,
+      content: [{ type: 'systemNotification', notificationType: 'inlineMessage',
+        msg: update.status.message, data: incomplete }],
+      metadata: { userVisible: true, agentVisible: false },
+    });
+    return messagesChange(state);
+  }
   if (
     isRecord(incomplete) &&
     incomplete.type === 'output_attempt_rejected' &&
@@ -355,12 +370,12 @@ function upsertTurnTerminal(
   const optimisticCancellation = state.messages.find((item) => {
     const current = getTurnTerminalRecord(item);
     return (
-      record.status === 'cancelled' &&
+      (record.status === 'cancelled' || (record.status === 'interrupted' && record.user_requested_stop === true)) &&
       record.checkpoint_id === null &&
       current?.status === 'cancelled' &&
       current.checkpoint_id === null &&
       current.session_id === record.session_id &&
-      current.run_id === record.run_id &&
+      (current.run_id === record.run_id || record.terminal_message_id === 'stopped:' + record.source_user_message_id) &&
       current.source_user_message_id === record.source_user_message_id
     );
   });

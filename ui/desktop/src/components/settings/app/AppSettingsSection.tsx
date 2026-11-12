@@ -28,13 +28,13 @@ const i18n = defineMessages({
     id: 'settings.appearance.description',
     defaultMessage: 'Configure how CodeBuddy appears on your system',
   },
-  notifications: { id: 'settings.notifications.title', defaultMessage: 'Notifications' },
+  notifications: { id: 'settings.notifications.title', defaultMessage: 'System notifications' },
   notificationsDesc: {
     id: 'settings.notifications.description',
     defaultMessage: 'Notifications are managed by your OS - {link}',
   },
   configGuide: { id: 'settings.notifications.configGuide', defaultMessage: 'Configuration guide' },
-  openSettings: { id: 'settings.notifications.openSettings', defaultMessage: 'Open Settings' },
+  openSettings: { id: 'settings.notifications.openSettings', defaultMessage: 'Open system settings' },
   taskNotifications: {
     id: 'settings.notifications.task.title',
     defaultMessage: 'Task completion notifications',
@@ -107,6 +107,10 @@ const i18n = defineMessages({
     id: 'settings.notifications.modal.title',
     defaultMessage: 'How to Enable Notifications',
   },
+  notificationsLinuxInstructions: {
+    id: 'settings.notifications.modal.linuxInstructions',
+    defaultMessage: 'Open Notifications in your desktop settings and allow notifications for CodeBuddy.',
+  },
   notificationsMacInstructions: {
     id: 'settings.notifications.modal.macInstructions',
     defaultMessage: 'To enable notifications on macOS:',
@@ -177,7 +181,7 @@ interface AppSettingsSectionProps {
 export default function AppSettingsSection({ scrollToSection }: AppSettingsSectionProps) {
   const [menuBarIconEnabled, setMenuBarIconEnabled] = useState(true);
   const [dockIconEnabled, setDockIconEnabled] = useState(true);
-  const [wakelockEnabled, setWakelockEnabled] = useState(true);
+  const [wakelockEnabled, setWakelockEnabled] = useState(defaultSettings.enableWakelock);
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
   const [isMacOS, setIsMacOS] = useState(false);
   const [isDockSwitchDisabled, setIsDockSwitchDisabled] = useState(false);
@@ -278,8 +282,8 @@ export default function AppSettingsSection({ scrollToSection }: AppSettingsSecti
   };
 
   const handleNotificationsToggle = async (checked: boolean) => {
-    setNotificationsEnabled(checked);
     await window.electron.setSetting('enableNotifications', checked);
+    setNotificationsEnabled(checked);
     trackSettingToggled('task_notifications', checked);
   };
 
@@ -312,13 +316,13 @@ export default function AppSettingsSection({ scrollToSection }: AppSettingsSecti
     LANGUAGE_OPTIONS.find((option) => option.value === language) ?? LANGUAGE_OPTIONS[0];
 
   return (
-    <div className="space-y-4 pr-4 pb-8 mt-1">
+    <div className="@container space-y-4">
       <Card className="rounded-lg">
         <CardHeader className="pb-0">
           <CardTitle className="">{intl.formatMessage(i18n.appearanceTitle)}</CardTitle>
           <CardDescription>{intl.formatMessage(i18n.appearanceDesc)}</CardDescription>
         </CardHeader>
-        <CardContent className="pt-4 space-y-4 px-4">
+        <CardContent className="divide-y divide-border-primary px-4 [&>div]:gap-4 [&>div]:py-3 [&>div:first-child]:pt-0 [&>div:last-child]:pb-0 [&_h3]:text-sm [&_h3]:font-medium">
           <div className="flex items-center justify-between">
             <div>
               <h3 className="text-text-primary text-xs">
@@ -327,12 +331,13 @@ export default function AppSettingsSection({ scrollToSection }: AppSettingsSecti
               <p className="text-xs text-text-secondary max-w-md mt-[2px]">
                 {intl.formatMessage(i18n.notificationsDesc, {
                   link: (
-                    <span
+                    <button
+                      type="button"
                       className="underline hover:cursor-pointer"
                       onClick={() => setShowNotificationModal(true)}
                     >
                       {intl.formatMessage(i18n.configGuide)}
-                    </span>
+                    </button>
                   ),
                 })}
               </p>
@@ -344,9 +349,11 @@ export default function AppSettingsSection({ scrollToSection }: AppSettingsSecti
                 size="sm"
                 onClick={async () => {
                   try {
-                    await window.electron.openNotificationsSettings();
+                    if (!(await window.electron.openNotificationsSettings()))
+                      setShowNotificationModal(true);
                   } catch (error) {
                     console.error('Failed to open notification settings:', error);
+                    setShowNotificationModal(true);
                   }
                 }}
               >
@@ -367,6 +374,7 @@ export default function AppSettingsSection({ scrollToSection }: AppSettingsSecti
             </div>
             <div className="flex items-center">
               <Switch
+                aria-label={intl.formatMessage(i18n.taskNotifications)}
                 checked={notificationsEnabled}
                 onCheckedChange={handleNotificationsToggle}
                 variant="mono"
@@ -419,6 +427,7 @@ export default function AppSettingsSection({ scrollToSection }: AppSettingsSecti
             </div>
             <div className="flex items-center">
               <Switch
+                aria-label={intl.formatMessage(i18n.preventSleep)}
                 checked={wakelockEnabled}
                 onCheckedChange={handleWakelockToggle}
                 variant="mono"
@@ -447,39 +456,43 @@ export default function AppSettingsSection({ scrollToSection }: AppSettingsSecti
         </CardContent>
       </Card>
 
-      <Card className="rounded-lg">
-        <CardHeader className="pb-0">
-          <CardTitle className="mb-1">{intl.formatMessage(i18n.themeTitle)}</CardTitle>
-          <CardDescription>{intl.formatMessage(i18n.themeDesc)}</CardDescription>
-        </CardHeader>
-        <CardContent className="pt-4 px-4">
-          <ThemeSelector className="w-auto" hideTitle horizontal />
-        </CardContent>
-      </Card>
+      <div className="grid gap-4 @min-[40rem]:grid-cols-2">
+        <Card className="rounded-lg">
+          <CardHeader className="pb-0">
+            <CardTitle className="mb-1">{intl.formatMessage(i18n.themeTitle)}</CardTitle>
+            <CardDescription>{intl.formatMessage(i18n.themeDesc)}</CardDescription>
+          </CardHeader>
+          <CardContent className="mt-auto px-4">
+            <ThemeSelector className="[&>div]:flex-wrap" hideTitle horizontal />
+          </CardContent>
+        </Card>
 
-      <Card className="rounded-lg">
-        <CardHeader className="pb-0">
-          <CardTitle className="mb-1">{intl.formatMessage(i18n.languageTitle)}</CardTitle>
-          <CardDescription>{intl.formatMessage(i18n.languageDesc)}</CardDescription>
-        </CardHeader>
-        <CardContent className="pt-4 px-4">
-          <DropdownMenu>
-            <DropdownMenuTrigger className="flex w-full max-w-[260px] items-center justify-between gap-2 rounded-md border border-border-primary bg-background-primary px-3 py-2 text-sm text-text-primary transition-colors hover:border-border-primary">
-              <span className="truncate">{intl.formatMessage(i18n[selectedLanguage.message])}</span>
-              <ChevronDown className="h-4 w-4 shrink-0" />
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="start" className="w-[260px]">
-              <DropdownMenuRadioGroup value={language} onValueChange={handleLanguageChange}>
-                {LANGUAGE_OPTIONS.map((option) => (
-                  <DropdownMenuRadioItem key={option.value} value={option.value}>
-                    {intl.formatMessage(i18n[option.message])}
-                  </DropdownMenuRadioItem>
-                ))}
-              </DropdownMenuRadioGroup>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </CardContent>
-      </Card>
+        <Card className="rounded-lg">
+          <CardHeader className="pb-0">
+            <CardTitle className="mb-1">{intl.formatMessage(i18n.languageTitle)}</CardTitle>
+            <CardDescription>{intl.formatMessage(i18n.languageDesc)}</CardDescription>
+          </CardHeader>
+          <CardContent className="mt-auto px-4">
+            <DropdownMenu>
+              <DropdownMenuTrigger className="flex w-full max-w-[260px] items-center justify-between gap-2 rounded-md border border-border-primary bg-background-primary px-3 py-2 text-sm text-text-primary transition-colors hover:border-border-primary">
+                <span className="truncate">
+                  {intl.formatMessage(i18n[selectedLanguage.message])}
+                </span>
+                <ChevronDown className="h-4 w-4 shrink-0" />
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start" className="w-[260px]">
+                <DropdownMenuRadioGroup value={language} onValueChange={handleLanguageChange}>
+                  {LANGUAGE_OPTIONS.map((option) => (
+                    <DropdownMenuRadioItem key={option.value} value={option.value}>
+                      {intl.formatMessage(i18n[option.message])}
+                    </DropdownMenuRadioItem>
+                  ))}
+                </DropdownMenuRadioGroup>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </CardContent>
+        </Card>
+      </div>
       <TelemetrySettings />
       <CommonQuerySettings />
 
@@ -530,7 +543,9 @@ export default function AppSettingsSection({ scrollToSection }: AppSettingsSecti
 
           <div className="py-4">
             {/* OS-specific instructions */}
-            {isMacOS ? (
+            {window.electron.platform === 'linux' ? (
+              <p>{intl.formatMessage(i18n.notificationsLinuxInstructions)}</p>
+            ) : isMacOS ? (
               <div className="space-y-4">
                 <p>{intl.formatMessage(i18n.notificationsMacInstructions)}</p>
                 <ol className="list-decimal pl-5 space-y-2">

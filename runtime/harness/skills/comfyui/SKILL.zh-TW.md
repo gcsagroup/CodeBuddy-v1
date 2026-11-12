@@ -7,6 +7,8 @@ description: 使用 CodeBuddy 的 ComfyUI 工具選擇已儲存工作流程，�
 
 使用 `generate_image`／`generate_video`。載入技能會展示目前權限範圍內的可用工具；缺少時用 `search_mcp_tools` 查詢精確名稱。技能本身不建立連線、不授予權限。
 
+若 inspect 回傳 service 與 model，目前預設項目為雲端模型。依模型列出的 modes 與工具參數提交；圖片編輯使用 reference_images，圖生影片用 image_path 傳入上一輪完成回執中的 PNG。下列工作流程目錄與節點參數僅適用於 ComfyUI。
+
 ## 按需讀取與任務邊界
 
 - 選模式、傳參考圖、調參或處理失敗時讀 [操作與故障處理](references/operations.zh-TW.md)；[呼叫範例](references/requests.json) 須替換真實資料，不是自動執行的一批任務。

@@ -11,6 +11,7 @@ test('distribution keeps the serialized driver entry and every SDK budget seam, 
   const source = path.join(__dirname, '../runtime/harness');
   await copyHarnessSources(source, target);
   const required = [
+    'project-script.mjs', 'pwsh-executor.mjs', 'windows-shell-output.mjs',
     'index.mjs', 'driver.mjs', 'model-catalog.mjs', 'sdk-budget-contract.mjs',
     'subagent-return-contract.mjs', 'sdk-budget/adapter-patch.mjs', 'sdk-budget/vllm-count.mjs',
     'sdk-budget/llm-patch.mjs', 'sdk-budget/compaction-patch.mjs', 'sdk-budget/retry-patch.mjs',

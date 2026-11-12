@@ -1,6 +1,6 @@
 import { getAcpControlClient } from '../../acp/acpConnection';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Check, FolderDot, FolderOpen, GitBranch, Plus } from 'lucide-react';
+import { Check, Folder, FolderOpen, Plus, X } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -14,6 +14,7 @@ import { defineMessages, useIntl } from '../../i18n';
 import { DropdownChevron } from '../ui/DropdownChevron';
 
 const i18n = defineMessages({
+  clearWorkspace: { id: 'codeProHub.clearWorkspace', defaultMessage: 'Clear selected workspace' },
   failedToUpdateWorkingDir: {
     id: 'dirSwitcher.failedToUpdateWorkingDir',
     defaultMessage: 'Failed to update working directory',
@@ -21,10 +22,6 @@ const i18n = defineMessages({
   currentDirectory: {
     id: 'dirSwitcher.currentDirectory',
     defaultMessage: 'Current project',
-  },
-  gitWorktrees: {
-    id: 'dirSwitcher.gitWorktrees',
-    defaultMessage: 'Git worktrees',
   },
   recentDirectories: {
     id: 'dirSwitcher.recentDirectories',
@@ -42,10 +39,6 @@ const i18n = defineMessages({
     id: 'dirSwitcher.openInFinder',
     defaultMessage: 'Open in file manager',
   },
-  noWorktreesFound: {
-    id: 'dirSwitcher.noWorktreesFound',
-    defaultMessage: 'No worktrees found',
-  },
 });
 
 const splitDirPath = (dir: string): { name: string; parent: string } => {
@@ -60,13 +53,14 @@ const DirNameLabel: React.FC<{ dir: string }> = ({ dir }) => {
   const { name, parent } = splitDirPath(dir);
   return (
     <div className="flex flex-col min-w-0 flex-1">
-      <span className="truncate text-xs leading-4 text-text-primary">{name}</span>
-      {parent && <span className="truncate text-[10px] leading-3 text-text-secondary/70">{parent}</span>}
+      <span className="truncate text-sm leading-5 text-text-primary">{name}</span>
+      {parent && <span className="truncate text-xs leading-4 text-text-secondary">{parent}</span>}
     </div>
   );
 };
 
 interface DirSwitcherProps {
+  allowClear?: boolean;
   className: string;
   sessionId: string | undefined;
   workingDir: string;
@@ -77,6 +71,7 @@ interface DirSwitcherProps {
 
 export const DirSwitcher: React.FC<DirSwitcherProps> = ({
   className,
+  allowClear = false,
   sessionId,
   workingDir,
   onWorkingDirChange,
@@ -87,26 +82,30 @@ export const DirSwitcher: React.FC<DirSwitcherProps> = ({
   const [isDirectoryChooserOpen, setIsDirectoryChooserOpen] = useState(false);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [recentDirs, setRecentDirs] = useState<string[]>([]);
-  const [worktreeDirs, setWorktreeDirs] = useState<string[]>([]);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const refreshVersionRef = useRef(0);
 
   const refreshMenuData = useCallback(async () => {
     const version = ++refreshVersionRef.current;
     setRecentDirs([]);
-    setWorktreeDirs([]);
 
-    const [recent, worktrees, agentWorkspaces] = await Promise.all([
+    const [recent, agentWorkspaces] = await Promise.all([
       window.electron.listRecentDirs().catch(() => []),
-      workingDir ? window.electron.listGitWorktreeDirs(workingDir).catch(() => []) : [],
-      getAcpControlClient().then(client => client.extMethod('_codebuddy/agents/workspaces', {}) as Promise<{ directories: string[] }>).then(result => result.directories).catch(() => []),
+      getAcpControlClient()
+        .then(
+          (client) =>
+            client.extMethod('_codebuddy/agents/workspaces', {}) as Promise<{
+              directories: string[];
+            }>
+        )
+        .then((result) => result.directories)
+        .catch(() => []),
     ]);
 
     if (version !== refreshVersionRef.current) return;
 
     setRecentDirs([...new Set([...recent, ...agentWorkspaces])]);
-    setWorktreeDirs(worktrees);
-  }, [workingDir]);
+  }, []);
 
   useEffect(() => {
     if (!isMenuOpen) {
@@ -184,22 +183,18 @@ export const DirSwitcher: React.FC<DirSwitcherProps> = ({
     setIsMenuOpen((open) => !open);
   };
 
-  const filteredWorktreeDirs = useMemo(
-    () => worktreeDirs.filter((dir) => dir && dir !== workingDir),
-    [worktreeDirs, workingDir]
-  );
-
   const filteredRecentDirs = useMemo(
     () => recentDirs.filter((dir) => dir && dir !== workingDir),
     [recentDirs, workingDir]
   );
 
-  return (
+  const canClear = Boolean(allowClear && !sessionId && workingDir && onWorkingDirChange);
+  const picker = (
     <DropdownMenu open={isMenuOpen} onOpenChange={setIsMenuOpen} modal={false}>
       <DropdownMenuTrigger asChild>
         <button
           ref={triggerRef}
-          className={`${isDirectoryChooserOpen ? 'opacity-50' : 'hover:cursor-pointer hover:text-text-primary'} min-w-0 text-text-primary/70 text-xs flex items-center gap-1 transition-colors px-1 min-h-7 ${className}`}
+          className={`flex min-h-8 min-w-0 items-center gap-1.5 rounded-lg px-2 text-xs font-medium text-text-primary transition-colors hover:bg-background-tertiary/60 focus-visible:outline-2 disabled:opacity-50 ${className}`}
           onPointerDown={(event) => {
             // Radix opens on pointer-down; wait for click to finish before showing a menu item
             // under the pointer, or the same gesture can select a recent directory.
@@ -210,7 +205,10 @@ export const DirSwitcher: React.FC<DirSwitcherProps> = ({
           title={workingDir || intl.formatMessage(i18n.chooseFolder)}
           aria-label={workingDir || intl.formatMessage(i18n.chooseFolder)}
         >
-          <FolderDot className="size-4 shrink-0" aria-hidden="true" />
+          <Folder
+            className={`size-4 shrink-0 ${canClear ? 'group-hover/workspace:opacity-0 group-focus-within/workspace:opacity-0' : ''}`}
+            aria-hidden="true"
+          />
           <div className="max-w-[200px] truncate group-data-[compact=true]/composer-toolbar:hidden">
             {workingDir
               ? workingDir
@@ -227,7 +225,7 @@ export const DirSwitcher: React.FC<DirSwitcherProps> = ({
       </DropdownMenuTrigger>
       <DropdownMenuContent
         updatePositionStrategy="always"
-        className="flex w-[min(19rem,calc(100vw-2rem))] max-h-[var(--radix-dropdown-menu-content-available-height)] flex-col overflow-hidden text-xs"
+        className="flex w-[min(19rem,calc(100vw-2rem))] max-h-[var(--radix-dropdown-menu-content-available-height)] flex-col overflow-hidden rounded-xl border-border-primary p-1.5 text-sm"
         side="top"
         align="start"
         onInteractOutside={(event) => {
@@ -237,75 +235,84 @@ export const DirSwitcher: React.FC<DirSwitcherProps> = ({
           }
         }}
       >
-        <div className="max-h-44 min-h-0 overflow-x-hidden overflow-y-auto">
-        {workingDir && (
-          <>
-            <DropdownMenuLabel className="py-1 text-[10px]">{intl.formatMessage(i18n.currentDirectory)}</DropdownMenuLabel>
-            <DropdownMenuItem
-              className="py-1"
-              onSelect={() => void window.electron.openDirectoryInExplorer(workingDir)}
-            >
-              <FolderOpen className="mr-2 h-4 w-4 flex-shrink-0" />
-              <DirNameLabel dir={workingDir} />
-              <Check className="ml-auto h-4 w-4 flex-shrink-0" />
-            </DropdownMenuItem>
+        <div className="max-h-56 min-h-0 overflow-x-hidden overflow-y-auto">
+          {workingDir && (
+            <>
+              <DropdownMenuLabel className="py-1.5 text-xs font-medium text-text-secondary">
+                {intl.formatMessage(i18n.currentDirectory)}
+              </DropdownMenuLabel>
+              <DropdownMenuItem
+                className="rounded-lg py-2"
+                onSelect={() => void window.electron.openDirectoryInExplorer(workingDir)}
+              >
+                <FolderOpen className="size-4" />
+                <DirNameLabel dir={workingDir} />
+                <Check className="ml-auto h-4 w-4 flex-shrink-0" />
+              </DropdownMenuItem>
+            </>
+          )}
 
-            <DropdownMenuSeparator />
-            <DropdownMenuLabel className="py-1 text-[10px]">{intl.formatMessage(i18n.gitWorktrees)}</DropdownMenuLabel>
-            {filteredWorktreeDirs.length > 0 ? (
-              filteredWorktreeDirs.map((dir) => (
+          {filteredRecentDirs.length > 0 && (
+            <>
+              {workingDir && <DropdownMenuSeparator />}
+              <DropdownMenuLabel className="py-1.5 text-xs font-medium text-text-secondary">
+                {intl.formatMessage(i18n.recentDirectories)}
+              </DropdownMenuLabel>
+              {filteredRecentDirs.map((dir) => (
                 <DropdownMenuItem
-                  className="py-1"
-                  key={`worktree-${dir}`}
+                  className="rounded-lg py-2"
+                  key={`recent-${dir}`}
                   onSelect={() => void handleSelectDirectory(dir)}
                 >
-                  <GitBranch className="mr-2 h-4 w-4 flex-shrink-0" />
+                  <Folder className="size-4" />
                   <DirNameLabel dir={dir} />
                 </DropdownMenuItem>
-              ))
-            ) : (
-              <DropdownMenuItem disabled className="py-1 text-xs">
-                <GitBranch className="mr-2 h-4 w-4" />
-                <span>{intl.formatMessage(i18n.noWorktreesFound)}</span>
-              </DropdownMenuItem>
-            )}
-          </>
-        )}
-
-        {filteredRecentDirs.length > 0 && (
-          <>
-            {workingDir && <DropdownMenuSeparator />}
-            <DropdownMenuLabel className="py-1 text-[10px]">{intl.formatMessage(i18n.recentDirectories)}</DropdownMenuLabel>
-            {filteredRecentDirs.map((dir) => (
-              <DropdownMenuItem
-                className="py-1"
-                key={`recent-${dir}`}
-                onSelect={() => void handleSelectDirectory(dir)}
-              >
-                <FolderDot className="mr-2 h-4 w-4 flex-shrink-0" />
-                <DirNameLabel dir={dir} />
-              </DropdownMenuItem>
-            ))}
-          </>
-        )}
+              ))}
+            </>
+          )}
         </div>
         {(workingDir || filteredRecentDirs.length > 0) && (
           <DropdownMenuSeparator className="shrink-0" />
         )}
-        <DropdownMenuItem className="shrink-0 py-1 text-xs" onSelect={() => void handleDirectoryChange()}>
-          <Plus className="mr-2 h-4 w-4" />
+        <DropdownMenuItem
+          className="shrink-0 rounded-lg py-2"
+          onSelect={() => void handleDirectoryChange()}
+        >
+          <Plus className="size-4" />
           <span>{intl.formatMessage(i18n.chooseDirectory)}</span>
         </DropdownMenuItem>
         {workingDir && (
           <DropdownMenuItem
-            className="shrink-0 py-1 text-xs"
+            className="shrink-0 rounded-lg py-2"
             onSelect={() => void window.electron.openDirectoryInExplorer(workingDir)}
           >
-            <FolderOpen className="mr-2 h-4 w-4" />
+            <FolderOpen className="size-4" />
             <span>{intl.formatMessage(i18n.openInFinder)}</span>
           </DropdownMenuItem>
         )}
       </DropdownMenuContent>
     </DropdownMenu>
+  );
+
+  if (!allowClear || sessionId) return picker;
+  return (
+    <span className="group/workspace relative inline-flex max-w-full rounded-lg hover:bg-background-tertiary/60 focus-within:bg-background-tertiary/60">
+      {picker}
+      {canClear && (
+        <button
+          type="button"
+          aria-label={intl.formatMessage(i18n.clearWorkspace)}
+          title={intl.formatMessage(i18n.clearWorkspace)}
+          className="pointer-events-none absolute inset-y-0 left-0 grid w-8 place-items-center rounded-lg text-text-secondary opacity-0 group-hover/workspace:pointer-events-auto group-hover/workspace:opacity-100 group-focus-within/workspace:pointer-events-auto group-focus-within/workspace:opacity-100 hover:text-text-primary focus-visible:outline-2"
+          onClick={() => {
+            setIsMenuOpen(false);
+            triggerRef.current?.focus();
+            void onWorkingDirChange?.('');
+          }}
+        >
+          <X size={14} aria-hidden="true" />
+        </button>
+      )}
+    </span>
   );
 };

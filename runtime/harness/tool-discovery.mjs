@@ -81,6 +81,12 @@ export function installToolDiscovery(ctx, agent, modelEndpoint = () => undefined
     if (selected.size > 16) selected.delete(selected.values().next().value);
   }
   const available = () => ctx.tools.schemas(agent).filter(tool => deferred(tool.name) && applicable(tool.name));
+  // A filename mention makes the existing shell schema discoverable on the
+  // first step. It never selects an action or grants a tool permission.
+  if (process.platform === 'win32') ctx.on('agent/inbox/claimed', ({agent: owner, message}) => {
+    if (owner.id === agent.id && message.source?.kind === 'user' &&
+        message.content.some(block => block.type === 'text' && /\.ps1\b/i.test(block.text))) select('pwsh');
+  });
   let computerSkillLoaded = false;
   // A successful, model-selected skill load reveals its bounded tool surface
   // without another model round-trip. Registry masks and execution gates remain

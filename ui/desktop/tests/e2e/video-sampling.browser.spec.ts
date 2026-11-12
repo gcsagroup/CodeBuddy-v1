@@ -64,3 +64,56 @@ test('real browser decodes a clip, reports timed evidence and rejects corrupt in
   expect(await page.getByTestId('evidence').textContent()).not.toContain('broken.webm');
   await page.close();
 });
+
+test('gallery tiles show the first decoded frame of each video', async () => {
+  const files = ['red', 'lime'].map((color) => {
+    const file = join(root, color + '.mp4');
+    // The remaining frames are blue, so a sample from later in the clip would fail.
+    execFileSync('ffmpeg', [
+      '-y',
+      '-loglevel',
+      'error',
+      '-f',
+      'lavfi',
+      '-i',
+      'color=c=' + color + ':s=80x60:r=10:d=0.1',
+      '-f',
+      'lavfi',
+      '-i',
+      'color=c=blue:s=80x60:r=10:d=1',
+      '-filter_complex',
+      'concat=n=2:v=1:a=0',
+      '-c:v',
+      'libx264',
+      '-pix_fmt',
+      'yuv420p',
+      '-movflags',
+      '+faststart',
+      file,
+    ]);
+    return file;
+  });
+  const page = await browser.newPage();
+  try {
+    await page.goto(server.resolvedUrls!.local[0] + 'tests/browser-fixtures/video-sampling.html');
+    await page.getByLabel('Gallery previews').setInputFiles(files);
+    await expect
+      .poll(() =>
+        page.locator('canvas').evaluateAll((canvases) =>
+          canvases.map((canvas) => {
+            const [r, g, b, a] = (canvas as HTMLCanvasElement)
+              .getContext('2d')!
+              .getImageData(64, 64, 1, 1).data;
+            return a === 255 && r > 200 && g < 30
+              ? 'red'
+              : a === 255 && g > 200 && b < 30
+                ? 'green'
+                : 'other';
+          })
+        )
+      )
+      .toEqual(['red', 'green']);
+  } finally {
+    await page.close();
+  }
+});

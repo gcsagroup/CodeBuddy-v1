@@ -7,11 +7,25 @@ import { IntlTestWrapper } from '../../i18n/test-utils';
 vi.mock('../../pets/mainConversation', () => ({ getMainConversation: vi.fn(async () => 'main'), clearMainConversation: vi.fn(async () => {}) }));
 vi.mock('../../acp/chatSessionController', () => ({ acpChatSessionController: { restoreSession: vi.fn(async () => {}) } }));
 beforeEach(() => vi.clearAllMocks());
+it('shows running, unread completion and read states without changing the navigation button name', () => {
+  const onOpen = vi.fn();
+  const view = render(<MainConversationRow onOpen={onOpen} taskState="working" />, { wrapper: IntlTestWrapper });
+  expect(screen.getByRole('img', { name: 'Streaming' })).toBeVisible();
+  expect(screen.getByRole('button', { name: '主对话' })).toBeEnabled();
+  view.rerender(<MainConversationRow onOpen={onOpen} taskState="completed" />);
+  expect(screen.getByRole('img', { name: 'Has new activity' })).toBeVisible();
+  expect(screen.queryByRole('img', { name: 'Streaming' })).toBeNull();
+  view.rerender(<MainConversationRow onOpen={onOpen} />);
+  expect(screen.queryByRole('img')).toBeNull();
+  view.rerender(<MainConversationRow onOpen={onOpen} taskState="blocked" />);
+  expect(screen.getByRole('img', { name: 'Session encountered an error' })).toBeVisible();
+});
 it('requires confirmation, preserves memory wording and refreshes only after clear succeeds', async () => {
   const open = vi.fn();
   render(<MainConversationRow onOpen={open} />, { wrapper: IntlTestWrapper });
   fireEvent.click(screen.getByRole('button', { name: '清空主对话历史' }));
   expect(screen.getByRole('dialog')).toHaveTextContent('保留已保存的记忆');
+  expect(screen.getByRole('dialog')).toHaveTextContent('其他对话及项目文件');
   expect(clearMainConversation).not.toHaveBeenCalled();
   fireEvent.click(screen.getByRole('button', { name: '取消' }));
   expect(clearMainConversation).not.toHaveBeenCalled();

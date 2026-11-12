@@ -890,14 +890,8 @@
   "codeProHub.chooseProjectFolder": {
     "defaultMessage": "जारी रखने के लिए प्रोजेक्ट फ़ोल्डर चुनें"
   },
-  "codeProHub.description": {
-    "defaultMessage": "It plans, edits, tests, and reviews directly in the current project, so results are immediately available in your editor."
-  },
   "codeProHub.directoryChooserFailed": {
     "defaultMessage": "प्रोजेक्ट फ़ोल्डर नहीं चुना जा सका। फिर प्रयास करें।"
-  },
-  "codeProHub.eyebrow": {
-    "defaultMessage": "Multi-Agent development workspace"
   },
   "codeProHub.goalPlaceholder": {
     "defaultMessage": "Describe your task, expected result, and how to check it…"
@@ -916,9 +910,6 @@
   },
   "codeProHub.taskBreakdown": {
     "defaultMessage": "Automatic task breakdown"
-  },
-  "codeProHub.title": {
-    "defaultMessage": "Welcome to CodeBuddy"
   },
   "codeProHub.workspaceIdentityUnavailable": {
     "defaultMessage": "चुने गए कार्यस्थान को सुरक्षित रूप से सत्यापित नहीं किया जा सका। समर्थित स्थानीय प्रोजेक्ट फ़ोल्डर चुनें और फिर प्रयास करें।"
@@ -2606,12 +2597,6 @@
   "dirSwitcher.failedToUpdateWorkingDir": {
     "defaultMessage": "कार्यशील निर्देशिका अद्यतन करने में विफल"
   },
-  "dirSwitcher.gitWorktrees": {
-    "defaultMessage": "गिट वर्कट्रीज़"
-  },
-  "dirSwitcher.noWorktreesFound": {
-    "defaultMessage": "कोई कार्यवृक्ष नहीं मिला"
-  },
   "dirSwitcher.openInFinder": {
     "defaultMessage": "फ़ाइल प्रबंधक में खोलें"
   },
@@ -3630,7 +3615,7 @@
     "defaultMessage": "अपने वैश्विक नियम यहाँ लिखें..."
   },
   "globalInstructions.title": {
-    "defaultMessage": "CodeBuddy निर्देश"
+    "defaultMessage": "CodeBuddy के नियम"
   },
   "globalInstructions.unavailable": {
     "defaultMessage": "CodeBuddy होम डायरेक्टरी उपलब्ध नहीं है।"
@@ -4484,9 +4469,6 @@
   "memorySettings.enableProjectMemory": {
     "defaultMessage": "Enable project memory"
   },
-  "memorySettings.manage": {
-    "defaultMessage": "Manage project memory"
-  },
   "memorySettings.off": {
     "defaultMessage": "Off"
   },
@@ -4595,6 +4577,9 @@
   "messageCopyLink.retry": {
     "defaultMessage": "Retry"
   },
+  "messageQueue.attachments": {
+    "defaultMessage": "चित्र: {count}"
+  },
   "messageQueue.cancel": {
     "defaultMessage": "रद्द करें"
   },
@@ -4622,6 +4607,9 @@
   "messageQueue.continueSending": {
     "defaultMessage": "संदेश सुरक्षित हैं। तैयार होने पर अभी भेजें।"
   },
+  "messageQueue.edit": {
+    "defaultMessage": "संदेश संपादित करें"
+  },
   "messageQueue.expandDrafts": {
     "defaultMessage": "Expand saved drafts"
   },
@@ -4630,6 +4618,9 @@
   },
   "messageQueue.messageCount": {
     "defaultMessage": "{count,plural,one{# संदेश {status}} other{# संदेश {status}}}"
+  },
+  "messageQueue.more": {
+    "defaultMessage": "संदेश की अन्य कार्रवाइयाँ"
   },
   "messageQueue.next": {
     "defaultMessage": "अगला"
@@ -4663,6 +4654,9 @@
   },
   "messageQueue.sendTogether": {
     "defaultMessage": "सभी प्रतीक्षारत संदेश अभी एक साथ भेजें"
+  },
+  "messageQueue.steer": {
+    "defaultMessage": "दिशा दें"
   },
   "messageQueue.storageConflict": {
     "defaultMessage": "This queue changed in another window. Sending and saving are paused to avoid overwriting it. Keep this window open and compare the queued messages."
@@ -5471,6 +5465,9 @@
   "navigationPanel.untitledSession": {
     "defaultMessage": "शीर्षकहीन सत्र"
   },
+  "navigationPanel.workspaceChats": {
+    "defaultMessage": "हाल की बातचीत: {count} · जारी: {active}"
+  },
   "navigationPanel.workspaces": {
     "defaultMessage": "Workspaces"
   },
@@ -6067,69 +6064,6 @@
   },
   "projectMemoryApproval.warning": {
     "defaultMessage": "यह स्मृति अनुरोध गलत प्रारूप में है। इसे सहेजा नहीं जा सकता; आप फिर भी अनुरोध अस्वीकार कर सकते हैं।"
-  },
-  "projectMemoryRecords.active": {
-    "defaultMessage": "Approved"
-  },
-  "projectMemoryRecords.approve": {
-    "defaultMessage": "Approve for recall"
-  },
-  "projectMemoryRecords.cancel": {
-    "defaultMessage": "Cancel"
-  },
-  "projectMemoryRecords.candidate": {
-    "defaultMessage": "Pending review"
-  },
-  "projectMemoryRecords.changed": {
-    "defaultMessage": "The record changed. Review the refreshed content before approving again."
-  },
-  "projectMemoryRecords.confirmRemove": {
-    "defaultMessage": "Confirm deletion"
-  },
-  "projectMemoryRecords.content": {
-    "defaultMessage": "Memory content"
-  },
-  "projectMemoryRecords.description": {
-    "defaultMessage": "Choose a project and review its records. Only approved, unexpired records are recalled in that project."
-  },
-  "projectMemoryRecords.directory": {
-    "defaultMessage": "Project directory"
-  },
-  "projectMemoryRecords.disable": {
-    "defaultMessage": "Disable recall"
-  },
-  "projectMemoryRecords.disabled": {
-    "defaultMessage": "Disabled"
-  },
-  "projectMemoryRecords.edit": {
-    "defaultMessage": "Edit"
-  },
-  "projectMemoryRecords.empty": {
-    "defaultMessage": "No saved records in this project."
-  },
-  "projectMemoryRecords.expired": {
-    "defaultMessage": "Expired"
-  },
-  "projectMemoryRecords.export": {
-    "defaultMessage": "Export project memory"
-  },
-  "projectMemoryRecords.load": {
-    "defaultMessage": "Load records"
-  },
-  "projectMemoryRecords.more": {
-    "defaultMessage": "Load more"
-  },
-  "projectMemoryRecords.reason": {
-    "defaultMessage": "Reason"
-  },
-  "projectMemoryRecords.remove": {
-    "defaultMessage": "Delete record"
-  },
-  "projectMemoryRecords.save": {
-    "defaultMessage": "Save changes"
-  },
-  "projectMemoryRecords.title": {
-    "defaultMessage": "Saved project memory"
   },
   "promptsSettings.allPromptsReset": {
     "defaultMessage": "सभी संकेत डिफ़ॉल्ट पर रीसेट हो गए"
@@ -7889,6 +7823,9 @@
   "settings.notifications.description": {
     "defaultMessage": "सूचनाएं आपके OS द्वारा प्रबंधित की जाती हैं - {link}"
   },
+  "settings.notifications.modal.linuxInstructions": {
+    "defaultMessage": "अपने डेस्कटॉप की सेटिंग में सूचनाएँ खोलें और CodeBuddy की सूचनाओं को अनुमति दें।"
+  },
   "settings.notifications.modal.macInstructions": {
     "defaultMessage": "macOS पर सूचनाएं सक्षम करने के लिए:"
   },
@@ -7923,7 +7860,7 @@
     "defaultMessage": "सूचनाओं को चालू करें और सेटिंग्स को इच्छानुसार समायोजित करें"
   },
   "settings.notifications.openSettings": {
-    "defaultMessage": "Settings खोलें"
+    "defaultMessage": "सिस्टम सेटिंग खोलें"
   },
   "settings.notifications.task.description": {
     "defaultMessage": "जब विंडो पृष्ठभूमि में हो तो CodeBuddy कोई कार्य पूरा कर ले तो सूचित करें"
@@ -7932,7 +7869,7 @@
     "defaultMessage": "कार्य पूर्ण होने की सूचनाएं"
   },
   "settings.notifications.title": {
-    "defaultMessage": "सूचनाएं"
+    "defaultMessage": "सिस्टम सूचनाएँ"
   },
   "settings.preventSleep.description": {
     "defaultMessage": "जब CodeBuddy कोई कार्य चला रहा हो तो अपने कंप्यूटर को चालू रखें (स्क्रीन अभी भी लॉक हो सकती है)"
@@ -7975,9 +7912,6 @@
   },
   "settingsCenter.pageChat": {
     "defaultMessage": "Behavior and responses"
-  },
-  "settingsCenter.pageInput": {
-    "defaultMessage": "Input"
   },
   "settingsCenter.pageKeyboard": {
     "defaultMessage": "Keyboard shortcuts"

@@ -1078,6 +1078,31 @@ describe('acpChatSessionController.updateMessage', () => {
     expect(acpTruncateSessionConversation).not.toHaveBeenCalled();
   });
 
+  it('resumes the stopped goal and its steering without redispatching the preceding task', async () => {
+    const previous = { ...userMessage(), id: 'previous', content: [{ type: 'text' as const, text: 'Build a drive' }] };
+    const current = { ...userMessage(), id: 'current', content: [{ type: 'text' as const, text: 'Explain uploads' }] };
+    const steer = { ...current, id: 'steer', metadata: { ...current.metadata, steer: true },
+      content: [{ type: 'text' as const, text: 'Only two sentences' }] };
+    const terminal: Message = { ...current, id: 'end', role: 'assistant', content: [{
+      type: 'systemNotification', notificationType: 'turnTerminal', msg: 'Stopped', data: {
+        schema_version: 1, session_id: SESSION_ID, run_id: 'run', terminal_message_id: 'end',
+        source_user_message_id: current.id, status: 'cancelled', checkpoint_id: null, retry_strategy: 'not_available',
+        visible_text_available: false, tool_action_count: 0, copy_artifact_ref: null, finished_at: new Date().toISOString(),
+      },
+    }] };
+    const snapshot = { ...snapshotWithActivePrompt(null), session: loadedSession(), messages: [previous, current, steer, terminal] };
+    vi.mocked(acpChatSessionStore.getSnapshot).mockReturnValue(snapshot);
+    await acpChatSessionController.updateMessage(SESSION_ID, current.id, '', 'resume_stopped',
+      { getCurrentSnapshot: () => snapshot, onFinish: vi.fn() });
+    const continuation = vi.mocked(acpPromptSession).mock.calls[0][1];
+    const content = JSON.stringify(continuation.content);
+    expect(content).toContain('Explain uploads');
+    expect(content).toContain('Only two sentences');
+    expect(content).not.toContain('Build a drive');
+    expect(continuation.metadata.resumedRequestId).toBe('current');
+    expect(continuation.metadata.userVisible).toBe(false);
+  });
+
   it('does not append a retry while another prompt is active', async () => {
     const source = userMessage();
     const activeSnapshot: AcpChatSessionSnapshot = {

@@ -1,6 +1,24 @@
 import { it, expect, vi } from 'vitest';
-import { controlWorkspaceBrowser } from './browserControlClient';
+import { BROWSER_TAB_EVENT, controlWorkspaceBrowser } from './browserControlClient';
 import { readWorkbench, scopeKey } from './workspacePanelStore';
+
+it('reveals the intended tab before an action settles and does not reselect it afterwards', async () => {
+  const scope = { sessionId: 'slow-browser-test', root: '/workspace' };
+  const native = vi.fn().mockResolvedValueOnce({ id: 'target', result: {} });
+  window.electron.workspacePanel = native;
+  await controlWorkspaceBrowser({ action: 'browser-control', scope, operation: 'open', url: 'http://localhost' });
+  let finish!: () => void;
+  native.mockImplementationOnce(() => new Promise(resolve => { finish = () => resolve({ result: {} }); }));
+  const selected = vi.fn();
+  window.addEventListener(BROWSER_TAB_EVENT, selected);
+  try {
+    const pending = controlWorkspaceBrowser({ action: 'browser-control', scope, operation: 'observe', id: 'target' });
+    expect(selected).toHaveBeenCalledWith(expect.objectContaining({ detail: { scope, id: 'target', closed: false } }));
+    finish();
+    await pending;
+    expect(selected).toHaveBeenCalledTimes(1);
+  } finally { window.removeEventListener(BROWSER_TAB_EVENT, selected); }
+});
 
 it('preserves native failure details without creating a phantom browser tab', async () => {
   window.electron.workspacePanel = vi.fn().mockRejectedValue(new Error('ENOENT: missing.html'));

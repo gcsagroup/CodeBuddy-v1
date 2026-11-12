@@ -39,7 +39,7 @@ export function mediaFailureInfo(value: unknown): MediaFailureInfo | undefined {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return;
   const info = value as MediaFailureInfo;
   if (
-    !['comfyui', 'host'].includes(info.source) ||
+    !['comfyui', 'provider', 'host'].includes(info.source) ||
     ![
       'remote_execution',
       'submission',

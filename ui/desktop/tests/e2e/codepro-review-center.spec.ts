@@ -57,7 +57,7 @@ test('reviews all scopes, restores stale state, cancels explicitly, and never mu
 }, testInfo) => {
   const before = repositoryEvidence();
 
-  const codeProHome = appPage.getByRole('heading', { name: '欢迎使用 CodeBuddy' });
+  const codeProHome = appPage.getByRole('heading', { name: '我是 CodeBuddy，一起把事情做好。' });
   const codeProSwitch = appPage.getByRole('button', { name: 'CodePro', exact: true });
   for (let attempt = 0; attempt < 240; attempt += 1) {
     if (await codeProHome.isVisible().catch(() => false)) break;

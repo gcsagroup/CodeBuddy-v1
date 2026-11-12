@@ -593,6 +593,31 @@ describe('App Component - Brand New State', () => {
     });
   });
 
+  it('opens pet settings once after navigation and releases its IPC subscription on unmount', async () => {
+    const listeners = new Set<(...args: unknown[]) => void>();
+    const subscription = vi.spyOn(mockElectron, 'on').mockImplementation((channel, listener) => {
+      if (channel !== 'set-view') return;
+      listeners.add(listener);
+      return () => { listeners.delete(listener); };
+    });
+    try {
+      const view = render(<AppInner />, { wrapper: AppInnerTestWrapper });
+      await waitFor(() => expect(mockElectron.reactReady).toHaveBeenCalled());
+      mockLocationPath = '/codepro/pair';
+      view.rerender(<AppInner />);
+      mockNavigate.mockClear();
+      for (const listener of listeners) listener({}, 'settings', 'pets');
+      expect(mockNavigate).toHaveBeenCalledTimes(1);
+      expect(mockNavigate).toHaveBeenCalledWith('/codepro/settings?section=pets', {
+        state: { backgroundLocation: expect.objectContaining({ pathname: '/codepro/pair' }) },
+      });
+      view.unmount();
+      expect(listeners.size).toBe(0);
+    } finally {
+      subscription.mockRestore();
+    }
+  });
+
   it.each(['/codepro', '/codepro/settings', '/pair'])(
     'opens the exact pet task through the router from %s and clears stale route state',
     async (pathname) => {

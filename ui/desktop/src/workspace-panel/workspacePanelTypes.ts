@@ -41,6 +41,7 @@ export interface PanelDocumentPreview {
   missingFonts: readonly string[];
 }
 export interface PanelBrowserState {
+  feedback?: { operation: BrowserControlInput['operation']; phase: 'running' | 'completed' | 'failed' };
   id: string;
   url: string;
   title: string;

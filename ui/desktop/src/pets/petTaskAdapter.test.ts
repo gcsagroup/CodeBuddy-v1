@@ -5,6 +5,19 @@ import { ChatState } from '../types/chatState';
 
 describe('pet task observer', () => {
   const snapshot = { messages: [], chatState: ChatState.Idle } as unknown as AcpChatSessionSnapshot;
+  it('shows an admitted background run before its first chat update', () => {
+    const running = { ...snapshot, activeRunId: 'live', completedPromptAttemptId: 'previous' };
+    expect(petTaskFromSnapshot('child', running).state).toBe('working');
+    expect(petTaskFromSnapshot('child', { ...running, chatState: ChatState.WaitingForUserInput }).state).toBe('input');
+  });
+  it('identifies the main task from session metadata even when another chat has the same title', () => {
+    const session = { name: '主对话' } as NonNullable<AcpChatSessionSnapshot['session']>;
+    const working = { ...snapshot, chatState: ChatState.Thinking, session };
+    expect(petTaskFromSnapshot('ordinary', working).globalConversation).toBeUndefined();
+    expect(petTaskFromSnapshot('main', {
+      ...working, session: { ...session, global_conversation: true },
+    })).toMatchObject({ globalConversation: true, state: 'working' });
+  });
   it('identifies a new running conversation before its first turn is named and preserves user titles', () => {
     const pending = {
       ...snapshot,

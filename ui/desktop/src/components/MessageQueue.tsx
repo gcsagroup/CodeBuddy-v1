@@ -1,5 +1,22 @@
-import React, { useEffect, useState } from 'react';
-import { X, Send, GripVertical, LoaderCircle, ChevronDown, ChevronUp } from 'lucide-react';
+import React, { useEffect, useRef, useState } from 'react';
+import {
+  CornerDownRight,
+  ListEnd,
+  MoreHorizontal,
+  Pencil,
+  Trash2,
+  Send,
+  GripVertical,
+  LoaderCircle,
+  ChevronDown,
+  ChevronUp,
+} from 'lucide-react';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from './ui/dropdown-menu';
 import { Button } from './ui/button';
 import type { ImageData } from '../types/message';
 import { defineMessages, useIntl } from '../i18n';
@@ -9,6 +26,13 @@ import { PastedTextPreview } from './PastedTextPreview';
 const queuePreview = (text: string) => (isLargeText(text) ? text.slice(0, 160) + '…' : text);
 
 const i18n = defineMessages({
+  steer: { id: 'messageQueue.steer', defaultMessage: 'Steer' },
+  edit: { id: 'messageQueue.edit', defaultMessage: 'Edit message' },
+  more: { id: 'messageQueue.more', defaultMessage: 'More message actions' },
+  attachments: {
+    id: 'messageQueue.attachments',
+    defaultMessage: '{count, plural, one {# image} other {# images}}',
+  },
   savedDrafts: {
     id: 'messageQueue.savedDrafts',
     defaultMessage: '{count, plural, one {# saved draft} other {# saved drafts}}',
@@ -70,6 +94,7 @@ interface MessageQueueProps {
   onRemoveMessage: (id: string) => void;
   onClearQueue: () => void;
   onSendNow?: () => void;
+  onSteerMessage?: (id: string) => void;
   onEditMessage?: (messageId: string, newContent: string) => void;
   onTriggerQueueProcessing?: () => void;
   editingMessageIdRef?: React.MutableRefObject<string | null>;
@@ -88,6 +113,7 @@ export const MessageQueue: React.FC<MessageQueueProps> = ({
   onRemoveMessage,
   onClearQueue,
   onSendNow,
+  onSteerMessage,
   onEditMessage,
   onTriggerQueueProcessing,
   editingMessageIdRef,
@@ -100,11 +126,13 @@ export const MessageQueue: React.FC<MessageQueueProps> = ({
   blockedReason,
 }) => {
   const intl = useIntl();
-  const [isExpanded, setIsExpanded] = useState(false);
+  const [isExpanded, setIsExpanded] = useState(!isPaused);
   const [draggedItem, setDraggedItem] = useState<string | null>(null);
   const [editingMessage, setEditingMessage] = useState<string | null>(null);
   const [editContent, setEditContent] = useState('');
   const compactEdit = useCompactTextInput(editContent);
+  const editorRef = useRef<HTMLTextAreaElement>(null);
+  const disclosureRef = useRef<HTMLButtonElement>(null);
   const hasUncertainDelivery = queuedMessages.some(
     (message) => message.delivery === 'submitting' && !sendingMessageIds?.has(message.id)
   );
@@ -114,11 +142,8 @@ export const MessageQueue: React.FC<MessageQueueProps> = ({
   // Stop and cold restore preserve the queue as drafts, not an active steer.
   // Do not hide unresolved deliveries behind this collapsed presentation.
   useEffect(() => {
-    setIsExpanded(false);
+    setIsExpanded(!isDraftMode);
   }, [isDraftMode]);
-  useEffect(() => {
-    if (queuedMessages.length < 2) setIsExpanded(false);
-  }, [queuedMessages.length]);
   useEffect(() => {
     if (editingMessage && !queuedMessages.some((message) => message.id === editingMessage)) {
       setEditingMessage(null);
@@ -133,7 +158,7 @@ export const MessageQueue: React.FC<MessageQueueProps> = ({
   const pendingCount = queuedMessages.filter((message) => !isSending(message)).length;
   // Unknown delivery must keep its reconciliation controls visible, so it
   // must not advertise a collapsed list while already showing every entry.
-  const canExpand = (queuedMessages.length > 1 || isDraftMode) && !hasUncertainDelivery;
+  const canExpand = !hasUncertainDelivery;
   const expanded = canExpand && isExpanded;
   const showList = expanded || hasUncertainDelivery || editingMessage !== null;
   const waiting = Boolean(waitingMessageId);
@@ -152,7 +177,7 @@ export const MessageQueue: React.FC<MessageQueueProps> = ({
     onTriggerQueueProcessing?.();
   };
   const edit = (message: QueuedMessage) => {
-    if (isSending(message) || !onEditMessage) return;
+    if (isSending(message) || waitingMessageId === message.id || !onEditMessage) return;
     if (editingMessageIdRef) editingMessageIdRef.current = message.id;
     setEditContent(message.content);
     setEditingMessage(message.id);
@@ -160,10 +185,10 @@ export const MessageQueue: React.FC<MessageQueueProps> = ({
 
   return (
     <div
-      className={`relative ${className}`}
+      className={`relative flex flex-col ${className}`}
       data-testid={isDraftMode ? 'saved-message-drafts' : 'message-queue'}
     >
-      <div className="flex min-w-0 items-center gap-2 px-3 py-2 text-xs text-text-secondary">
+      <div className="order-last flex min-w-0 items-center gap-1 px-2 text-xs text-text-secondary">
         {canExpand ? (
           <button
             type="button"
@@ -177,7 +202,9 @@ export const MessageQueue: React.FC<MessageQueueProps> = ({
                   ? i18n.collapseQueue
                   : i18n.expandQueue
             )}
+            ref={disclosureRef}
             aria-expanded={expanded}
+            disabled={!!editingMessage}
             title={queuePreview(nextMessage.content)}
             onClick={() => setIsExpanded(!expanded)}
           >
@@ -189,9 +216,6 @@ export const MessageQueue: React.FC<MessageQueueProps> = ({
                     status: intl.formatMessage(i18n.queued),
                   })}
             </span>
-            {!showList && !isDraftMode && (
-              <span className="min-w-0 truncate">{queuePreview(nextMessage.content)}</span>
-            )}
             {expanded ? (
               <ChevronUp className="size-3 shrink-0" />
             ) : (
@@ -208,18 +232,6 @@ export const MessageQueue: React.FC<MessageQueueProps> = ({
                   })
                 : intl.formatMessage(i18n.pending)}
             </span>
-            {!showList && (
-              <button
-                type="button"
-                className="min-w-0 truncate text-left hover:text-text-primary"
-                title={intl.formatMessage(i18n.clickToEdit, {
-                  content: queuePreview(nextMessage.content),
-                })}
-                onClick={() => edit(nextMessage)}
-              >
-                {queuePreview(nextMessage.content)}
-              </button>
-            )}
           </div>
         )}
         {onSendNow && (!isDraftMode || expanded) && (
@@ -251,24 +263,12 @@ export const MessageQueue: React.FC<MessageQueueProps> = ({
             )}
           </Button>
         )}
-        {!showList && !canExpand && (
-          <Button
-            variant="ghost"
-            size="sm"
-            className="size-6 shrink-0 p-0 text-text-secondary"
-            title={intl.formatMessage(i18n.removeFromQueue)}
-            disabled={isSending(nextMessage)}
-            onClick={() => onRemoveMessage(nextMessage.id)}
-          >
-            <X className="size-3" />
-          </Button>
-        )}
         {expanded && (
           <Button
             variant="ghost"
             size="sm"
             className="h-7 shrink-0 px-2 text-xs text-text-secondary"
-            disabled={hasSending}
+            disabled={hasSending || !!editingMessage}
             onClick={onClearQueue}
           >
             {intl.formatMessage(i18n.clearAll)}
@@ -281,11 +281,12 @@ export const MessageQueue: React.FC<MessageQueueProps> = ({
         </p>
       )}
       {showList && (
-        <div className="max-h-72 overflow-y-auto px-3 pb-2">
+        <div className="max-h-[min(28vh,15rem)] overflow-y-auto overscroll-contain px-1 pb-1">
           {queuedMessages.map((message) => (
             <div
               key={message.id}
-              className="group py-2 text-sm text-text-primary"
+              data-queue-row={message.id}
+              className="group rounded-md text-sm text-text-primary hover:bg-background-secondary focus-within:bg-background-secondary"
               draggable={Boolean(onReorderMessages && !isSending(message) && !editingMessage)}
               onDragStart={(event) => {
                 setDraggedItem(message.id);
@@ -309,10 +310,16 @@ export const MessageQueue: React.FC<MessageQueueProps> = ({
                 setDraggedItem(null);
               }}
             >
-              <div className="flex items-start gap-2">
-                {onReorderMessages && !isSending(message) && (
-                  <GripVertical className="mt-1 size-3 shrink-0 cursor-grab text-text-secondary opacity-0 group-hover:opacity-70" />
-                )}
+              <div className="flex min-h-9 items-center gap-1 px-1">
+                <span
+                  className="relative flex size-5 shrink-0 items-center justify-center text-text-secondary"
+                  aria-hidden="true"
+                >
+                  <ListEnd className="size-3.5" />
+                  {onReorderMessages && !isSending(message) && (
+                    <GripVertical className="absolute inset-0 m-auto hidden size-4 cursor-grab bg-background-secondary group-hover:block" />
+                  )}
+                </span>
                 {editingMessage === message.id ? (
                   <div className="min-w-0 flex-1 space-y-2">
                     {compactEdit.prefix && (
@@ -326,6 +333,18 @@ export const MessageQueue: React.FC<MessageQueueProps> = ({
                     )}
                     <textarea
                       autoFocus
+                      ref={editorRef}
+                      aria-label={intl.formatMessage(i18n.edit)}
+                      onKeyDown={(event) => {
+                        if (event.nativeEvent.isComposing) return;
+                        if (
+                          event.key === 'Escape' ||
+                          (event.key === 'Enter' && (event.ctrlKey || event.metaKey))
+                        ) {
+                          event.preventDefault();
+                          finishEditing(event.key === 'Enter');
+                        }
+                      }}
                       rows={3}
                       className="w-full resize-y rounded-md border border-border-primary bg-background-primary px-2 py-1 text-sm"
                       value={compactEdit.editorValue}
@@ -353,15 +372,29 @@ export const MessageQueue: React.FC<MessageQueueProps> = ({
                 ) : (
                   <button
                     type="button"
-                    disabled={isSending(message)}
-                    className="min-w-0 flex-1 whitespace-pre-wrap break-words text-left leading-5"
+                    disabled={isSending(message) || waitingMessageId === message.id}
+                    className="min-w-0 flex-1 truncate text-left leading-5"
                     title={intl.formatMessage(i18n.clickToEdit, {
                       content: queuePreview(message.content),
                     })}
                     onClick={() => edit(message)}
                   >
-                    {queuePreview(message.content)}
+                    {queuePreview(message.content) ||
+                      intl.formatMessage(i18n.attachments, { count: message.images.length })}
                   </button>
+                )}
+                {onSteerMessage && !editingMessage && (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="h-7 gap-1 px-1.5 text-xs text-text-secondary"
+                    disabled={hasActiveSubmission || isSending(message) || waiting}
+                    onClick={() => onSteerMessage(message.id)}
+                  >
+                    <CornerDownRight className="size-3.5" />
+                    {intl.formatMessage(i18n.steer)}
+                  </Button>
                 )}
                 <Button
                   variant="ghost"
@@ -369,10 +402,55 @@ export const MessageQueue: React.FC<MessageQueueProps> = ({
                   className="size-6 shrink-0 p-0 text-text-secondary"
                   title={intl.formatMessage(i18n.removeFromQueue)}
                   disabled={isSending(message)}
+                  aria-label={intl.formatMessage(i18n.removeFromQueue)}
                   onClick={() => onRemoveMessage(message.id)}
                 >
-                  <X className="size-3" />
+                  <Trash2 className="size-3.5" />
                 </Button>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="size-7 shrink-0 p-0 text-text-secondary"
+                      aria-label={intl.formatMessage(i18n.more)}
+                      disabled={isSending(message)}
+                    >
+                      <MoreHorizontal className="size-4" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent
+                    align="end"
+                    side="bottom"
+                    onCloseAutoFocus={(event) => {
+                      if (editorRef.current) {
+                        event.preventDefault();
+                        editorRef.current.focus();
+                      } else if (disclosureRef.current?.getAttribute('aria-expanded') === 'false') {
+                        event.preventDefault();
+                        disclosureRef.current.focus();
+                      }
+                    }}
+                  >
+                    <DropdownMenuItem
+                      disabled={
+                        !onEditMessage || !!editingMessage || waitingMessageId === message.id
+                      }
+                      onSelect={() => edit(message)}
+                    >
+                      <Pencil />
+                      {intl.formatMessage(i18n.edit)}
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      disabled={!!editingMessage || hasUncertainDelivery}
+                      onSelect={() => setIsExpanded(false)}
+                    >
+                      <ListEnd />
+                      {intl.formatMessage(i18n.collapseQueue)}
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
               </div>
               {message.delivery === 'submitting' && !sendingMessageIds?.has(message.id) && (
                 <div className="mt-2 space-y-2 text-xs text-text-secondary" role="status">

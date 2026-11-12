@@ -1,4 +1,5 @@
 import { currentLocale } from '../i18n';
+import { PanelRight } from 'lucide-react';
 import { selectNativeText } from '../utils/nativeLocalization';
 import { useMediaJobs } from '../workspace-panel/WorkspaceGeneration';
 import { ToolCallExpandable } from './ToolCallExpandable';
@@ -11,6 +12,7 @@ import {
   type MediaJobPresentation,
 } from './mediaJobPresentation';
 import { GeneratedMediaFiles, mediaOutputPaths } from './GeneratedMedia';
+import { openGenerationJob } from '../workspace-panel/workspaceFilePanel';
 import './media-cards.css';
 
 const text = (en: string, cn: string, tw: string) => selectNativeText(currentLocale, en, cn, tw);
@@ -254,12 +256,20 @@ export function MediaTaskCards({
             ? Math.min(100, Math.max(0, Math.round((live.step / live.total) * 100)))
             : undefined;
         if (paths.length || !observation.active) return null;
+        const Card = readOnly ? 'div' : 'button';
         return (
-          <div key={job.key} className="media-result" data-media-card-id={job.jobId}>
+          <Card key={job.key} className="media-result block w-full text-left enabled:cursor-pointer enabled:hover:brightness-95"
+            data-media-card-id={job.jobId}
+            {...(!readOnly && {
+              type: 'button' as const,
+              'aria-label': text(`Preview ${name}`, `预览${name}`, `預覽${name}`),
+              onClick: () => openGenerationJob({ sessionId, jobId: job.jobId }),
+            })}>
             {jobs.length > 1 ? (
-              <div className="media-gallery-pending" role="status">
-                {name} · {statusText(observation.status)}
-                {percent !== undefined ? ` · ${percent}%` : ''}
+              <div className="media-gallery-pending flex items-center justify-between gap-2" role="status">
+                <span>{name} · {statusText(observation.status)}
+                  {percent !== undefined ? ` · ${percent}%` : ''}</span>
+                {!readOnly && <PanelRight size={14} aria-hidden="true" />}
               </div>
             ) : (
               <div
@@ -276,7 +286,7 @@ export function MediaTaskCards({
                 </div>
               </div>
             )}
-          </div>
+          </Card>
         );
       })}
     </>

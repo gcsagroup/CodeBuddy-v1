@@ -890,14 +890,8 @@
   "codeProHub.chooseProjectFolder": {
     "defaultMessage": "続行するにはプロジェクトフォルダーを選択してください"
   },
-  "codeProHub.description": {
-    "defaultMessage": "It plans, edits, tests, and reviews directly in the current project, so results are immediately available in your editor."
-  },
   "codeProHub.directoryChooserFailed": {
     "defaultMessage": "プロジェクトフォルダーを選択できません。もう一度お試しください。"
-  },
-  "codeProHub.eyebrow": {
-    "defaultMessage": "Multi-Agent development workspace"
   },
   "codeProHub.goalPlaceholder": {
     "defaultMessage": "Describe your task, expected result, and how to check it…"
@@ -916,9 +910,6 @@
   },
   "codeProHub.taskBreakdown": {
     "defaultMessage": "Automatic task breakdown"
-  },
-  "codeProHub.title": {
-    "defaultMessage": "Welcome to CodeBuddy"
   },
   "codeProHub.workspaceIdentityUnavailable": {
     "defaultMessage": "選択したワークスペースを安全に検証できませんでした。対応するローカルプロジェクトフォルダーを選択して再試行してください。"
@@ -2606,12 +2597,6 @@
   "dirSwitcher.failedToUpdateWorkingDir": {
     "defaultMessage": "作業ディレクトリの更新に失敗しました"
   },
-  "dirSwitcher.gitWorktrees": {
-    "defaultMessage": "Git worktree"
-  },
-  "dirSwitcher.noWorktreesFound": {
-    "defaultMessage": "worktreeが見つかりません"
-  },
   "dirSwitcher.openInFinder": {
     "defaultMessage": "ファイルマネージャーで開く"
   },
@@ -3630,7 +3615,7 @@
     "defaultMessage": "グローバルルールを入力してください..."
   },
   "globalInstructions.title": {
-    "defaultMessage": "CodeBuddy の指示"
+    "defaultMessage": "CodeBuddy のルール"
   },
   "globalInstructions.unavailable": {
     "defaultMessage": "CodeBuddy のホームディレクトリを使用できません。"
@@ -4484,9 +4469,6 @@
   "memorySettings.enableProjectMemory": {
     "defaultMessage": "Enable project memory"
   },
-  "memorySettings.manage": {
-    "defaultMessage": "Manage project memory"
-  },
   "memorySettings.off": {
     "defaultMessage": "Off"
   },
@@ -4595,6 +4577,9 @@
   "messageCopyLink.retry": {
     "defaultMessage": "Retry"
   },
+  "messageQueue.attachments": {
+    "defaultMessage": "画像 {count} 枚"
+  },
   "messageQueue.cancel": {
     "defaultMessage": "キャンセル"
   },
@@ -4622,6 +4607,9 @@
   "messageQueue.continueSending": {
     "defaultMessage": "メッセージは保持されています。準備ができたら送信してください。"
   },
+  "messageQueue.edit": {
+    "defaultMessage": "メッセージを編集"
+  },
   "messageQueue.expandDrafts": {
     "defaultMessage": "Expand saved drafts"
   },
@@ -4630,6 +4618,9 @@
   },
   "messageQueue.messageCount": {
     "defaultMessage": "{count,plural,one{# 件のメッセージ（{status}）} other{# 件のメッセージ（{status}）}}"
+  },
+  "messageQueue.more": {
+    "defaultMessage": "その他のメッセージ操作"
   },
   "messageQueue.next": {
     "defaultMessage": "次"
@@ -4663,6 +4654,9 @@
   },
   "messageQueue.sendTogether": {
     "defaultMessage": "送信待ちのメッセージをまとめて送信"
+  },
+  "messageQueue.steer": {
+    "defaultMessage": "指示を追加"
   },
   "messageQueue.storageConflict": {
     "defaultMessage": "This queue changed in another window. Sending and saving are paused to avoid overwriting it. Keep this window open and compare the queued messages."
@@ -5471,6 +5465,9 @@
   "navigationPanel.untitledSession": {
     "defaultMessage": "無題のセッション"
   },
+  "navigationPanel.workspaceChats": {
+    "defaultMessage": "最近の会話 {count} 件 · 実行中 {active} 件"
+  },
   "navigationPanel.workspaces": {
     "defaultMessage": "Workspaces"
   },
@@ -6067,69 +6064,6 @@
   },
   "projectMemoryApproval.warning": {
     "defaultMessage": "このメモリリクエストの形式が正しくありません。保存はできませんが、リクエストを拒否することはできます。"
-  },
-  "projectMemoryRecords.active": {
-    "defaultMessage": "Approved"
-  },
-  "projectMemoryRecords.approve": {
-    "defaultMessage": "Approve for recall"
-  },
-  "projectMemoryRecords.cancel": {
-    "defaultMessage": "Cancel"
-  },
-  "projectMemoryRecords.candidate": {
-    "defaultMessage": "Pending review"
-  },
-  "projectMemoryRecords.changed": {
-    "defaultMessage": "The record changed. Review the refreshed content before approving again."
-  },
-  "projectMemoryRecords.confirmRemove": {
-    "defaultMessage": "Confirm deletion"
-  },
-  "projectMemoryRecords.content": {
-    "defaultMessage": "Memory content"
-  },
-  "projectMemoryRecords.description": {
-    "defaultMessage": "Choose a project and review its records. Only approved, unexpired records are recalled in that project."
-  },
-  "projectMemoryRecords.directory": {
-    "defaultMessage": "Project directory"
-  },
-  "projectMemoryRecords.disable": {
-    "defaultMessage": "Disable recall"
-  },
-  "projectMemoryRecords.disabled": {
-    "defaultMessage": "Disabled"
-  },
-  "projectMemoryRecords.edit": {
-    "defaultMessage": "Edit"
-  },
-  "projectMemoryRecords.empty": {
-    "defaultMessage": "No saved records in this project."
-  },
-  "projectMemoryRecords.expired": {
-    "defaultMessage": "Expired"
-  },
-  "projectMemoryRecords.export": {
-    "defaultMessage": "Export project memory"
-  },
-  "projectMemoryRecords.load": {
-    "defaultMessage": "Load records"
-  },
-  "projectMemoryRecords.more": {
-    "defaultMessage": "Load more"
-  },
-  "projectMemoryRecords.reason": {
-    "defaultMessage": "Reason"
-  },
-  "projectMemoryRecords.remove": {
-    "defaultMessage": "Delete record"
-  },
-  "projectMemoryRecords.save": {
-    "defaultMessage": "Save changes"
-  },
-  "projectMemoryRecords.title": {
-    "defaultMessage": "Saved project memory"
   },
   "promptsSettings.allPromptsReset": {
     "defaultMessage": "すべてのプロンプトをデフォルトにリセットしました"
@@ -7889,6 +7823,9 @@
   "settings.notifications.description": {
     "defaultMessage": "通知はOSで管理されます - {link}"
   },
+  "settings.notifications.modal.linuxInstructions": {
+    "defaultMessage": "デスクトップ環境の設定で「通知」を開き、CodeBuddy の通知を許可してください。"
+  },
   "settings.notifications.modal.macInstructions": {
     "defaultMessage": "macOSで通知を有効にするには:"
   },
@@ -7923,7 +7860,7 @@
     "defaultMessage": "通知をオンにし、必要に応じて設定を調整"
   },
   "settings.notifications.openSettings": {
-    "defaultMessage": "設定を開く"
+    "defaultMessage": "システム設定を開く"
   },
   "settings.notifications.task.description": {
     "defaultMessage": "ウィンドウがバックグラウンドにある間にCodeBuddyがタスクを完了したら通知します"
@@ -7932,7 +7869,7 @@
     "defaultMessage": "タスク完了通知"
   },
   "settings.notifications.title": {
-    "defaultMessage": "通知"
+    "defaultMessage": "システム通知"
   },
   "settings.preventSleep.description": {
     "defaultMessage": "CodeBuddyがタスクを実行中はコンピューターがスリープしないようにします（画面はロックされる場合があります）"
@@ -7975,9 +7912,6 @@
   },
   "settingsCenter.pageChat": {
     "defaultMessage": "Behavior and responses"
-  },
-  "settingsCenter.pageInput": {
-    "defaultMessage": "Input"
   },
   "settingsCenter.pageKeyboard": {
     "defaultMessage": "Keyboard shortcuts"

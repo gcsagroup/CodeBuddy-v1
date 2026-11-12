@@ -4,6 +4,8 @@ import { useNativeSchedulePanel } from '../schedule/useNativeSchedulePanel';
 import {
   OPEN_WORKSPACE_FILE,
   OPEN_WORKSPACE_WEB,
+  OPEN_GENERATION_JOB,
+  type GenerationJobTarget,
   type WorkspaceFileTarget,
   type WorkspaceWebTarget,
 } from '../../workspace-panel/workspaceFilePanel';
@@ -15,6 +17,7 @@ import { motion, useReducedMotion } from 'framer-motion';
 import { defineMessages, useIntl } from '../../i18n';
 import { Button } from '../ui/button';
 import ChatSessionsContainer from '../ChatSessionsContainer';
+import SuspenseLoader from '../../suspense-loader';
 import { useChatContext } from '../../contexts/ChatContext';
 import { NavigationProvider, useNavigationContext } from './NavigationContext';
 import { Navigation } from './NavigationPanel';
@@ -135,22 +138,24 @@ const AppLayoutContent: React.FC<AppLayoutContentProps> = ({ activeSessions }) =
   const showNativeSchedule = Boolean(nativeScheduleId) && (isSchedulesRoute || isOnPairRoute);
   const [pendingWorkspaceOpen, setPendingWorkspaceOpen] = useState<{
     type: string;
-    detail: WorkspaceFileTarget | WorkspaceWebTarget;
+    detail: WorkspaceFileTarget | WorkspaceWebTarget | GenerationJobTarget;
   } | null>(null);
   const currentSessionId = new URLSearchParams(location.search).get('resumeSessionId');
   useEffect(() => {
     if (!showNativeSchedule || workspaceMode !== 'codepro' || !isOnPairRoute) return;
     const open = (event: Event) => {
-      const detail = (event as CustomEvent<WorkspaceFileTarget | WorkspaceWebTarget>).detail;
+      const detail = (event as CustomEvent<WorkspaceFileTarget | WorkspaceWebTarget | GenerationJobTarget>).detail;
       if (!detail || detail.sessionId !== currentSessionId) return;
       setPendingWorkspaceOpen({ type: event.type, detail });
       closeNativeSchedule();
     };
     window.addEventListener(OPEN_WORKSPACE_FILE, open);
     window.addEventListener(OPEN_WORKSPACE_WEB, open);
+    window.addEventListener(OPEN_GENERATION_JOB, open);
     return () => {
       window.removeEventListener(OPEN_WORKSPACE_FILE, open);
       window.removeEventListener(OPEN_WORKSPACE_WEB, open);
+      window.removeEventListener(OPEN_GENERATION_JOB, open);
     };
   }, [showNativeSchedule, workspaceMode, isOnPairRoute, currentSessionId, closeNativeSchedule]);
   useEffect(() => {
@@ -282,7 +287,7 @@ const AppLayoutContent: React.FC<AppLayoutContentProps> = ({ activeSessions }) =
 
   return (
     <div
-      className="flex flex-1 w-full h-full relative animate-fade-in bg-background-primary flex-row"
+      className="isolate flex flex-1 w-full h-full relative animate-fade-in bg-background-primary flex-row"
       style={
         {
           '--navigation-toolbar-inset': isNavExpanded
@@ -354,7 +359,9 @@ const AppLayoutContent: React.FC<AppLayoutContentProps> = ({ activeSessions }) =
                   className={cn('h-full', !isNavExpanded && !isOnPairRoute && 'pt-10')}
                   style={{ minWidth: CODEPRO_CHAT_MIN_WIDTH }}
                 >
-                  <Outlet />
+                  <React.Suspense fallback={<SuspenseLoader />}>
+                    <Outlet />
+                  </React.Suspense>
                   {/* Always render ChatSessionsContainer to keep SSE connections alive.
               When navigating away from /pair, hide it with CSS */}
                   <div className={isOnPairRoute ? 'contents' : 'hidden'}>

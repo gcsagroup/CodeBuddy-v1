@@ -79,7 +79,7 @@ it('keeps all 16 results accessible in one gallery and retains selection when an
   }
 });
 
-it('mounts one video player, pauses it on selection changes and does not preload other videos', async () => {
+it('mounts one video player, pauses it on selection changes and renders separate first-frame thumbnails', async () => {
   const oldInspect = window.electron.workspacePanel;
   const pause = vi.spyOn(window.HTMLMediaElement.prototype, 'pause').mockImplementation(() => {});
   window.electron.workspacePanel = vi.fn(
@@ -103,6 +103,7 @@ it('mounts one video player, pauses it on selection changes and does not preload
     });
     await screen.findByRole('button', { name: '3: three.mp4' });
     expect(view.container.querySelectorAll('video')).toHaveLength(1);
+    expect(view.container.querySelectorAll('.media-gallery-thumbnails canvas')).toHaveLength(3);
     expect(view.container.querySelector('video')).not.toHaveAttribute('autoplay');
     fireEvent.click(screen.getByRole('button', { name: 'Next media' }));
     await waitFor(() =>

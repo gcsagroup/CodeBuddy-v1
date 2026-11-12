@@ -1,7 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
-import { ArrowLeft, ArrowRight, RotateCw, ArrowUpRight, Globe, X } from 'lucide-react';
+import { ArrowLeft, ArrowRight, RotateCw, ArrowUpRight, Globe, Scan, X } from 'lucide-react';
 import { useIntl } from '../i18n';
 import { panelMessages as m } from './workspacePanelMessages';
+import { formatToolAction } from '../components/toolActionPresentation';
+import { controlFeedbackStyles } from '../controlFeedbackStyles';
 import type { PanelBrowserState, PanelScope } from './workspacePanelTypes';
 
 function isBrowserCovered(viewport: DOMRect) {
@@ -93,6 +95,9 @@ export function WorkspaceBrowser({ scope, id }: { scope: PanelScope; id: string 
       .workspacePanel({ scope, action: 'browser-command', id, command })
       .catch((e) => setError(String(e)));
   };
+  const feedback = state?.id === id ? state.feedback : undefined;
+  const actionLabel = feedback && formatToolAction(intl, 'browser_control', { operation: feedback.operation },
+    feedback.phase === 'failed' ? undefined : feedback.phase);
   return (
     <div className="wb-browser flex min-h-0 min-w-0 flex-1 flex-col">
       <form
@@ -166,21 +171,31 @@ export function WorkspaceBrowser({ scope, id }: { scope: PanelScope; id: string 
           {error || state?.error}
         </p>
       )}
-      <div className="relative min-h-0 flex-1" ref={host}>
-        {(!state?.url || state.url === 'about:blank') && (
-          <div className="wb-browser-empty">
-            <Globe size={36} strokeWidth={1} />
-            <h3>{intl.formatMessage(m.browser)}</h3>
-            <p>{intl.formatMessage(m.enterAddress)}</p>
-          </div>
-        )}
+      <div className="control-feedback wb-control-surface">
+        <style>{controlFeedbackStyles}</style>
+        <div className="wb-browser-caption">
+          {!feedback && <span className="truncate" title={state?.title}>{state?.title || intl.formatMessage(m.browser)}</span>}
+          <span role="status" className={feedback ? 'banner' : undefined} data-phase={feedback?.phase}>
+            {feedback ? <>
+              <span aria-hidden="true" className="mark"><Scan size={15} /></span>
+              <b className="brand">CodeBuddy</b>
+              <span className="status">{intl.formatMessage(m.browserControl)}</span>
+              <span className="hint">{feedback.phase === 'failed'
+                ? intl.formatMessage(m.browserActionFailed, { action: actionLabel }) : actionLabel}</span>
+            </> : state?.loading ? intl.formatMessage(m.loading) : ''}
+          </span>
+        </div>
+        {feedback && <div aria-hidden="true" className="glow" />}
+        <div className="wb-native-viewport" ref={host}>
+          {(!state?.url || state.url === 'about:blank') && (
+            <div className="wb-browser-empty">
+              <Globe size={36} strokeWidth={1} />
+              <h3>{intl.formatMessage(m.browser)}</h3>
+              <p>{intl.formatMessage(m.enterAddress)}</p>
+            </div>
+          )}
+        </div>
       </div>
-      <footer className="wb-statusbar">
-        <span className="truncate" title={state?.title}>
-          {state?.title || intl.formatMessage(m.browser)}
-        </span>
-        <span>{state?.loading ? intl.formatMessage(m.loading) : ''}</span>
-      </footer>
     </div>
   );
 }

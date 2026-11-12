@@ -8,13 +8,14 @@ import {
   type ReactNode,
   type ComponentRef,
 } from 'react';
-import { ChevronLeft, ChevronRight, Film } from 'lucide-react';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { currentLocale } from '../i18n';
 import { selectNativeText } from '../utils/nativeLocalization';
 import type { ToolResponseMessageContent } from '../types/message';
 import { WorkspaceFileReferences } from './WorkspaceFileReferences';
 import { generatedMediaReceipt } from '../utils/mediaToolReceipt';
 import { useWorkspaceFileReferences } from './useWorkspaceFileReferences';
+import { VideoFirstFrame } from './VideoFirstFrame';
 import { WorkspaceMedia } from '../workspace-panel/WorkspaceMedia';
 import { openWorkspaceFile } from '../workspace-panel/workspaceFilePanel';
 import { useMediaJobs, resolveMediaOutput } from '../workspace-panel/WorkspaceGeneration';
@@ -215,7 +216,7 @@ const MediaTaskOutputs = memo(
                   {item.media?.kind === 'image' ? (
                     <img src={item.media.url} alt="" loading="lazy" draggable={false} />
                   ) : (
-                    <Film size={22} />
+                    item.media && <VideoFirstFrame key={item.media.url} src={item.media.url} />
                   )}
                   <span>{itemIndex + 1}</span>
                 </button>

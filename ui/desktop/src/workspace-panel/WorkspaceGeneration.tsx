@@ -39,7 +39,7 @@ export interface MediaFailureInfo {
     | 'output_retrieval'
     | 'output_validation'
     | 'output_publication';
-  source: 'comfyui' | 'host';
+  source: 'comfyui' | 'provider' | 'host';
   node_type?: string;
   exception_type?: string;
   error_code?: string;
@@ -149,6 +149,7 @@ const stages: Record<string, [string, string, string]> = {
   decode: ['Decoding frames', '解码画面', '解碼畫面'],
   audio: ['Decoding audio', '解码音频', '解碼音訊'],
   video: ['Encoding video', '合成视频', '合成影片'],
+  download: ['Downloading output', '下载生成结果', '下載生成結果'],
   save: ['Saving output', '保存生成结果', '儲存生成結果'],
 };
 const statuses: Record<string, [string, string, string]> = {
@@ -347,11 +348,16 @@ export function WorkspaceGeneration({
   scope,
   jobs,
   disconnected,
+  selectedJobId,
+  onShowAll,
 }: {
   scope: PanelScope;
   jobs: MediaJob[];
   disconnected: boolean;
+  selectedJobId?: string;
+  onShowAll?: () => void;
 }) {
+  const visibleJobs = selectedJobId ? jobs.filter(job => job.job_id === selectedJobId) : jobs;
   return (
     <section
       className="min-h-0 flex-1 space-y-4 overflow-auto p-4"
@@ -366,7 +372,15 @@ export function WorkspaceGeneration({
           )}
         </p>
       )}
-      {jobs.map((job) => (
+      {selectedJobId && (
+        <button type="button" className="text-sm underline" onClick={onShowAll}>
+          {mediaText('All generation jobs', '查看全部生成任务', '查看全部生成任務')}
+        </button>
+      )}
+      {selectedJobId && !visibleJobs.length && !disconnected && (
+        <p role="status">{mediaText('Waiting for job status…', '等待读取任务状态…', '等候讀取任務狀態…')}</p>
+      )}
+      {visibleJobs.map((job) => (
         <MediaJobPreview key={job.job_id} scope={scope} job={job} disconnected={disconnected} />
       ))}
     </section>

@@ -16,6 +16,7 @@ const selection = () => ({ revision: 1, profile: selected, legacy: false });
 const modelInfo = { provider: fixtureProvider, model: fixtureModel, contextLimit: 1000000 };
 const client = {
   goose: {
+    configReadAll_unstable: async () => ({ config: {}, blockedMutationKeys: [] }),
     slashCommandsList_unstable: async () => {
       if (!(window as unknown as { delayCommandInventory?: boolean }).delayCommandInventory) return { availableCommands: [] };
       return new Promise(resolve => Object.assign(window, { releaseCommandInventory: () => resolve({ availableCommands: Array.from({ length: 40 }, (_, i) => ({ name: `late-skill-${i}`, description: '异步加载的技能说明', _meta: { commandType: 'Skill' } })) }) }));
@@ -46,6 +47,8 @@ const client = {
     sessionExtensionsList_unstable: async () => ({ extensions: [] }),
   },
   extMethod: async (method: string, input: Record<string, unknown>) => {
+    if (method === '_codebuddy/main-conversation/overview')
+      return (window as unknown as { fixtureProjectBrief(input: Record<string, unknown>): Promise<unknown> }).fixtureProjectBrief(input);
     if (method === '_codebuddy/agents/list') return { profiles: [profile], presets: [] };
     if (method === '_codebuddy/agents/current')
       return { selection: selection(), effective: selected, pending: false };

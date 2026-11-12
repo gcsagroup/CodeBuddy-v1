@@ -33,11 +33,8 @@ export default function SettingsMenu({
     if (visible && active) headings.current.get(active)?.focus();
   }, [active, visible]);
   return (
-    <div className="space-y-4 pb-4">
-      <div
-        hidden={active !== null}
-        className="divide-y divide-border-subtle rounded-xl border border-border-subtle"
-      >
+    <div className="@container space-y-4 pb-4">
+      <div hidden={active !== null} className="grid grid-cols-1 gap-3 @min-[36rem]:grid-cols-2">
         {items.map((item) => (
           <button
             key={item.id}
@@ -48,7 +45,7 @@ export default function SettingsMenu({
             type="button"
             aria-label={item.title}
             aria-describedby={`${id}-${item.id}`}
-            className="flex w-full items-center gap-4 px-4 py-4 text-left transition-colors first:rounded-t-xl last:rounded-b-xl hover:bg-background-muted/60 focus-visible:outline focus-visible:outline-2 focus-visible:outline-border-default"
+            className="group flex min-h-20 w-full items-start gap-3 rounded-xl border border-border-primary bg-background-primary p-4 text-left transition-colors hover:border-border-info hover:bg-background-secondary focus-visible:outline-2 focus-visible:outline-border-info"
             onClick={() => {
               setVisited((current) =>
                 current.includes(item.id) ? current : [...current, item.id]
@@ -56,14 +53,22 @@ export default function SettingsMenu({
               setActive(item.id);
             }}
           >
-            <span className="shrink-0 text-text-secondary">{item.icon}</span>
+            <span
+              aria-hidden
+              className="grid size-9 shrink-0 place-items-center rounded-lg bg-background-secondary text-text-primary group-hover:text-text-info"
+            >
+              {item.icon}
+            </span>
             <span className="min-w-0 flex-1">
-              <span className="block text-sm font-medium text-text-primary">{item.title}</span>
-              <span id={`${id}-${item.id}`} className="mt-1 block text-xs text-text-secondary">
+              <span className="block text-sm font-semibold text-text-primary">{item.title}</span>
+              <span
+                id={`${id}-${item.id}`}
+                className="mt-1 block text-xs leading-relaxed text-text-secondary"
+              >
                 {item.dirty ? intl.formatMessage(messages.unsaved) : item.description}
               </span>
             </span>
-            <ChevronRight className="h-4 w-4 shrink-0 text-text-muted" aria-hidden />
+            <ChevronRight className="mt-1 size-4 shrink-0 text-text-secondary" aria-hidden />
           </button>
         ))}
       </div>

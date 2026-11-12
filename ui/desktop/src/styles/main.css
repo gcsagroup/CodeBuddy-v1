@@ -260,6 +260,29 @@
   }
 }
 
+/* Shared by navigation, settings and desktop pages, including portalled UI. */
+@layer base {
+  :where(svg.lucide[stroke-width="2"]) { stroke-width: 1.75; }
+}
+@layer components {
+  .app-nav-link {
+    @apply flex min-h-9 items-center gap-3 rounded-lg px-3 py-2 text-left text-sm leading-5 text-text-primary transition-colors hover:bg-background-tertiary focus-visible:ring-2 focus-visible:ring-ring;
+  }
+  .app-nav-link[aria-current="page"],
+  .app-nav-link:has(> [aria-current="page"]) {
+    @apply bg-background-tertiary font-semibold;
+  }
+  .app-page-heading {
+    @apply text-xl font-semibold leading-7 tracking-tight text-text-primary;
+  }
+  .project-row-action {
+    @apply grid size-6 shrink-0 place-items-center rounded-md text-text-secondary opacity-0 transition-opacity hover:bg-background-tertiary hover:text-text-primary focus-visible:ring-2 focus-visible:ring-ring;
+  }
+  :where(.group\/project-row:hover, .group\/project-row:focus-within) .project-row-action,
+  .project-row-action[data-state="open"] { opacity: 1; }
+  @media (hover: none) { .project-row-action { opacity: 1; } }
+}
+
 /* Process rows form one compact list; prose retains its own paragraph rhythm. */
 .codepro-tool-group {
   display: flex;

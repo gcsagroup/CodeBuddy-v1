@@ -890,14 +890,8 @@
   "codeProHub.chooseProjectFolder": {
     "defaultMessage": "Pilih folder proyek untuk melanjutkan"
   },
-  "codeProHub.description": {
-    "defaultMessage": "It plans, edits, tests, and reviews directly in the current project, so results are immediately available in your editor."
-  },
   "codeProHub.directoryChooserFailed": {
     "defaultMessage": "Folder proyek tidak dapat dipilih. Coba lagi."
-  },
-  "codeProHub.eyebrow": {
-    "defaultMessage": "Multi-Agent development workspace"
   },
   "codeProHub.goalPlaceholder": {
     "defaultMessage": "Describe your task, expected result, and how to check it…"
@@ -916,9 +910,6 @@
   },
   "codeProHub.taskBreakdown": {
     "defaultMessage": "Automatic task breakdown"
-  },
-  "codeProHub.title": {
-    "defaultMessage": "Welcome to CodeBuddy"
   },
   "codeProHub.workspaceIdentityUnavailable": {
     "defaultMessage": "Ruang kerja yang dipilih tidak dapat diverifikasi dengan aman. Pilih folder proyek lokal yang didukung lalu coba lagi."
@@ -2606,12 +2597,6 @@
   "dirSwitcher.failedToUpdateWorkingDir": {
     "defaultMessage": "Gagal memperbarui direktori kerja"
   },
-  "dirSwitcher.gitWorktrees": {
-    "defaultMessage": "Git worktree"
-  },
-  "dirSwitcher.noWorktreesFound": {
-    "defaultMessage": "Tidak ada worktree yang ditemukan"
-  },
   "dirSwitcher.openInFinder": {
     "defaultMessage": "Buka di pengelola file"
   },
@@ -3630,7 +3615,7 @@
     "defaultMessage": "Masukkan aturan global Anda di sini..."
   },
   "globalInstructions.title": {
-    "defaultMessage": "Instruksi CodeBuddy"
+    "defaultMessage": "Aturan CodeBuddy"
   },
   "globalInstructions.unavailable": {
     "defaultMessage": "Direktori utama CodeBuddy tidak tersedia."
@@ -4484,9 +4469,6 @@
   "memorySettings.enableProjectMemory": {
     "defaultMessage": "Enable project memory"
   },
-  "memorySettings.manage": {
-    "defaultMessage": "Manage project memory"
-  },
   "memorySettings.off": {
     "defaultMessage": "Off"
   },
@@ -4595,6 +4577,9 @@
   "messageCopyLink.retry": {
     "defaultMessage": "Retry"
   },
+  "messageQueue.attachments": {
+    "defaultMessage": "Gambar: {count}"
+  },
   "messageQueue.cancel": {
     "defaultMessage": "Batal"
   },
@@ -4622,6 +4607,9 @@
   "messageQueue.continueSending": {
     "defaultMessage": "Pesan tetap tersimpan. Kirim sekarang saat Anda siap."
   },
+  "messageQueue.edit": {
+    "defaultMessage": "Edit pesan"
+  },
   "messageQueue.expandDrafts": {
     "defaultMessage": "Expand saved drafts"
   },
@@ -4630,6 +4618,9 @@
   },
   "messageQueue.messageCount": {
     "defaultMessage": "{count,plural,one{# pesan {status}} other{# pesan {status}}}"
+  },
+  "messageQueue.more": {
+    "defaultMessage": "Tindakan pesan lainnya"
   },
   "messageQueue.next": {
     "defaultMessage": "Berikutnya"
@@ -4663,6 +4654,9 @@
   },
   "messageQueue.sendTogether": {
     "defaultMessage": "Kirim semua pesan tertunda sekaligus sekarang"
+  },
+  "messageQueue.steer": {
+    "defaultMessage": "Arahkan"
   },
   "messageQueue.storageConflict": {
     "defaultMessage": "This queue changed in another window. Sending and saving are paused to avoid overwriting it. Keep this window open and compare the queued messages."
@@ -5471,6 +5465,9 @@
   "navigationPanel.untitledSession": {
     "defaultMessage": "Sesi tanpa judul"
   },
+  "navigationPanel.workspaceChats": {
+    "defaultMessage": "Percakapan terbaru: {count} · Berjalan: {active}"
+  },
   "navigationPanel.workspaces": {
     "defaultMessage": "Workspaces"
   },
@@ -6067,69 +6064,6 @@
   },
   "projectMemoryApproval.warning": {
     "defaultMessage": "Permintaan memori ini tidak valid. Penyimpanan tidak tersedia; Anda tetap dapat menolak permintaan."
-  },
-  "projectMemoryRecords.active": {
-    "defaultMessage": "Approved"
-  },
-  "projectMemoryRecords.approve": {
-    "defaultMessage": "Approve for recall"
-  },
-  "projectMemoryRecords.cancel": {
-    "defaultMessage": "Cancel"
-  },
-  "projectMemoryRecords.candidate": {
-    "defaultMessage": "Pending review"
-  },
-  "projectMemoryRecords.changed": {
-    "defaultMessage": "The record changed. Review the refreshed content before approving again."
-  },
-  "projectMemoryRecords.confirmRemove": {
-    "defaultMessage": "Confirm deletion"
-  },
-  "projectMemoryRecords.content": {
-    "defaultMessage": "Memory content"
-  },
-  "projectMemoryRecords.description": {
-    "defaultMessage": "Choose a project and review its records. Only approved, unexpired records are recalled in that project."
-  },
-  "projectMemoryRecords.directory": {
-    "defaultMessage": "Project directory"
-  },
-  "projectMemoryRecords.disable": {
-    "defaultMessage": "Disable recall"
-  },
-  "projectMemoryRecords.disabled": {
-    "defaultMessage": "Disabled"
-  },
-  "projectMemoryRecords.edit": {
-    "defaultMessage": "Edit"
-  },
-  "projectMemoryRecords.empty": {
-    "defaultMessage": "No saved records in this project."
-  },
-  "projectMemoryRecords.expired": {
-    "defaultMessage": "Expired"
-  },
-  "projectMemoryRecords.export": {
-    "defaultMessage": "Export project memory"
-  },
-  "projectMemoryRecords.load": {
-    "defaultMessage": "Load records"
-  },
-  "projectMemoryRecords.more": {
-    "defaultMessage": "Load more"
-  },
-  "projectMemoryRecords.reason": {
-    "defaultMessage": "Reason"
-  },
-  "projectMemoryRecords.remove": {
-    "defaultMessage": "Delete record"
-  },
-  "projectMemoryRecords.save": {
-    "defaultMessage": "Save changes"
-  },
-  "projectMemoryRecords.title": {
-    "defaultMessage": "Saved project memory"
   },
   "promptsSettings.allPromptsReset": {
     "defaultMessage": "Semua prompt disetel ulang ke default"
@@ -7889,6 +7823,9 @@
   "settings.notifications.description": {
     "defaultMessage": "Notifikasi dikelola oleh OS Anda - {link}"
   },
+  "settings.notifications.modal.linuxInstructions": {
+    "defaultMessage": "Buka Notifikasi di pengaturan desktop dan izinkan notifikasi dari CodeBuddy."
+  },
   "settings.notifications.modal.macInstructions": {
     "defaultMessage": "Untuk mengaktifkan notifikasi di macOS:"
   },
@@ -7923,7 +7860,7 @@
     "defaultMessage": "Aktifkan notifikasi dan sesuaikan pengaturan sesuai keinginan"
   },
   "settings.notifications.openSettings": {
-    "defaultMessage": "Buka Pengaturan"
+    "defaultMessage": "Buka pengaturan sistem"
   },
   "settings.notifications.task.description": {
     "defaultMessage": "Beri tahu saat CodeBuddy menyelesaikan tugas selagi jendela berada di latar belakang"
@@ -7932,7 +7869,7 @@
     "defaultMessage": "Notifikasi penyelesaian tugas"
   },
   "settings.notifications.title": {
-    "defaultMessage": "Notifikasi"
+    "defaultMessage": "Notifikasi sistem"
   },
   "settings.preventSleep.description": {
     "defaultMessage": "Jaga komputer Anda tetap menyala saat CodeBuddy menjalankan tugas (layar tetap dapat terkunci)"
@@ -7975,9 +7912,6 @@
   },
   "settingsCenter.pageChat": {
     "defaultMessage": "Behavior and responses"
-  },
-  "settingsCenter.pageInput": {
-    "defaultMessage": "Input"
   },
   "settingsCenter.pageKeyboard": {
     "defaultMessage": "Keyboard shortcuts"

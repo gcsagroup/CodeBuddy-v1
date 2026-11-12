@@ -7,7 +7,7 @@ import { expect, test } from './fixtures';
 test.setTimeout(480_000);
 
 async function expectCodeProHome(appPage: Page) {
-  await expect(appPage.getByRole('heading', { name: '欢迎使用 CodeBuddy' })).toBeVisible();
+  await expect(appPage.getByRole('heading', { name: '我是 CodeBuddy，一起把事情做好。' })).toBeVisible();
   await expect(appPage.getByText('自动拆分任务')).toBeVisible();
   await expect(appPage.getByText('多模型协作')).toBeVisible();
   await expect(appPage.getByText('原位编辑并保留完整活动记录')).toBeVisible();

@@ -6,6 +6,7 @@ import { acpCancelPrompt, acpPromptSession } from '../prompt';
 import { isAcpRecovering } from '../acpConnection';
 import { ChatState } from '../../types/chatState';
 import { createUserMessage } from '../../types/message';
+import { petTaskFromSnapshot } from '../../pets/petTaskAdapter';
 
 vi.mock('../../utils/extensionErrorUtils', () => ({ showExtensionLoadResults: vi.fn() }));
 vi.mock('../prompt', () => ({ acpPromptSession: vi.fn(), acpCancelPrompt: vi.fn() }));
@@ -49,6 +50,30 @@ describe('session prompt request barrier with the real chat store', () => {
     vi.mocked(acpCancelPrompt).mockResolvedValue(undefined);
   });
   afterEach(() => acpChatSessionActions.deleteSnapshot(id));
+
+  it('exposes each plain main-chat completion once by attempt and never marks a cancelled or limited reply completed', async () => {
+    acpChatSessionActions.setSessionMetadata(id, {
+      id, name: '主对话', global_conversation: true, session_type: 'user',
+      created_at: '', updated_at: '', working_dir: '', message_count: 0, extension_data: {},
+    });
+    const task = () => petTaskFromSnapshot(id, acpChatSessionStore.getSnapshot(id)!);
+    const completed = new Set<string>();
+    for (const stopReason of ['end_turn', 'end_turn', 'cancelled', 'max_tokens'] as const) {
+      const prompt = pendingPrompt(false);
+      expect(task()).toMatchObject({ globalConversation: true, state: 'working' });
+      expect(task().terminalId).toBeUndefined();
+      const attempt = acpChatSessionStore.getSnapshot(id)!.activePromptAttemptId!;
+      prompt.resolve({ stopReason });
+      await prompt.submission;
+      if (stopReason === 'end_turn') {
+        expect(task()).toMatchObject({ state: 'completed', terminalId: attempt });
+        completed.add(attempt);
+      } else {
+        expect(task().state).not.toBe('completed');
+      }
+    }
+    expect(completed.size).toBe(2);
+  });
 
   it('does not accept an admission-time cancellation without a native acknowledgement and allows the next explicit request', async () => {
     const first = pendingPrompt(false);

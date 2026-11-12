@@ -1,7 +1,7 @@
 import { Profiler, useEffect, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import MarkdownContent from '../../src/components/MarkdownContent';
-import GooseMessage from '../../src/components/GooseMessage';
+import ProgressiveMessageList from '../../src/components/ProgressiveMessageList';
 import type { Message } from '../../src/types/message';
 import { ScrollArea, type ScrollAreaHandle } from '../../src/components/ui/scroll-area';
 import { IntlTestWrapper } from '../../src/i18n/test-utils';
@@ -92,18 +92,29 @@ const footerMessage: Message = {
     usage: { inputTokens: 1200, outputTokens: 340, totalTokens: 1540 },
   },
 };
+const footerTurn: Message[] = [
+  { ...footerMessage, role: 'user', id: 'request', content: [{ type: 'text', text: 'Start the project' }], metadata: { userVisible: true, agentVisible: true } },
+  { ...footerMessage, id: 'progress', content: [{ type: 'text', text: 'Checking the workspace' }], metadata: { userVisible: true, agentVisible: true } },
+  footerMessage,
+];
+if (window.location.search.includes('footer-stop')) footerTurn.push({
+  ...footerMessage, id: 'stop', metadata: { userVisible: true, agentVisible: false },
+  content: [{ type: 'systemNotification', notificationType: 'turnTerminal', msg: '',
+    data: { schema_version: 1, session_id: 'footer-session', run_id: 'run', terminal_message_id: 'stop',
+      source_user_message_id: 'request', status: 'interrupted', user_requested_stop: true,
+      last_response_text_available: true, visible_text_available: true, tool_action_count: 0,
+      checkpoint_id: null, retry_strategy: 'not_available', copy_artifact_ref: null,
+      finished_at: new Date(20_000).toISOString() },
+  }],
+});
 createRoot(document.getElementById('root')!).render(
   window.location.search.includes('footer') ? (
     <IntlTestWrapper>
       <div style={{ padding: 40, width: 800 }}>
-        <GooseMessage
-          compactTools
-          sessionId="footer-session"
-          message={footerMessage}
-          messages={[footerMessage]}
-          toolCallNotifications={new Map()}
-          append={() => {}}
-          isStreaming={false}
+        <ProgressiveMessageList
+          chat={{ sessionId: 'footer-session' }}
+          messages={footerTurn}
+          isUserMessage={message => message.role === 'user'}
         />
       </div>
     </IntlTestWrapper>

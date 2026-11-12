@@ -1,5 +1,32 @@
 {
+  "projectBrief.heading": { "defaultMessage": "專案簡報" },
+  "projectBrief.task": { "defaultMessage": "本輪任務" },
+  "projectBrief.result": { "defaultMessage": "專案回覆摘要" },
+  "projectBrief.files": { "defaultMessage": "已修改檔案（{count}）" },
+  "projectBrief.noReply": { "defaultMessage": "本輪沒有留下最終文字回覆。" },
+  "projectBrief.loading": { "defaultMessage": "正在讀取本輪記錄…" },
+  "projectBrief.unavailable": { "defaultMessage": "暫時無法讀取這輪專案記錄。" },
+  "projectBrief.retry": { "defaultMessage": "重試" },
+  "codeProHub.clearWorkspace": { "defaultMessage": "取消選取工作區" },
+  "messageQueue.attachments": {
+    "defaultMessage": "{count} 張圖片"
+  },
+  "messageQueue.edit": {
+    "defaultMessage": "編輯訊息"
+  },
+  "messageQueue.more": {
+    "defaultMessage": "更多訊息操作"
+  },
+  "messageQueue.steer": {
+    "defaultMessage": "引導"
+  },
+  "navigationPanel.newWorkspaceChat": { "defaultMessage": "選擇工作區並建立對話" },
+  "navigationPanel.newTaskChat": { "defaultMessage": "建立任務對話" },
+  "navigationPanel.sectionActions": { "defaultMessage": "{section}選項" },
+  "navigationPanel.collapseGroup": { "defaultMessage": "收合群組" },
+  "navigationPanel.expandGroup": { "defaultMessage": "展開群組" },
   "composerStats.live": { "defaultMessage": "目前生成速度" },
+  "composerStats.previous": { "defaultMessage": "上次取樣的生成速度" },
   "composerStats.liveDetail": { "defaultMessage": "本次請求最近一個取樣時段內每秒收到的輸出 token 數。≈ 表示估算值。" },
   "composerStats.speed": { "defaultMessage": "平均生成速度" },
   "composerStats.speedDetail": { "defaultMessage": "目前會話已完成模型請求的平均生成速度。不含首字等待和工具執行時間，每次請求完成後更新。" },
@@ -176,6 +203,15 @@
   "baseChat.mainTasks": {
     "defaultMessage": "規劃、執行與驗證"
   },
+  "baseChat.mainConversationHeading": {
+    "defaultMessage": "你好，我是 CodeBuddy，你的專案助手。"
+  },
+  "baseChat.mainConversationHelp": {
+    "defaultMessage": "我可以幫你查專案進度、找回之前提過的需求，也可以單獨調整某個對話的權限。要做新專案時，我可以建好資料夾，把任務交給專案對話，等它做完再回來向你報告。"
+  },
+  "baseChat.mainConversationExample": {
+    "defaultMessage": "你可以直接問我：「幫我查一下專案進度。」"
+  },
   "baseChat.mainWelcome": {
     "defaultMessage": "我是 CodeBuddy，一起把事情做好。"
   },
@@ -337,6 +373,9 @@
   },
   "chatInput.send": {
     "defaultMessage": "傳送"
+  },
+  "chatInput.continueTask": {
+    "defaultMessage": "繼續任務"
   },
   "chatInput.stop": {
     "defaultMessage": "Stop"
@@ -899,14 +938,8 @@
   "codeProHub.chooseProjectFolder": {
     "defaultMessage": "請選擇專案資料夾以繼續"
   },
-  "codeProHub.description": {
-    "defaultMessage": "它會直接在当前項目中规划、编辑、測試和審查，結果可立即在编辑器中使用。"
-  },
   "codeProHub.directoryChooserFailed": {
     "defaultMessage": "無法選擇專案資料夾，請再試一次。"
-  },
-  "codeProHub.eyebrow": {
-    "defaultMessage": "多 Agent 協作開發"
   },
   "codeProHub.goalPlaceholder": {
     "defaultMessage": "描述任務，/ 查看功能，@ 檔案或對話…"
@@ -925,9 +958,6 @@
   },
   "codeProHub.taskBreakdown": {
     "defaultMessage": "自動拆分任務"
-  },
-  "codeProHub.title": {
-    "defaultMessage": "歡迎使用 CodeBuddy"
   },
   "codeProHub.workspaceIdentityUnavailable": {
     "defaultMessage": "無法安全驗證所選工作區。請選擇受支援的本機專案資料夾後再試一次。"
@@ -2615,12 +2645,6 @@
   "dirSwitcher.failedToUpdateWorkingDir": {
     "defaultMessage": "無法更新工作目錄"
   },
-  "dirSwitcher.gitWorktrees": {
-    "defaultMessage": "Git 工作樹"
-  },
-  "dirSwitcher.noWorktreesFound": {
-    "defaultMessage": "找不到工作樹"
-  },
   "dirSwitcher.openInFinder": {
     "defaultMessage": "在檔案管理員中開啟"
   },
@@ -3633,13 +3657,13 @@
     "defaultMessage": "GitHub 未能更新該 Issue。"
   },
   "globalInstructions.description": {
-    "defaultMessage": "為這台電腦上的所有新對話提供規則。專案說明會覆寫衝突的全域規則。"
+    "defaultMessage": "為這台電腦上的所有新對話提供規則。專案規則會覆寫衝突的全域規則。"
   },
   "globalInstructions.placeholder": {
     "defaultMessage": "在此輸入你的全域規則…"
   },
   "globalInstructions.title": {
-    "defaultMessage": "CodeBuddy 說明"
+    "defaultMessage": "CodeBuddy 規則"
   },
   "globalInstructions.unavailable": {
     "defaultMessage": "CodeBuddy 主目錄無法使用。"
@@ -4492,9 +4516,6 @@
   },
   "memorySettings.enableProjectMemory": {
     "defaultMessage": "啟用專案記憶"
-  },
-  "memorySettings.manage": {
-    "defaultMessage": "管理專案記憶"
   },
   "memorySettings.off": {
     "defaultMessage": "關閉"
@@ -6076,69 +6097,6 @@
   },
   "projectMemoryApproval.warning": {
     "defaultMessage": "此記憶請求格式無效。無法儲存；你仍可拒絕此請求。"
-  },
-  "projectMemoryRecords.active": {
-    "defaultMessage": "已批准"
-  },
-  "projectMemoryRecords.approve": {
-    "defaultMessage": "批准召回"
-  },
-  "projectMemoryRecords.cancel": {
-    "defaultMessage": "取消"
-  },
-  "projectMemoryRecords.candidate": {
-    "defaultMessage": "待審核"
-  },
-  "projectMemoryRecords.changed": {
-    "defaultMessage": "記錄已變更，請重新審核更新後的內容再批准。"
-  },
-  "projectMemoryRecords.confirmRemove": {
-    "defaultMessage": "確認刪除"
-  },
-  "projectMemoryRecords.content": {
-    "defaultMessage": "記憶內容"
-  },
-  "projectMemoryRecords.description": {
-    "defaultMessage": "選擇專案並審核記錄。只有已批准且未過期的記憶會在該專案中被召回。"
-  },
-  "projectMemoryRecords.directory": {
-    "defaultMessage": "專案目錄"
-  },
-  "projectMemoryRecords.disable": {
-    "defaultMessage": "停用召回"
-  },
-  "projectMemoryRecords.disabled": {
-    "defaultMessage": "已停用"
-  },
-  "projectMemoryRecords.edit": {
-    "defaultMessage": "編輯"
-  },
-  "projectMemoryRecords.empty": {
-    "defaultMessage": "此專案暫無儲存的記憶。"
-  },
-  "projectMemoryRecords.expired": {
-    "defaultMessage": "已過期"
-  },
-  "projectMemoryRecords.export": {
-    "defaultMessage": "匯出專案記憶"
-  },
-  "projectMemoryRecords.load": {
-    "defaultMessage": "載入記錄"
-  },
-  "projectMemoryRecords.more": {
-    "defaultMessage": "載入更多"
-  },
-  "projectMemoryRecords.reason": {
-    "defaultMessage": "原因"
-  },
-  "projectMemoryRecords.remove": {
-    "defaultMessage": "刪除記錄"
-  },
-  "projectMemoryRecords.save": {
-    "defaultMessage": "儲存修改"
-  },
-  "projectMemoryRecords.title": {
-    "defaultMessage": "已儲存的專案記憶"
   },
   "promptsSettings.allPromptsReset": {
     "defaultMessage": "所有提示已重設為預設值"
@@ -7898,6 +7856,9 @@
   "settings.notifications.description": {
     "defaultMessage": "通知由您的作業系統管理 - {link}"
   },
+  "settings.notifications.modal.linuxInstructions": {
+    "defaultMessage": "請在桌面環境的系統設定中開啟「通知」，允許 CodeBuddy 傳送通知。"
+  },
   "settings.notifications.modal.macInstructions": {
     "defaultMessage": "若要在 macOS 上啟用通知："
   },
@@ -7932,7 +7893,7 @@
     "defaultMessage": "開啟通知並依需求調整設定"
   },
   "settings.notifications.openSettings": {
-    "defaultMessage": "開啟設定"
+    "defaultMessage": "開啟系統設定"
   },
   "settings.notifications.task.description": {
     "defaultMessage": "當視窗在背景執行時，CodeBuddy 完成工作後發出通知"
@@ -7941,7 +7902,7 @@
     "defaultMessage": "工作完成通知"
   },
   "settings.notifications.title": {
-    "defaultMessage": "通知"
+    "defaultMessage": "系統通知"
   },
   "settings.preventSleep.description": {
     "defaultMessage": "在 CodeBuddy 執行工作時讓電腦保持喚醒狀態（螢幕仍可鎖定）"
@@ -7984,9 +7945,6 @@
   },
   "settingsCenter.pageChat": {
     "defaultMessage": "行為與回答"
-  },
-  "settingsCenter.pageInput": {
-    "defaultMessage": "輸入"
   },
   "settingsCenter.pageKeyboard": {
     "defaultMessage": "鍵盤快速鍵"
@@ -9827,6 +9785,8 @@
   "workspacePanel.fileDenied": {
     "defaultMessage": "Windows 拒絕存取此檔案，請檢查權限或選擇可讀取的副本。"
   },
+  "workspacePanel.browserActionFailed": { "defaultMessage": "{action}失敗" },
+  "workspacePanel.browserControl": { "defaultMessage": "網頁控制" },
   "workspacePanel.fileMissing": {
     "defaultMessage": "檔案已移動或刪除，請確認位置後重新開啟連結。"
   },
@@ -10048,6 +10008,9 @@
   },
   "workspaceSubagents.unknownState": {
     "defaultMessage": "狀態未知 · {count}"
+  },
+  "navigationPanel.workspaceChats": {
+    "defaultMessage": "{count} 個最近對話 · {active} 個執行中"
   },
   "navigationPanel.noWorkspace": {
     "defaultMessage": "未關聯工作區"

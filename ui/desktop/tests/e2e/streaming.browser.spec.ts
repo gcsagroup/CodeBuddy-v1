@@ -157,4 +157,11 @@ test('completed copy and token usage stay visible and aligned without hover', as
   await expect(group).toHaveCSS('opacity', '1');
   await copy.focus();
   await expect(group).toHaveCSS('opacity', '1');
+  await page.goto(`${server.resolvedUrls!.local[0]}tests/browser-fixtures/streaming.html?footer-stop`);
+  await expect(page.getByText('Finished answer', { exact: true })).toBeVisible();
+  await expect(group).toHaveCount(1);
+  await expect(group.getByText('Output 340')).toBeVisible();
+  await page.getByRole('button', { name: /Stopped after/ }).click();
+  await expect(page.getByText('Checking the workspace', { exact: true })).toBeVisible();
+  await expect(group).toHaveCount(1);
 });

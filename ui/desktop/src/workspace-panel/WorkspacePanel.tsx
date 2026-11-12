@@ -56,6 +56,8 @@ import {
   openWorkspaceFile,
   ATTACH_WORKSPACE_IMAGE,
   OPEN_WORKSPACE_WEB,
+  OPEN_GENERATION_JOB,
+  type GenerationJobTarget,
   type WorkspaceFileTarget,
   type WorkspaceWebTarget,
 } from './workspaceFilePanel';
@@ -360,6 +362,18 @@ export function WorkspacePanelContent({
     return () => window.removeEventListener(AppEvents.SESSION_CONVERSATION_CHANGED, changed);
   }, [scope.sessionId, update]);
   const { jobs: mediaJobs, disconnected: mediaDisconnected } = useMediaJobs(scope.sessionId);
+  const [previewJobId, setPreviewJobId] = useState<string>();
+  useEffect(() => {
+    const open = (event: Event) => {
+      const target = (event as CustomEvent<GenerationJobTarget>).detail;
+      if (!scope.root || target?.sessionId !== scope.sessionId || !target.jobId) return;
+      setPreviewJobId(target.jobId);
+      update(current => ({ ...current, active: 'media', mediaHidden: false }));
+      expandPanel.current(true);
+    };
+    window.addEventListener(OPEN_GENERATION_JOB, open);
+    return () => window.removeEventListener(OPEN_GENERATION_JOB, open);
+  }, [scope.root, scope.sessionId, update]);
   // Inline cards show progress without taking over the user's current tab.
   // Generation history stays available in the tab strip; opening a result is explicit.
   const selected = state.tabs.find((t) => t.id === state.active);
@@ -1142,7 +1156,7 @@ export function WorkspacePanelContent({
               </button>
             </div>
           )}
-          {mediaJobs.length > 0 && !state.mediaHidden && (
+          {(mediaJobs.length > 0 || previewJobId) && !state.mediaHidden && (
             <div className={`wb-tab ${state.active === 'media' ? 'is-active' : ''}`}>
               <button
                 role="tab"
@@ -1276,7 +1290,8 @@ export function WorkspacePanelContent({
       ) : state.active === 'subagents' ? (
         <WorkspaceSubagents key={conversationRevision} parentSessionId={scope.sessionId} />
       ) : state.active === 'media' ? (
-        <WorkspaceGeneration scope={scope} jobs={mediaJobs} disconnected={mediaDisconnected} />
+        <WorkspaceGeneration scope={scope} jobs={mediaJobs} disconnected={mediaDisconnected}
+          selectedJobId={previewJobId} onShowAll={() => setPreviewJobId(undefined)} />
       ) : state.active === 'changes' || selected?.kind === 'change' ? (
         <WorkspaceChanges
           sessionId={scope.sessionId}

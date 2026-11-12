@@ -435,7 +435,7 @@ describe('applyGooseSessionNotification', () => {
       });
     });
 
-    it('replaces the optimistic cancellation terminal with the persisted record', () => {
+    it.each(['cancelled', 'interrupted'] as const)('replaces the optimistic stop with a confirmed user stop (%s)', (status) => {
       const optimistic = {
         schema_version: 1,
         session_id: SESSION_ID,
@@ -472,6 +472,8 @@ describe('applyGooseSessionNotification', () => {
       };
       const persisted = {
         ...optimistic,
+        status,
+        user_requested_stop: true,
         terminal_message_id: 'persisted-terminal',
         finished_at: '2026-08-01T08:00:01Z',
       } as const;

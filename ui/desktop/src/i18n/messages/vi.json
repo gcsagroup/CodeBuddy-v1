@@ -890,14 +890,8 @@
   "codeProHub.chooseProjectFolder": {
     "defaultMessage": "Chọn thư mục dự án để tiếp tục"
   },
-  "codeProHub.description": {
-    "defaultMessage": "It plans, edits, tests, and reviews directly in the current project, so results are immediately available in your editor."
-  },
   "codeProHub.directoryChooserFailed": {
     "defaultMessage": "Không thể chọn thư mục dự án. Hãy thử lại."
-  },
-  "codeProHub.eyebrow": {
-    "defaultMessage": "Multi-Agent development workspace"
   },
   "codeProHub.goalPlaceholder": {
     "defaultMessage": "Describe your task, expected result, and how to check it…"
@@ -916,9 +910,6 @@
   },
   "codeProHub.taskBreakdown": {
     "defaultMessage": "Automatic task breakdown"
-  },
-  "codeProHub.title": {
-    "defaultMessage": "Welcome to CodeBuddy"
   },
   "codeProHub.workspaceIdentityUnavailable": {
     "defaultMessage": "Không thể xác minh an toàn không gian làm việc đã chọn. Hãy chọn thư mục dự án cục bộ được hỗ trợ rồi thử lại."
@@ -2606,12 +2597,6 @@
   "dirSwitcher.failedToUpdateWorkingDir": {
     "defaultMessage": "Không thể cập nhật thư mục làm việc"
   },
-  "dirSwitcher.gitWorktrees": {
-    "defaultMessage": "Git worktree"
-  },
-  "dirSwitcher.noWorktreesFound": {
-    "defaultMessage": "Không tìm thấy worktree nào"
-  },
   "dirSwitcher.openInFinder": {
     "defaultMessage": "Mở trong trình quản lý tệp"
   },
@@ -3630,7 +3615,7 @@
     "defaultMessage": "Nhập quy tắc toàn cục của bạn tại đây..."
   },
   "globalInstructions.title": {
-    "defaultMessage": "Hướng dẫn CodeBuddy"
+    "defaultMessage": "Quy tắc CodeBuddy"
   },
   "globalInstructions.unavailable": {
     "defaultMessage": "Không thể truy cập thư mục chính của CodeBuddy."
@@ -4484,9 +4469,6 @@
   "memorySettings.enableProjectMemory": {
     "defaultMessage": "Enable project memory"
   },
-  "memorySettings.manage": {
-    "defaultMessage": "Manage project memory"
-  },
   "memorySettings.off": {
     "defaultMessage": "Off"
   },
@@ -4595,6 +4577,9 @@
   "messageCopyLink.retry": {
     "defaultMessage": "Retry"
   },
+  "messageQueue.attachments": {
+    "defaultMessage": "Số ảnh: {count}"
+  },
   "messageQueue.cancel": {
     "defaultMessage": "Hủy"
   },
@@ -4622,6 +4607,9 @@
   "messageQueue.continueSending": {
     "defaultMessage": "Tin nhắn được giữ lại. Gửi khi bạn sẵn sàng."
   },
+  "messageQueue.edit": {
+    "defaultMessage": "Chỉnh sửa tin nhắn"
+  },
   "messageQueue.expandDrafts": {
     "defaultMessage": "Expand saved drafts"
   },
@@ -4630,6 +4618,9 @@
   },
   "messageQueue.messageCount": {
     "defaultMessage": "{count,plural,one{# tin nhắn {status}} other{# tin nhắn {status}}}"
+  },
+  "messageQueue.more": {
+    "defaultMessage": "Thao tác khác với tin nhắn"
   },
   "messageQueue.next": {
     "defaultMessage": "Tiếp theo"
@@ -4663,6 +4654,9 @@
   },
   "messageQueue.sendTogether": {
     "defaultMessage": "Gửi cùng lúc tất cả tin nhắn đang chờ"
+  },
+  "messageQueue.steer": {
+    "defaultMessage": "Chỉ dẫn"
   },
   "messageQueue.storageConflict": {
     "defaultMessage": "This queue changed in another window. Sending and saving are paused to avoid overwriting it. Keep this window open and compare the queued messages."
@@ -5471,6 +5465,9 @@
   "navigationPanel.untitledSession": {
     "defaultMessage": "Phiên chưa đặt tên"
   },
+  "navigationPanel.workspaceChats": {
+    "defaultMessage": "Cuộc trò chuyện gần đây: {count} · Đang chạy: {active}"
+  },
   "navigationPanel.workspaces": {
     "defaultMessage": "Workspaces"
   },
@@ -6067,69 +6064,6 @@
   },
   "projectMemoryApproval.warning": {
     "defaultMessage": "Yêu cầu bộ nhớ này không đúng định dạng. Không thể lưu; bạn vẫn có thể từ chối yêu cầu."
-  },
-  "projectMemoryRecords.active": {
-    "defaultMessage": "Approved"
-  },
-  "projectMemoryRecords.approve": {
-    "defaultMessage": "Approve for recall"
-  },
-  "projectMemoryRecords.cancel": {
-    "defaultMessage": "Cancel"
-  },
-  "projectMemoryRecords.candidate": {
-    "defaultMessage": "Pending review"
-  },
-  "projectMemoryRecords.changed": {
-    "defaultMessage": "The record changed. Review the refreshed content before approving again."
-  },
-  "projectMemoryRecords.confirmRemove": {
-    "defaultMessage": "Confirm deletion"
-  },
-  "projectMemoryRecords.content": {
-    "defaultMessage": "Memory content"
-  },
-  "projectMemoryRecords.description": {
-    "defaultMessage": "Choose a project and review its records. Only approved, unexpired records are recalled in that project."
-  },
-  "projectMemoryRecords.directory": {
-    "defaultMessage": "Project directory"
-  },
-  "projectMemoryRecords.disable": {
-    "defaultMessage": "Disable recall"
-  },
-  "projectMemoryRecords.disabled": {
-    "defaultMessage": "Disabled"
-  },
-  "projectMemoryRecords.edit": {
-    "defaultMessage": "Edit"
-  },
-  "projectMemoryRecords.empty": {
-    "defaultMessage": "No saved records in this project."
-  },
-  "projectMemoryRecords.expired": {
-    "defaultMessage": "Expired"
-  },
-  "projectMemoryRecords.export": {
-    "defaultMessage": "Export project memory"
-  },
-  "projectMemoryRecords.load": {
-    "defaultMessage": "Load records"
-  },
-  "projectMemoryRecords.more": {
-    "defaultMessage": "Load more"
-  },
-  "projectMemoryRecords.reason": {
-    "defaultMessage": "Reason"
-  },
-  "projectMemoryRecords.remove": {
-    "defaultMessage": "Delete record"
-  },
-  "projectMemoryRecords.save": {
-    "defaultMessage": "Save changes"
-  },
-  "projectMemoryRecords.title": {
-    "defaultMessage": "Saved project memory"
   },
   "promptsSettings.allPromptsReset": {
     "defaultMessage": "Tất cả lời nhắc đã được đặt lại về mặc định"
@@ -7889,6 +7823,9 @@
   "settings.notifications.description": {
     "defaultMessage": "Thông báo được quản lý bởi hệ điều hành của bạn - {link}"
   },
+  "settings.notifications.modal.linuxInstructions": {
+    "defaultMessage": "Mở mục Thông báo trong cài đặt môi trường máy tính và cho phép thông báo từ CodeBuddy."
+  },
   "settings.notifications.modal.macInstructions": {
     "defaultMessage": "Để bật thông báo trên macOS:"
   },
@@ -7923,7 +7860,7 @@
     "defaultMessage": "Bật thông báo và điều chỉnh cài đặt theo ý muốn"
   },
   "settings.notifications.openSettings": {
-    "defaultMessage": "Mở Settings"
+    "defaultMessage": "Mở cài đặt hệ thống"
   },
   "settings.notifications.task.description": {
     "defaultMessage": "Thông báo khi CodeBuddy hoàn thành một tác vụ trong khi cửa sổ đang ở chế độ nền"
@@ -7932,7 +7869,7 @@
     "defaultMessage": "Thông báo hoàn thành tác vụ"
   },
   "settings.notifications.title": {
-    "defaultMessage": "Thông báo"
+    "defaultMessage": "Thông báo hệ thống"
   },
   "settings.preventSleep.description": {
     "defaultMessage": "Giữ máy tính của bạn luôn hoạt động trong khi CodeBuddy đang chạy một tác vụ (màn hình vẫn có thể khóa)"
@@ -7975,9 +7912,6 @@
   },
   "settingsCenter.pageChat": {
     "defaultMessage": "Behavior and responses"
-  },
-  "settingsCenter.pageInput": {
-    "defaultMessage": "Input"
   },
   "settingsCenter.pageKeyboard": {
     "defaultMessage": "Keyboard shortcuts"

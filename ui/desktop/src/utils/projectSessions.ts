@@ -108,6 +108,7 @@ export function groupNavigationSessions(
   const tasks: SessionListItem[] = [];
   const projects: SessionListItem[] = [];
   for (const session of sessions) {
+    if (session.globalConversation) continue;
     const directory = projectPathIdentity(session.workingDir);
     // New sessions retain the actual choice. Older records only know their cwd;
     // the configured managed root is their display fallback, never a permissions rule.

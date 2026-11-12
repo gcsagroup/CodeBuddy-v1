@@ -9,6 +9,14 @@ export async function controlWorkspaceBrowser(
   if (params.action !== 'browser-control' || !params.scope || typeof params.scope !== 'object')
     throw new Error('Invalid browser request');
   const request = params as unknown as Extract<PanelRequest, { action: 'browser-control' }>;
+  const key = scopeKey(request.scope);
+  const announceTab = (id: string, closed = false) => window.dispatchEvent(
+    new CustomEvent(BROWSER_TAB_EVENT, { detail: { scope: request.scope, id, closed } })
+  );
+  // Show the existing target while the native action runs, including when it fails.
+  const knownTarget = request.operation !== 'open' && request.operation !== 'close' && request.id &&
+    readWorkbench(key).tabs.some(tab => tab.kind === 'browser' && tab.id === request.id);
+  if (knownTarget) announceTab(request.id!);
   let reply;
   try {
     reply = await window.electron.workspacePanel(request);
@@ -19,8 +27,7 @@ export async function controlWorkspaceBrowser(
   }
   const id = reply.id ?? request.id;
   if (id && ['open', 'close'].includes(request.operation)) {
-    const key = scopeKey(request.scope),
-      current = readWorkbench(key);
+    const current = readWorkbench(key);
     saveWorkbench(
       key,
       request.operation === 'close'
@@ -42,14 +49,6 @@ export async function controlWorkspaceBrowser(
     );
   }
   // The real native receipt is returned even if cancellation arrives after input.
-  window.dispatchEvent(
-    new CustomEvent(BROWSER_TAB_EVENT, {
-      detail: {
-        scope: request.scope,
-        id: reply.id ?? request.id,
-        closed: request.operation === 'close',
-      },
-    })
-  );
+  if (id && !knownTarget) announceTab(id, request.operation === 'close');
   return reply.result ?? {};
 }

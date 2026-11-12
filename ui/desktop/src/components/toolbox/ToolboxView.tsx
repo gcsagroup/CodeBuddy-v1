@@ -11,7 +11,7 @@ import {
   PlugZap,
   RefreshCw,
   Search,
-  Wrench,
+  BriefcaseBusiness,
 } from 'lucide-react';
 import { useLocation, useSearchParams, Link } from 'react-router-dom';
 import { ProgressiveToolboxGrid } from './ProgressiveToolboxGrid';
@@ -700,10 +700,8 @@ export default function ToolboxView() {
           <div className="mb-7 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
             <div>
               <div className="flex items-center gap-3">
-                <div className="flex size-10 items-center justify-center rounded-xl bg-background-secondary">
-                  <Wrench className="size-5 text-text-secondary" />
-                </div>
-                <h1 className="text-2xl font-medium">{intl.formatMessage(i18n.title)}</h1>
+                <BriefcaseBusiness className="size-5 shrink-0 text-text-primary" aria-hidden="true" />
+                <h1 className="app-page-heading">{intl.formatMessage(i18n.title)}</h1>
               </div>
               <p className="mt-2 text-sm text-text-secondary">
                 {intl.formatMessage(i18n.description)}

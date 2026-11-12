@@ -31,7 +31,7 @@ function answerSelection(body, res) {
   const input = JSON.parse(typeof content === 'string' ? content : content[0].text);
   const selected = input.workflows.find(workflow => workflow.compatible && workflow.dependencies_available);
   assert.ok(selected);
-  const args = { workflow_id: selected.id, mode: selected.mode, reason: 'Compatible test workflow' };
+  const args = { workflow_id: selected.id, mode: selected.mode, reason: 'Compatible test workflow', ...(input.proposed_media.kind === 'image' ? {image_count: null, images_only: false} : {}) };
   modelResponse(body, res, { role: 'assistant', tool_calls: [{ index: 0, id: randomUUID(),
     type: 'function', function: { name: 'select_workflow', arguments: JSON.stringify(args) } }] }, 'tool_calls');
   return true;

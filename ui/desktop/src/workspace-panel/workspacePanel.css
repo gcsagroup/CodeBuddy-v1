@@ -1,7 +1,7 @@
 .workspace-panel {
   container-type: inline-size;
   --wb-muted: var(--color-text-secondary, #7a8493);
-  font-size: 13px;
+  font-size: var(--font-text-sm-size);
 }
 .wb-local-files {
   display: flex;
@@ -30,7 +30,7 @@
   border: 1px solid var(--color-border-primary);
   border-radius: 6px;
   background: var(--color-background-primary);
-  color: #b48940;
+  color: var(--color-text-primary);
 }
 .wb-open-button:hover {
   background: var(--color-background-secondary);
@@ -85,7 +85,7 @@
 .workspace-panel button:focus-visible,
 .workspace-panel input:focus-visible,
 .workspace-panel textarea:focus-visible {
-  outline: 2px solid #60a5fa;
+  outline: 2px solid var(--color-ring-info);
   outline-offset: -2px;
 }
 .wb-header {
@@ -382,6 +382,53 @@
 }
 .wb-statusbar > span {
   min-width: 0;
+}
+/* The native WebContentsView is above the renderer. Keep its bounds inside the frame
+   even while idle, so a control receipt never moves a click target or resizes a game. */
+.wb-control-surface {
+  position: relative;
+  isolation: isolate;
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  min-width: 0;
+  flex-direction: column;
+  padding: 0 7px 7px;
+}
+.wb-native-viewport {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  min-width: 0;
+}
+.wb-browser-caption {
+  display: flex;
+  flex: 0 0 38px;
+  align-items: center;
+  justify-content: space-between;
+  min-width: 0;
+  padding: 0 6px;
+  color: var(--wb-muted);
+  font-size: 10px;
+}
+.wb-control-surface .banner {
+  position: relative;
+  inset: auto;
+  transform: none;
+  height: 30px;
+  margin: auto;
+  max-width: 100%;
+  pointer-events: none;
+}
+.wb-control-surface .hint {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.wb-control-surface [data-phase="failed"] .hint { color: #ffd4ad; }
+.wb-control-surface .glow {
+  position: absolute;
+  z-index: 1;
+  pointer-events: none;
 }
 .wb-terminal-surface {
   padding: 16px 16px 8px;

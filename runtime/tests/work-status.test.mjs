@@ -92,10 +92,10 @@ test('model transport publishes bounded public waiting phases without diagnostic
     }
     assert.doesNotMatch(JSON.stringify(update), /diagnostic|internal-request|timings/);
   }
-  assert.deepEqual(project({ type: 'model_diagnostic', sessionId: 'parent', phase: 'response_headers', status: 200 }), [], 'headers alone must not change the waiting label or restart its clock');
-  assert.equal(project({ type: 'model_diagnostic', sessionId: 'parent', phase: 'response_headers', status: 401 })[0].status.data.model_request_phase, undefined);
+  assert.deepEqual(project({ type: 'model_diagnostic', sessionId: 'parent', requestId: 'internal-request', phase: 'response_headers', status: 200 }), [], 'headers alone must not change the waiting label or restart its clock');
+  assert.equal(project({ type: 'model_diagnostic', sessionId: 'parent', requestId: 'internal-request', phase: 'response_headers', status: 401 })[0].status.data.model_request_phase, undefined);
   project({ type: 'subagent_start', sessionId: 'parent', childSessionId: 'child' });
-  assert.equal(project({ type: 'model_diagnostic', sessionId: 'parent', phase: 'request_sent' })[0].status.data.phase, 'children');
+  assert.equal(project({ type: 'model_diagnostic', sessionId: 'parent', requestId: 'internal-request', phase: 'request_sent' })[0].status.data.phase, 'children');
 });
 
 test('only actual model content ends waiting after successful response headers', () => {
@@ -274,7 +274,8 @@ test('rate limits and unknown errors do not get invented network causes', () => 
   assert.doesNotMatch(limited[0].status.message, /重新连接|额度不足/);
   project({ type: 'model_diagnostic', sessionId: 'parent', phase: 'start' });
   const unknown = project({ type: 'harness_event', sessionId: 'parent', event: { type: 'turn/end', data: { reason: { kind: 'error', error: { code: 'UNRECOGNIZED' } } } } });
-  assert.equal(unknown[0].status.message, '请求失败，具体原因尚未确认');
+  assert.match(unknown[0].status.message, /具体原因尚未确认/);
+  assert.doesNotMatch(unknown[0].status.message, /网络|额度不足|身份验证/);
 });
 
 
@@ -306,4 +307,125 @@ test('a structured context overflow takes precedence over the observed HTTP 400'
   } });
   assert.match(notice.status.message, /上下文/);
   assert.doesNotMatch(notice.status.message, /API 基础路径/);
+});
+
+test('known quota and generation failures cannot be relabeled by a generic HTTP status', () => {
+  for (const [code, status, expected] of [
+    ['QUOTA', 429, /额度不足/], ['ACCOUNT_QUOTA', 400, /额度不足/],
+    ['OUTPUT_LIMIT_REACHED', 429, /输出长度限制/],
+  ]) {
+    const project = workStatusUpdates({ sessionId: 'root' });
+    project({ type: 'model_diagnostic', sessionId: 'root', phase: 'end', status });
+    const [notice] = project({ type: 'harness_event', sessionId: 'root', event: {
+      type: 'turn/end', data: { reason: { kind: 'error', error: { code } } },
+    } });
+    assert.match(notice.status.message, expected);
+    assert.doesNotMatch(notice.status.message, /请求参数|请求受限/);
+  }
+});
+
+test('unknown errors give a bounded recovery path without echoing upstream data or guessing a cause', () => {
+  for (const status of [200, 402, 409, undefined]) for (const code of ['PI_AI_ERROR', 'constructor']) {
+    const project = workStatusUpdates({ sessionId: 'root' });
+    project({ type: 'model_diagnostic', sessionId: 'root', phase: 'end', status });
+    const [notice] = project({ type: 'harness_event', sessionId: 'root', event: {
+      type: 'turn/end', data: { reason: { kind: 'error', error: { code, message: 'PRIVATE_KEY https://private.invalid/?token=secret' } } },
+    } });
+    assert.equal(typeof notice.status.message, 'string');
+    assert.match(notice.status.message, /本轮已停止/);
+    assert.match(notice.status.message, /查看未完成原因/);
+    if (status >= 400) assert.match(notice.status.message, new RegExp(`HTTP ${status}`));
+    assert.doesNotMatch(notice.status.message, /PRIVATE|private.invalid|token=secret|Function|Object|已保存|已回滚/);
+  }
+});
+
+test('auxiliary requests never overwrite the main error, waiting clock or native retry message', t => {
+  t.mock.timers.enable({ apis: ['Date'], now: 100_000 });
+  const project = workStatusUpdates({ sessionId: 'root' });
+  project({ type: 'model_diagnostic', sessionId: 'root', phase: 'start', requestId: 'main' });
+  t.mock.timers.tick(1000);
+  for (const phase of ['start', 'end']) assert.deepEqual(project({ type: 'model_diagnostic', sessionId: 'root',
+    requestId: 'summary', purpose: 'compaction', phase, status: 401, failureCode: 'AUTH' }), []);
+  const waiting = project({ type: 'model_diagnostic', sessionId: 'root', requestId: 'main', phase: 'request_sent' });
+  assert.equal(waiting[0].status.data.model_request_started_at, 100_000);
+  project({ type: 'model_diagnostic', sessionId: 'root', requestId: 'main', phase: 'end', status: 429, failureCode: 'RATE_LIMIT' });
+  const retry = { type: 'harness_event', sessionId: 'root', event: { type: 'llm/retry', data: { retry: 1, maxRetries: 5, delayMs: 1000, failure: { code: 'RATE_LIMIT' } } } };
+  assert.match(project(retry)[0].status.message, /HTTP 429/);
+  assert.deepEqual(project({ type: 'model_diagnostic', sessionId: 'root', requestId: 'judge', purpose: 'execution-report', phase: 'start' }), []);
+  const [notice] = project({ type: 'harness_event', sessionId: 'root', event: { type: 'turn/end', data: { reason: { kind: 'error', error: { code: 'RATE_LIMIT' } } } } });
+  assert.match(notice.status.message, /HTTP 429/);
+  assert.doesNotMatch(notice.status.message, /身份验证/);
+});
+
+test('late requests and mismatched failures cannot lend a stale HTTP cause to another attempt', () => {
+  const project = workStatusUpdates({ sessionId: 'root' });
+  project({ type: 'model_diagnostic', sessionId: 'root', phase: 'start', requestId: 'old' });
+  project({ type: 'model_diagnostic', sessionId: 'root', phase: 'start', requestId: 'current' });
+  assert.deepEqual(project({ type: 'model_diagnostic', sessionId: 'root', phase: 'end', requestId: 'old', status: 401, failureCode: 'AUTH' }), []);
+  project({ type: 'model_diagnostic', sessionId: 'root', phase: 'end', requestId: 'current', status: 503, failureCode: 'SERVER' });
+  const [notice] = project({ type: 'harness_event', sessionId: 'root', event: { type: 'turn/end', data: { reason: { kind: 'error', error: { code: 'NO_ADAPTER' } } } } });
+  assert.match(notice.status.message, /连接配置/);
+  assert.doesNotMatch(notice.status.message, /HTTP 503|HTTP 401|服务返回错误/);
+});
+
+test('a successful model response does not relabel a later host failure as a model or HTTP failure', () => {
+  const project = workStatusUpdates({ sessionId: 'root' });
+  project({ type: 'model_diagnostic', sessionId: 'root', requestId: 'done', phase: 'start' });
+  project({ type: 'model_diagnostic', sessionId: 'root', requestId: 'done', phase: 'end', status: 200, finishKind: 'stop', textDeltaChars: 40 });
+  const [notice] = project({ type: 'harness_event', sessionId: 'root', event: {
+    type: 'turn/end', data: { reason: { kind: 'error', error: { code: 'EACCES', message: 'PRIVATE_HOST_ERROR' } } },
+  } });
+  assert.match(notice.status.message, /具体原因尚未确认.*本轮已停止/);
+  assert.doesNotMatch(notice.status.message, /模型服务|HTTP|响应未能|PRIVATE/);
+});
+
+test('payload limits have a concrete remedy without inventing a token overflow or changing retry facts', () => {
+  const project = workStatusUpdates({ sessionId: 'root' });
+  project({ type: 'model_diagnostic', sessionId: 'root', phase: 'end', status: 413, failureCode: 'INVALID_REQUEST', finishKind: 'error' });
+  const [notice] = project({ type: 'harness_event', sessionId: 'root', event: {
+    type: 'turn/end', data: { reason: { kind: 'error', error: { code: 'INVALID_REQUEST' } } },
+  } });
+  assert.match(notice.status.message, /请求体过大.*HTTP 413/);
+  assert.match(notice.status.message, /图片|附件/);
+  assert.doesNotMatch(notice.status.message, /上下文放不下|API 基础路径|正在重试/);
+  assert.equal(notice.status.data.response_retries, 0);
+});
+
+test('retry presentation survives absent or changing caps without inventing an attempt budget or a stop', () => {
+  const project = workStatusUpdates({ sessionId: 'root' });
+  for (const data of [{ retry: 3, maxRetries: 2, delayMs: 0 }, { retry: 1, delayMs: 1500 }, { retry: 4, maxRetries: 5, delayMs: Infinity }]) {
+    const [update] = project({ type: 'harness_event', sessionId: 'root', event: { type: 'llm/retry', data: { ...data, failure: { code: 'RATE_LIMIT' } } } });
+    assert.equal(update.status.type, 'progress');
+    assert.doesNotMatch(update.status.message, /3\/2|undefined|Infinity|本轮已停止|查看未完成原因/);
+    if (data.delayMs === 1500) assert.match(update.status.message, /约 2 秒后/);
+    if (data.retry === 4) assert.match(update.status.message, /4\/5/);
+  }
+});
+
+test('invalid status metadata and provider prose cannot invent an HTTP, quota or rate-limit verdict', () => {
+  for (const status of [0, '429', 'PRIVATE_TOKEN', NaN, Infinity, 200.5, 600]) {
+    const project = workStatusUpdates({ sessionId: 'root' });
+    const failure = Object.freeze({ code: 'PI_AI_ERROR', status, message: 'request-id=429-503; insufficient_quota; PRIVATE_TOKEN' });
+    const event = Object.freeze({ type: 'harness_event', sessionId: 'root', event: Object.freeze({ type: 'turn/end', data: Object.freeze({ reason: Object.freeze({ kind: 'error', error: failure }) }) }) });
+    const [notice] = project(event);
+    assert.match(notice.status.message, /具体原因尚未确认/);
+    assert.doesNotMatch(notice.status.message, /HTTP|PRIVATE_TOKEN|额度不足|请求受限|429|503/);
+    assert.equal(failure.status, status);
+  }
+});
+
+test('native status takes precedence, and TLS and mid-stream failures stay separate from account errors', () => {
+  for (const [failure, observation, expected] of [
+    [{ code: 'PI_AI_ERROR', status: 402 }, { status: 500 }, /付费状态.*HTTP 402/],
+    [{ code: 'TRANSPORT' }, { transportCodes: ['ERR_TLS_CERT_ALTNAME_INVALID'], finishKind: 'error' }, /TLS 证书验证失败/],
+    [{ code: 'TRANSPORT' }, { status: 200, transportCodes: ['ECONNRESET'], finishKind: 'error' }, /连接发生错误.*原因尚未确认/],
+    [{ code: 'SERVER' }, { status: 529, finishKind: 'error' }, /服务端错误.*HTTP 529/],
+    [{ code: 'QUOTA' }, { status: 200, failureCode: 'QUOTA', finishKind: 'error' }, /额度不足/],
+  ]) {
+    const project = workStatusUpdates({ sessionId: 'root' });
+    project({ type: 'model_diagnostic', sessionId: 'root', phase: 'end', ...observation });
+    const [notice] = project({ type: 'harness_event', sessionId: 'root', event: { type: 'turn/end', data: { reason: { kind: 'error', error: failure } } } });
+    assert.match(notice.status.message, expected);
+    assert.doesNotMatch(notice.status.message, /关闭证书|已回滚|已保存|你的网络/);
+  }
 });

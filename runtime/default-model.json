@@ -4,6 +4,10 @@
   "modelId": "gemma-4-26B-A4B-it-uncensored-FP8-W8A16",
   "contextWindow": 65536,
   "imageInput": true,
+  "compactionFallback": {
+    "baseUrl": "http://192.168.9.120:8001",
+    "modelIds": ["qwen3.8-flash-next-uncensored", "Qwen3.8-27B-FP4"]
+  },
   "additionalProviders": [
     {
       "providerId": "custom_codebuddy_qwen_lan",

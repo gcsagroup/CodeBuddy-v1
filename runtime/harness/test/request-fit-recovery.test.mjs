@@ -226,6 +226,7 @@ function nativeSurface({ idle = false, retainTokens = 0, contextWindow = 20000, 
   const agent = { session, options: { provider: 'fixture', model: 'same-model' }, runMaintenance: operation => operation(new AbortController().signal) };
   const ctx = {
     reflect: { provide() {} }, tokenMeter: meter, get: () => undefined,
+    sessionProjections: { stateOf: () => ({ pending: null }) },
     on() { return () => {}; },
     waterfall: (_name, _payload, next) => next(),
     llm: { resolveModelInfo: async () => ({ context: { contextWindow }, defaultMaxTokens: 256 }), requestFitRecovery },

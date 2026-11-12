@@ -6,6 +6,36 @@ const summaryRoute = agent => {
   const route = agent.session.requestHeader()?.config ?? agent.options;
   return JSON.stringify([route.provider, route.model, route.reasoningEffort]);
 };
+const checkpointFailureCodes = new Set(['MAX_TOKENS', 'OUTPUT_TRUNCATED', 'OUTPUT_LENGTH_STOP', 'OUTPUT_LIMIT_REACHED',
+  'EMPTY_RESPONSE', 'COMPACTION_EMPTY_SUMMARY', 'COMPACTION_NOT_SMALLER']);
+const fallbackCodes = new Set([...checkpointFailureCodes, 'COMPACTION_OUTPUT_BUDGET_EXHAUSTED', 'CONTEXT_WINDOW_EXCEEDED',
+  'TRANSPORT', 'TIMEOUT', 'SERVER', 'RATE_LIMIT']);
+function fallbackFailure(error, codes = fallbackCodes) {
+  const seen = new Set();
+  for (let cause = error; cause && !seen.has(cause); cause = cause.cause) {
+    if (codes.has(cause.code)) return cause;
+    seen.add(cause);
+  }
+}
+const sameTarget = (a, b) => a?.provider === b?.provider && a?.model === b?.model;
+function idleTarget(ctx, agent) {
+  return ctx.sessionProjections.stateOf(agent.session, 'modelSelection')?.pending ?? agent.session.requestHeader()?.config ?? agent.options;
+}
+async function activateFallback(engine, agent, target, error, signal) {
+  signal?.throwIfAborted();
+  if (!fallbackFailure(error) || sameTarget(engine.fallbackTargets?.get(agent)?.source, target)) return;
+  const policy = engine.config.modelPolicies.find(rule => sameTarget(rule, target));
+  if (policy?.summarizationProvider ?? engine.config.summarizationProvider) return;
+  const rule = engine.fallbackPolicies?.find(rule => sameTarget(rule.source, target));
+  if (!rule) return;
+  const fallback = await rule.resolveFallback(signal);
+  signal?.throwIfAborted();
+  if (sameTarget(rule.source, fallback)) return;
+  engine.summaryFailures?.delete(agent);
+  engine.fallbackTargets.set(agent, { source: target, ...fallback });
+  engine.ctx.logger?.warn(`compaction fallback: ${target.provider}/${target.model} -> ${fallback.provider}/${fallback.model} (${fallbackFailure(error).code})`);
+  return fallback;
+}
 
 // Only follow the compacted surface span and the spans replaced by earlier
 // checkpoints. A sibling turn, a failed call or arbitrary tool text is not a
@@ -95,19 +125,25 @@ export default class CompactionEngine extends BasicCompactionEngine {
   manualSurfaces = new WeakMap();
   manualTargets = new WeakMap();
   summaryFailures = new WeakMap();
+  fallbackTargets = new WeakMap();
+  get fallbackPolicies() { return this.ctx.get('codebuddyCompactionFallbacks') ?? []; }
 
   constructor(ctx, config) {
     super(ctx, config);
     // A failed summary must not become another paid request on every tool step.
     // The native turn boundary and an explicit manual request permit a fresh try.
     ctx.on('agent/status', ({ agent, status }) => {
-      if (status === 'idle') this.summaryFailures.delete(agent);
+      if (status === 'idle') {
+        this.summaryFailures.delete(agent);
+        this.fallbackTargets.delete(agent);
+      }
     });
   }
 
   async compactNow(agent, signal, sourceCommandId) {
     signal.throwIfAborted();
     this.summaryFailures.delete(agent);
+    this.fallbackTargets.delete(agent);
     const surface = () => JSON.stringify(agent.session.surface.nodes);
     // Repeating /compact without new conversation evidence needlessly summarizes
     // the same checkpoint again. Keep native admission and cancellation checks.
@@ -117,9 +153,54 @@ export default class CompactionEngine extends BasicCompactionEngine {
         return null;
       });
     }
-    const result = await super.compactNow(agent, signal, sourceCommandId);
-    if (result) this.manualSurfaces.set(agent, surface());
-    return result;
+    try {
+      const result = await super.compactNow(agent, signal, sourceCommandId);
+      if (result) this.manualSurfaces.set(agent, surface());
+      return result;
+    } finally { this.fallbackTargets.delete(agent); }
+  }
+
+  // The native hook keeps all rounds under one maintenance admission. Native
+  // range selection, pairing, validation, durable commits and flushes stay intact.
+  async finishManualCompaction(agent, compact, signal) {
+    if (!this.fallbackPolicies.length) return compact();
+    const target = idleTarget(this.ctx, agent);
+    const rule = this.fallbackPolicies.find(rule => sameTarget(rule.source, target));
+    const policy = this.config.modelPolicies.find(rule => sameTarget(rule, target));
+    if (!rule || (policy?.summarizationProvider ?? this.config.summarizationProvider)) return compact();
+    const { provider, model } = target;
+    const { reasoningEffort, temperature } = rule.requestConfig;
+    const maxTokens = agent.options.maxTokens ?? rule.requestConfig.maxTokens;
+    const call = await this.ctx.llm.prepareCall({ provider, model,
+      ...(reasoningEffort === undefined ? {} : { reasoningEffort }),
+      ...(temperature === undefined ? {} : { temperature }),
+      ...(maxTokens === undefined ? {} : { maxTokens }) }, signal);
+    if (!call.measure) throw new Error('The selected model adapter cannot verify post-compaction request fit');
+    const measure = () => call.measure({ sessionId: agent.session.id, signal,
+      messages: agent.session.deriveMessages(), tools: this.ctx.tools.schemas(agent), toolHistory: agent.session.toolHistory() });
+    let before = await measure(), result;
+    for (let round = 0; round < 8; round++) {
+      signal.throwIfAborted();
+      if (!sameTarget(idleTarget(this.ctx, agent), target)) throw new Error('Model selection changed during compaction; retry for the new selection');
+      try { result = await compact(); }
+      catch (error) {
+        signal.throwIfAborted();
+        if (!await activateFallback(this, agent, target, error, signal)) throw error;
+        result = await compact();
+      }
+      const after = await measure();
+      if (after.available >= after.minimumMaxTokens && after.effectiveMaxTokens >= after.minimumMaxTokens) {
+        this.ctx.logger.info('manual compaction destination fit: ' + JSON.stringify({ provider, model,
+          source: after.source, input: after.estimate.tokens, output: after.effectiveMaxTokens, window: after.contextWindow }));
+        return result;
+      }
+      if (!result || !(after.estimate.tokens < before.estimate.tokens))
+        throw Object.assign(new Error('Compaction cannot reduce the protected context enough for the selected model; completed checkpoints were preserved'), { code: 'COMPACTION_TARGET_WINDOW_EXCEEDED' });
+      // A valid checkpoint alone is not success when the destination still cannot reply.
+      await activateFallback(this, agent, target, { code: 'CONTEXT_WINDOW_EXCEEDED' }, signal);
+      before = after;
+    }
+    throw Object.assign(new Error('Compaction still exceeds the selected model window after 8 reductions; completed checkpoints were preserved'), { code: 'COMPACTION_TARGET_WINDOW_EXCEEDED' });
   }
 
   regionDependencies() {
@@ -134,12 +215,23 @@ export default class CompactionEngine extends BasicCompactionEngine {
       if (trigger === 'pressure') return null;
       throw failed.error;
     }
-    if (trigger !== 'pressure') return super.compactIfNeeded(agent, trigger, signal);
+    if (trigger !== 'pressure') {
+      try { return await super.compactIfNeeded(agent, trigger, signal); }
+      catch (error) {
+        signal?.throwIfAborted();
+        const target = agent.session.requestHeader()?.config ?? agent.options;
+        if (!await activateFallback(this, agent, target, error, signal)) throw error;
+        return super.compactIfNeeded(agent, trigger, signal);
+      }
+    }
     const attempt = { result: null };
     this.pressureAttempts.set(agent, attempt);
     try { return await super.compactIfNeeded(agent, trigger, signal); }
     catch (error) {
       if (error instanceof UnchangedCheckpoint) return attempt.result;
+      signal?.throwIfAborted();
+      const target = agent.session.requestHeader()?.config ?? agent.options;
+      if (await activateFallback(this, agent, target, error, signal)) return super.compactIfNeeded(agent, trigger, signal);
       throw error;
     } finally { this.pressureAttempts.delete(agent); }
   }
@@ -150,9 +242,14 @@ export default class CompactionEngine extends BasicCompactionEngine {
     const event = start === end ? agent.session.eventAt(start) : undefined;
     if (attempt && event?.type === 'user/message' && event.data.source?.kind === 'compact-checkpoint')
       throw new UnchangedCheckpoint();
-    const result = await super.compactRegion(start, end, agent, signal);
-    if (attempt) attempt.result = result;
-    return result;
+    try {
+      const result = await super.compactRegion(start, end, agent, signal);
+      if (attempt) attempt.result = result;
+      return result;
+    } catch (error) {
+      if (fallbackFailure(error, checkpointFailureCodes) && !signal?.aborted) this.summaryFailures.set(agent, { route: summaryRoute(agent), error });
+      throw error;
+    }
   }
 
   async summarize(input, agent, signal) {
@@ -173,7 +270,7 @@ export default class CompactionEngine extends BasicCompactionEngine {
       let selected = this.manualTargets.get(operation);
       if (!selected) {
         const pending = this.ctx.sessionProjections.stateOf(agent.session, 'modelSelection')?.pending;
-        selected = { provider: (pending ?? target).provider, model: (pending ?? target).model };
+        selected = { ...(pending ?? target) };
         this.manualTargets.set(operation, selected);
       }
       target = selected;
@@ -185,44 +282,57 @@ export default class CompactionEngine extends BasicCompactionEngine {
     const configuredModel = policy?.summarizationModel ?? this.config.summarizationModel;
     const summaryProvider = configuredProvider || target.provider;
     const summaryModel = configuredProvider ? configuredModel : target.model;
-    const info = await this.ctx.llm.resolveModelInfo?.(summaryProvider, summaryModel, signal);
-    const window = info?.context?.contextWindow;
-    const capacity = Number.isSafeInteger(window) && window > 0 ? window : Infinity;
-    const initialBudget = Math.min(policy?.maxTokens ?? this.config.maxTokens, Math.max(1, Math.floor(capacity / 4)));
-    const retryBudget = Math.min(initialBudget * 2, 32768, Math.max(1, Math.floor(capacity / 2)));
-    // Summary generation has its own bounded reasoning allowance. It must not
-    // inherit an xhigh task setting and consume the entire checkpoint budget.
-    // Native request-fit still prices the whole envelope before sending it.
-    const effort = info?.reasoning?.efforts?.some(e => e.id === 'low') ? 'low' : undefined;
-    for (let attempt = 0; ; attempt++) {
-      const maxTokens = attempt === 0 ? initialBudget : retryBudget;
-      // A prepared fit continuation is single-use and bound to its exact cap.
-      // A larger retry must pass through ordinary adapter preparation again.
-      const stream = attempt === 0 && input.requestFitStream ? input.requestFitStream : options => this.ctx.llm.stream(options);
-      const summaryStream = options => stream({ ...options, ...(effort ? { reasoningEffort: effort } : {}) });
-      const owner = {
-        ctx: { llm: { stream: summaryStream } },
-        // The policy has already been resolved for this operation. Give the
-        // native summarizer that exact target rather than selecting it again
-        // from the historical request header. This is a call-local config.
-        config: { ...this.config, maxTokens, summarizationProvider: summaryProvider,
-          summarizationModel: summaryModel, modelPolicies: [] },
-      };
-      try {
-        const result = await BasicCompactionEngine.prototype.summarize.call(owner,
-          { ...input, requestFitStream: summaryStream }, agent, signal);
-        this.summaryFailures?.delete(agent);
-        return result;
-      } catch (error) {
-        signal?.throwIfAborted();
-        if (attempt === 0 && error.code === 'MAX_TOKENS' && retryBudget > initialBudget) continue;
-        if (['MAX_TOKENS', 'OUTPUT_TRUNCATED', 'EMPTY_RESPONSE', 'COMPACTION_EMPTY_SUMMARY'].includes(error.code)) {
-          this.summaryFailures?.set(agent, {
-            route: summaryRoute(agent), error,
-          });
+    const generate = async (summaryProvider, summaryModel, prepared) => {
+      const info = await this.ctx.llm.resolveModelInfo?.(summaryProvider, summaryModel, signal);
+      const window = info?.context?.contextWindow;
+      const capacity = Number.isSafeInteger(window) && window > 0 ? window : Infinity;
+      const initialBudget = Math.min(policy?.maxTokens ?? this.config.maxTokens, Math.max(1, Math.floor(capacity / 4)));
+      const retryBudget = Math.min(initialBudget * 2, 32768, Math.max(1, Math.floor(capacity / 2)));
+      // Summary generation has its own bounded reasoning allowance. It must not
+      // inherit an xhigh task setting and consume the entire checkpoint budget.
+      // Native request-fit still prices the whole envelope before sending it.
+      const effort = info?.reasoning?.efforts?.some(e => e.id === 'low') ? 'low' : undefined;
+      for (let attempt = 0; ; attempt++) {
+        const maxTokens = attempt === 0 ? initialBudget : retryBudget;
+        // A prepared fit continuation is single-use and bound to its exact cap.
+        // A larger retry must pass through ordinary adapter preparation again.
+        const stream = attempt === 0 && prepared && input.requestFitStream ? input.requestFitStream : options => this.ctx.llm.stream(options);
+        const summaryStream = options => stream({ ...options, ...(effort ? { reasoningEffort: effort } : {}) });
+        const owner = {
+          ctx: { llm: { stream: summaryStream } },
+          // The policy has already been resolved for this operation. Give the
+          // native summarizer that exact target rather than selecting it again
+          // from the historical request header. This is a call-local config.
+          config: { ...this.config, maxTokens, summarizationProvider: summaryProvider,
+            summarizationModel: summaryModel, modelPolicies: [] },
+        };
+        try {
+          const result = await BasicCompactionEngine.prototype.summarize.call(owner,
+            { ...input, requestFitStream: summaryStream }, agent, signal);
+          this.summaryFailures?.delete(agent);
+          return result;
+        } catch (error) {
+          signal?.throwIfAborted();
+          if (attempt === 0 && error.code === 'MAX_TOKENS' && retryBudget > initialBudget) continue;
+          throw error;
         }
-        throw error;
       }
+    };
+    const active = this.fallbackTargets?.get(agent);
+    try {
+      if (active && sameTarget(active.source, target)) return await generate(active.provider, active.model, true);
+      try { return await generate(summaryProvider, summaryModel, true); }
+      catch (error) {
+        signal?.throwIfAborted();
+        // An explicit native summarizer is already the chosen independent route.
+        const fallback = configuredProvider ? undefined : await activateFallback(this, agent, target, error, signal);
+        if (!fallback) throw error;
+        // A prepared Gemma call is single-use and must never dispatch to Qwen.
+        return await generate(fallback.provider, fallback.model, false);
+      }
+    } catch (error) {
+      if (fallbackFailure(error, checkpointFailureCodes)) this.summaryFailures?.set(agent, { route: summaryRoute(agent), error });
+      throw error;
     }
   }
 }

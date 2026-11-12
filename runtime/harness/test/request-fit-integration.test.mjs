@@ -49,6 +49,7 @@ async function fixture(t, handler, { contextWindow = 65536, maxTokens = 256, use
   const provider = { id: 'fixture', ...(count ? { countBackend: 'vllm' } : {}), baseUrl: `http://127.0.0.1:${server.address().port}/v1`, apiKey: 'fixture-only', contextWindow, protocol, ...(outputTokenCapacity ? { outputTokenCapacity } : {}), ...(requestMaxTokens === undefined ? {} : { requestMaxTokens }), ...(retryPolicy ? { retryPolicy } : {}) };
   f.provider = provider;
   const options = { ...useDefaultBudget ? {} : { maxTokens }, autoCompactThreshold: 0.99, ...(tools ? { tools } : {}) };
+  f.options = options;
   const open = async () => {
     f.driver = await createHarnessDriver({ dataDir: join(root, 'state'), cwd: root });
     const session = await f.driver.createSession({ ...(f.sessionId ? { sessionId: f.sessionId } : {}), cwd: root, provider, model: 'fixture', options });
@@ -69,6 +70,148 @@ const failures = history => history.events
   .map(record => record.chunk.reason.failure)
   .filter(Boolean);
 const summaries = history => history.events.filter(event => event.type === 'compaction/summary');
+
+test('fallback compacts an oversized wide-model history for the destination window before manual success', { timeout: 30000 }, async t => {
+  const count = body => Math.ceil(JSON.stringify(body.messages).length / 4);
+  const f = await fixture(t, (request, res) => reply(res, request.summary
+    ? 'ORION-739; corrected tax 750 bps; currency CNY, integer cents; verify next; publishing forbidden.' : 'Received.'),
+  { contextWindow: 524288, useDefaultBudget: true, count });
+  for (let i = 0; i < 8; i++) await f.driver.prompt(f.sessionId, `Completed archive ${i}. ` + 'Synthetic completed archive record. '.repeat(2850));
+  await f.driver.prompt(f.sessionId, 'Keep the corrected 750 bps and wait.');
+  const before = await f.driver.history(f.sessionId);
+  const gemma = { ...f.provider, id: 'destination', contextWindow: 65536 };
+  const qwen = { ...f.provider, id: 'fallback', contextWindow: 196608 };
+  f.options.compactionFallbacks = [{ source: { provider: gemma, model: 'gemma' }, fallback: { provider: qwen, model: 'qwen' } }];
+  await f.driver.createSession({ sessionId: f.sessionId, cwd: f.root, provider: gemma, model: 'gemma', options: f.options });
+  const normalCount = f.requests.filter(r => !r.summary).length;
+  await f.driver.compact(f.sessionId);
+  const after = await f.driver.history(f.sessionId);
+  assert.deepEqual(after.events.slice(0, before.events.length), before.events);
+  assert.ok(summaries(after).length > 1, 'Qwen capacity is not the destination success condition');
+  assert.ok(summaries(after).every(event => event.data.model === 'qwen'));
+  assert.equal(f.requests.filter(r => !r.summary).length, normalCount, 'destination fit must not generate a probe reply');
+  assert.ok(f.requests.filter(r => r.summary).every(r => r.body.model === 'qwen'), 'oversized Gemma summaries fail locally before HTTP');
+  const { events } = after;
+  const restored = new Session(after.meta.id, events, after.meta, 'snapshot', after.inheritedEventCount);
+  const priced = count({ messages: restored.deriveMessages() });
+  assert.ok(priced < 65536 - 4096 - 1024);
+  const committed = summaries(after).length;
+  await f.driver.prompt(f.sessionId, 'Return the preserved tax rate.');
+  assert.equal(f.requests.at(-1).body.model, 'gemma');
+  assert.equal(summaries(await f.driver.history(f.sessionId)).length, committed, 'the first destination reply must not need another compaction');
+});
+
+test('failed Qwen fallback preserves history, does not loop, and explicit retry can recover', { timeout: 15000 }, async t => {
+  let mode = 'both-empty';
+  const f = await fixture(t, (request, res) => reply(res, request.summary
+    ? request.body.model === 'qwen' && mode === 'recovered' ? 'Keep ORION-739; use 750 bps; do not publish.' : '' : WARM_HISTORY));
+  await warm(f);
+  const before = await f.driver.history(f.sessionId);
+  const fallback = { ...f.provider, id: 'qwen-fallback', contextWindow: 196608 };
+  f.options.compactionFallbacks = [{ source: { provider: f.provider, model: 'fixture' }, fallback: { provider: fallback, model: 'qwen' } }];
+  await f.configure();
+  await assert.rejects(f.driver.compact(f.sessionId), error => error.cause?.code === 'EMPTY_RESPONSE');
+  const failed = await f.driver.history(f.sessionId);
+  assert.equal(summaries(failed).length, 0);
+  assert.deepEqual(failed.events.slice(0, before.events.length), before.events);
+  assert.deepEqual(f.requests.filter(r => r.summary).map(r => r.body.model), ['fixture', 'qwen']);
+  mode = 'recovered';
+  await f.driver.compact(f.sessionId);
+  assert.equal(summaries(await f.driver.history(f.sessionId)).at(-1).data.model, 'qwen');
+});
+
+test('manual cancellation does not dispatch the configured fallback', { timeout: 15000 }, async t => {
+  const abort = new AbortController();
+  const f = await fixture(t, (request, res) => {
+    if (!request.summary) return reply(res, WARM_HISTORY);
+    setTimeout(() => abort.abort(Error('Explicit test cancellation')), 20);
+  });
+  await warm(f);
+  f.options.compactionFallbacks = [{ source: { provider: f.provider, model: 'fixture' },
+    fallback: { provider: { ...f.provider, id: 'unused-fallback' }, model: 'qwen' } }];
+  await f.configure();
+  await assert.rejects(f.driver.compact(f.sessionId, { signal: abort.signal }));
+  assert.deepEqual(f.requests.filter(r => r.summary).map(r => r.body.model), ['fixture']);
+  assert.equal(summaries(await f.driver.history(f.sessionId)).length, 0);
+});
+
+test('native non-shrinking summary validation can activate the fallback without committing the rejected summary', { timeout: 15000 }, async t => {
+  const f = await fixture(t, (request, res) => reply(res, !request.summary ? WARM_HISTORY
+    : request.body.model === 'fixture' ? JSON.stringify(request.body.messages) : 'Keep ORION-739; corrected tax is 750 bps; do not publish.'));
+  await warm(f);
+  f.options.compactionFallbacks = [{ source: { provider: f.provider, model: 'fixture' },
+    fallback: { provider: { ...f.provider, id: 'qwen' }, model: 'qwen' } }];
+  await f.configure();
+  await f.driver.compact(f.sessionId);
+  const history = await f.driver.history(f.sessionId);
+  assert.equal(summaries(history).length, 1);
+  assert.equal(summaries(history)[0].data.model, 'qwen');
+  assert.equal(history.events.filter(e => e.type === 'compaction/end' && e.data.error).length, 1);
+  assert.deepEqual(f.requests.filter(r => r.summary).map(r => r.body.model), ['fixture', 'qwen']);
+});
+
+test('a provider length stop before its advertised budget still activates summary fallback', { timeout: 15000 }, async t => {
+  const f = await fixture(t, (request, res) => {
+    if (!request.summary) return reply(res, WARM_HISTORY);
+    if (request.body.model === 'fixture') return reply(res, 'Incomplete checkpoint.', { finish: 'length', output: 20 });
+    reply(res, 'Keep ORION-739; corrected tax is 750 bps; do not publish.');
+  });
+  await warm(f);
+  f.options.compactionFallbacks = [{ source: { provider: f.provider, model: 'fixture' },
+    fallback: { provider: { ...f.provider, id: 'qwen' }, model: 'qwen' } }];
+  await f.configure();
+  await f.driver.compact(f.sessionId);
+  assert.equal(summaries(await f.driver.history(f.sessionId)).at(-1).data.model, 'qwen');
+  assert.deepEqual(f.requests.filter(r => r.summary).map(r => r.body.model), ['fixture', 'qwen']);
+});
+
+test('cancellation during lazy fallback preparation never dispatches a Qwen request', { timeout: 15000 }, async t => {
+  const requested = Promise.withResolvers(), prepared = Promise.withResolvers(), abort = new AbortController();
+  const f = await fixture(t, (request, res) => reply(res, request.summary ? '' : WARM_HISTORY));
+  await warm(f);
+  f.options.compactionFallbacks = [{ source: { provider: f.provider, model: 'fixture' },
+    resolveFallback() { requested.resolve(); return prepared.promise; } }];
+  await f.configure();
+  const compacting = f.driver.compact(f.sessionId, { signal: abort.signal });
+  const rejected = assert.rejects(compacting);
+  await requested.promise;
+  abort.abort(Error('Explicit cancellation during connection preparation'));
+  await rejected;
+  prepared.resolve({ provider: { ...f.provider, id: 'qwen' }, model: 'qwen' });
+  await new Promise(resolve => setImmediate(resolve));
+  assert.deepEqual(f.requests.filter(r => r.summary).map(r => r.body.model), ['fixture']);
+  assert.equal(summaries(await f.driver.history(f.sessionId)).length, 0);
+});
+
+test('truncated fallback output is rejected and a too-large protected user message stays intact', { timeout: 20000 }, async t => {
+  let mode = 'truncated';
+  const f = await fixture(t, (request, res) => {
+    if (!request.summary) return reply(res, WARM_HISTORY);
+    if (request.body.model === 'fixture') return reply(res, '');
+    reply(res, 'ORION-739; 750 bps; do not publish.', mode === 'truncated'
+      ? { finish: 'length', output: request.body.max_completion_tokens ?? request.body.max_tokens } : {});
+  }, { contextWindow: 524288, useDefaultBudget: true });
+  await warm(f);
+  f.options.compactionFallbacks = [{ source: { provider: f.provider, model: 'fixture' },
+    fallback: { provider: { ...f.provider, id: 'qwen' }, model: 'qwen' } }];
+  await f.configure();
+  await assert.rejects(f.driver.compact(f.sessionId), error => error.cause?.code === 'MAX_TOKENS');
+  assert.equal(summaries(await f.driver.history(f.sessionId)).length, 0, 'partial Qwen output must not become a checkpoint');
+  mode = 'valid';
+  await f.driver.prompt(f.sessionId, 'Protected latest request: ' + 'Preserve this exact human content. '.repeat(6500));
+  const before = await f.driver.history(f.sessionId);
+  const protectedUser = before.events.findLast(event => event.type === 'user/message' && event.data.content?.some(block => block.text?.startsWith('Protected latest request:')));
+  const gemma = { ...f.provider, contextWindow: 16384 };
+  f.options.compactionFallbacks = [{ source: { provider: gemma, model: 'fixture' },
+    fallback: { provider: { ...f.provider, id: 'qwen' }, model: 'qwen' } }];
+  await f.driver.createSession({ sessionId: f.sessionId, cwd: f.root, provider: gemma, model: 'fixture', options: f.options });
+  await assert.rejects(f.driver.compact(f.sessionId));
+  const after = await f.driver.history(f.sessionId);
+  assert.deepEqual(after.events.slice(0, before.events.length), before.events);
+  assert.ok(protectedUser);
+  const restored = new Session(after.meta.id, after.events, after.meta, 'snapshot', after.inheritedEventCount);
+  assert.deepEqual(restored.deriveMessages().find(message => message.id === protectedUser.data.id), protectedUser.data);
+});
 
 test('manual compaction retries one truncated checkpoint, preserves failed history and can retry explicitly', { timeout: 20000 }, async t => {
   let mode = 'truncate-once', summaryCalls = 0;

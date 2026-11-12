@@ -1039,6 +1039,19 @@ Keep progress updates brief, meaningful, and outcome-based.
         ? previousBinding : { scope, identity: Object.freeze({}) });
     }
     const subagentModels = {};
+    const compactionFallbacks = await Promise.all((settings.compactionFallbacks ?? []).map(async rule => ({
+      source: await configureProvider(rule.source.provider, rule.source.model),
+      requestConfig: { reasoningEffort: settings.thinkingEffort, maxTokens: settings.maxTokens, temperature: settings.temperature },
+      resolveFallback: async signal => {
+        signal?.throwIfAborted();
+        const pending = rule.resolveFallback?.();
+        const configured = pending ? await (signal ? abortable(pending, signal) : pending) : rule.fallback;
+        signal?.throwIfAborted();
+        const target = await configureProvider(configured.provider, configured.model);
+        signal?.throwIfAborted();
+        return target;
+      },
+    })));
     for (const [role, configured] of Object.entries(settings.subagentModels ?? {})) {
       if (!['explorer', 'browser', 'generic'].includes(role)) throw new TypeError('Unknown subagent model role');
       subagentModels[role] = configured.error ? { error: configured.error } : await configureProvider(configured.provider, configured.model);
@@ -1071,7 +1084,7 @@ Keep progress updates brief, meaningful, and outcome-based.
     const remoteServers = mcpServers.filter(server => !server.configurationError && server.transport === 'streamable-http');
     let shared;
     let binding = mcpBindings.get(capabilities.key);
-    const fiber = agent.ctx.isolate('compaction').plugin({
+    const fiber = agent.ctx.isolate('compaction').isolate('codebuddyCompactionFallbacks').plugin({
       name: 'codebuddy-session-capabilities',
       inject: ['skills'],
       async apply(scoped) {
@@ -1158,6 +1171,7 @@ Keep progress updates brief, meaningful, and outcome-based.
           const builtinScope = toolSessionApprovalScope(tool);
           if (builtinScope) builtinDefinitions.set(capabilityCtx.tools.get(tool.name, capabilities.key), { tool, scope: builtinScope });
         }
+        scoped.provide('codebuddyCompactionFallbacks', compactionFallbacks);
         const compactFiber = scoped.plugin(compactionPlugin, {
           thresholdRatio: settings.autoCompactThreshold ?? 0.8,
           // Reserve space for a complete checkpoint, including summary reasoning.

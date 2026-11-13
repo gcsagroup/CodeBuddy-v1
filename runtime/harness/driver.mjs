@@ -44,6 +44,7 @@ import { createMcpPresets, restrictSessionTools } from './mcp-presets.mjs';
 import { installToolDiscovery } from './tool-discovery.mjs';
 import { installSubagentTemplates } from './subagent-templates.mjs';
 import { installSubagentNoticeAdmission } from './subagent-notice-admission.mjs';
+import { userTurnTerminals } from './user-turn-terminals.mjs';
 import { installMainAgentRole } from './main-agent-role.mjs';
 import { validateSubagentLimits } from '../subagent-limits.mjs';
 import { createToolInputPreview } from './tool-input-preview.mjs';
@@ -1760,25 +1761,8 @@ Keep progress updates brief, meaningful, and outcome-based.
       const live = ctx.agents.get(sessionId)?.session;
       if (!live && !await ctx.sessionPersistence.stat(sessionId)) return [];
       const observation = live ? undefined : await ctx.sessionQuery.observeSession(sessionId, { projectionMode: 'none' });
-      try {
-        const terminals = [];
-        let turn, sourceIds = [];
-        for (const event of live?.log ?? observation.events) {
-          if (event.type === 'turn/start') { turn = event.data.turn; sourceIds = []; }
-          else if (turn !== undefined && event.type === 'user/message' && event.data.source?.kind === 'user' && event.data.source.rpcId)
-            sourceIds.push(event.data.source.rpcId);
-          else if (event.type === 'turn/end' && event.data.turn === turn) {
-            const reason = event.data.reason;
-            // Match prompt settlement: output-limit recovery is not a thrown
-            // failure. A consumed steer still belongs to the initiating input.
-            if (sourceIds.length && (reason.kind === 'error' && !isOutputLimitFailure(reason.error.code) ||
-                reason.kind === 'aborted' && reason.reason?.kind === 'user'))
-              terminals.push({ sourceId: sourceIds[0], sourceIds, time: event.time, reason: structuredClone(reason) });
-            turn = undefined; sourceIds = [];
-          }
-        }
-        return terminals;
-      } finally { observation?.[Symbol.dispose](); }
+      try { return userTurnTerminals(live?.log ?? observation.events); }
+      finally { observation?.[Symbol.dispose](); }
     },
     async lastUserStop(sessionId, sourceId) {
       const live = ctx.agents.get(sessionId)?.session;

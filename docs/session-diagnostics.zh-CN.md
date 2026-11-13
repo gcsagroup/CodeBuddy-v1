@@ -14,7 +14,7 @@ Compat 的 `session/log/export` 下载出口只构造白名单字段：事件顺
 
 普通聊天的新失败沿用现有 transcript journal 保存脱敏终态卡片。只有 `publicFailure` 白名单分类、已观察到的 HTTP 状态及固定处理建议进入卡片；服务响应正文、凭据和本机路径不会作为错误说明保存。即时红字仍属当前请求提示，重启后从历史卡片的“查看未完成原因”查看。
 
-旧版未保存卡片时，Harness driver 只读原生日志的 `turn/end`，Compat 将失败投影到对应的历史用户消息，不回填或改写原生事件。同一轮消费的追加输入仍归属发起该轮的第一条消息，与直播记录去重。原生按输出限制结束的轮次沿用原契约，不在重启后变成普通失败；手动压缩继续使用压缩生命周期。
+旧版未保存卡片时，Harness driver 只读原生日志的 `turn/end`，Compat 将失败投影到对应的历史用户消息，不回填或改写原生事件。同一请求消费的追加输入仍归属发起请求的第一条消息，与直播记录去重；等待子任务时，由子结果通知、next-step 消息或原生 steer 引起的续轮也保留该归属。新排队用户请求、定时任务等独立输入，以及原生失败或取消会截断旧归属，不将后续错误套到旧请求上。原生按输出限制结束的轮次沿用原契约，不在重启后变成普通失败；手动压缩继续使用压缩生命周期。
 
 读取期间若已有新输入或正在运行的轮次，旧读取不会补入终态。可选诊断读取失败只降级原因展示，不挡住可读历史。已确认失败后才收到的停止不会抹去卡片中的真实故障；先停止导致取消的情况仍走原取消流程。加载、刷新、查看原因均不自动推理或重放工具。
 
@@ -24,6 +24,7 @@ Compat 的 `session/log/export` 下载出口只构造白名单字段：事件顺
 
 - `runtime/tests/session-log-export.test.mjs` 覆盖下载成功/失败的隐私哨兵、原日志不变、重启重导、事件对应及拒绝将诊断导入为会话。
 - `runtime/tests/ordinary-chat-failure-replay.test.mjs` 覆盖原生追加输入归属、旧失败冷补、重复加载、输出限制、可选诊断失败、异步加载与新请求竞争、停止前后次序和隐私哨兵。真实 HTTP 服务及 ACP 与有屏障的协议夹具分开验证。
+- `runtime/tests/ordinary-chat-subagent-replay.test.mjs` 通过真实 Harness 和本机可控模型验证子结果自动续轮失败后的冷恢复，检查完整原始历史与工具调用数不变；`runtime/tests/user-turn-terminals.test.mjs` 补充独立输入、原生 steer、通知链与取消边界。
 - `runtime/tests/compaction-diagnostics.test.mjs` 分别核对安全下载与完整本机压缩日志，保留原生失败及检查点断言。
 - `runtime/tests/tool-crash-recovery.test.mjs` 在工具副作用发生前/后、回执未持久化时强制终止隔离 Host。恢复追加原生 `TOOL_OUTCOME_UNKNOWN` 错误回执与 `interrupted`，不自动推理或重放工具，原日志前缀保留。显式继续的模型夹具不再次提案该操作。
 - `runtime/tests/timeout-exhaustion.test.mjs` 让真实本机 HTTP 连接完全无响应或只返回 SSE 响应头。在隔离提供商中缩短 watchdog 与退避，保留原生五次重试，核对六次实际超时、最终 `TIMEOUT`、停止后无额外请求、冷恢复和继续不重复工具。本测试不更改产品默认超时配置。

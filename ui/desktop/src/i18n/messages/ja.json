@@ -7434,16 +7434,16 @@
     "defaultMessage": "セッションを複製しました"
   },
   "sessionActionsHeader.exportLog": {
-    "defaultMessage": "Export logs"
+    "defaultMessage": "診断情報をエクスポート"
   },
   "sessionActionsHeader.exportLogFailed": {
-    "defaultMessage": "Failed to export logs: {error}"
+    "defaultMessage": "診断情報を保存できませんでした。完全な履歴はこのコンピューターに保持されています。再試行してください。"
   },
   "sessionActionsHeader.exportLogNotice": {
-    "defaultMessage": "Includes conversation content and tool results. Review before sharing."
+    "defaultMessage": "イベントの順序、状態、安全なエラー分類のみを出力します。会話本文、ツールのデータ、完全な履歴はこのコンピューターに保持されます。この診断ファイルから会話を復元することはできません。"
   },
   "sessionActionsHeader.exportLogSaved": {
-    "defaultMessage": "Session log saved"
+    "defaultMessage": "会話の診断情報を保存しました"
   },
   "sessionActionsHeader.exportLogWriteFailed": {
     "defaultMessage": "The log file could not be saved."

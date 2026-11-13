@@ -58,6 +58,7 @@ import { DEFAULT_CONTEXT_WINDOW } from './model-defaults.mjs';
 import { initialPermissionPreset, permissionPresets } from './permission-presets.mjs';
 import { mcpSessionApprovalScope, businessPresentationForClient } from './tool-session-approval.mjs';
 import { HistoryService, updatesFromConversation } from "./history.mjs";
+import { sessionLogDiagnostics } from './session-log-diagnostics.mjs';
 import { loadLegacyConversation } from "./legacy-migration.mjs";
 import {
   builtinMcp,
@@ -2703,7 +2704,12 @@ export class Compat {
       case "session/log/export": {
         const s = this.session(p.sessionId);
         if (s.readonlyHistory) throw invalid("旧版导入的聊天没有 Harness 日志，请使用查看会话 JSON。");
-        return { data: await this.driver.exportSessionLog(s.id) };
+        try {
+          return { data: sessionLogDiagnostics(await this.driver.exportSessionLog(s.id)) };
+        } catch {
+          // File errors and parse errors can contain private paths or log text.
+          throw Object.assign(new Error('无法导出会话诊断。本机完整历史已保留，请重试或联系维护者。'), { code: -32603 });
+        }
       }
       case "session/info":
         return { session: this.info(this.session(p.sessionId, { fields: sessionInfoFields })) };

@@ -7434,16 +7434,16 @@
     "defaultMessage": "세션이 복제되었습니다"
   },
   "sessionActionsHeader.exportLog": {
-    "defaultMessage": "Export logs"
+    "defaultMessage": "진단 내보내기"
   },
   "sessionActionsHeader.exportLogFailed": {
-    "defaultMessage": "Failed to export logs: {error}"
+    "defaultMessage": "진단을 저장하지 못했습니다. 전체 기록은 이 컴퓨터에 보관됩니다. 다시 시도하세요."
   },
   "sessionActionsHeader.exportLogNotice": {
-    "defaultMessage": "Includes conversation content and tool results. Review before sharing."
+    "defaultMessage": "이벤트 순서, 상태, 안전한 오류 분류만 내보냅니다. 대화 내용, 도구 데이터, 전체 기록은 이 컴퓨터에 보관됩니다. 이 진단 파일로 대화를 복원할 수 없습니다."
   },
   "sessionActionsHeader.exportLogSaved": {
-    "defaultMessage": "Session log saved"
+    "defaultMessage": "대화 진단 저장됨"
   },
   "sessionActionsHeader.exportLogWriteFailed": {
     "defaultMessage": "The log file could not be saved."

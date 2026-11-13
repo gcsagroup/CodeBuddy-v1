@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {createServer} from 'node:http';
-import {mkdtemp,readFile} from 'node:fs/promises';
+import {mkdtemp,readFile,glob} from 'node:fs/promises';
 import path from 'node:path';
 import os from 'node:os';
 // Match Harness startup before importing the engine for failure injection.
@@ -87,7 +87,11 @@ test('actual summary failures publish safe native reasons and preserve them acro
   assert.equal(lifecycle().at(-1).status,'completed');assert.equal(lifecycle().at(-1).diagnostic,undefined,'previous model errors must not poison a successful transaction');
   await prompt('Continue without tools.');
   const {data}=await ext('session/log/export',{sessionId});
-  const events=data.split(/\r?\n/).filter(Boolean).map(JSON.parse);
+  assert.equal(JSON.parse(data.split('\n')[0]).type,'diagnostic-export');
+  assert.equal(data.includes(privateText),false);
+  const files=[];for await(const file of glob(path.join(dataDir,'harness/sessions/**',sessionId,'session.v4.jsonl').replaceAll('\\','/')))files.push(file);
+  assert.equal(files.length,1);
+  const events=(await readFile(files[0],'utf8')).split(/\r?\n/).filter(Boolean).map(JSON.parse);
   assert.equal(events.filter(e=>e.type==='compaction/start').length,6);
   const ends=events.filter(e=>e.type==='compaction/end');
   assert.equal(ends.length,6);assert.ok(ends.slice(0,5).every(e=>typeof e.data.error==='string'),'native durable error format is unchanged');

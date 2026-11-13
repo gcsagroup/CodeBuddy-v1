@@ -7434,16 +7434,16 @@
     "defaultMessage": "Sesi diduplikasi"
   },
   "sessionActionsHeader.exportLog": {
-    "defaultMessage": "Export logs"
+    "defaultMessage": "Eksport diagnostik"
   },
   "sessionActionsHeader.exportLogFailed": {
-    "defaultMessage": "Failed to export logs: {error}"
+    "defaultMessage": "Diagnostik tidak dapat disimpan. Sejarah penuh kekal pada komputer ini. Cuba lagi."
   },
   "sessionActionsHeader.exportLogNotice": {
-    "defaultMessage": "Includes conversation content and tool results. Review before sharing."
+    "defaultMessage": "Hanya urutan peristiwa, status dan kategori ralat selamat dieksport. Kandungan perbualan, data alat dan sejarah penuh kekal pada komputer ini. Fail ini tidak boleh memulihkan perbualan."
   },
   "sessionActionsHeader.exportLogSaved": {
-    "defaultMessage": "Session log saved"
+    "defaultMessage": "Diagnostik perbualan disimpan"
   },
   "sessionActionsHeader.exportLogWriteFailed": {
     "defaultMessage": "The log file could not be saved."

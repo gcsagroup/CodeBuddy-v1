@@ -7434,16 +7434,16 @@
     "defaultMessage": "Session duplicated"
   },
   "sessionActionsHeader.exportLog": {
-    "defaultMessage": "Export logs"
+    "defaultMessage": "Tanı bilgilerini dışa aktar"
   },
   "sessionActionsHeader.exportLogFailed": {
-    "defaultMessage": "Failed to export logs: {error}"
+    "defaultMessage": "Tanı bilgileri kaydedilemedi. Tüm geçmiş bu bilgisayarda kalır. Yeniden deneyin."
   },
   "sessionActionsHeader.exportLogNotice": {
-    "defaultMessage": "Includes conversation content and tool results. Review before sharing."
+    "defaultMessage": "Yalnızca olay sırası, durumlar ve güvenli hata kategorileri dışa aktarılır. Sohbet içeriği, araç verileri ve tüm geçmiş bu bilgisayarda kalır. Bu tanı dosyası bir sohbeti geri yükleyemez."
   },
   "sessionActionsHeader.exportLogSaved": {
-    "defaultMessage": "Session log saved"
+    "defaultMessage": "Sohbet tanı bilgileri kaydedildi"
   },
   "sessionActionsHeader.exportLogWriteFailed": {
     "defaultMessage": "The log file could not be saved."

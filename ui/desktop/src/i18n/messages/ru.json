@@ -7434,16 +7434,16 @@
     "defaultMessage": "Session duplicated"
   },
   "sessionActionsHeader.exportLog": {
-    "defaultMessage": "Export logs"
+    "defaultMessage": "Экспорт диагностики"
   },
   "sessionActionsHeader.exportLogFailed": {
-    "defaultMessage": "Failed to export logs: {error}"
+    "defaultMessage": "Не удалось сохранить диагностику. Полная история остаётся на этом компьютере. Повторите попытку."
   },
   "sessionActionsHeader.exportLogNotice": {
-    "defaultMessage": "Includes conversation content and tool results. Review before sharing."
+    "defaultMessage": "Экспортируются только порядок событий, состояния и безопасные категории ошибок. Содержимое беседы, данные инструментов и полная история остаются на этом компьютере. Этот файл не позволяет восстановить беседу."
   },
   "sessionActionsHeader.exportLogSaved": {
-    "defaultMessage": "Session log saved"
+    "defaultMessage": "Диагностика беседы сохранена"
   },
   "sessionActionsHeader.exportLogWriteFailed": {
     "defaultMessage": "The log file could not be saved."

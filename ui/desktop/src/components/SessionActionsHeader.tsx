@@ -74,17 +74,17 @@ const i18n = defineMessages({
   },
   exportLogNotice: {
     id: 'sessionActionsHeader.exportLogNotice',
-    defaultMessage: 'Includes conversation content and tool results. Review before sharing.',
+    defaultMessage: 'Exports event order, status and safe error categories only. Conversation content, tool data and the complete history stay on this computer. This diagnostic file cannot restore a conversation.',
   },
   exportLogSaved: {
     id: 'sessionActionsHeader.exportLogSaved',
-    defaultMessage: 'Session log saved',
+    defaultMessage: 'Session diagnostics saved',
   },
   exportLogFailed: {
     id: 'sessionActionsHeader.exportLogFailed',
-    defaultMessage: 'Failed to export logs: {error}',
+    defaultMessage: 'Session diagnostics could not be saved. The complete history remains on this computer. Please try again.',
   },
-  exportLog: { id: 'sessionActionsHeader.exportLog', defaultMessage: 'Export logs' },
+  exportLog: { id: 'sessionActionsHeader.exportLog', defaultMessage: 'Export diagnostics' },
   openFolder: { id: 'sessionActionsHeader.openFolder', defaultMessage: 'Open folder' },
   openFolderFailed: {
     id: 'sessionActionsHeader.openFolderFailed',
@@ -604,7 +604,7 @@ export function SessionActionsContextMenu({
         title: intl.formatMessage(i18n.exportLog),
         message: intl.formatMessage(i18n.exportLogNotice),
         defaultDirectory: 'desktop',
-        defaultPath: `session-${session.id.replace(/[^a-zA-Z0-9_-]/g, '_')}.jsonl`,
+        defaultPath: 'codebuddy-diagnostics.jsonl',
         filters: [{ name: 'JSONL', extensions: ['jsonl'] }],
       });
       if (destination.canceled || !destination.filePath) return;
@@ -613,12 +613,8 @@ export function SessionActionsContextMenu({
         throw new Error(intl.formatMessage(i18n.exportLogWriteFailed));
       }
       toast.success(intl.formatMessage(i18n.exportLogSaved));
-    } catch (error) {
-      toast.error(
-        intl.formatMessage(i18n.exportLogFailed, {
-          error: errorMessage(error, 'Unknown error'),
-        })
-      );
+    } catch {
+      toast.error(intl.formatMessage(i18n.exportLogFailed));
     } finally {
       exportingLog.current = false;
       setIsExportingLog(false);
@@ -752,6 +748,9 @@ export function SessionActionsContextMenu({
             )}
             {intl.formatMessage(i18n.exportLog)}
           </DropdownMenuItem>
+          <div className="px-2 py-1.5 text-xs whitespace-normal text-text-secondary" data-testid="diagnostic-export-notice">
+            {intl.formatMessage(i18n.exportLogNotice)}
+          </div>
         </DropdownMenuContent>
       </DropdownMenu>
       <ConfirmationModal

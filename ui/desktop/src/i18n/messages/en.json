@@ -7509,16 +7509,16 @@
     "defaultMessage": "Conversation branch created"
   },
   "sessionActionsHeader.exportLog": {
-    "defaultMessage": "Export logs"
+    "defaultMessage": "Export diagnostics"
   },
   "sessionActionsHeader.exportLogFailed": {
-    "defaultMessage": "Failed to export logs: {error}"
+    "defaultMessage": "Session diagnostics could not be saved. The complete history remains on this computer. Please try again."
   },
   "sessionActionsHeader.exportLogNotice": {
-    "defaultMessage": "Includes conversation content and tool results. Review before sharing."
+    "defaultMessage": "Exports event order, status and safe error categories only. Conversation content, tool data and the complete history stay on this computer. This diagnostic file cannot restore a conversation."
   },
   "sessionActionsHeader.exportLogSaved": {
-    "defaultMessage": "Session log saved"
+    "defaultMessage": "Session diagnostics saved"
   },
   "sessionActionsHeader.exportLogWriteFailed": {
     "defaultMessage": "The log file could not be saved."

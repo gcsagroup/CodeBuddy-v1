@@ -7434,16 +7434,16 @@
     "defaultMessage": "Sitzung dupliziert"
   },
   "sessionActionsHeader.exportLog": {
-    "defaultMessage": "Export logs"
+    "defaultMessage": "Diagnose exportieren"
   },
   "sessionActionsHeader.exportLogFailed": {
-    "defaultMessage": "Failed to export logs: {error}"
+    "defaultMessage": "Die Diagnose konnte nicht gespeichert werden. Der vollständige Verlauf bleibt auf diesem Computer. Bitte erneut versuchen."
   },
   "sessionActionsHeader.exportLogNotice": {
-    "defaultMessage": "Includes conversation content and tool results. Review before sharing."
+    "defaultMessage": "Es werden nur Ereignisreihenfolge, Status und sichere Fehlerkategorien exportiert. Gesprächsinhalte, Werkzeugdaten und der vollständige Verlauf bleiben auf diesem Computer. Diese Diagnosedatei kann kein Gespräch wiederherstellen."
   },
   "sessionActionsHeader.exportLogSaved": {
-    "defaultMessage": "Session log saved"
+    "defaultMessage": "Gesprächsdiagnose gespeichert"
   },
   "sessionActionsHeader.exportLogWriteFailed": {
     "defaultMessage": "The log file could not be saved."

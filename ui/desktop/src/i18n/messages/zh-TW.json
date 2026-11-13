@@ -7467,16 +7467,16 @@
     "defaultMessage": "已建立對話分支"
   },
   "sessionActionsHeader.exportLog": {
-    "defaultMessage": "匯出日誌"
+    "defaultMessage": "匯出安全診斷"
   },
   "sessionActionsHeader.exportLogFailed": {
-    "defaultMessage": "匯出日誌失敗：{error}"
+    "defaultMessage": "無法儲存對話診斷。完整歷史仍保留於本機，請重試。"
   },
   "sessionActionsHeader.exportLogNotice": {
-    "defaultMessage": "包含對話內容和工具結果，分享前請檢查。"
+    "defaultMessage": "僅匯出事件順序、狀態與安全錯誤分類；對話正文、工具資料及完整歷史保留於本機。此診斷檔案無法用於還原對話。"
   },
   "sessionActionsHeader.exportLogSaved": {
-    "defaultMessage": "會話日誌已儲存"
+    "defaultMessage": "對話診斷已儲存"
   },
   "sessionActionsHeader.exportLogWriteFailed": {
     "defaultMessage": "日誌檔案儲存失敗。"

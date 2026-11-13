@@ -7434,16 +7434,16 @@
     "defaultMessage": "Sessione duplicata"
   },
   "sessionActionsHeader.exportLog": {
-    "defaultMessage": "Export logs"
+    "defaultMessage": "Esporta diagnostica"
   },
   "sessionActionsHeader.exportLogFailed": {
-    "defaultMessage": "Failed to export logs: {error}"
+    "defaultMessage": "Impossibile salvare la diagnostica. La cronologia completa resta su questo computer. Riprova."
   },
   "sessionActionsHeader.exportLogNotice": {
-    "defaultMessage": "Includes conversation content and tool results. Review before sharing."
+    "defaultMessage": "Vengono esportati solo ordine degli eventi, stati e categorie di errore sicure. Contenuti, dati degli strumenti e cronologia completa restano su questo computer. Il file non consente di ripristinare una conversazione."
   },
   "sessionActionsHeader.exportLogSaved": {
-    "defaultMessage": "Session log saved"
+    "defaultMessage": "Diagnostica salvata"
   },
   "sessionActionsHeader.exportLogWriteFailed": {
     "defaultMessage": "The log file could not be saved."

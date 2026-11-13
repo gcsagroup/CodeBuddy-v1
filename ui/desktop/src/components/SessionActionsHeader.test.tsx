@@ -143,7 +143,8 @@ describe('SessionActionsContextMenu', () => {
       'data-disabled'
     );
     expect(screen.getByText('View session JSON')).toBeVisible();
-    expect(screen.getByText('Export logs')).toBeVisible();
+    expect(screen.getByText('Export diagnostics')).toBeVisible();
+    expect(screen.getByTestId('diagnostic-export-notice')).toHaveTextContent('This diagnostic file cannot restore a conversation.');
     expect(screen.queryByText('View recent model interactions')).not.toBeInTheDocument();
   });
 
@@ -175,7 +176,7 @@ describe('SessionActionsContextMenu', () => {
         const journal =
           '{"type":"session","id":"native"}\n{"type":"tool/result","data":{"text":"中文"}}\n';
         if (outcome === 'read-error')
-          vi.mocked(exporter).mockRejectedValue(new Error('No native log'));
+          vi.mocked(exporter).mockRejectedValue(new Error('PRIVATE_CANARY C:/private/key.txt'));
         else vi.mocked(exporter).mockResolvedValue(journal);
         testingRender(
           <SessionActionsContextMenu session={{ id: 'product', name: 'Export chat' }}>
@@ -186,14 +187,14 @@ describe('SessionActionsContextMenu', () => {
         fireEvent.contextMenu(screen.getByText('Export chat'));
         fireEvent.click(
           await screen.findByRole('menuitem', {
-            name: kind === 'logs' ? 'Export logs' : 'Export session',
+            name: kind === 'logs' ? 'Export diagnostics' : 'Export session',
           })
         );
         await waitFor(() =>
           expect(save).toHaveBeenCalledExactlyOnceWith(
             expect.objectContaining({
               defaultDirectory: 'desktop',
-              defaultPath: kind === 'logs' ? 'session-product.jsonl' : 'session-product.json',
+              defaultPath: kind === 'logs' ? 'codebuddy-diagnostics.jsonl' : 'session-product.json',
             })
           )
         );
@@ -204,7 +205,7 @@ describe('SessionActionsContextMenu', () => {
         } else if (outcome === 'saved') {
           await waitFor(() =>
             expect(toast.success).toHaveBeenCalledWith(
-              kind === 'logs' ? 'Session log saved' : 'Session exported successfully'
+              kind === 'logs' ? 'Session diagnostics saved' : 'Session exported successfully'
             )
           );
           expect(exporter).toHaveBeenCalledWith('product');
@@ -212,6 +213,7 @@ describe('SessionActionsContextMenu', () => {
         } else {
           await waitFor(() => expect(toast.error).toHaveBeenCalled());
           expect(toast.success).not.toHaveBeenCalled();
+          if (kind === 'logs') expect(JSON.stringify(vi.mocked(toast.error).mock.calls)).not.toContain('PRIVATE_CANARY');
           if (outcome === 'read-error') expect(write).not.toHaveBeenCalled();
         }
       });

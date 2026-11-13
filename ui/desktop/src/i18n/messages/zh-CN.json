@@ -7467,16 +7467,16 @@
     "defaultMessage": "已创建对话分支"
   },
   "sessionActionsHeader.exportLog": {
-    "defaultMessage": "导出日志"
+    "defaultMessage": "导出安全诊断"
   },
   "sessionActionsHeader.exportLogFailed": {
-    "defaultMessage": "导出日志失败：{error}"
+    "defaultMessage": "无法保存会话诊断。完整历史仍保留在本机，请重试。"
   },
   "sessionActionsHeader.exportLogNotice": {
-    "defaultMessage": "包含对话内容和工具结果，分享前请检查。"
+    "defaultMessage": "仅导出事件顺序、状态和安全错误分类；对话正文、工具数据及完整历史留在本机。此诊断文件不能用于恢复对话。"
   },
   "sessionActionsHeader.exportLogSaved": {
-    "defaultMessage": "会话日志已保存"
+    "defaultMessage": "会话诊断已保存"
   },
   "sessionActionsHeader.exportLogWriteFailed": {
     "defaultMessage": "日志文件保存失败。"

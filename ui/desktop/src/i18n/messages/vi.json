@@ -7434,16 +7434,16 @@
     "defaultMessage": "Đã nhân bản phiên"
   },
   "sessionActionsHeader.exportLog": {
-    "defaultMessage": "Export logs"
+    "defaultMessage": "Xuất chẩn đoán"
   },
   "sessionActionsHeader.exportLogFailed": {
-    "defaultMessage": "Failed to export logs: {error}"
+    "defaultMessage": "Không thể lưu chẩn đoán. Toàn bộ lịch sử vẫn ở máy tính này. Vui lòng thử lại."
   },
   "sessionActionsHeader.exportLogNotice": {
-    "defaultMessage": "Includes conversation content and tool results. Review before sharing."
+    "defaultMessage": "Chỉ xuất thứ tự sự kiện, trạng thái và loại lỗi an toàn. Nội dung hội thoại, dữ liệu công cụ và toàn bộ lịch sử vẫn ở máy tính này. Không thể dùng tệp này để khôi phục hội thoại."
   },
   "sessionActionsHeader.exportLogSaved": {
-    "defaultMessage": "Session log saved"
+    "defaultMessage": "Đã lưu chẩn đoán hội thoại"
   },
   "sessionActionsHeader.exportLogWriteFailed": {
     "defaultMessage": "The log file could not be saved."

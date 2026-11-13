@@ -77,6 +77,8 @@ test('actual summary failures publish safe native reasons and preserve them acro
   ws.close();await app.close();notifications=[];await connect();
   await rpc('session/load',{sessionId,cwd:root,mcpServers:[]});
   assert.equal(requestCount,sent);assert.deepEqual(lifecycle().filter(d=>d.status==='failed').map(d=>d.diagnostic.code),['AUTH','EMPTY_RESPONSE','MAX_TOKENS','COMPACTION_NOT_SMALLER']);
+  assert.equal(notifications.some(n=>n.params?.update?.status?.data?.terminal_message_id?.startsWith('failed:')),false,
+    'Manual compaction errors keep their lifecycle instead of becoming ordinary-chat failures');
   assert.equal(JSON.stringify(lifecycle()).includes(privateText),false);
   mode='auth';brokenObserver=true;
   const originalFailure=await prompt('/compact').then(()=>null,error=>error);

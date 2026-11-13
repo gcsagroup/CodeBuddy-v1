@@ -111,6 +111,7 @@ export function createConversationDriver(driver, store) {
     rename(id, title) { return driver.rename(nativeId(id), title); },
     history(id) { return driver.history(nativeId(id)); },
     lastUserStop(id, sourceId) { return driver.lastUserStop?.(nativeId(id), sourceId); },
+    userTurnTerminals(id) { return driver.userTurnTerminals?.(nativeId(id)); },
     exportSessionLog(id) { return driver.exportSessionLog(nativeId(id)); },
     // Subagent browsing resolves the product root once; child addresses are native.
     nativeHistory(id) { return driver.history(id); },

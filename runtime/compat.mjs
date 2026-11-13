@@ -59,6 +59,7 @@ import { initialPermissionPreset, permissionPresets } from './permission-presets
 import { mcpSessionApprovalScope, businessPresentationForClient } from './tool-session-approval.mjs';
 import { HistoryService, updatesFromConversation } from "./history.mjs";
 import { sessionLogDiagnostics } from './session-log-diagnostics.mjs';
+import { publicFailure } from './error-presentation.mjs';
 import { loadLegacyConversation } from "./legacy-migration.mjs";
 import {
   builtinMcp,
@@ -176,6 +177,20 @@ function chatStopUpdate(sessionId, sourceId, time, effects, runId = sourceId) {
     tool_action_count: effects.filter(u => u.sessionUpdate === 'tool_call').length,
     copy_artifact_ref: null, finished_at: new Date(time).toISOString(),
   } } };
+}
+
+function chatFailureUpdate(sessionId, sourceId, time, effects, error, runId = sourceId) {
+  const { message, ...diagnostic } = publicFailure(error);
+  const update = chatStopUpdate(sessionId, sourceId, time, effects, runId);
+  delete update.status.data.user_requested_stop;
+  update.status.message = message;
+  Object.assign(update.status.data, {
+    terminal_message_id: 'failed:' + sourceId, status: 'failed', diagnostic,
+    report: { outcome: 'failed', classification_counts: {
+      confirmed_bug: 0, test_failure: 0, environment_problem: 0, codepro_incomplete: 0, unverified: 1,
+    }, changed_files: [], verification_summary: [], limitations: [message], recovery_action: 'ask_user' },
+  });
+  return update;
 }
 
 function mainLocalToolAvailable(turn, name) {
@@ -1838,14 +1853,23 @@ export class Compat {
           await loadLegacyConversation(this.store.directory, s.legacyHistory), s.createdAt,
         ) : undefined;
         let current = this.session(s.id);
-        // Older ordinary chats saved the stop only in the native journal.
+        // Older ordinary chats kept terminal failures only in the native log.
         const lastInput = current.updates?.findLastIndex(u => u.sessionUpdate === 'user_message_chunk') ?? -1;
         const lastInputId = current.updates?.[lastInput]?.messageId;
-        let historicalStop;
-        if (s.type === 'user' && !s.readonlyHistory && !initialLiveReplay && lastInputId &&
-            !current.usageUpdates?.some(u => u.status?.data?.source_user_message_id === lastInputId && u.status.data.terminal_message_id)) {
-          const time = await this.driver.lastUserStop?.(s.id, lastInputId);
-          if (time != null) historicalStop = chatStopUpdate(s.id, lastInputId, time, current.updates.slice(lastInput + 1));
+        let historicalTerminals = [];
+        if (s.type === 'user' && !s.readonlyHistory && !initialLiveReplay && lastInputId) {
+          try {
+            const native = await this.driver.userTurnTerminals?.(s.id);
+            if (native) historicalTerminals = native;
+            else if (!current.usageUpdates?.some(u => u.status?.data?.source_user_message_id === lastInputId && u.status.data.terminal_message_id)) {
+              const time = await this.driver.lastUserStop?.(s.id, lastInputId);
+              if (time != null) historicalTerminals = [{ sourceId: lastInputId, time, reason: { kind: 'aborted', reason: { kind: 'user' } } }];
+            }
+          } catch {
+            // Diagnosis is optional; a failed inspection must not hide readable
+            // history or publish arbitrary exception details to the client/log.
+            console.warn('[Session terminal inspection unavailable]');
+          }
           if (current.updatedAt !== this.session(s.id, { fields: ['updatedAt'] }).updatedAt) current = this.session(s.id);
         }
         const imageRepairs = new Map();
@@ -1863,7 +1887,7 @@ export class Compat {
         // and replay synchronous so old history cannot interleave with live data.
         // Without asynchronous image repair, this detached snapshot is already
         // current. Avoid copying the full transcript twice for every open.
-        if (imageRepairs.size || historicalStop) current = this.session(s.id);
+        if (imageRepairs.size || historicalTerminals.length) current = this.session(s.id);
         if (current.cwd !== s.cwd || (current.nativeSessionId ?? current.id) !== (s.nativeSessionId ?? s.id))
           throw invalid("Session changed while image previews were being prepared; retry");
         const liveReplay = this.active.get(s.id)?.replay;
@@ -1895,9 +1919,29 @@ export class Compat {
                 }
               : current,
         );
-        if (historicalStop && !liveReplay && current.updates.findLast(u => u.sessionUpdate === 'user_message_chunk')?.messageId === lastInputId &&
-            !transcript.usageUpdates.some(u => u.status?.data?.source_user_message_id === lastInputId && u.status.data.terminal_message_id))
-          transcript.usageUpdates.push(historicalStop);
+        if (historicalTerminals.length && !liveReplay &&
+            current.updates.findLast(u => u.sessionUpdate === 'user_message_chunk')?.messageId === lastInputId) {
+          const recorded = new Set(transcript.usageUpdates.filter(u => u.status?.data?.terminal_message_id)
+            .map(u => u.status.data.source_user_message_id));
+          const turns = new Map();
+          let effects;
+          for (const update of current.updates) {
+            if (update.sessionUpdate === 'user_message_chunk') {
+              if (!turns.has(update.messageId)) turns.set(update.messageId, []);
+              effects = turns.get(update.messageId);
+            } else effects?.push(update);
+          }
+          for (const terminal of historicalTerminals) {
+            const sources = terminal.sourceIds ?? [terminal.sourceId];
+            if (sources.some(id => recorded.has(id)) || !turns.has(terminal.sourceId)) continue;
+            const effect = sources.flatMap(id => turns.get(id) ?? []);
+            if (terminal.reason.kind === 'error')
+              transcript.usageUpdates.push(chatFailureUpdate(s.id, terminal.sourceId, terminal.time, effect, terminal.reason.error));
+            else if (sources.includes(lastInputId) && terminal.reason.kind === 'aborted' && terminal.reason.reason?.kind === 'user')
+              transcript.usageUpdates.push(chatStopUpdate(s.id, terminal.sourceId, terminal.time, effect));
+            recorded.add(terminal.sourceId);
+          }
+        }
         transcript.updates = transcript.updates.map(update => {
           if (update.sessionUpdate !== "tool_call_update" || !update.content?.some(part => part.type === "content" && part.content?.type === "image" && part.content.attachment)) return update;
           return { ...update, content: imageRepairs.get(JSON.stringify(update.content)) ?? update.content.map(part =>
@@ -3054,6 +3098,8 @@ export class Compat {
         ...(nativeObservationToken ? { scheduled: true } : {}), ...(presentation ? { presentation } : {}) } },
     }));
     let promptError;
+    let failedBeforeStop = false;
+    let nativeTerminalReason;
     let terminalHttpFailure;
     let result;
     promptEntry.desktopControlToken = promptScope;
@@ -3192,6 +3238,12 @@ export class Compat {
         },
         onEvent: async (event) => {
           promptEntry.nativeAttached.resolve();
+          // Native termination may precede prompt rejection while the driver
+          // drains children, jobs and event delivery. Keep that display fact.
+          if (event.type === 'harness_event' && event.sessionId === s.id) {
+            if (event.event.type === 'turn/start') nativeTerminalReason = undefined;
+            if (event.event.type === 'turn/end') nativeTerminalReason = event.event.data.reason;
+          }
           if (event.type === 'agent_input' && event.sessionId === s.id) {
             // This is an invalidation receipt, not a second role snapshot.
             // current() continues to derive adoption from the native log.
@@ -3478,6 +3530,9 @@ export class Compat {
     } catch (error) {
       trace(controller.signal.aborted ? 'cancelled' : 'failed');
       promptError = error;
+      // A late click during finalization cannot replace an already observed
+      // failure. A stop that caused the rejection keeps its cancellation path.
+      failedBeforeStop = !controller.signal.aborted;
       if (terminalHttpFailure && error?.code === terminalHttpFailure.code) {
         // Project the observed status after native recovery has finished.
         promptError = Object.assign(new Error(error.message, { cause: error }), {
@@ -3613,6 +3668,13 @@ export class Compat {
           await writer?.appendUsage(update);
           usageUpdates.push(update);
           connection.notify(prefix + "session/update", { sessionId: s.id, update });
+        } else if (s.type === 'user' && promptError && !manualCompact && replay.users.length &&
+            (nativeTerminalReason?.kind === 'error' && nativeTerminalReason.error.code === promptError.code ||
+              failedBeforeStop)) {
+          const update = chatFailureUpdate(s.id, userId, Date.now(), updates, promptError, promptScope);
+          await writer?.appendUsage(update);
+          usageUpdates.push(update);
+          connection.notify(prefix + 'session/update', { sessionId: s.id, update });
         } else if (active?.userRequestedStop && controller.signal.aborted && replay.users.length) {
           const update = chatStopUpdate(s.id, userId, Date.now(), updates, promptScope);
           await writer?.appendUsage(update);

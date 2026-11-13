@@ -5,6 +5,7 @@ import { llmPatch } from './sdk-budget/llm-patch.mjs';
 import { adapterPatch } from './sdk-budget/adapter-patch.mjs';
 import { compactionPatch } from './sdk-budget/compaction-patch.mjs';
 import { retryPatch } from './sdk-budget/retry-patch.mjs';
+import { runtimeContextSessionPatch, runtimeContextMeterPatch, runtimeContextImageOffloadPatch } from './sdk-budget/runtime-context-patch.mjs';
 
 // The adapter's estimator and 4096-token reservation belong to this exact Pi
 // release. Do not silently combine the shim with independently upgraded helpers.
@@ -25,7 +26,8 @@ if (piVersion !== '1.2.0') throw new Error('Review the SDK request-fit contract 
 
 // Register every seam before importing any SDK module: their dependencies share
 // native module identities. A loaded or upgraded module must fail explicitly.
-const patches = [llmPatch, adapterPatch, compactionPatch, retryPatch].map(patch => {
+const patches = [llmPatch, adapterPatch, compactionPatch, retryPatch,
+  runtimeContextSessionPatch, runtimeContextMeterPatch, runtimeContextImageOffloadPatch].map(patch => {
   const url = import.meta.resolve(patch.name);
   const source = readFileSync(new URL(url), 'utf8');
   const version = JSON.parse(readFileSync(new URL('../package.json', url), 'utf8')).version;

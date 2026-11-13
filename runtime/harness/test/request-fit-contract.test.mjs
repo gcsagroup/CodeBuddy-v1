@@ -16,7 +16,8 @@ test('public driver, metadata-first, and real server imports share the checked S
       import assert from 'node:assert/strict';
       import { readFileSync } from 'node:fs';
       import { createHash } from 'node:crypto';
-      const paths = ['@deepseek-ai/dsh-llm', '@deepseek-ai/dsh-llm-pi-ai', '@deepseek-ai/dsh-compaction-basic', '@deepseek-ai/dsh-llm-retry'];
+      const paths = ['@deepseek-ai/dsh-llm', '@deepseek-ai/dsh-llm-pi-ai', '@deepseek-ai/dsh-compaction-basic', '@deepseek-ai/dsh-llm-retry',
+        '@deepseek-ai/dsh-session', '@deepseek-ai/dsh-token-meter', '@deepseek-ai/dsh-agent-loop', '@deepseek-ai/dsh-compaction-image-offload'];
       const digest = name => createHash('sha256').update(readFileSync(new URL(import.meta.resolve(name)))).digest('hex');
       const before = paths.map(digest);
       await import(${JSON.stringify(entry)});
@@ -42,7 +43,7 @@ test('late SDK loading fails explicitly instead of silently using an unpatched m
 });
 
 test('SDK and Pi helper byte drift are rejected before native loading without editing dependencies', () => {
-  for (const name of ['@deepseek-ai/dsh-llm', '@earendil-works/pi-ai/api/simple-options']) {
+  for (const name of ['@deepseek-ai/dsh-llm', '@earendil-works/pi-ai/api/simple-options', '@deepseek-ai/dsh-session', '@deepseek-ai/dsh-token-meter', '@deepseek-ai/dsh-compaction-image-offload']) {
     const child = run(`
       import fs from 'node:fs';
       import { syncBuiltinESMExports } from 'node:module';

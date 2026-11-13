@@ -411,6 +411,15 @@ export default function GooseMessage({
     !turnTerminal.user_requested_stop;
   const priorAnswerText =
     turnTerminal?.session_id === sessionId && hasPriorAnswerText(turnTerminal, messages);
+  const recoveredInterruption =
+    turnTerminal?.stop_reason === 'process_interrupted'
+      ? message.content.find(
+          (content) =>
+            content.type === 'systemNotification' && content.notificationType === 'turnTerminal'
+        )
+      : undefined;
+  const recoveryExplanation =
+    recoveredInterruption?.type === 'systemNotification' ? recoveredInterruption.msg : '';
   const displayText =
     (contextLimited
       ? intl.formatMessage(i18n.contextBudgetExhausted)
@@ -421,7 +430,7 @@ export default function GooseMessage({
               : i18n.outputLimitReached,
             { attempts: turnTerminal.output_limit?.automaticAttempts ?? 0 }
           )
-        : textContent.trim()) ||
+        : textContent.trim() || recoveryExplanation) ||
     (plainTerminal && !priorAnswerText
       ? intl.formatMessage(
           turnTerminal.status === 'cancelled' ? i18n.cancelledExplanation : i18n.turnStopped

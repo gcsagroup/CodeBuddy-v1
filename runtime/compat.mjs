@@ -1831,6 +1831,62 @@ export class Compat {
             },
           });
         }
+        // The host already recorded the interrupted process at startup. Present
+        // that fact on restore; loading history never resumes its model/tools.
+        const interruption = snapshot?.recentEvents.at(-1);
+        let interruptionData;
+        if (!s.readonlyHistory && !this.active.has(s.id) && snapshot?.state === 'paused' &&
+            interruption?.eventType === 'process_interrupted') {
+          const context = this.runs.context({ sessionId: s.id, runId: snapshot.runId });
+          interruptionData = {
+            schema_version: 1, session_id: s.id, run_id: snapshot.runId,
+            terminal_message_id: `terminal:${interruption.eventId}`,
+            source_user_message_id: context.sourceMessageId,
+            status: 'interrupted', stop_reason: 'process_interrupted',
+            visible_text_available: transcript.updates.some(u => u.sessionUpdate === 'agent_message_chunk'),
+            tool_action_count: context.receipts.length,
+            copy_artifact_ref: null, finished_at: interruption.occurredAt,
+            checkpoint_id: null, retry_strategy: 'not_available',
+          };
+        } else if (!snapshot && !s.readonlyHistory && !this.active.has(s.id) && this.driver.history &&
+            transcript.updates.some(u => u.sessionUpdate === 'user_message_chunk')) {
+          // Ordinary/main chats have no CodePro run. Native cold inspection
+          // supplies interrupted closers without activating an Agent or tools.
+          // A pending ACP redo file alone cannot prove a native turn failed.
+          try {
+            const history = await this.driver.history(s.id);
+            const end = history.events.findLast(e => e.type === 'turn/start' || e.type === 'turn/end');
+            const source = history.events.findLast(e => e.type === 'user/message' && e.data.source?.kind === 'user')?.data.source.rpcId;
+            const latestUser = this.session(s.id, { fields: ['updates'] }).updates?.findLast(u => u.sessionUpdate === 'user_message_chunk');
+            if (end?.type === 'turn/end' && end.data.reason.kind === 'interrupted' && source &&
+                latestUser?.messageId === source && !this.active.has(s.id)) {
+              const turnId = `native:${s.nativeSessionId ?? s.id}:${end.data.turn}`;
+              interruptionData = {
+                schema_version: 1, session_id: s.id, run_id: turnId,
+                terminal_message_id: `terminal:${turnId}`, source_user_message_id: source,
+                status: 'interrupted', stop_reason: 'process_interrupted',
+                visible_text_available: transcript.updates.slice(transcript.updates.findLastIndex(u =>
+                  u.sessionUpdate === 'user_message_chunk')).some(u => u.sessionUpdate === 'agent_message_chunk'),
+                tool_action_count: history.events.filter(e => e.type === 'tool/call' && e.data.turn === end.data.turn).length,
+                copy_artifact_ref: null, finished_at: new Date(end.time).toISOString(),
+                checkpoint_id: null, retry_strategy: 'not_available',
+              };
+            }
+          } catch (error) {
+            // Optional recovery explanation must not hide otherwise readable history.
+            console.warn('[Session recovery inspection failed]', { sessionId: s.id, code: error.code ?? error.name });
+          }
+        }
+        if (interruptionData) {
+          connection.notify(prefix + 'session/update', {
+            sessionId: s.id,
+            update: { sessionUpdate: 'status_message', status: {
+              type: 'progress',
+              message: '上次运行服务中断。已保存的会话记录和文件仍保留。请核对已完成的工作后，在当前对话继续；结果未确认的操作请先检查，避免重复执行。',
+              data: interruptionData,
+            } },
+          });
+        }
         checkpoint("recoveryAndRunMs");
         if (!s.readonlyHistory && this.driver.questions)
           connection.notify(

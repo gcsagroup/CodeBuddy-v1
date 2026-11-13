@@ -54,6 +54,19 @@ function show(message: Message, deliveredPaths: string[] = []) {
 }
 
 describe('handoff versus an unexplained interruption', () => {
+  it('explains a restored backend interruption without offering automatic continuation or changing ordinary stops', () => {
+    const message = terminal('interrupted');
+    const notification = message.content.find((content) => content.type === 'systemNotification');
+    const explanation = '运行服务中断。已保存的工作仍保留，请核对后继续。';
+    if (notification?.type === 'systemNotification') {
+      notification.msg = explanation;
+      notification.data = { ...(notification.data as object), stop_reason: 'process_interrupted' };
+    }
+    show(message);
+    expect(screen.getByText(explanation)).toBeVisible();
+    expect(screen.queryByRole('button', { name: /continu/i })).not.toBeInTheDocument();
+    expect(screen.queryByText('Stopped')).not.toBeInTheDocument();
+  });
   it('shows the missing final reply only when the completed turn also lacks delivered media', () => {
     const message = terminal('completed');
     const record = message.content.find(c => c.type === 'systemNotification');

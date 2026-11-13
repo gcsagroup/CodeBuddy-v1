@@ -1,5 +1,6 @@
 import { registerDesktopControl } from './desktopControlMain';
 import { registerWindowMenu } from './windowMenu';
+import { registerMainWindowRecovery } from './mainWindowRecovery';
 import { maintainVisibleWindowFrames } from './utils/windowAnimation';
 import { applicationWindows, markAuxiliaryWindow, registerDesktopPet } from './pets/petMain';
 import { registerTrayLifecycle } from './utils/trayLifecycle';
@@ -1438,6 +1439,7 @@ const createChat = async (
   }
 
   maintainVisibleWindowFrames(mainWindow);
+  registerMainWindowRecovery(mainWindow, nativeT);
 
   if (process.platform === 'win32') {
     mainWindow.setMenuBarVisibility(false);

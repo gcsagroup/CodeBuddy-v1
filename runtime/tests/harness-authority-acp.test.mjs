@@ -49,6 +49,57 @@ async function fixture(t, storageOptions) {
   return { compat, driver, store, notices, sessions, scripts, sessionId, prompt, request, connection, setInitializer(fn) { initialize = fn; } };
 }
 
+test('loading an interrupted host run explains recovery without executing or changing recorded work', async t => {
+  const f = await fixture(t);
+  const run = await f.compat.runs.create({ sessionId: f.sessionId, goal: 'Preserve completed work', sourceMessageId: 'before-crash', executionOwner: 'harness' });
+  const binding = { sessionId: f.sessionId, runId: run.runId };
+  const { attemptId } = await f.compat.runs.beginAttempt({ ...binding, sourceMessageId: 'before-crash' });
+  await f.compat.runs.recordToolStart({ ...binding, attemptId, callId: 'written-once', name: 'write' });
+  await f.compat.runs.recordToolResult({ ...binding, attemptId, callId: 'written-once', kind: 'write', path: path.join(f.store.readSession(f.sessionId).cwd, 'checkpoint.txt'), outcome: 'succeeded' });
+  await f.store.updateSession(f.sessionId, session => {
+    session.updates.push({ sessionUpdate: 'user_message_chunk', messageId: 'before-crash', content: { type: 'text', text: 'write once' } });
+  });
+  await f.compat.runs.initialize(); // Startup records the interrupted process.
+  const saved = f.store.readSession(f.sessionId);
+  const context = f.compat.runs.context(binding);
+  const initializations = f.sessions.length;
+  for (let i = 0; i < 2; i++) {
+    const start = f.notices.length;
+    await f.request('session/load', { sessionId: f.sessionId });
+    const notices = f.notices.slice(start).filter(n => n.params.update?.status?.data?.stop_reason === 'process_interrupted');
+    assert.equal(notices.length, 1, 'one explanation per load, never a new task');
+    assert.match(notices[0].params.update.status.message, /运行服务中断/);
+    assert.match(notices[0].params.update.status.message, /核对/);
+    assert.equal(notices[0].params.update.status.data.retry_strategy, 'not_available');
+    assert.equal(notices[0].params.update.status.data.tool_action_count, 1);
+    assert.equal(notices[0].params.update.status.data.source_user_message_id, 'before-crash');
+    assert.deepEqual(f.store.readSession(f.sessionId), saved);
+    assert.deepEqual(f.compat.runs.context(binding), context);
+  }
+  assert.equal(f.sessions.length, initializations, 'load must not initialize an executor');
+  assert.equal(f.compat.active.size, 0);
+  assert.equal(f.compat.runs.context(binding).receipts.length, 1);
+  await f.store.updateSession(f.sessionId, session => { session.readonlyHistory = true; });
+  const start = f.notices.length;
+  await f.request('session/load', { sessionId: f.sessionId });
+  assert.equal(f.notices.slice(start).some(n => n.params.update?.status?.data?.stop_reason === 'process_interrupted'), false);
+});
+
+test('a subsequent attempt or normal stop does not retain the backend interruption notice', async t => {
+  const f = await fixture(t);
+  const run = await f.compat.runs.create({ sessionId: f.sessionId, goal: 'Resume explicitly', sourceMessageId: 'before', executionOwner: 'harness' });
+  const binding = { sessionId: f.sessionId, runId: run.runId };
+  await f.compat.runs.beginAttempt({ ...binding, sourceMessageId: 'before' });
+  await f.compat.runs.initialize();
+  const { attemptId } = await f.compat.runs.beginAttempt({ ...binding, sourceMessageId: 'after' });
+  for (const stopped of [false, true]) {
+    if (stopped) await f.compat.runs.finishHarnessAttempt({ ...binding, attemptId, result: { stopReason: 'cancelled', reason: { kind: 'aborted' } } });
+    const start = f.notices.length;
+    await f.request('session/load', { sessionId: f.sessionId });
+    assert.equal(f.notices.slice(start).some(n => n.params.update?.status?.data?.stop_reason === 'process_interrupted'), false);
+  }
+});
+
 test('a failed terminal checkpoint releases the transcript writer for the next prompt without restart', { timeout: 30_000 }, async t => {
   const failure = Object.assign(new Error('fixture terminal snapshot is temporarily locked'), { code: 'EPERM' });
   let deny = false;

@@ -10116,7 +10116,7 @@
     "defaultMessage": "Log terperinci"
   },
   "diagnosticExport.detailedHint": {
-    "defaultMessage": "Menambahkan cuplikan galat, stack dan keluaran alat. Periksa isinya sebelum menyimpan."
+    "defaultMessage": "Menambahkan cuplikan keluaran alat. Periksa isinya di pratinjau sebelum menyimpan."
   },
   "diagnosticExport.failed": {
     "defaultMessage": "Log tidak dapat disiapkan atau disimpan. Coba lagi."

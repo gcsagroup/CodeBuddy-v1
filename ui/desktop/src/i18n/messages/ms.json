@@ -10116,7 +10116,7 @@
     "defaultMessage": "Log terperinci"
   },
   "diagnosticExport.detailedHint": {
-    "defaultMessage": "Menambah petikan ralat, tindanan dan output alat. Semak kandungan sebelum menyimpan."
+    "defaultMessage": "Menambah petikan output alat. Semak kandungan dalam pratonton sebelum menyimpan."
   },
   "diagnosticExport.failed": {
     "defaultMessage": "Log tidak dapat disediakan atau disimpan. Cuba lagi."

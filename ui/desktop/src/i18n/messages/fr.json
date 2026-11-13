@@ -10116,7 +10116,7 @@
     "defaultMessage": "Journal détaillé"
   },
   "diagnosticExport.detailedHint": {
-    "defaultMessage": "Ajoute des extraits d’erreurs, de piles et de sorties d’outils. Vérifiez le contenu avant d’enregistrer."
+    "defaultMessage": "Ajoute des extraits de sortie des outils. Vérifiez le contenu dans l’aperçu avant d’enregistrer."
   },
   "diagnosticExport.failed": {
     "defaultMessage": "Impossible de préparer ou enregistrer les journaux. Réessayez."

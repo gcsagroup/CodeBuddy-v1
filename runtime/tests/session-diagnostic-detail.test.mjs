@@ -35,7 +35,7 @@ const sample = () => [
 test('standard diagnostics retain routing, request declarations, compaction budgets and stream failures without private values', () => {
   const rows = sample(), original = encode(rows), text = sessionLogDiagnostics(original);
   const out = decode(text), data = out.slice(1).map(row => row.data);
-  assert.equal(out[0].revision, 'codebuddy-log-v2');
+  assert.equal(out[0].revision, 'codebuddy-log-v3');
   assert.equal(out[0].detail, 'standard'); assert.equal(out[0].restorable, false);
   assert.deepEqual(out.slice(1).map(row => row.seq), rows.slice(1).map(row => row.seq));
   assert.equal(data[0].request.source, 'native_header');
@@ -58,7 +58,9 @@ test('standard diagnostics retain routing, request declarations, compaction budg
   assert.equal(data[7].usage.source, 'compaction/summary');
   assert.equal(data[6].compactionId, data[8].compactionId); assert.equal(data[6].turn, null);
   assert.equal(data[8].diagnostic.code, 'UNKNOWN_FAILURE');
-  assert.doesNotMatch(text, /private-|PRIVATE_|SYNTHETIC-SECRET|example\.test|Users/);
+  assert.doesNotMatch(text, /private-name|private-project|PRIVATE_|SYNTHETIC-SECRET|example\.test|Users/);
+  assert.equal(data[0].request.config.model, 'private-model-a');
+  assert.equal(data[2].callId, 'private-call');
   assert.equal(encode(rows), original);
 });
 
@@ -68,9 +70,9 @@ test('detailed diagnostics scrub credentials and identifiers before exposing bou
   const out = decode(text), data = out.slice(1).map(row => row.data);
   assert.equal(out[0].containsTextExcerpts, true);
   assert.match(data[3].details.output, /ENOENT/);
-  assert.match(data[8].details.error, /summarization truncated at the token cap/);
-  assert.match(data[5].stream.finishes[0].details.error, /Unsupported tools parameter/);
-  assert.doesNotMatch(text, /private-|PRIVATE_|SYNTHETIC-SECRET|example\.test|Users/);
+  assert.match(data[8].error.message, /summarization truncated at the token cap/);
+  assert.match(data[5].stream.finishes[0].error.message, /Unsupported tools parameter/);
+  assert.doesNotMatch(text, /private-name|private-project|PRIVATE_|SYNTHETIC-SECRET|example\.test|Users/);
   assert.equal(encode(sample()), original);
 });
 
@@ -104,7 +106,7 @@ test('known credentials split across tool text blocks are removed and incomplete
   rows[9].data.error = 'An error echoed DeepCredential123';
   const limited = decode(sessionLogDiagnostics(encode(rows), { detail: 'detailed' }));
   assert.doesNotMatch(JSON.stringify(limited), /DeepCredential123/);
-  assert.equal(limited[9].data.details.truncated, true);
+  assert.equal(limited[9].data.error.truncated, true);
 });
 
 test('arbitrary authentication header values echoed without field names remain private', () => {
@@ -122,7 +124,7 @@ test('earlier tool output cannot consume the excerpt budget of the final compact
   } } });
   rows.push({ type: 'compaction/end', seq: 5, data: { error: 'summarization truncated at the token cap (incomplete checkpoint)' } });
   const out = decode(sessionLogDiagnostics(encode(rows), { detail: 'detailed' }));
-  assert.match(out.at(-1).data.details.error, /summarization truncated/);
+  assert.match(out.at(-1).data.error.message, /summarization truncated/);
   assert.deepEqual(out.slice(1).map(row => row.seq), [0, 1, 2, 3, 4, 5]);
 });
 
@@ -165,7 +167,8 @@ test('saved structured observations retain HTTP status separately without rewrit
   } } }] }));
   assert.equal(out[0].observations[0].diagnostic.httpStatus, 400);
   assert.equal(out[1].data.diagnostic.httpStatus, undefined);
-  assert.doesNotMatch(JSON.stringify(out), /PRIVATE_RESPONSE|private-run/);
+  assert.doesNotMatch(JSON.stringify(out), /PRIVATE_RESPONSE/);
+  assert.equal(out[0].observations[0].runId, 'private-run');
 });
 
 test('overlapping occurrences of one known credential leave no unmatched tail', () => {

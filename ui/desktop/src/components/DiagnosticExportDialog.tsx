@@ -24,7 +24,7 @@ const messages = defineMessages({
   detailedHint: {
     id: 'diagnosticExport.detailedHint',
     defaultMessage:
-      'Adds error, stack and tool-output excerpts. Check the contents in the preview before saving.',
+      'Adds tool-output excerpts. Check the contents in the preview before saving.',
   },
   preview: { id: 'diagnosticExport.preview', defaultMessage: 'File preview' },
   loading: { id: 'diagnosticExport.loading', defaultMessage: 'Preparing logs…' },

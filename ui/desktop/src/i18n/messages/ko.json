@@ -10116,7 +10116,7 @@
     "defaultMessage": "상세 로그"
   },
   "diagnosticExport.detailedHint": {
-    "defaultMessage": "오류, 스택 및 도구 출력 발췌를 추가합니다. 저장 전에 내용을 확인하세요."
+    "defaultMessage": "도구 출력 발췌를 추가합니다. 저장하기 전에 미리보기에서 내용을 확인하세요."
   },
   "diagnosticExport.failed": {
     "defaultMessage": "로그를 준비하거나 저장하지 못했습니다. 다시 시도하세요."

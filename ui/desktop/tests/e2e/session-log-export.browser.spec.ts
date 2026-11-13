@@ -76,7 +76,7 @@ test('sidebar downloads safe diagnostics over actual ACP, preserving native hist
     expect(rows[0].eventCount).toBe(original.length - 1);
     expect(rows.slice(1).map(row => row.seq)).toEqual(original.slice(1).map(row => row.seq));
     expect(downloaded).not.toContain('Browser export');
-    expect(downloaded).not.toContain('native-export');
+    expect(rows[0].session.id).toBe('native-export');
     expect(downloaded).not.toContain(ready.root);
     expect(await readFile(ready.nativeJournal, 'utf8')).toBe(ready.original);
     expect(writes).toBe(1);

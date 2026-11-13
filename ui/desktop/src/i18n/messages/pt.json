@@ -10116,7 +10116,7 @@
     "defaultMessage": "Log detalhado"
   },
   "diagnosticExport.detailedHint": {
-    "defaultMessage": "Adiciona trechos de erros, pilhas e saídas de ferramentas. Revise o conteúdo antes de salvar."
+    "defaultMessage": "Adiciona trechos da saída das ferramentas. Confira o conteúdo na prévia antes de salvar."
   },
   "diagnosticExport.failed": {
     "defaultMessage": "Não foi possível preparar ou salvar os logs. Tente novamente."

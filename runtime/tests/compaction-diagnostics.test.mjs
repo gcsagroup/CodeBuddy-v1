@@ -27,7 +27,7 @@ test('actual summary failures publish safe native reasons and preserve them acro
     if(!body.stream)return res.end(JSON.stringify({choices:[{message:{content:'Isolated test'}}]}));
     requestCount++;
     const summary=JSON.stringify(body.messages.at(-1)).includes('compaction engine');
-    if(summary&&mode==='auth')return res.writeHead(401,{'content-type':'application/json'}).end(JSON.stringify({error:{message:privateText,code:'invalid_api_key'}}));
+    if(summary&&mode==='auth')return res.writeHead(401,{'content-type':'application/json'}).end(JSON.stringify({error:{message:'Authentication rejected; api_key='+privateText,code:'invalid_api_key'}}));
     res.writeHead(200,{'content-type':'text/event-stream'});
     const emit=(delta,finish_reason=null)=>res.write('data: '+JSON.stringify({id:'diagnostic-fixture',choices:[{index:0,delta,finish_reason}]})+'\n\n');
     const content=summary ? mode==='empty'?'':mode==='not_smaller'?'Repeated archive cannot be a smaller checkpoint. '.repeat(3000):'Retain ORION-739. The completed command must not be repeated. Next: verify.' : 'Completed synthetic archive. '.repeat(900);

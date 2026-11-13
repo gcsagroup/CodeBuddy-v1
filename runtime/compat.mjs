@@ -2762,7 +2762,7 @@ export class Compat {
           return { data: sessionLogDiagnostics(await this.driver.exportSessionLog(s.id), { detail: p.detail, observations: s.usageUpdates ?? [] }) };
         } catch {
           // File errors and parse errors can contain private paths or log text.
-          throw Object.assign(new Error('无法导出会话诊断。本机完整历史已保留，请重试或联系维护者。'), { code: -32603 });
+          throw Object.assign(new Error('无法导出会话日志。本机完整历史已保留，请重试或联系维护者。'), { code: -32603 });
         }
       }
       case "session/info":

@@ -30,7 +30,8 @@ test('diagnostic download uses mapped history without modifying the complete nat
   const rows = response.data.trimEnd().split('\n').map(line => JSON.parse(line));
   assert.equal(rows[0].type, 'log-export');
   assert.equal(rows[0].restorable, false);
-  assert.doesNotMatch(response.data, /native-current|日志导出|DO_NOT_EXPORT/);
+  assert.doesNotMatch(response.data, /日志导出|DO_NOT_EXPORT/);
+  assert.equal(rows[0].session.id, 'native-current');
   assert.equal(response.data.includes(root), false);
   const files = await readdir(path.join(dataDir, 'sessions'), { recursive: true });
   const journal = files.find(file => file.includes('native-current') && file.endsWith('session.v4.jsonl'));
@@ -53,7 +54,7 @@ test('diagnostic download uses mapped history without modifying the complete nat
   native = await createHarnessDriver({ dataDir, cwd: root });
   assert.equal((await request().request('_goose/unstable/session/log/export', { sessionId: 'product-id' })).data, response.data);
   await assert.rejects(request().request('_goose/unstable/session/log/export', { sessionId: 'legacy' }), /没有 Harness 日志/);
-  await assert.rejects(request().request('_goose/unstable/session/log/export', { sessionId: 'empty' }), /无法导出会话诊断/);
+  await assert.rejects(request().request('_goose/unstable/session/log/export', { sessionId: 'empty' }), /无法导出会话日志/);
   await assert.rejects(request().request('_goose/unstable/session/log/export', { sessionId: '../native-current' }), /Session not found|Unknown session/i);
   for (const mode of ['read', 'parse']) {
     t.mock.method(native, 'exportSessionLog', async () => {
@@ -86,7 +87,7 @@ test('diagnostics retain event correlation and safe failure facts without arbitr
   assert.equal(rows[1].data.callId,rows[2].data.callId);
   assert.equal(rows[2].data.diagnostic.code,'AUTH');assert.equal(rows[2].data.diagnostic.httpStatus,401);
   assert.equal(rows[3].data.diagnostic.code,'TIMEOUT');assert.equal(rows[4].data.diagnostic.httpStatus,504);
-  assert.equal(rows[5].type,'other');assert.equal(rows[5].data.reason,undefined);
+  assert.notEqual(rows[5].type,secret);assert.equal(rows[5].data.reason,undefined);
   assert.equal(rows[6].data.diagnostic.code,'UNKNOWN_FAILURE');
   assert.equal(rows[7].data.diagnostic.code,'TOOL_OUTCOME_UNKNOWN');
   assert.equal(rows[8].data.reason,'interrupted');

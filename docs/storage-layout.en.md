@@ -1,6 +1,6 @@
 # CodeBuddy data directory
 
-Right-click a conversation and choose **Export logs**. The preview offers standard logs with technical facts or detailed logs with processed error, stack and tool-output excerpts. Sensitive values are removed or replaced in the exported copy; complete native history remains on this computer. Save writes the exact preview. The log-export file is marked `restorable: false` and is not a conversation backup. **View session JSON** and **Export session** still contain business content. See [log export details](session-diagnostics.zh-CN.md).
+Right-click a conversation and choose **Export logs**. Standard logs retain recorded model names, request IDs, technical settings and processed original error details; detailed logs add tool-output excerpts. Sensitive values are removed or replaced in the exported copy; complete native history remains on this computer. Save writes the exact preview. The log-export file is marked `restorable: false` and is not a conversation backup. **View session JSON** and **Export session** still contain business content. See [log export details](session-diagnostics.zh-CN.md).
 
 The default root is `~/.CodeBuddy` (`C:\Users\<username>\.CodeBuddy` on Windows). Source previews and packaged apps share this default; the runtime lock protects the data root from concurrent writers. Tests and parallel development must explicitly select isolated directories.
 

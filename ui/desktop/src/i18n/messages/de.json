@@ -10116,7 +10116,7 @@
     "defaultMessage": "Ausführliches Protokoll"
   },
   "diagnosticExport.detailedHint": {
-    "defaultMessage": "Enthält Auszüge aus Fehlern, Stacktraces und Werkzeugausgaben. Inhalt vor dem Speichern prüfen."
+    "defaultMessage": "Ergänzt Auszüge aus Werkzeugausgaben. Prüfen Sie den Inhalt vor dem Speichern in der Vorschau."
   },
   "diagnosticExport.failed": {
     "defaultMessage": "Protokoll konnte nicht erstellt oder gespeichert werden. Erneut versuchen."

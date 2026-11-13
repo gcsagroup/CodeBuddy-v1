@@ -10116,7 +10116,7 @@
     "defaultMessage": "Log dettagliato"
   },
   "diagnosticExport.detailedHint": {
-    "defaultMessage": "Aggiunge estratti di errori, stack e risultati degli strumenti. Verificare prima di salvare."
+    "defaultMessage": "Aggiunge estratti dell’output degli strumenti. Controlla il contenuto nell’anteprima prima di salvare."
   },
   "diagnosticExport.failed": {
     "defaultMessage": "Impossibile preparare o salvare i log. Riprovare."

@@ -10116,7 +10116,7 @@
     "defaultMessage": "Nhật ký chi tiết"
   },
   "diagnosticExport.detailedHint": {
-    "defaultMessage": "Thêm trích đoạn lỗi, ngăn xếp và đầu ra công cụ. Kiểm tra nội dung trước khi lưu."
+    "defaultMessage": "Thêm trích đoạn đầu ra công cụ. Kiểm tra nội dung trong bản xem trước trước khi lưu."
   },
   "diagnosticExport.failed": {
     "defaultMessage": "Không thể chuẩn bị hoặc lưu nhật ký. Hãy thử lại."

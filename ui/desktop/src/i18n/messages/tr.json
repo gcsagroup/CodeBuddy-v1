@@ -10116,7 +10116,7 @@
     "defaultMessage": "Ayrıntılı günlük"
   },
   "diagnosticExport.detailedHint": {
-    "defaultMessage": "Hata, yığın ve araç çıktısı alıntıları ekler. Kaydetmeden önce içeriği kontrol edin."
+    "defaultMessage": "Araç çıktısı alıntıları ekler. Kaydetmeden önce önizlemede içeriği kontrol edin."
   },
   "diagnosticExport.failed": {
     "defaultMessage": "Günlükler hazırlanamadı veya kaydedilemedi. Yeniden deneyin."

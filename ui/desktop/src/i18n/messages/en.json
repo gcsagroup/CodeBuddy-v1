@@ -2589,7 +2589,7 @@
     "defaultMessage": "Detailed logs"
   },
   "diagnosticExport.detailedHint": {
-    "defaultMessage": "Adds error, stack and tool-output excerpts. Check the contents in the preview before saving."
+    "defaultMessage": "Adds tool-output excerpts. Check the contents in the preview before saving."
   },
   "diagnosticExport.failed": {
     "defaultMessage": "Logs could not be prepared or saved. Please retry."

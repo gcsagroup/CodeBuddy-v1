@@ -509,7 +509,7 @@ export async function acpExportSessionLog(
   };
   if (
     header?.type !== 'log-export' ||
-    header.revision !== 'codebuddy-log-v2' ||
+    header.revision !== 'codebuddy-log-v3' ||
     header.detail !== detail ||
     header.restorable !== false
   )

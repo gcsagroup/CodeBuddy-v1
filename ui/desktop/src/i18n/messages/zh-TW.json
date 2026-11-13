@@ -10068,7 +10068,7 @@
     "defaultMessage": "詳細日誌"
   },
   "diagnosticExport.detailedHint": {
-    "defaultMessage": "加入錯誤、堆疊與工具輸出片段，可在預覽中檢查要匯出的內容。"
+    "defaultMessage": "加入工具輸出片段，可在預覽中檢查要匯出的內容。"
   },
   "diagnosticExport.failed": {
     "defaultMessage": "無法產生或儲存日誌，請重試。"

@@ -10116,7 +10116,7 @@
     "defaultMessage": "Registro detallado"
   },
   "diagnosticExport.detailedHint": {
-    "defaultMessage": "Añade extractos de errores, pilas y salidas de herramientas. Revise el contenido antes de guardar."
+    "defaultMessage": "Añade fragmentos de salida de herramientas. Revisa el contenido en la vista previa antes de guardar."
   },
   "diagnosticExport.failed": {
     "defaultMessage": "No se pudieron preparar o guardar los registros. Inténtelo de nuevo."

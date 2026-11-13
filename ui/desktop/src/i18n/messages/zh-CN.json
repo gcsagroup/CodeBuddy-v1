@@ -10068,7 +10068,7 @@
     "defaultMessage": "详细日志"
   },
   "diagnosticExport.detailedHint": {
-    "defaultMessage": "增加错误、堆栈和工具输出片段，可在预览中检查要导出的内容。"
+    "defaultMessage": "增加工具输出片段，可在预览中检查要导出的内容。"
   },
   "diagnosticExport.failed": {
     "defaultMessage": "无法生成或保存日志，请重试。"

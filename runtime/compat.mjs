@@ -3108,7 +3108,7 @@ export class Compat {
     }));
     let promptError;
     let failedBeforeStop = false;
-    let nativeTerminalReason;
+    const nativeFailureCodes = new Set();
     let terminalHttpFailure;
     let result;
     promptEntry.desktopControlToken = promptScope;
@@ -3247,12 +3247,11 @@ export class Compat {
         },
         onEvent: async (event) => {
           promptEntry.nativeAttached.resolve();
-          // Native termination may precede prompt rejection while the driver
-          // drains children, jobs and event delivery. Keep that display fact.
-          if (event.type === 'harness_event' && event.sessionId === s.id) {
-            if (event.event.type === 'turn/start') nativeTerminalReason = undefined;
-            if (event.event.type === 'turn/end') nativeTerminalReason = event.event.data.reason;
-          }
+          // One prompt can span several native turns while children settle.
+          // A later cleanup turn cannot erase its already observed failure.
+          if (event.type === 'harness_event' && event.sessionId === s.id &&
+              event.event.type === 'turn/end' && event.event.data.reason.kind === 'error')
+            nativeFailureCodes.add(event.event.data.reason.error.code);
           if (event.type === 'agent_input' && event.sessionId === s.id) {
             // This is an invalidation receipt, not a second role snapshot.
             // current() continues to derive adoption from the native log.
@@ -3678,8 +3677,7 @@ export class Compat {
           usageUpdates.push(update);
           connection.notify(prefix + "session/update", { sessionId: s.id, update });
         } else if (s.type === 'user' && promptError && !manualCompact && replay.users.length &&
-            (nativeTerminalReason?.kind === 'error' && nativeTerminalReason.error.code === promptError.code ||
-              failedBeforeStop)) {
+            (nativeFailureCodes.has(promptError.code) || failedBeforeStop)) {
           const update = chatFailureUpdate(s.id, userId, Date.now(), updates, promptError, promptScope);
           await writer?.appendUsage(update);
           usageUpdates.push(update);

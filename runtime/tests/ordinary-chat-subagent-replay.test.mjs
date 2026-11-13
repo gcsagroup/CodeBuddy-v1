@@ -10,10 +10,11 @@ import { openStore } from '../store.mjs';
 import { createConversationDriver } from '../conversation-driver.mjs';
 import { replyToNoActionReview } from '../harness/test/review-fixture.mjs';
 
-test('cold replay restores a failure after child settlement to its initiating request', { timeout: 30000 }, async t => {
+for (const stopDuringCleanup of [false, true]) test(`cold replay restores a child failure${stopDuringCleanup ? ' despite a late stop in a later native cleanup turn' : ''}`, { timeout: 30000 }, async t => {
   const root = await mkdtemp(path.join(tmpdir(), 'codebuddy-child-terminal-'));
   const childReady = Promise.withResolvers();
-  let parentRequests = 0, childRequests = 0, releaseChild, compat, driver;
+  const cleanupEntered = Promise.withResolvers(), cleanupRelease = Promise.withResolvers();
+  let parentRequests = 0, childRequests = 0, releaseChild, compat, driver, parentId;
   const endpoint = createServer(async (req, res) => {
     if (req.url.endsWith('/models')) return res.end(JSON.stringify({ data: [{ id: 'fixture', context_window: 65536 }] }));
     let raw = ''; for await (const bytes of req) raw += bytes;
@@ -26,7 +27,16 @@ test('cold replay restores a failure after child settlement to its initiating re
     };
     // Fixture routing only: the protocol request is authored by the real child Host.
     if (body.messages.some(m => m.role === 'user' && JSON.stringify(m.content).includes('Your parent agent id is'))) {
-      childRequests++; releaseChild = () => finish('Synthetic child completed'); childReady.resolve(); return;
+      childRequests++;
+      if (childRequests > 1) return finish('Synthetic child completed');
+      releaseChild = () => {
+        if (!stopDuringCleanup) return finish('Synthetic child completed');
+        res.writeHead(200, { 'content-type': 'text/event-stream' });
+        emit({ tool_calls: [{ index: 0, id: 'relay-once', type: 'function', function: {
+          name: 'send_message', arguments: JSON.stringify({ agent_id: parentId, message: 'Synthetic progress relay' }),
+        } }] }); emit({}, 'tool_calls'); res.end('data: [DONE]\n\n');
+      };
+      childReady.resolve(); return;
     }
     if (++parentRequests === 1) {
       res.writeHead(200, { 'content-type': 'text/event-stream' });
@@ -38,7 +48,7 @@ test('cold replay restores a failure after child settlement to its initiating re
     res.writeHead(401, { 'content-type': 'application/json' }).end(JSON.stringify({ error: { code: 'invalid_api_key', message: 'PRIVATE_CHILD_AUTH' } }));
   });
   await new Promise(resolve => endpoint.listen(0, '127.0.0.1', resolve));
-  t.after(async () => { releaseChild?.(); await compat?.close(); endpoint.closeAllConnections(); await new Promise(r => endpoint.close(r)); });
+  t.after(async () => { cleanupRelease.resolve(); releaseChild?.(); await compat?.close(); endpoint.closeAllConnections(); await new Promise(r => endpoint.close(r)); });
   const store = await openStore(path.join(root, 'data'));
   await store.update(s => {
     s.providers = [{ id: 'fixture', engine: 'openai_compatible', apiUrl: `http://127.0.0.1:${endpoint.address().port}`, models: ['fixture'], requiresAuth: false }];
@@ -46,6 +56,16 @@ test('cold replay restores a failure after child settlement to its initiating re
   });
   const open = async () => {
     driver = await createHarnessDriver({ dataDir: path.join(root, 'native'), cwd: root });
+    if (stopDuringCleanup) {
+      const prompt = driver.prompt.bind(driver);
+      let observedFailure = false;
+      driver.prompt = (id, content, options) => prompt(id, content, { ...options, async onEvent(event) {
+        await options.onEvent(event);
+        if (event.sessionId !== id || event.type !== 'harness_event' || event.event.type !== 'turn/end') return;
+        if (event.event.data.reason.kind === 'error') observedFailure = true;
+        if (observedFailure && event.event.data.reason.kind === 'aborted') { cleanupEntered.resolve(); await cleanupRelease.promise; }
+      } });
+    }
     compat = new Compat(store, createConversationDriver(driver, store)); await compat.initialize();
   };
   await open();
@@ -53,6 +73,7 @@ test('cold replay restores a failure after child settlement to its initiating re
   const connection = { notify(_method, value) { wire.push(value); }, async ask() { return { outcome: { outcome: 'selected', optionId: 'allow_once' } }; } };
   const terminals = () => wire.flatMap(x => x.update?.status?.data?.terminal_message_id ? [x.update.status.data] : []);
   const { sessionId } = await compat.request('session/new', { cwd: root, mcpServers: [], _meta: { enabledExtensions: ['developer'] } }, connection);
+  parentId = sessionId;
   const running = compat.request('session/prompt', { sessionId, prompt: [{ type: 'text', text: 'Run one child and report the result.' }],
     _meta: { 'codeagentpro/source-message-id': 'initial-user' } }, connection).catch(e => e);
   await childReady.promise;
@@ -62,8 +83,15 @@ test('cold replay restores a failure after child settlement to its initiating re
     await new Promise(resolve => setTimeout(resolve, 5));
   }
   const release = releaseChild; releaseChild = undefined; release();
-  assert.equal((await running).code, 'AUTH');
-  assert.equal(terminals().length, 1); assert.equal(terminals()[0].diagnostic.code, 'AUTH');
+  if (stopDuringCleanup) {
+    const timer = setTimeout(() => cleanupEntered.reject(Error('Expected a native cleanup turn after failure')), 5000);
+    try { await cleanupEntered.promise; } finally { clearTimeout(timer); }
+    await compat.request('session/cancel', { sessionId }, connection); cleanupRelease.resolve();
+  }
+  const result = await running;
+  assert.equal(stopDuringCleanup ? result.stopReason : result.code, stopDuringCleanup ? 'cancelled' : 'AUTH');
+  assert.equal(terminals().length, 1); assert.equal(terminals()[0].status, 'failed'); assert.equal(terminals()[0].diagnostic.code, 'AUTH');
+  const counts = { parentRequests, childRequests };
   const original = await driver.exportSessionLog(sessionId);
   assert.equal(original.split('\n').filter(Boolean).map(JSON.parse).filter(e => e.type === 'tool/call').length, 1);
   await compat.close();
@@ -76,6 +104,7 @@ test('cold replay restores a failure after child settlement to its initiating re
     assert.deepEqual(terminals().map(d => [d.source_user_message_id, d.diagnostic.code]), [['initial-user', 'AUTH']]);
     assert.equal(JSON.stringify(wire).includes('PRIVATE_CHILD_AUTH'), false);
   }
-  assert.equal(parentRequests, 3); assert.equal(childRequests, 1);
+  assert.equal(parentRequests, 3); assert.ok(childRequests >= 1);
+  assert.deepEqual({ parentRequests, childRequests }, counts, 'Reopening cannot request inference');
   assert.ok((await driver.exportSessionLog(sessionId)).startsWith(original), 'Cold replay must preserve every native event');
 });

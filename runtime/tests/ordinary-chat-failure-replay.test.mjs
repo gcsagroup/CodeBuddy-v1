@@ -238,8 +238,8 @@ for (const inspection of ['userTurnTerminals', 'lastUserStop']) test(`readable h
   assert.equal(calls, 1); assert.equal(JSON.stringify(wire).includes('PRIVATE_'), false);
 });
 
-for (const phase of ['before-native-end', 'driver-cleanup', 'compat-cleanup']) test(`ordinary stop ordering: ${phase}`, async t => {
-  const late = phase !== 'before-native-end';
+for (const phase of ['before-native-end', 'driver-cleanup', 'compat-cleanup', 'recovered-error', 'child-error']) test(`ordinary stop ordering: ${phase}`, async t => {
+  const late = ['driver-cleanup', 'compat-cleanup'].includes(phase);
   const root = await mkdtemp(path.join(tmpdir(), 'codebuddy-terminal-stop-race-'));
   const store = await openStore(root);
   await store.update(state => {
@@ -249,6 +249,13 @@ for (const phase of ['before-native-end', 'driver-cleanup', 'compat-cleanup']) t
   const entered = Promise.withResolvers(), release = Promise.withResolvers();
   const driver = { permissions: permissionDriver(), async createSession() {}, async listTools() { return []; }, async close() {}, async cancel() {},
     async prompt(id, _text, { signal, onEvent }) {
+      if (phase === 'recovered-error' || phase === 'child-error') {
+        await onEvent({ type: 'harness_event', sessionId: phase === 'child-error' ? 'another-child' : id,
+          event: { type: 'turn/end', time: Date.now(), data: { turn: 1, reason: { kind: 'error', error: {
+            code: phase === 'child-error' ? 'AUTH' : 'CONTEXT_WINDOW_EXCEEDED', message: 'PRIVATE_RECOVERED_ERROR',
+          } } } } });
+        await onEvent({ type: 'harness_event', sessionId: id, event: { type: 'turn/start', time: Date.now(), data: { turn: 2 } } });
+      }
       if (phase === 'driver-cleanup') {
         await onEvent({ type: 'harness_event', sessionId: id, event: { type: 'turn/start', time: Date.now(), data: { turn: 1 } } });
         await onEvent({ type: 'harness_event', sessionId: id, event: { type: 'turn/end', time: Date.now(),

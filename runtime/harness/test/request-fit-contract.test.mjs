@@ -17,7 +17,8 @@ test('public driver, metadata-first, and real server imports share the checked S
       import { readFileSync } from 'node:fs';
       import { createHash } from 'node:crypto';
       const paths = ['@deepseek-ai/dsh-llm', '@deepseek-ai/dsh-llm-pi-ai', '@deepseek-ai/dsh-compaction-basic', '@deepseek-ai/dsh-llm-retry',
-        '@deepseek-ai/dsh-session', '@deepseek-ai/dsh-token-meter', '@deepseek-ai/dsh-agent-loop', '@deepseek-ai/dsh-compaction-image-offload'];
+        '@deepseek-ai/dsh-session', '@deepseek-ai/dsh-token-meter', '@deepseek-ai/dsh-agent-loop', '@deepseek-ai/dsh-compaction-image-offload',
+        '@earendil-works/pi-ai/api/openai-completions', '@earendil-works/pi-ai/providers/compat-schema'];
       const digest = name => createHash('sha256').update(readFileSync(new URL(import.meta.resolve(name)))).digest('hex');
       const before = paths.map(digest);
       await import(${JSON.stringify(entry)});
@@ -34,16 +35,18 @@ test('public driver, metadata-first, and real server imports share the checked S
 });
 
 test('late SDK loading fails explicitly instead of silently using an unpatched module', () => {
-  const child = run(`
-    await import('@deepseek-ai/dsh-llm');
-    await import('./sdk-budget-contract.mjs');
-  `);
-  assert.equal(child.status, 1, child.stderr);
-  assert.match(child.stderr, /Load the SDK request-fit contract before @deepseek-ai\/dsh-llm/);
+  for (const name of ['@deepseek-ai/dsh-llm', '@earendil-works/pi-ai/providers/compat-schema']) {
+    const child = run(`
+      await import(${JSON.stringify(name)});
+      await import('./sdk-budget-contract.mjs');
+    `);
+    assert.equal(child.status, 1, child.stderr);
+    assert.ok(child.stderr.includes('Load the SDK request-fit contract before ' + name), child.stderr);
+  }
 });
 
 test('SDK and Pi helper byte drift are rejected before native loading without editing dependencies', () => {
-  for (const name of ['@deepseek-ai/dsh-llm', '@earendil-works/pi-ai/api/simple-options', '@deepseek-ai/dsh-session', '@deepseek-ai/dsh-token-meter', '@deepseek-ai/dsh-compaction-image-offload']) {
+  for (const name of ['@deepseek-ai/dsh-llm', '@earendil-works/pi-ai/api/simple-options', '@deepseek-ai/dsh-session', '@deepseek-ai/dsh-token-meter', '@deepseek-ai/dsh-compaction-image-offload', '@earendil-works/pi-ai/providers/compat-schema']) {
     const child = run(`
       import fs from 'node:fs';
       import { syncBuiltinESMExports } from 'node:module';
@@ -57,6 +60,6 @@ test('SDK and Pi helper byte drift are rejected before native loading without ed
       await import('./sdk-budget-contract.mjs');
     `);
     assert.equal(child.status, 1, child.stderr);
-    assert.match(child.stderr, /Review the pinned (SDK request-fit contract|Pi request-fit helper)/);
+    assert.match(child.stderr, /Review the pinned (SDK request-fit contract|Pi request-fit helper|Pi empty-tools compatibility schema)/);
   }
 });

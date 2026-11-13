@@ -35,6 +35,8 @@ import { clampMaxTokensToContext as clampRequestFitTokens, adjustMaxTokensForThi
     replace('\t\tif (entry.maxTokens !== void 0) configuredMaxTokens.set(entry.id, entry.maxTokens);',
       '\t\tconst requestMaxTokens = entry.requestMaxTokens ?? entry.maxTokens;\n\t\tif (requestMaxTokens !== void 0) configuredMaxTokens.set(entry.id, requestMaxTokens);');
     replace('apiKeyEnv: z.string().role("credential-ref"),', 'vllmCount: z.boolean(),\n\tapiKeyEnv: z.string().role("credential-ref"),');
+    replace('\trequiresToolResultName: "offer",', '\trequiresToolsWithToolHistory: "offer",\n\trequiresToolResultName: "offer",');
+    replace('\trequiresToolResultName: z.boolean(),', '\trequiresToolsWithToolHistory: z.boolean(),\n\trequiresToolResultName: z.boolean(),');
     // Schemas otherwise alias the caller's mutable declarations after fitting.
     replace('\t\tparameters: tool.parameters\n', '\t\tparameters: structuredClone(tool.parameters)\n');
 

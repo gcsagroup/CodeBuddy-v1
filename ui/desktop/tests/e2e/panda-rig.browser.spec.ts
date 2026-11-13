@@ -5,12 +5,12 @@ import { mkdir, writeFile } from 'node:fs/promises';
 
 test('panda sample: real renderer interactions, recording, reduced motion and frame budget', async () => {
   test.setTimeout(100_000);
-  const evidence = resolve('.local/panda-rig-review');
+  const evidence = test.info().outputPath('panda-rig-review');
   await mkdir(evidence, { recursive: true });
   const server = await createServer({
     configFile: resolve('vite.renderer.config.mts'),
     cacheDir: resolve('.local/panda-rig-test-cache'),
-    server: { host: '127.0.0.1', port: 0, hmr: false },
+    server: { host: '127.0.0.1', port: 0, hmr: false, watch: null },
   });
   await server.listen();
   const browser = await chromium.launch({

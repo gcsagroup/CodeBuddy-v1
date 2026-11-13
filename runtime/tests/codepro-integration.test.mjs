@@ -184,7 +184,11 @@ test('history replay distinguishes a live Harness turn from completed and paused
   const activeOnLoad = async () => {
     const start = viewer.notifications.length;
     await viewer.request('session/load', { sessionId: session.sessionId, cwd: session.cwd, mcpServers: [] });
-    const text = viewer.notifications.slice(start).filter(msg => msg.method === 'session/update' &&
+    const received = viewer.notifications.slice(start);
+    const boundary = received.findIndex(msg => msg.method === 'session/update' &&
+      msg.params.sessionId === session.sessionId && msg.params.update._meta?.goose?.transcriptReplayStarted === true);
+    assert.notEqual(boundary, -1, 'Loading must tell the renderer where the replacement transcript starts');
+    const text = received.slice(boundary + 1).filter(msg => msg.method === 'session/update' &&
       msg.params.update.sessionUpdate === 'agent_message_chunk').map(msg => msg.params.update.content?.text).join('');
     if (f.driver.prompts.length > 1) assert.equal(text.split('Published live response.').length - 1, 1, 'Replay includes current messages exactly once, both before and after turn projection');
     // Question snapshots also use session_info_update. Only the run owner's
@@ -280,12 +284,17 @@ test('explicit plain answer uses the latest CodePro UI without fake code or test
 test('provider interruption leaves a failed run and a renderer-compatible failure report', async (t) => {
   const f = await fixture(t); const session = await f.newSession();
   f.driver.scripts.push(async () => { throw new Error('Isolated provider interruption'); });
-  await assert.rejects(f.client.request('session/prompt', turn(session.sessionId)), /Isolated provider interruption/);
+  await assert.rejects(f.client.request('session/prompt', turn(session.sessionId)), error => {
+    assert.equal(error.data?.diagnostic?.code, 'UNKNOWN_FAILURE');
+    assert.doesNotMatch(error.message, /Isolated provider interruption/);
+    return true;
+  });
   const projection = f.client.notifications.filter((msg) => msg.method === ext('codepro/run/update')).at(-1).params.snapshot;
   assert.equal(projection.state, 'failed');
   const context = await f.context(session.sessionId, projection.runId);
   assert.equal(context.completionKind, null);
-  assert.equal(context.terminalError.message, 'Isolated provider interruption');
+  assert.equal(context.terminalError.code, 'UNKNOWN_FAILURE');
+  assert.doesNotMatch(context.terminalError.message, /Isolated provider interruption/);
   const bundled = await build({ entryPoints: [fileURLToPath(new URL('../../ui/desktop/src/acp/sessionNotificationAdapter.ts', import.meta.url))], bundle: true, platform: 'node', format: 'esm', write: false });
   const original = await import(`data:text/javascript;base64,${Buffer.from(bundled.outputFiles[0].text).toString('base64')}`);
   const adapter = original.createAcpSessionNotificationAdapter();

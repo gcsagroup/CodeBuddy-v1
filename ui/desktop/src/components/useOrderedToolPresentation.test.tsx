@@ -1,4 +1,5 @@
 import { act, renderHook } from '@testing-library/react';
+import { StrictMode } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Message } from '../types/message';
 import { getToolRequests } from '../types/message';
@@ -45,6 +46,70 @@ beforeEach(() => {
 afterEach(() => {
   vi.useRealTimers();
   vi.restoreAllMocks();
+});
+
+it('settles replayed fragments sharing a message id even when the caller projects a fresh array per render', () => {
+  const history = [
+    user,
+    assistant([{ type: 'text', text: 'Earlier fragment.' }]),
+    assistant([{ type: 'text', text: 'A later, longer fragment of the same recorded message.' }]),
+  ];
+  let renders = 0;
+  const { result, unmount } = renderHook(() => {
+    renders++;
+    return useOrderedToolPresentation(
+      history.map((message) => ({ ...message })),
+      false
+    );
+  });
+  expect(result.current.messages).toEqual(history);
+  expect(renders).toBeLessThan(5);
+  unmount();
+});
+
+it('keeps replay cursors stable under repeated StrictMode history/stream/idle transitions', () => {
+  const history = [
+    user,
+    ...Array.from({ length: 500 }, (_, index) =>
+      assistant([
+        { type: 'text' as const, text: 'fragment '.repeat((index % 9) + 1) },
+        { ...command },
+      ])
+    ),
+  ];
+  const original = JSON.stringify(history);
+  let renders = 0;
+  const { result, rerender, unmount } = renderHook(
+    ({ active, messages }) => {
+      renders++;
+      return useOrderedToolPresentation(
+        messages.map((message) => ({ ...message })),
+        active
+      );
+    },
+    { initialProps: { active: false, messages: history }, wrapper: StrictMode }
+  );
+  for (let round = 0; round < 10; round++) {
+    const messages = [
+      ...history,
+      assistant([{ type: 'text' as const, text: `New fragment ${round}.` }]),
+    ];
+    rerender({ active: true, messages });
+    rerender({ active: false, messages });
+    act(() => vi.advanceTimersByTime(1200));
+    expect(result.current.pending).toBe(false);
+    expect(
+      getToolRequests(
+        result.current.messages.flatMap((message) =>
+          message.role === 'assistant' ? [message] : []
+        )[0]
+      )
+    ).toHaveLength(1);
+    expect(result.current.messages).toEqual(messages);
+  }
+  expect(renders).toBeLessThan(250);
+  expect(JSON.stringify(history)).toBe(original);
+  unmount();
 });
 
 describe('top-to-bottom streaming presentation', () => {

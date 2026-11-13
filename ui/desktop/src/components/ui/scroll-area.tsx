@@ -487,6 +487,16 @@ const ScrollArea = React.forwardRef<ScrollAreaHandle, ScrollAreaProps>(
           pauseFollowing();
         }
       };
+      // Focusing a disclosure can scroll it into view before Space generates a
+      // click on keyup. Stop the pending tail animation at focus time.
+      const handleFocusIn = (event: Event) => {
+        if (autoScroll && event.target instanceof Element && event.target.matches('summary, [aria-expanded]')) {
+          // Allow native Tab navigation to reveal the new target. Anchor its
+          // final position only when the user actually toggles it.
+          disclosureAnchorRef.current = null;
+          pauseFollowing();
+        }
+      };
       const handleNavigationKey = (event: KeyboardEvent) => {
         if (['ArrowUp', 'ArrowDown', 'PageUp', 'PageDown', 'Home', 'End'].includes(event.key)) {
           const target = event.target;
@@ -525,6 +535,7 @@ const ScrollArea = React.forwardRef<ScrollAreaHandle, ScrollAreaProps>(
       viewport.addEventListener('scroll', handleScroll, { passive: true });
       viewport.addEventListener('wheel', handleWheel, { passive: true });
       viewport.addEventListener('click', handleDisclosure, true);
+      viewport.addEventListener('focusin', handleFocusIn);
       viewport.addEventListener('keydown', handleNavigationKey);
       root?.addEventListener('pointerdown', handlePointerDown, true);
       root?.addEventListener('pointermove', handlePointerMove, { passive: true });
@@ -532,6 +543,7 @@ const ScrollArea = React.forwardRef<ScrollAreaHandle, ScrollAreaProps>(
         viewport.removeEventListener('scroll', handleScroll);
         viewport.removeEventListener('wheel', handleWheel);
         viewport.removeEventListener('click', handleDisclosure, true);
+        viewport.removeEventListener('focusin', handleFocusIn);
         viewport.removeEventListener('keydown', handleNavigationKey);
         root?.removeEventListener('pointerdown', handlePointerDown, true);
         root?.removeEventListener('pointermove', handlePointerMove);

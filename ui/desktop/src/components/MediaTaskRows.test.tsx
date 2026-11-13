@@ -109,6 +109,7 @@ it('opens the clicked job when two generation cards share a conversation', async
   }
 });
 beforeEach(() => {
+  window.localStorage.clear();
   window.sessionStorage.clear();
   extMethod.mockReset().mockResolvedValue({ sessionId, jobs: [] });
   verifiedFiles.mockReset().mockImplementation(({ paths }: { paths?: string[] }) =>
@@ -647,8 +648,8 @@ describe('media task presentation', () => {
       const view = render(history(trace), { wrapper: IntlTestWrapper });
       openProcesses(view.container);
       expect(view.container.querySelectorAll('[data-process-group]')).toHaveLength(1);
-      openProcesses(view.container);
-      expect(screen.queryByRole('button', { name: 'Reasoning details' })).toBeNull();
+      for (const thought of screen.getAllByRole('button', { name: 'Thinking', expanded: false }))
+        fireEvent.click(thought);
       expect(screen.getByText('Before media.')).toBeVisible();
       expect(screen.getByText('After media.')).toBeVisible();
       const thinking = [...view.container.querySelectorAll('.codepro-thinking-details')];
@@ -737,13 +738,13 @@ describe('media task presentation', () => {
     expect(view.container.querySelectorAll('[data-process-group]')).toHaveLength(2);
     const later = view.container.querySelectorAll('[data-process-group]')[1] as HTMLElement;
     expect(later.querySelector('.codepro-group-heading')).not.toBeNull();
-    expect(within(later).queryByRole('button', { name: 'Reasoning details' })).toBeNull();
+    fireEvent.click(within(later).getByRole('button', { name: 'Thinking', expanded: false }));
     expect(within(later).getByText('Checking the remote task.')).toBeVisible();
     expect(later.querySelector('.codepro-thinking-details')).not.toBeNull();
     expect(later.querySelector('[data-media-job-id]')).toBeNull();
   });
 
-  it.each([1, 2, 3])('shows all %s thoughts directly after expanding their process', (count) => {
+  it.each([1, 2, 3])('opens each of %s thoughts independently inside its process', (count) => {
     const trace = Array.from({ length: count }, (_, index) =>
       message('thought-' + index, 'assistant', [
         { type: 'thinking', thinking: 'Reasoning part ' + index, signature: '' },
@@ -751,9 +752,12 @@ describe('media task presentation', () => {
     );
     const view = render(history(trace), { wrapper: IntlTestWrapper });
     openProcesses(view.container);
-    expect(screen.queryByRole('button', { name: 'Reasoning details' })).toBeNull();
-    expect(view.container.querySelectorAll('.codepro-thinking-details')).toHaveLength(count);
+    const toggles = screen.getAllByRole('button', { name: 'Thinking', expanded: false });
+    expect(toggles).toHaveLength(count);
     for (let index = 0; index < count; index++) {
+      expect(toggles[index]).toHaveTextContent('Reasoning part ' + index);
+      expect(view.container.querySelectorAll('.codepro-thinking-details')).toHaveLength(index);
+      fireEvent.click(toggles[index]);
       expect(screen.getByText('Reasoning part ' + index)).toBeVisible();
     }
   });
@@ -770,11 +774,12 @@ describe('media task presentation', () => {
     );
     expect(screen.queryByRole('button', { name: 'Reasoning details' })).toBeNull();
     openProcesses(view.container);
+    fireEvent.click(screen.getByRole('button', { name: 'Thinking', expanded: false }));
     expect(view.container).toHaveTextContent('First fragment.');
     expect(view.container).toHaveTextContent('Second fragment.');
   });
 
-  it('keeps one thought at its original position among media and ordinary tools without a middle thinking-details layer', () => {
+  it('keeps one thought at its original position among media and ordinary tools', () => {
     const ordinary = {
       type: 'toolRequest' as const,
       id: 'command',
@@ -792,7 +797,7 @@ describe('media task presentation', () => {
     const original = JSON.stringify(trace);
     const view = render(history(trace), { wrapper: IntlTestWrapper });
     openProcesses(view.container);
-    expect(screen.queryByRole('button', { name: 'Reasoning details' })).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Thinking', expanded: false }));
     expect(screen.getByText('Before the image.')).toBeVisible();
     const ordered = [
       ...view.container.querySelectorAll(

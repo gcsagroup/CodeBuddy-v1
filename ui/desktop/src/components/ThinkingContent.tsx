@@ -21,6 +21,7 @@ interface ThinkingContentProps {
   content: string;
   isExpanded: boolean;
   isStreaming?: boolean;
+  showPreview?: boolean;
   storageKey?: string;
 }
 
@@ -38,6 +39,7 @@ const ThinkingContent = memo(function ThinkingContent({
   content,
   isExpanded,
   isStreaming = false,
+  showPreview = false,
   storageKey,
 }: ThinkingContentProps) {
   const intl = useIntl();
@@ -111,6 +113,10 @@ const ThinkingContent = memo(function ThinkingContent({
     setRetainReading(!following.current || selecting || !chatFollowing);
   };
 
+  const label = intl.formatMessage(isStreaming ? i18n.thinkingLive : i18n.thinking);
+  const preview = showPreview && !expanded
+    ? content.trimStart().match(/^.{1,240}/u)?.[0].replace(/\*\*/g, '')
+    : undefined;
   return (
     <Collapsible
       open={expanded}
@@ -119,11 +125,13 @@ const ThinkingContent = memo(function ThinkingContent({
     >
       <CollapsibleTrigger
         ref={header}
-        className="codepro-record-trigger codepro-secondary-label relative flex min-h-7 items-center gap-1.5 py-1 px-0 text-sm text-text-secondary hover:text-text-primary transition-colors cursor-pointer"
+        aria-label={label}
+        className="codepro-record-trigger codepro-secondary-label relative flex max-w-full min-w-0 min-h-7 items-center gap-1.5 py-1 px-0 text-sm text-text-secondary hover:text-text-primary transition-colors cursor-pointer"
       >
         <ThinkingIcon active={isStreaming} />
-        <span>{intl.formatMessage(isStreaming ? i18n.thinkingLive : i18n.thinking)}</span>
+        <span className="shrink-0">{label}</span>
         <Expand size={3} isExpanded={expanded} />
+        {preview && <span aria-hidden="true" className="order-3 min-w-0 truncate">{preview}</span>}
       </CollapsibleTrigger>
       <CollapsibleContent className={hasOpened.current ? 'codepro-disclosure-content' : undefined}>
         <div

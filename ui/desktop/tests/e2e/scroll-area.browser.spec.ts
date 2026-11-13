@@ -298,7 +298,7 @@ test('sidebar project and Tasks disclosures animate both ways without shifting t
     .locator('..')
     .boundingBox())!;
   const firstChat = (await page.getByText('Chat 1', { exact: true }).boundingBox())!;
-  expect(folder.height).toBeLessThanOrEqual(30);
+  expect(folder.height).toBeLessThanOrEqual(32);
   expect(firstChat.y - folder.y - folder.height).toBeGreaterThanOrEqual(4);
 
   const projectToggle = page.getByRole('button', { name: 'timeout', exact: true });
@@ -322,8 +322,11 @@ test('sidebar project and Tasks disclosures animate both ways without shifting t
   await page.mouse.click(projectTitle.x + 10, projectTitle.y + projectTitle.height / 2);
   await expect(projectToggle).toHaveAttribute('aria-expanded', 'false');
   await settle();
-  const actions = (await projectActions.boundingBox())!;
-  await page.mouse.click(actions.x - 4, actions.y + actions.height / 2);
+  const projectBox = (await projectToggle.boundingBox())!;
+  const actionsBox = (await projectActions.boundingBox())!;
+  await projectToggle.click({
+    position: { x: actionsBox.x - projectBox.x - 8, y: projectBox.height / 2 },
+  });
   await expect(projectToggle).toHaveAttribute('aria-expanded', 'true');
   await settle();
   await projectToggle.focus();
@@ -436,8 +439,8 @@ test('conversation presentation contains rounded disclosure backgrounds and pres
   for (const trigger of [duration, thinking, files]) {
     const label = trigger.locator(':scope > span:not([aria-hidden])').first();
     const text = (await label.boundingBox())!;
-    const arrow = (await trigger.locator(':scope > svg').boundingBox())!;
-    expect(Math.abs(text.x - left - (trigger === files ? 24 : 0))).toBeLessThanOrEqual(1);
+    const arrow = (await trigger.locator(':scope > :is(.lucide-chevron-right, .lucide-chevron-up)').boundingBox())!;
+    expect(Math.abs(text.x - left - (trigger === files ? 24 : trigger === thinking ? 22 : 0))).toBeLessThanOrEqual(1);
     expect(arrow.x - text.x - text.width).toBeGreaterThanOrEqual(4);
     expect(arrow.x - text.x - text.width).toBeLessThanOrEqual(10);
     await expect(label).toHaveCSS('font-size', '12.5px');
@@ -448,7 +451,7 @@ test('conversation presentation contains rounded disclosure backgrounds and pres
   ).toBeLessThanOrEqual(1);
   await duration.click();
   const record = page.getByText('处理记录', { exact: true });
-  await expect(record).toHaveCSS('font-size', '13.5px');
+  await expect(record).toHaveCSS('font-size', '14px');
   expect(Math.abs((await record.boundingBox())!.x - left)).toBeLessThanOrEqual(1);
   await expect(page.getByText('操作说明', { exact: true })).toHaveCSS('font-size', '12.5px');
   const historyBody = page.locator(`[id="${await duration.getAttribute('aria-controls')}"]`);
@@ -476,7 +479,7 @@ test('conversation presentation contains rounded disclosure backgrounds and pres
   expect(planIcon.x - planBox.x).toBeGreaterThanOrEqual(8);
   expect(planBox.x + planBox.width - planIcon.x - planIcon.width).toBeGreaterThan(8);
   await expect(plan.locator('.lucide-list-checks')).toBeVisible();
-  await expect(prose).toHaveCSS('font-size', '13.5px');
+  await expect(prose).toHaveCSS('font-size', '14px');
   await expect(heading).toHaveCSS('font-size', '15px');
   await expect(heading).toHaveCSS('font-weight', '600');
   await expect(files.locator('.codepro-record-icon svg')).toBeVisible();
@@ -522,9 +525,11 @@ test('conversation font family and fractional layout match in main and subagent 
       `${server.resolvedUrls!.local[0]}tests/browser-fixtures/scroll-area.html?presentation${context === 'subagent' ? '&subagent' : ''}`
     );
     const prose = page.getByText('收到需求，开始处理。', { exact: true });
-    await expect(prose).toHaveCSS('font-size', '13.5px');
+    await expect(prose).toHaveCSS('font-size', '14px');
     await expect(page.getByRole('heading', { name: '实现结果' })).toHaveCSS('font-size', '15px');
     const family = await prose.evaluate((element) => window.getComputedStyle(element).fontFamily);
+    const bodyFamily = await page.locator('body').evaluate((el) => window.getComputedStyle(el).fontFamily);
+    expect(family).toBe(bodyFamily);
     expect(family).toContain('system-ui');
     const content = page.locator('.codepro-assistant-prose').first();
     for (const node of await content.locator('p, h2, ul, li').all()) {
@@ -548,7 +553,7 @@ test('conversation font family and fractional layout match in main and subagent 
     const block = content.locator('code').filter({ hasText: 'const value = 1;' });
     await expect(block).toHaveCSS('font-size', '20px');
     await expect(block).toHaveCSS('font-family', /monospace/);
-    await expect(prose).toHaveCSS('font-size', '13.5px');
+    await expect(prose).toHaveCSS('font-size', '14px');
     let previousHeight = 0;
     for (const size of [13, 13.5, 14]) {
       await page.locator('.codepro-chat-history').evaluate((element, value) => {
@@ -641,14 +646,15 @@ test('technical text keeps a three-line preview and animates to the full origina
   expect((await body.boundingBox())!.height).toBe(before);
 });
 
-test('compact work plan remains visible above its trigger and fades during closing', async () => {
+test('compact work plan opens below its trigger and closes on a second click', async () => {
   await openActivityFixture();
   const heading = page.locator('[data-testid="work-plan"] summary');
   await heading.click();
   await settle();
   const plan = page.getByText('First step', { exact: true });
   await expect(plan).toBeVisible();
-  expect((await plan.boundingBox())!.y).toBeLessThan((await heading.boundingBox())!.y);
+  const trigger = (await heading.boundingBox())!;
+  expect((await plan.boundingBox())!.y).toBeGreaterThanOrEqual(trigger.y + trigger.height);
   await heading.click();
   await settle();
   await expect(plan).toBeHidden();

@@ -147,9 +147,36 @@ test('transport failure, cancellation and action limits keep distinct native out
     const context = f.runs.context(f.binding);
     assert.equal(context.state, expected);
     assert.equal(context.completionKind, null);
-    if (expected === 'failed') assert.deepEqual(context.terminalError, { message: 'Connection error.', code: 'TRANSPORT' });
+    if (expected === 'failed') {
+      assert.equal(context.terminalError.code, 'TRANSPORT');
+      assert.deepEqual(context.terminalError.diagnostic, { code: 'TRANSPORT' });
+      assert.match(context.terminalError.message, /模型连接发生错误/);
+    }
     for (const notification of f.updates.at(-1).notifications) zGooseSessionNotification_unstable.parse(notification);
   }
+});
+
+test('failure projections retain safe diagnosis and committed work without publishing provider payloads', async () => {
+  const f = await fixture();
+  await f.runs.recordToolStart({ ...f.binding, callId: 'once', name: 'write' });
+  await f.runs.recordToolResult({ ...f.binding, callId: 'once', outcome: 'succeeded', kind: 'write', path: 'result.txt' });
+  const error = Object.assign(new Error('PRIVATE_ERROR_BODY api-key=PRIVATE_ERROR_BODY'), {
+    code: 'AUTH', status: 401, cause: { headers: { authorization: 'PRIVATE_ERROR_BODY' } },
+  });
+  await f.runs.finishHarnessAttempt({ ...f.binding, error });
+  const context = f.runs.context(f.binding);
+  assert.equal(context.state, 'failed');
+  assert.equal(context.receipts.length, 1);
+  assert.equal(context.receipts[0].outcome, 'succeeded');
+  assert.deepEqual(context.terminalError.diagnostic, { code: 'AUTH', httpStatus: 401 });
+  assert.equal(JSON.stringify([context, f.updates.at(-1)]).includes('PRIVATE_ERROR_BODY'), false);
+  const stored = f.store.read();
+  const restarted = new CodeProRuns(f.store);
+  await restarted.initialize();
+  assert.deepEqual(restarted.context(f.binding).terminalError, context.terminalError);
+  assert.deepEqual(f.store.read(), stored);
+  assert.equal(error.status, 401);
+  assert.equal(error.message, 'PRIVATE_ERROR_BODY api-key=PRIVATE_ERROR_BODY');
 });
 
 test('restart preserves uncertain receipts but allows Harness to inspect before continuing', async () => {

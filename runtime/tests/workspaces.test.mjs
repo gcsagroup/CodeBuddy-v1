@@ -188,6 +188,24 @@ test("lease expiry and disconnect remove only still-empty created directories", 
   await assert.rejects(stat(disconnected), { code: "ENOENT" });
 });
 
+test("Windows path casing preserves lease identity through confirmation and resume without accepting replacement", { skip: process.platform !== "win32" }, async (t) => {
+  const { root, service, connection, request } = await fixture(t);
+  const cwd = path.join(root, "MiXeD-Project");
+  await mkdir(cwd);
+  await writeFile(path.join(cwd, "source.txt"), "retained source");
+  const lease = await request("acquire", cwd.toLowerCase(), "non-empty-directory");
+  await service.consumeLease({ leaseId: lease.leaseId, cwd: cwd.toUpperCase(), sessionId: "mixed" }, connection);
+  await service.validateSession("mixed", cwd.toLowerCase());
+  await service.releaseSession("mixed");
+  const resumed = await request("acquire", cwd.toUpperCase(), "non-empty-directory");
+  await service.consumeLease({ leaseId: resumed.leaseId, cwd, sessionId: "resumed" }, connection);
+  await service.validateSession("resumed", cwd.toLowerCase());
+  assert.equal(await readFile(path.join(cwd, "source.txt"), "utf8"), "retained source");
+  await rename(cwd, path.join(root, "original-directory"));
+  await mkdir(cwd);
+  await assert.rejects(service.validateSession("resumed", cwd.toUpperCase()), /changed/);
+});
+
 test("directory replacement and new contents invalidate a pending lease", async (t) => {
   const { root, service, connection, request } = await fixture(t);
   const cwd = path.join(root, "replaced");

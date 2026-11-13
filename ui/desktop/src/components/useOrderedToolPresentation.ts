@@ -37,37 +37,42 @@ export function useOrderedToolPresentation(messages: Message[], active: boolean)
       document.removeEventListener('visibilitychange', visibility);
     };
   }, []);
-  const units = useMemo(
-    () =>
-      messages.flatMap((message, index) =>
-        message.role === 'assistant' && message.metadata.userVisible
-          ? message.content.flatMap((content, part) => {
-              if (content.type === 'toolResponse') return [];
-              const call = content.type === 'toolRequest' ? presentedToolCall(content) : undefined;
-              const progress =
-                call && isProgressTool(call.name) && typeof call.arguments.text === 'string';
-              return [
-                {
-                  key:
-                    content.type === 'toolRequest'
-                      ? 'tool:' + content.id
-                      : (message.id ?? index) + ':' + part + ':' + content.type,
-                  index,
-                  part,
-                  kind: progress ? 'progress' : content.type,
-                  text:
-                    content.type === 'text'
-                      ? content.text
-                      : progress
-                        ? (call.arguments.text as string)
-                        : undefined,
-                },
-              ];
-            })
-          : []
-      ),
-    [messages]
-  );
+  const units = useMemo(() => {
+    // Replayed fragments may share a source message/tool id. Each displayed
+    // occurrence needs its own cursor, without rewriting execution identity.
+    const occurrences = new Map<string, number>();
+    return messages.flatMap((message, index) =>
+      message.role === 'assistant' && message.metadata.userVisible
+        ? message.content.flatMap((content, part) => {
+            if (content.type === 'toolResponse') return [];
+            const call = content.type === 'toolRequest' ? presentedToolCall(content) : undefined;
+            const progress =
+              call && isProgressTool(call.name) && typeof call.arguments.text === 'string';
+            const identity = JSON.stringify(
+              content.type === 'toolRequest'
+                ? ['tool', content.id]
+                : ['message', message.id ?? index, part, content.type]
+            );
+            const occurrence = occurrences.get(identity) ?? 0;
+            occurrences.set(identity, occurrence + 1);
+            return [
+              {
+                key: JSON.stringify([identity, occurrence]),
+                index,
+                part,
+                kind: progress ? 'progress' : content.type,
+                text:
+                  content.type === 'text'
+                    ? content.text
+                    : progress
+                      ? (call.arguments.text as string)
+                      : undefined,
+              },
+            ];
+          })
+        : []
+    );
+  }, [messages]);
   let lastUserIndex = -1;
   messages.forEach((message, index) => {
     // Tool responses can also use role=user; they are not a new human turn.

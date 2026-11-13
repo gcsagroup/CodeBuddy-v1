@@ -226,9 +226,18 @@ function nativeSurface({ idle = false, retainTokens = 0, contextWindow = 20000, 
   const agent = { session, options: { provider: 'fixture', model: 'same-model' }, runMaintenance: operation => operation(new AbortController().signal) };
   const ctx = {
     reflect: { provide() {} }, tokenMeter: meter, get: () => undefined,
+    sessionProjections: { stateOf: () => ({ pending: null }) },
     on() { return () => {}; },
     waterfall: (_name, _payload, next) => next(),
-    llm: { resolveModelInfo: async () => ({ context: { contextWindow }, defaultMaxTokens: 256 }), requestFitRecovery },
+    llm: {
+      resolveModelInfo: async () => ({ context: { contextWindow }, defaultMaxTokens: 256 }), requestFitRecovery,
+      prepareCall: async () => ({ measure: async () => {
+        const tokens = meter.measure(session).totalTokens;
+        const available = contextWindow - tokens;
+        return { estimate: { tokens }, available, effectiveMaxTokens: Math.min(256, available), minimumMaxTokens: 256 };
+      } }),
+    },
+    tools: { schemas: () => [] }, logger: { info() {} },
     sessions: { flush: async value => flushes.push(value) },
   };
   const engine = new Engine(ctx, { auto: false, headroomTokens: 0, maxTokens: 256, thresholdRatio: 0.5, retainTokens, compactionRetries: 0 });

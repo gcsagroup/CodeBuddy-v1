@@ -1226,6 +1226,46 @@ describe('acpChatSessionStore', () => {
     });
   });
 
+  it('restores one structured process interruption after replaying an earlier sealed turn, without reopening execution', () => {
+    const id = sessionId('process-interruption-replay');
+    acpChatSessionActions.startSessionLoad(id);
+    acpChatSessionActions.applyAcpGooseSessionNotification(
+      turnTerminalNotification(id, 'previous-run', 'previous-terminal')
+    );
+    const recovered = turnTerminalNotification(
+      id,
+      'interrupted-run',
+      'recovered-terminal',
+      'interrupted'
+    );
+    const record = recovered as unknown as {
+      update: { status: { message: string; data: Record<string, unknown> } };
+    };
+    record.update.status.message = '运行服务中断，请核对已有工作。';
+    record.update.status.data.stop_reason = 'process_interrupted';
+    record.update.status.data.retry_strategy = 'not_available';
+    record.update.status.data.source_user_message_id = 'later-user';
+    acpChatSessionActions.applyAcpGooseSessionNotification(recovered);
+    acpChatSessionActions.applyAcpGooseSessionNotification(recovered);
+    const restored = acpChatSessionActions.finishSessionLoad(id, session(id));
+    expect(restored.chatState).toBe(ChatState.Idle);
+    expect(restored.activeRunId).toBeNull();
+    expect(restored.messages.filter((message) => message.id === 'recovered-terminal')).toHaveLength(
+      1
+    );
+    expect(
+      restored.messages.find((message) => message.id === 'recovered-terminal')?.content[0]
+    ).toMatchObject({
+      type: 'systemNotification',
+      notificationType: 'turnTerminal',
+      data: {
+        status: 'interrupted',
+        stop_reason: 'process_interrupted',
+        retry_strategy: 'not_available',
+      },
+    });
+  });
+
   it('updates context usage during a running task and finishes idle compaction without reopening a sealed task', () => {
     const id = sessionId('live-context-maintenance');
     acpChatSessionActions.setMessages(id, [message('user-1', 'Preserve my draft')]);

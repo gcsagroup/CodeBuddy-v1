@@ -12,7 +12,7 @@ import { boot } from '@deepseek-ai/dsh-app-boot';
 import { BlockAssembler, expandAssistantStream, LlmError } from '@deepseek-ai/dsh-llm';
 import { admitEncodedImages } from '@deepseek-ai/dsh-attachment';
 import { estimateContent } from '@deepseek-ai/dsh-token-meter/estimate';
-import compactionPlugin, { installCompactionRequestCompatibility } from './compaction.mjs';
+import compactionPlugin, { installCompactionRequestCompatibility, takeCompactionFailureDiagnostic } from './compaction.mjs';
 import * as mcpPlugin from './mcp-bridge.mjs';
 import { defineDomain, domainTable } from '@deepseek-ai/dsh-storage-domain';
 import { validateJsonSchemaValue } from '@deepseek-ai/dsh-tools';
@@ -37,7 +37,7 @@ import { hostToolExtensionName } from '../tool-policy.mjs';
 import { forkWorkingDirectory } from './working-directory.mjs';
 import { observeModelTransport } from './transport-observation.mjs';
 import { installModelResponseValidation } from './model-response-validation.mjs';
-import { commandEvidence, hasFailedCommand } from './command-evidence.mjs';
+import { commandEvidence, hasFailedCommand, recordCommandOutcome, commandReminder } from './command-evidence.mjs';
 import { projectScriptCall, projectScriptInvocation, selectNamedScript } from './project-script.mjs';
 import { installOutputRecovery, isOutputLimitFailure, OUTPUT_RECOVERY_LIMIT } from './output-recovery.mjs';
 import { createMcpPresets, restrictSessionTools } from './mcp-presets.mjs';
@@ -168,6 +168,10 @@ export async function createHarnessDriver({ dataDir, cwd = process.cwd(), instru
   ctx.systemPrompt.section({
     name: 'codebuddy:conversation-language', order: 102, interpolate: false,
     text: "Use the human user's requested language for replies and progress updates; otherwise match the human user's language. Write delegation prompts and follow-up messages to subagents in that same language, and explicitly ask them to report in it, so the user can read their conversations. As a subagent, use the language requested by your parent for explanations, progress and reports. Do not switch language merely because tool output, source material or another agent uses a different language. Preserve original code, identifiers, quotations and tool output; do not translate or rewrite raw tool results.",
+  });
+  ctx.systemPrompt.section({
+    name: 'codebuddy:action-guidance', order: 103, interpolate: false,
+    text: 'Use reasoning to choose a coherent next step that can be checked. When the available evidence supports a safe step within the task scope, take it and use the result to guide what follows, rather than resolving every downstream uncertainty first. Preserve necessary planning and verification. Revisit decisions when new evidence or a concrete contradiction changes the approach.',
   });
   ctx.systemPrompt.section({
     name: 'codebuddy:progress-updates', order: 104, interpolate: false,
@@ -500,9 +504,7 @@ Keep progress updates brief, meaningful, and outcome-based.
   ctx.systemPrompt.context({ name: 'codebuddy:command-outcomes', order: 131, required: true, interpolate: false,
     text: ({ agent }) => {
       const run = runs.get(agent?.id);
-      if (!hasFailedCommand(run?.commandFacts)) return '';
-      return 'A nonzero exit is not a passing check. If requested work remains, perform the edits and rerun the relevant verification with tools now. If the request is diagnostic or work is blocked, report the observed result. Thinking, illustrative code and predicted test output cannot stand in for execution. Recent command and file receipts (data):\n' +
-        JSON.stringify((run.commandFacts ?? []).slice(-8).map(({ output, ...fact }) => fact));
+      return commandReminder(run?.commandFacts);
     },
   });
   const outputRecovery = installOutputRecovery(ctx, {
@@ -712,7 +714,7 @@ Keep progress updates brief, meaningful, and outcome-based.
     let executionFailed;
     if (run && !directCalls.has(exec.callId)) {
       const fact = commandEvidence(exec, result, { native: nativeDefinitions.has(ctx.tools.get(exec.name, exec.agent)) });
-      if (fact) (run.commandFacts ??= []).push(fact);
+      if (fact) recordCommandOutcome(run.commandFacts ??= new Map(), fact);
       if (fact && 'exit' in fact) executionFailed = hasFailedCommand([fact]);
     }
     const stoppedApproval = approvalCalls.get(`${exec.agent.id}\0${exec.callId}`)?.desktopOutcome === 'stopped';
@@ -827,7 +829,7 @@ Keep progress updates brief, meaningful, and outcome-based.
     if (event.type === 'turn/start')
       scriptLookups.set(agent, { run });
     if (session.id === run.sessionId && event.type === 'turn/start') {
-      run.commandFacts = [];
+      run.commandFacts = new Map();
       run.toolCalls = 0;
       run.admittedUserMessages = [];
     }
@@ -875,7 +877,10 @@ Keep progress updates brief, meaningful, and outcome-based.
       type: 'assistant_committed', messageId: event.data.message.id, seq: event.seq, sessionId: session.id,
       hasText: event.data.message.content.some(block => block.type === 'text' && block.text.trim().length > 0),
     });
-    if (event.type === 'turn/start' || event.type === 'turn/end' || event.type === 'todo/write' || event.type === 'goal/change' || ['permission/preset', 'sandbox/mode', 'approval/policy'].includes(event.type) || event.type.startsWith('llm/retry') || event.type.startsWith('compaction/') || event.type.startsWith('subagent/')) emit(run, { type: 'harness_event', event, sessionId: session.id });
+    if (event.type === 'turn/start' || event.type === 'turn/end' || event.type === 'todo/write' || event.type === 'goal/change' || ['permission/preset', 'sandbox/mode', 'approval/policy'].includes(event.type) || event.type.startsWith('llm/retry') || event.type.startsWith('compaction/') || event.type.startsWith('subagent/')) {
+      const diagnostic = event.type === 'compaction/end' ? takeCompactionFailureDiagnostic(session, event.data.compactionId) : undefined;
+      emit(run, { type: 'harness_event', event, sessionId: session.id, ...(diagnostic ? { diagnostic } : {}) });
+    }
     if (['request/context', 'user/message', 'assistant/message', 'tool/result', 'compaction/end'].includes(event.type))
       emit(run, contextUsage(session));
     if (event.type === 'turn/end' && runs.get(session.id) === run) {
@@ -883,7 +888,11 @@ Keep progress updates brief, meaningful, and outcome-based.
       const limited = reason.kind === 'max-tokens' || reason.kind === 'error' && isOutputLimitFailure(reason.error.code);
       const outputLimit = outputLimitFor(ctx.agents.get(session.id), run, limited);
       if (reason.kind === 'error' && !limited) {
-        run.error = Object.assign(new Error(reason.error.message), { code: reason.error.code, ...(outputLimit ? { outputLimit } : {}) });
+        run.error = Object.assign(new Error(reason.error.message), {
+          code: reason.error.code,
+          ...(reason.error.status !== undefined ? { status: reason.error.status } : {}),
+          ...(outputLimit ? { outputLimit } : {}),
+        });
         run.reject(run.error);
       }
       else {
@@ -1120,6 +1129,19 @@ Keep progress updates brief, meaningful, and outcome-based.
         ? previousBinding : { scope, identity: Object.freeze({}) });
     }
     const subagentModels = {};
+    const compactionFallbacks = await Promise.all((settings.compactionFallbacks ?? []).map(async rule => ({
+      source: await configureProvider(rule.source.provider, rule.source.model),
+      requestConfig: { reasoningEffort: settings.thinkingEffort, maxTokens: settings.maxTokens, temperature: settings.temperature },
+      fallbacks: (rule.fallbacks ?? [rule]).map(candidate => async signal => {
+        signal?.throwIfAborted();
+        const pending = candidate.resolveFallback?.();
+        const configured = pending ? await (signal ? abortable(pending, signal) : pending) : candidate.fallback;
+        signal?.throwIfAborted();
+        const target = await configureProvider(configured.provider, configured.model);
+        signal?.throwIfAborted();
+        return target;
+      }),
+    })));
     for (const [role, configured] of Object.entries(settings.subagentModels ?? {})) {
       if (!['explorer', 'browser', 'generic'].includes(role)) throw new TypeError('Unknown subagent model role');
       subagentModels[role] = configured.error ? { error: configured.error } : await configureProvider(configured.provider, configured.model);
@@ -1152,7 +1174,7 @@ Keep progress updates brief, meaningful, and outcome-based.
     const remoteServers = mcpServers.filter(server => !server.configurationError && server.transport === 'streamable-http');
     let shared;
     let binding = mcpBindings.get(capabilities.key);
-    const fiber = agent.ctx.isolate('compaction').plugin({
+    const fiber = agent.ctx.isolate('compaction').isolate('codebuddyCompactionFallbacks').isolate('codebuddyCompactionRequestConfig').plugin({
       name: 'codebuddy-session-capabilities',
       inject: ['skills'],
       async apply(scoped) {
@@ -1251,6 +1273,10 @@ Keep progress updates brief, meaningful, and outcome-based.
           const builtinScope = toolSessionApprovalScope(tool);
           if (builtinScope) builtinDefinitions.set(capabilityCtx.tools.get(tool.name, capabilities.key), { tool, scope: builtinScope });
         }
+        scoped.provide('codebuddyCompactionFallbacks', compactionFallbacks);
+        scoped.provide('codebuddyCompactionRequestConfig', {
+          reasoningEffort: settings.thinkingEffort, maxTokens: settings.maxTokens, temperature: settings.temperature,
+        });
         const compactFiber = scoped.plugin(compactionPlugin, {
           thresholdRatio: settings.autoCompactThreshold ?? 0.8,
           // Reserve space for a complete checkpoint, including summary reasoning.

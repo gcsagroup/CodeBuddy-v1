@@ -12,12 +12,13 @@ type ChatMessage = {
 };
 
 type ChatCompletionRequest = {
+  stream?: boolean;
   messages?: ChatMessage[];
   tools?: Array<{ function?: { name?: string } }>;
 };
 
 type Completion =
-  | { type: 'text'; text: string }
+  | { type: 'text'; text: string; reasoning?: string }
   | { type: 'tool'; name: string; arguments: Record<string, unknown> };
 
 export type DeterministicScenario =
@@ -966,7 +967,13 @@ function routeCompletion(
     return steps[results] ?? { type: 'text', text: '单文件修改和修改后验证均已执行。' };
   }
 
-  if (text.includes('回复本地测试确认')) return { type: 'text', text: READY_REPLY };
+  if (text.includes('回复本地测试确认')) {
+    return {
+      type: 'text',
+      text: READY_REPLY,
+      reasoning: scenario === 'message-identity' ? '核对请求。\n\n检查回复是否保留。' : undefined,
+    };
+  }
   return { type: 'text', text: 'CodePro 本地确定性模型已完成请求。' };
 }
 
@@ -1014,6 +1021,11 @@ function writeCompletion(response: ServerResponse, completion: Completion) {
     );
     response.write(chunk([{ index: 0, delta: {}, finish_reason: 'tool_calls' }]));
   } else {
+    if (completion.reasoning) {
+      response.write(
+        chunk([{ index: 0, delta: { reasoning_content: completion.reasoning }, finish_reason: null }])
+      );
+    }
     response.write(chunk([{ index: 0, delta: { content: completion.text }, finish_reason: null }]));
     response.write(chunk([{ index: 0, delta: {}, finish_reason: 'stop' }]));
   }
@@ -1049,6 +1061,17 @@ function streamCompletion(
       const body = JSON.parse(Buffer.concat(chunks).toString('utf8')) as ChatCompletionRequest;
       recordTrace(body);
       const completion = routeCompletion(body, scenario, expectedMemoryMarkers);
+      if (body.stream === false && completion.type === 'text') {
+        writeJson(response, 200, {
+          id: 'chatcmpl-codepro-e2e',
+          object: 'chat.completion',
+          model: MODEL,
+          choices: [
+            { index: 0, message: { role: 'assistant', content: completion.text }, finish_reason: 'stop' },
+          ],
+        });
+        return;
+      }
       if (
         requestText(body).includes('You are a read-only code reviewer') &&
         requestText(body).includes('cancel-review.ts')

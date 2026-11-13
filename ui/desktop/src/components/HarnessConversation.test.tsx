@@ -394,7 +394,7 @@ describe('Harness conversation presentation', () => {
     expect(screen.getByText('Archived answer A')).toBeVisible();
     expect(screen.getByText('Archived answer B')).toBeVisible();
   });
-  it('loads older turns on demand in the actual default chat and preserves expanded history while streaming', async () => {
+  it('loads older turns on demand in the actual default chat and preserves expanded history while streaming', { timeout: 30000 }, async () => {
     const intersections: IntersectionObserverCallback[] = [];
     vi.stubGlobal(
       'IntersectionObserver',

@@ -15,7 +15,7 @@ import { parseGoalRequest } from './goal-request.mjs';
 import { createHash, randomUUID } from "node:crypto";
 import path from "node:path";
 import { mkdir } from "node:fs/promises";
-import { contextUpdates, unfinishedCompactions, recoveredCompactionUpdates } from "./context-updates.mjs";
+import { contextUpdates, unfinishedCompactions, recoveredCompactionUpdates, publicErrorUpdate } from "./context-updates.mjs";
 import { workStatusUpdates } from "./work-status.mjs";
 import { connectGithubMcp } from './github-mcp.mjs';
 import {
@@ -40,6 +40,7 @@ import { WorkspaceService } from "./workspaces.mjs";
 import { CodeProRuns } from "./codepro.mjs";
 import { SUBAGENT_TEMPLATES_KEY, validateSubagentTemplates, resolveSubagentModels, resolveCustomSubagentTemplates } from './subagent-templates.mjs';
 import { SUBAGENT_LIMITS_KEY, DEFAULT_SUBAGENT_LIMITS, validateSubagentLimits } from './subagent-limits.mjs';
+import { COMPACTION_FALLBACKS_KEY, COMPACTION_MODEL_KEY, validateCompactionFallbacks, validateCompactionFallbackModel, resolveCompactionFallbacks } from './compaction-settings.mjs';
 import { codeproInstructions } from "./task-tools.mjs";
 import { openTranscriptJournal } from "./transcripts.mjs";
 import { ProjectMemory } from "./memory.mjs";
@@ -974,6 +975,7 @@ export class Compat {
       },
       subagentModels: await resolveSubagentModels(state.config, state.providers,
         (providerId, modelId) => this.settings.request('model-capabilities/resolve', { providerId, modelId })),
+      compactionFallbacks: resolveCompactionFallbacks(state.config, state.providers, prepared.model),
       subagentTemplates: await resolveCustomSubagentTemplates(state.config, state.providers,
         (providerId, modelId) => this.settings.request('model-capabilities/resolve', { providerId, modelId })),
       restoreSubagentProvider: async (model, matches, recorded) => {
@@ -1440,6 +1442,7 @@ export class Compat {
     if (s.readonlyHistory)
       throw invalid(
         "This imported history is read-only; start a new task to continue work",
+        { code: 'IMPORTED_HISTORY_READ_ONLY' },
       );
     if (this.active.get(s.id)?.driverStarted) return;
     if (!this.initialized.has(s.id)) {
@@ -1475,7 +1478,7 @@ export class Compat {
       );
       if (capability.imageInput === "supported")
         provider.inputModalities = ["text", "image"];
-      const options = await measure('optionsMs', () => this.sessionOptions(s, { extensions, tools }));
+      const options = await measure('optionsMs', () => this.sessionOptions(s, { extensions, tools, model: { provider, model: routing.main.model } }));
       const current = unpublished ? s : this.assertSessionAvailable(s.id);
       if (
         (current.nativeSessionId ?? current.id) !==
@@ -1904,6 +1907,8 @@ export class Compat {
               ? { ...part, content: imageDisplayBlock(part.content) }
               : part) };
         });
+        transcript.updates = transcript.updates.map(publicErrorUpdate);
+        transcript.usageUpdates = transcript.usageUpdates.map(publicErrorUpdate);
         updateCount =
           transcript.updates.length + transcript.usageUpdates.length;
         checkpoint("projectionMs");
@@ -1956,6 +1961,62 @@ export class Compat {
                 data: this.runs.planContext(snapshot),
               },
             },
+          });
+        }
+        // The host already recorded the interrupted process at startup. Present
+        // that fact on restore; loading history never resumes its model/tools.
+        const interruption = snapshot?.recentEvents.at(-1);
+        let interruptionData;
+        if (!s.readonlyHistory && !this.active.has(s.id) && snapshot?.state === 'paused' &&
+            interruption?.eventType === 'process_interrupted') {
+          const context = this.runs.context({ sessionId: s.id, runId: snapshot.runId });
+          interruptionData = {
+            schema_version: 1, session_id: s.id, run_id: snapshot.runId,
+            terminal_message_id: `terminal:${interruption.eventId}`,
+            source_user_message_id: context.sourceMessageId,
+            status: 'interrupted', stop_reason: 'process_interrupted',
+            visible_text_available: transcript.updates.some(u => u.sessionUpdate === 'agent_message_chunk'),
+            tool_action_count: context.receipts.length,
+            copy_artifact_ref: null, finished_at: interruption.occurredAt,
+            checkpoint_id: null, retry_strategy: 'not_available',
+          };
+        } else if (!snapshot && !s.readonlyHistory && !this.active.has(s.id) && this.driver.history &&
+            transcript.updates.some(u => u.sessionUpdate === 'user_message_chunk')) {
+          // Ordinary/main chats have no CodePro run. Native cold inspection
+          // supplies interrupted closers without activating an Agent or tools.
+          // A pending ACP redo file alone cannot prove a native turn failed.
+          try {
+            const history = await this.driver.history(s.id);
+            const end = history.events.findLast(e => e.type === 'turn/start' || e.type === 'turn/end');
+            const source = history.events.findLast(e => e.type === 'user/message' && e.data.source?.kind === 'user')?.data.source.rpcId;
+            const latestUser = this.session(s.id, { fields: ['updates'] }).updates?.findLast(u => u.sessionUpdate === 'user_message_chunk');
+            if (end?.type === 'turn/end' && end.data.reason.kind === 'interrupted' && source &&
+                latestUser?.messageId === source && !this.active.has(s.id)) {
+              const turnId = `native:${s.nativeSessionId ?? s.id}:${end.data.turn}`;
+              interruptionData = {
+                schema_version: 1, session_id: s.id, run_id: turnId,
+                terminal_message_id: `terminal:${turnId}`, source_user_message_id: source,
+                status: 'interrupted', stop_reason: 'process_interrupted',
+                visible_text_available: transcript.updates.slice(transcript.updates.findLastIndex(u =>
+                  u.sessionUpdate === 'user_message_chunk')).some(u => u.sessionUpdate === 'agent_message_chunk'),
+                tool_action_count: history.events.filter(e => e.type === 'tool/call' && e.data.turn === end.data.turn).length,
+                copy_artifact_ref: null, finished_at: new Date(end.time).toISOString(),
+                checkpoint_id: null, retry_strategy: 'not_available',
+              };
+            }
+          } catch (error) {
+            // Optional recovery explanation must not hide otherwise readable history.
+            console.warn('[Session recovery inspection failed]', { sessionId: s.id, code: error.code ?? error.name });
+          }
+        }
+        if (interruptionData) {
+          connection.notify(prefix + 'session/update', {
+            sessionId: s.id,
+            update: { sessionUpdate: 'status_message', status: {
+              type: 'progress',
+              message: '上次运行服务中断。已保存的会话记录和文件仍保留。请核对已完成的工作后，在当前对话继续；结果未确认的操作请先检查，避免重复执行。',
+              data: interruptionData,
+            } },
           });
         }
         checkpoint("recoveryAndRunMs");
@@ -2090,7 +2151,7 @@ export class Compat {
     if (method === "session/set_config_option") {
       const s = this.session(p.sessionId);
       if (this.active.has(s.id))
-        throw invalid("Stop the current turn before changing its model");
+        throw invalid("Stop the current turn before changing its model", { code: 'SESSION_BUSY' });
       let selection;
       if (p.configId === "provider_model") {
         try {
@@ -2818,6 +2879,8 @@ export class Compat {
         if (p.key === COMMON_QUERY_KEY) validateQuerySettings(p.value, p.isSecret);
         if (p.key === SUBAGENT_TEMPLATES_KEY) p.value = validateSubagentTemplates(p.value, this.store.read(["providers"]).providers, p.isSecret);
         if (p.key === SUBAGENT_LIMITS_KEY) p.value = validateSubagentLimits(p.value, p.isSecret);
+        if (p.key === COMPACTION_FALLBACKS_KEY) p.value = validateCompactionFallbacks(p.value, this.store.read(['providers']).providers, p.isSecret);
+        if (p.key === COMPACTION_MODEL_KEY) p.value = validateCompactionFallbackModel(p.value, this.store.read(['providers']).providers, p.isSecret);
         const entry = p.isSecret
           ? { secret: await protectSecret(String(p.value)) }
           : { value: p.value };
@@ -2865,6 +2928,7 @@ export class Compat {
     if (s.readonlyHistory)
       throw invalid(
         "This imported history is read-only; start a new task to continue work",
+        { code: 'IMPORTED_HISTORY_READ_ONLY' },
       );
     const content = harnessPrompt(p.prompt);
     const manualCompact = p.prompt.length === 1 && p.prompt[0].type === "text" && p.prompt[0].text.trim() === "/compact";
@@ -2987,6 +3051,7 @@ export class Compat {
         ...(nativeObservationToken ? { scheduled: true } : {}), ...(presentation ? { presentation } : {}) } },
     }));
     let promptError;
+    let terminalHttpFailure;
     let result;
     promptEntry.desktopControlToken = promptScope;
     const desktopControl = desktopControlPresentation({ sessionId: s.id, token: promptScope,
@@ -2996,6 +3061,7 @@ export class Compat {
     const projectWorkStatus = workStatusUpdates({
       sessionId: s.id, sourceMessageId: userId,
       runId: () => promptEntry.run?.runId ?? promptScope, signal: controller.signal,
+      onTerminalHttpFailure: (code, status) => { terminalHttpFailure = { code, status }; },
     });
     promptEntry.visionProgress = progress => {
       if (controller.signal.aborted || this.active.get(s.id) !== promptEntry) return;
@@ -3409,6 +3475,12 @@ export class Compat {
     } catch (error) {
       trace(controller.signal.aborted ? 'cancelled' : 'failed');
       promptError = error;
+      if (terminalHttpFailure && error?.code === terminalHttpFailure.code) {
+        // Project the observed status after native recovery has finished.
+        promptError = Object.assign(new Error(error.message, { cause: error }), {
+          code: error.code, data: error.data, status: error.status ?? error.failure?.status ?? terminalHttpFailure.status,
+        });
+      }
     } finally {
       let settlementError;
       try {
@@ -3471,6 +3543,7 @@ export class Compat {
             tool_action_count: context.receipts.length,
             copy_artifact_ref: null,
             finished_at: new Date().toISOString(),
+            ...(context.terminalError?.diagnostic ? { diagnostic: context.terminalError.diagnostic } : {}),
             checkpoint_id: null,
             retry_strategy: "not_available",
             report: {

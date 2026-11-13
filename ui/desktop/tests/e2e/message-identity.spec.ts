@@ -14,8 +14,12 @@ test('Message identity keeps separate answers when a provider reuses its respons
   mkdirSync(workspace, { recursive: true });
   await expect(appPage.getByRole('heading', { name: '我是 CodeBuddy，一起把事情做好。' })).toBeVisible();
   await appPage.evaluate((dir) => window.electron.addRecentDir(dir), workspace);
-  await appPage.getByRole('button', { name: '请选择目录' }).click();
+  await appPage.reload();
+  await appPage.keyboard.press('Escape');
+  await appPage.getByRole('button', { name: '选择工作区', exact: true }).click();
   await appPage.getByRole('menuitem').filter({ hasText: 'identity-workspace' }).click();
+  await expect(appPage.getByRole('button', { name: workspace, exact: true })).toBeVisible();
+  await expect(appPage.getByRole('button', { name: /codepro-e2e/i }).first()).toBeVisible();
 
   const input = appPage.getByTestId('chat-input');
   const answers = appPage
@@ -34,6 +38,19 @@ test('Message identity keeps separate answers when a provider reuses its respons
 
   await appPage.reload();
   await expect(answers).toHaveCount(2, { timeout: 120_000 });
+  const history = appPage.locator('[data-turn-process-summary]').last();
+  await history.locator('.codepro-group-heading').first().click();
+  const processGroup = history.locator('[data-process-group]').first();
+  await processGroup.locator('.codepro-group-heading').first().click();
+  const thought = processGroup.locator('.codepro-thinking-record button').first();
+  await expect(thought).toHaveAttribute('aria-expanded', 'false');
+  await expect(thought).toContainText('核对请求。');
+  await thought.focus();
+  await appPage.keyboard.press('Space');
+  await expect(processGroup.getByText('检查回复是否保留。', { exact: true })).toBeVisible();
+  await appPage.keyboard.press('Space');
+  await expect(processGroup.getByText('检查回复是否保留。', { exact: true })).toBeHidden();
+  await expect(answers).toHaveCount(2);
   await appPage.screenshot({
     path: testInfo.outputPath('two-replayed-answers.png'),
     fullPage: true,

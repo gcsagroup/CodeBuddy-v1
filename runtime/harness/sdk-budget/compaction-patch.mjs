@@ -2,6 +2,22 @@
 // to the original module URL; native service and error identities stay intact.
 const replacements = [
   [
+    '\t\t\ttry {\n\t\t\t\tsession.append("compaction/end", {',
+    '\t\t\ttry {\n\t\t\t\ttry { dependencies.onFailure?.(error, session, compactionId); } catch { /* Optional diagnostics cannot change the transaction outcome. */ }\n\t\t\t\tsession.append("compaction/end", {',
+  ],
+  [
+    '\t\t\t\t\tconst range = selectCompactableRange(agent.session, this.ctx.tokenMeter.measure(agent.session), 0);\n\t\t\t\t\tif (range === null) return null;\n\t\t\t\t\treturn await compactSurfaceRegion',
+    '\t\t\t\t\tconst compact = async () => {\n\t\t\t\t\tconst range = selectCompactableRange(agent.session, this.ctx.tokenMeter.measure(agent.session), 0);\n\t\t\t\t\tif (range === null) return null;\n\t\t\t\t\treturn await compactSurfaceRegion',
+  ],
+  [
+    '\t\t\t\t\t}, operationSignal);\n\t\t\t\t} catch (error)',
+    '\t\t\t\t\t}, operationSignal);\n\t\t\t\t\t};\n\t\t\t\t\treturn this.finishManualCompaction === void 0 ? await compact() : await this.finishManualCompaction(agent, compact, operationSignal);\n\t\t\t\t} catch (error)',
+  ],
+  [
+    'throw new Error(`summary is not smaller than the shadowed content (${framedSummaryTokenCount} estimated framed tokens >= ${prepared.shadowedRouteTokenCount})`)',
+    'throw Object.assign(new Error(`summary is not smaller than the shadowed content (${framedSummaryTokenCount} estimated framed tokens >= ${prepared.shadowedRouteTokenCount})`), { code: "COMPACTION_NOT_SMALLER" })',
+  ],
+  [
     'new ManualCompactionError("summary", "manual compaction could not produce a smaller summary", { cause: failure.error })',
     'new ManualCompactionError("summary", "manual compaction failed: " + (failure.error instanceof Error ? failure.error.message : String(failure.error)), { cause: failure.error })',
   ],

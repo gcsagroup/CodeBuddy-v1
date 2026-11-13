@@ -38,6 +38,25 @@ it('continues only the latest stopped request, including a stopped hidden contin
   expect(stoppedRequestToContinue([user, stopped, resumed, repeated])).toBe(user.id);
 });
 
+it('invalid diagnostic fields never invalidate terminal/retry facts or expose arbitrary error payloads', () => {
+  const withDiagnostic = parseTurnTerminalRecord({
+    ...base,
+    diagnostic: {
+      code: 'AUTH',
+      httpStatus: 401,
+      message: 'PRIVATE',
+      transportCodes: ['PRIVATE'],
+    },
+  });
+  expect(withDiagnostic?.diagnostic).toEqual({ code: 'AUTH', httpStatus: 401 });
+  for (const diagnostic of [null, 'PRIVATE', { code: 'PRIVATE', httpStatus: 'PRIVATE' }]) {
+    const record = parseTurnTerminalRecord({ ...base, diagnostic });
+    expect(record?.retry_strategy).toBe(base.retry_strategy);
+    expect(record?.status).toBe(base.status);
+    expect(record?.diagnostic).toBeUndefined();
+  }
+});
+
 it('degrades malformed optional output budget details without rejecting old terminals', () => {
   expect(parseTurnTerminalRecord(base)?.stop_reason).toBeUndefined();
   const record = parseTurnTerminalRecord({

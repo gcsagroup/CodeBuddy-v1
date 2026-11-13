@@ -13,6 +13,17 @@ export const llmPatch = {
     replace('import { createRequire } from "node:module";', 'import { createRequire } from "node:module";\nimport { isDeepStrictEqual as requestFitToolsEqual } from "node:util";');
     replace('\t\tdirectory = /* @__PURE__ */ new Map();', '\t\tdirectory = /* @__PURE__ */ new Map();\n\t\trequestFitFailures = /* @__PURE__ */ new Map();');
     replace('\t\t\t\t\t\tdispatch: (options) => adapterCall.stream(options)', '\t\t\t\t\t\tdispatch: (options) => adapterCall.stream(options),\n\t\t\t\t\t\tprepareRequest: adapterCall.prepareRequest === void 0 ? void 0 : (options) => adapterCall.prepareRequest(options)');
+    replace('\t\t\t\tconfig: resolvedConfig,\n\t\t\t\tretryPolicy:', `\t\t\t\tconfig: resolvedConfig,
+\t\t\t\t// Read-only pricing uses the same pinned adapter and native projection as dispatch.
+\t\t\t\tmeasure: adapterCall.prepareRequest === void 0 ? void 0 : async ({ messages, tools, toolHistory, sessionId, signal }) => {
+\t\t\t\t\tsignal?.throwIfAborted();
+\t\t\t\t\tconst options = { ...resolvedConfig, messages, tools, toolHistory, sessionId, signal };
+\t\t\t\t\tconst projected = this.projectRequestOptions(options, modelInfo, registration.adapter);
+\t\t\t\t\tconst request = await adapterCall.prepareRequest(projected);
+\t\t\t\t\tsignal?.throwIfAborted();
+\t\t\t\t\treturn request.fit;
+\t\t\t\t},
+\t\t\t\tretryPolicy:`);
 
     // Reuse the existing file, modality, tool-history and replay projections for
     // both dispatch and recovery measurement; there is no second estimator.

@@ -187,6 +187,54 @@ describe('ModelAndProviderContext changeModel failure boundary', () => {
     expect(mocks.toastError).not.toHaveBeenCalled();
   });
 
+  it('shows useful safe model-switch diagnosis without provider payloads', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    mocks.acpSetSessionProviderModel.mockRejectedValueOnce({
+      message: 'PRIVATE_MODEL_ERROR',
+      data: {
+        code: 'custom_provider_invalid_credentials',
+        diagnostic: {
+          code: 'custom_provider_invalid_credentials',
+          httpStatus: 401,
+          payload: 'PRIVATE_MODEL_ERROR',
+        },
+      },
+    });
+    render(
+      <ModelAndProviderProvider>
+        <ChangeModelHarness sessionId="session-1" />
+      </ModelAndProviderProvider>,
+      { wrapper: IntlTestWrapper }
+    );
+    await userEvent.setup().click(screen.getByRole('button', { name: 'change model' }));
+    await waitFor(() => expect(screen.getByRole('status')).toHaveTextContent('false'));
+    expect(screen.getByLabelText('change error')).toHaveTextContent('HTTP 401');
+    expect(screen.getByLabelText('change error')).not.toHaveTextContent('PRIVATE_MODEL_ERROR');
+    expect(mocks.acpSaveDefaults).not.toHaveBeenCalled();
+  });
+
+  it('keeps the actionable stop-before-switching refusal instead of advising a network retry', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    mocks.acpSetSessionProviderModel.mockRejectedValueOnce({
+      message: 'PRIVATE',
+      data: {
+        code: 'SESSION_BUSY',
+        diagnostic: { code: 'SESSION_BUSY' },
+      },
+    });
+    render(
+      <ModelAndProviderProvider>
+        <ChangeModelHarness sessionId="session-1" />
+      </ModelAndProviderProvider>,
+      { wrapper: IntlTestWrapper }
+    );
+    await userEvent.setup().click(screen.getByRole('button', { name: 'change model' }));
+    await waitFor(() => expect(screen.getByRole('status')).toHaveTextContent('false'));
+    expect(screen.getByLabelText('change error')).toHaveTextContent('Stop the current turn');
+    expect(screen.getByLabelText('change error')).not.toHaveTextContent('PRIVATE');
+    expect(mocks.acpSaveDefaults).not.toHaveBeenCalled();
+  });
+
   it('rolls the session back when shared default persistence fails after session mutation', async () => {
     mocks.acpReadDefaults.mockResolvedValue({
       providerId: 'previous-provider',

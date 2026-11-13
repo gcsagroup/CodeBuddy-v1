@@ -3,6 +3,7 @@ import { useHasDeliveredMedia } from './GeneratedMedia';
 import { useEffect, useMemo, useRef, type ReactNode } from 'react';
 import ImagePreview from './ImagePreview';
 import { formatMessageTimestamp } from '../utils/timeUtils';
+import { formatFailureDiagnostic } from '../utils/failureDiagnostic';
 import MarkdownContent from './MarkdownContent';
 import './ui/stream-prose.css';
 import ThinkingContent from './ThinkingContent';
@@ -411,6 +412,15 @@ export default function GooseMessage({
     !turnTerminal.user_requested_stop;
   const priorAnswerText =
     turnTerminal?.session_id === sessionId && hasPriorAnswerText(turnTerminal, messages);
+  const recoveredInterruption =
+    turnTerminal?.stop_reason === 'process_interrupted'
+      ? message.content.find(
+          (content) =>
+            content.type === 'systemNotification' && content.notificationType === 'turnTerminal'
+        )
+      : undefined;
+  const recoveryExplanation =
+    recoveredInterruption?.type === 'systemNotification' ? recoveredInterruption.msg : '';
   const displayText =
     (contextLimited
       ? intl.formatMessage(i18n.contextBudgetExhausted)
@@ -421,7 +431,7 @@ export default function GooseMessage({
               : i18n.outputLimitReached,
             { attempts: turnTerminal.output_limit?.automaticAttempts ?? 0 }
           )
-        : textContent.trim()) ||
+        : textContent.trim() || recoveryExplanation) ||
     (plainTerminal && !priorAnswerText
       ? intl.formatMessage(
           turnTerminal.status === 'cancelled' ? i18n.cancelledExplanation : i18n.turnStopped
@@ -699,26 +709,17 @@ export default function GooseMessage({
           const content = block.content[0];
           const key = `${content.type}-${block.start}`;
           if (content.type === 'thinking') {
-            if (providerThinkingSuppressed) return null;
-            if (groupedProcess) {
-              return showGroupedThinking ? (
-                <div key={key} className="codepro-thinking-details my-2 text-sm text-text-secondary">
-                  <MarkdownContent
-                    content={getThinkingContent({ ...message, content: block.content }) ?? ''}
-                    className="!text-text-secondary prose-headings:text-text-secondary prose-strong:text-text-secondary prose-a:text-text-secondary"
-                  />
-                </div>
-              ) : null;
-            }
+            if (providerThinkingSuppressed || (groupedProcess && !showGroupedThinking)) return null;
             const active = thinkingActive && index === contentBlocks.length - 1;
             return (
               <ThinkingContent
                 key={key}
                 content={getThinkingContent({ ...message, content: block.content }) ?? ''}
                 isStreaming={active}
+                showPreview={groupedProcess}
                 storageKey={
                   message.id
-                    ? `provider-${message.id}${block.start === 0 ? '' : `-${block.start}`}`
+                    ? `provider-${message.id}${block.start === 0 && !groupedProcess ? '' : `-${block.start}`}`
                     : undefined
                 }
                 isExpanded={!groupedProcess && active}
@@ -812,7 +813,11 @@ export default function GooseMessage({
                     alwaysVisible
                   />
                 )}
-                <ConversationBranchButton sessionId={sessionId} message={message} messages={messages} />
+                <ConversationBranchButton
+                  sessionId={sessionId}
+                  message={message}
+                  messages={messages}
+                />
                 {displayedUsage && (
                   <MessageUsageStats usage={displayedUsage} compact={compactTools} />
                 )}
@@ -848,7 +853,8 @@ export default function GooseMessage({
         {turnTerminal &&
           !outputLimited &&
           !contextLimited &&
-          !hasDeliveredMedia && hasMissingFinalReply(turnTerminal) && (
+          !hasDeliveredMedia &&
+          hasMissingFinalReply(turnTerminal) && (
             <div role="status" className="mt-2 text-sm text-text-secondary">
               {intl.formatMessage(i18n.missingFinalReply)}
             </div>
@@ -946,18 +952,23 @@ export default function GooseMessage({
                   </span>
                 )}
               </div>
-              {!!turnTerminal.report?.limitations.length && (
+              {!!(turnTerminal.report?.limitations.length || turnTerminal.diagnostic) && (
                 <details className="mt-2 text-sm text-text-secondary">
                   <summary className="cursor-pointer">
                     {intl.formatMessage(i18n.terminalDetails)}
                   </summary>
                   <ul className="mt-1 list-disc space-y-1 break-words pl-4">
-                    {turnTerminal.report.limitations.map((limitation, index) => (
+                    {turnTerminal.report?.limitations.map((limitation, index) => (
                       <li key={index} className="whitespace-pre-wrap">
                         {limitation}
                       </li>
                     ))}
                   </ul>
+                  {turnTerminal.diagnostic && (
+                    <code className="mt-1 block break-all select-text">
+                      {formatFailureDiagnostic(turnTerminal.diagnostic)}
+                    </code>
+                  )}
                 </details>
               )}
               <div className="mt-2 flex items-center justify-between gap-3">

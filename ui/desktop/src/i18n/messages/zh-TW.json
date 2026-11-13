@@ -1656,6 +1656,48 @@
   "compaction.failed": {
     "defaultMessage": "上下文壓縮失敗，原上下文已保留。"
   },
+  "compactionSettings.description": {
+    "defaultMessage": "優先使用目前聊天模型壓縮，失敗後嘗試你指定的備援模型，最後使用 Qwen Flash。相同模型會自動跳過。"
+  },
+  "compactionSettings.empty": {
+    "defaultMessage": "新增模型連線後，即可選擇自選備援模型。"
+  },
+  "compactionSettings.last": {
+    "defaultMessage": "Qwen Flash 是最後一級備援，使用已設定的連線。壓縮後會確認上下文能放入目前聊天模型的視窗，再繼續對話。"
+  },
+  "compactionSettings.legacy": {
+    "defaultMessage": "先前依模型設定的備援仍會保留；儲存本頁後，將使用此處的統一選擇。"
+  },
+  "compactionSettings.loadError": {
+    "defaultMessage": "未能讀取壓縮設定，請重試後再儲存。"
+  },
+  "compactionSettings.loading": {
+    "defaultMessage": "正在載入壓縮設定…"
+  },
+  "compactionSettings.model": {
+    "defaultMessage": "自選備援模型（選填）"
+  },
+  "compactionSettings.none": {
+    "defaultMessage": "不指定 — 失敗後直接使用 Qwen Flash"
+  },
+  "compactionSettings.retry": {
+    "defaultMessage": "重試"
+  },
+  "compactionSettings.save": {
+    "defaultMessage": "儲存壓縮設定"
+  },
+  "compactionSettings.saveError": {
+    "defaultMessage": "未能儲存，已保留你的選擇，請重試。"
+  },
+  "compactionSettings.saved": {
+    "defaultMessage": "已儲存，下次壓縮時生效。"
+  },
+  "compactionSettings.title": {
+    "defaultMessage": "上下文壓縮"
+  },
+  "compactionSettings.unavailable": {
+    "defaultMessage": "已儲存的模型無法使用，請選擇其他模型或不指定自選備援。"
+  },
   "composerCommands.active": {
     "defaultMessage": "進行中"
   },
@@ -4851,6 +4893,9 @@
   "modelAndProviderContext.selectModel": {
     "defaultMessage": "選擇模型"
   },
+  "modelAndProviderContext.stopBeforeSwitching": {
+    "defaultMessage": "請先停止目前執行，再切換模型。"
+  },
   "modelAndProviderContext.unknownProviderMsg": {
     "defaultMessage": "設定中有未知的供應商 -- 請檢查您的 config.yaml"
   },
@@ -5147,6 +5192,12 @@
   },
   "modelsAndRuntime.codeBuddyModelDescription": {
     "defaultMessage": "CodeBuddy 自有模型仍在開發中。"
+  },
+  "modelsAndRuntime.compaction": {
+    "defaultMessage": "上下文壓縮"
+  },
+  "modelsAndRuntime.compactionDescription": {
+    "defaultMessage": "為上下文壓縮選擇選填的備援模型。"
   },
   "modelsAndRuntime.connections": {
     "defaultMessage": "模型與連線"

@@ -71,7 +71,9 @@ async function directorySnapshot(directory) {
       const stats = await lstat(current, { bigint: true });
       if (stats.isSymbolicLink() || !stats.isDirectory())
         throw invalid("Workspace ancestry contains a link or a non-directory");
-      return { path: current, dev: String(stats.dev), ino: String(stats.ino), birthtime: String(stats.birthtimeNs) };
+      // Compare path spelling by the lease identity rule; object identity still
+      // detects replacement, including distinct case-sensitive Windows folders.
+      return { path: workspaceIdentity(current), dev: String(stats.dev), ino: String(stats.ino), birthtime: String(stats.birthtimeNs) };
     })),
   ]);
   return { canonical, identity: workspaceIdentity(canonical), chain };

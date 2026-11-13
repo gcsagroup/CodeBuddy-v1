@@ -2,6 +2,10 @@
 // to the original module URL; native service and error identities stay intact.
 const replacements = [
   [
+    '\t\t\ttry {\n\t\t\t\tsession.append("compaction/end", {',
+    '\t\t\ttry {\n\t\t\t\ttry { dependencies.onFailure?.(error, session, compactionId); } catch { /* Optional diagnostics cannot change the transaction outcome. */ }\n\t\t\t\tsession.append("compaction/end", {',
+  ],
+  [
     '\t\t\t\t\tconst range = selectCompactableRange(agent.session, this.ctx.tokenMeter.measure(agent.session), 0);\n\t\t\t\t\tif (range === null) return null;\n\t\t\t\t\treturn await compactSurfaceRegion',
     '\t\t\t\t\tconst compact = async () => {\n\t\t\t\t\tconst range = selectCompactableRange(agent.session, this.ctx.tokenMeter.measure(agent.session), 0);\n\t\t\t\t\tif (range === null) return null;\n\t\t\t\t\treturn await compactSurfaceRegion',
   ],

@@ -1,5 +1,15 @@
 import { BasicCompactionEngine } from '@deepseek-ai/dsh-compaction-basic';
-import { createUserMessage } from '@deepseek-ai/dsh-llm';
+import { createUserMessage, LlmError } from '@deepseek-ai/dsh-llm';
+import { publicFailure } from '../error-presentation.mjs';
+
+// Native end events retain their private error string. Carry only the safe
+// projection until that exact transaction's end is published by the driver.
+const failureDiagnostics = new WeakMap();
+export function takeCompactionFailureDiagnostic(session, compactionId) {
+  const entry = failureDiagnostics.get(session);
+  failureDiagnostics.delete(session);
+  return entry?.compactionId === compactionId ? entry.diagnostic : undefined;
+}
 
 class UnchangedCheckpoint extends Error {}
 const summaryRoute = (agent, config) => {
@@ -248,7 +258,13 @@ export default class CompactionEngine extends BasicCompactionEngine {
   }
 
   regionDependencies() {
-    return { ...super.regionDependencies(), includeFileReferences };
+    return { ...super.regionDependencies(), includeFileReferences,
+      onFailure: (error, session, compactionId) => {
+        const { message: _message, ...diagnostic } = publicFailure(error,
+          error instanceof LlmError ? { status: error.failure.status } : undefined);
+        failureDiagnostics.set(session, { compactionId, diagnostic });
+      },
+    };
   }
 
   async compactIfNeeded(agent, trigger, signal) {

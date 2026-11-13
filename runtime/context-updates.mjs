@@ -89,7 +89,7 @@ export function contextUpdates({ sessionId, runId, signal } = {}) {
     if (!started) return [];
     const status = native.type === 'compaction/start' ? 'started'
       : data.error ? signal?.aborted ? 'cancelled' : 'failed' : 'completed';
-    const failure = data.error ? publicFailure(typeof data.error === 'object' ? data.error : undefined) : null;
+    const failure = data.error ? publicFailure(event.diagnostic ?? (typeof data.error === 'object' ? data.error : undefined)) : null;
     const { message: error, ...diagnostic } = failure ?? {};
     if (native.type === 'compaction/end') starts.delete(data.compactionId);
     return [{ sessionUpdate: 'status_message', status: {

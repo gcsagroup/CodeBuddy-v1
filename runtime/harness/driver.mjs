@@ -12,7 +12,7 @@ import { boot } from '@deepseek-ai/dsh-app-boot';
 import { BlockAssembler, expandAssistantStream, LlmError } from '@deepseek-ai/dsh-llm';
 import { admitEncodedImages } from '@deepseek-ai/dsh-attachment';
 import { estimateContent } from '@deepseek-ai/dsh-token-meter/estimate';
-import compactionPlugin, { installCompactionRequestCompatibility } from './compaction.mjs';
+import compactionPlugin, { installCompactionRequestCompatibility, takeCompactionFailureDiagnostic } from './compaction.mjs';
 import * as mcpPlugin from './mcp-bridge.mjs';
 import { defineDomain, domainTable } from '@deepseek-ai/dsh-storage-domain';
 import { validateJsonSchemaValue } from '@deepseek-ai/dsh-tools';
@@ -792,7 +792,10 @@ Keep progress updates brief, meaningful, and outcome-based.
       type: 'assistant_committed', messageId: event.data.message.id, seq: event.seq, sessionId: session.id,
       hasText: event.data.message.content.some(block => block.type === 'text' && block.text.trim().length > 0),
     });
-    if (event.type === 'turn/start' || event.type === 'turn/end' || event.type === 'todo/write' || event.type === 'goal/change' || ['permission/preset', 'sandbox/mode', 'approval/policy'].includes(event.type) || event.type.startsWith('llm/retry') || event.type.startsWith('compaction/') || event.type.startsWith('subagent/')) emit(run, { type: 'harness_event', event, sessionId: session.id });
+    if (event.type === 'turn/start' || event.type === 'turn/end' || event.type === 'todo/write' || event.type === 'goal/change' || ['permission/preset', 'sandbox/mode', 'approval/policy'].includes(event.type) || event.type.startsWith('llm/retry') || event.type.startsWith('compaction/') || event.type.startsWith('subagent/')) {
+      const diagnostic = event.type === 'compaction/end' ? takeCompactionFailureDiagnostic(session, event.data.compactionId) : undefined;
+      emit(run, { type: 'harness_event', event, sessionId: session.id, ...(diagnostic ? { diagnostic } : {}) });
+    }
     if (['request/context', 'user/message', 'assistant/message', 'tool/result', 'compaction/end'].includes(event.type))
       emit(run, contextUsage(session));
     if (event.type === 'turn/end' && runs.get(session.id) === run) {

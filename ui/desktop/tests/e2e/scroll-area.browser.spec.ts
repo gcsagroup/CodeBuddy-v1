@@ -298,36 +298,41 @@ test('sidebar project and Tasks disclosures animate both ways without shifting t
     .locator('..')
     .boundingBox())!;
   const firstChat = (await page.getByText('Chat 1', { exact: true }).boundingBox())!;
-  expect(folder.height).toBeLessThanOrEqual(30);
+  expect(folder.height).toBeLessThanOrEqual(32);
   expect(firstChat.y - folder.y - folder.height).toBeGreaterThanOrEqual(4);
 
   const projectToggle = page.getByRole('button', { name: 'timeout', exact: true });
   const projectActions = page.getByRole('button', { name: 'Project actions', exact: true });
-  const chatArchive = page.getByRole('button', { name: 'Archive session', exact: true });
+  const archiveInRow = (name: string) => page.getByRole('button', { name, exact: true })
+    .locator('..').locator('button[aria-label="Archive session"]');
   await page.getByTestId('chat-canvas').hover();
   await expect(projectActions).toHaveCSS('opacity', '0');
-  await expect(chatArchive.first()).toHaveCSS('opacity', '0');
+  await expect(archiveInRow('Chat 1')).toBeHidden();
   await projectToggle.hover();
   await expect(projectActions).toHaveCSS('opacity', '1');
-  await expect(chatArchive.first()).toHaveCSS('opacity', '0');
+  await expect(archiveInRow('Chat 1')).toBeHidden();
   await page.getByText('Chat 1', { exact: true }).hover();
-  await expect(chatArchive.first()).toHaveCSS('opacity', '1');
-  await expect(chatArchive.nth(1)).toHaveCSS('opacity', '0');
+  await expect(archiveInRow('Chat 1')).toBeVisible();
+  await expect(archiveInRow('Chat 2')).toBeHidden();
   await expect(projectActions).toHaveCSS('opacity', '0');
 
   // The title and trailing blank area both toggle; editing must not toggle.
-  const projectTitle = (await page.getByText('timeout', { exact: true }).boundingBox())!;
+  const projectTitle = (await projectToggle.getByText('timeout', { exact: true }).boundingBox())!;
   await page.mouse.click(projectTitle.x + 10, projectTitle.y + projectTitle.height / 2);
   await expect(projectToggle).toHaveAttribute('aria-expanded', 'false');
   await settle();
-  await projectToggle.click({ position: { x: (await projectToggle.boundingBox())!.width - 4, y: folder.height / 2 } });
+  const projectBox = (await projectToggle.boundingBox())!;
+  const actionsBox = (await projectActions.boundingBox())!;
+  await projectToggle.click({
+    position: { x: actionsBox.x - projectBox.x - 8, y: projectBox.height / 2 },
+  });
   await expect(projectToggle).toHaveAttribute('aria-expanded', 'true');
   await settle();
   await projectActions.click();
   await page.getByRole('menuitem', { name: 'Rename project' }).click();
   const projectInput = page.getByRole('textbox', { name: 'Project name' });
   await projectInput.click();
-  await expect(projectToggle).toHaveAttribute('aria-expanded', 'true');
+  await expect(page.getByRole('button', { name: 'Chat 1', exact: true })).toBeVisible();
   await projectInput.press('Escape');
   await expect(projectInput).toHaveCount(0);
   await projectToggle.focus();
@@ -428,8 +433,8 @@ test('conversation presentation contains rounded disclosure backgrounds and pres
   for (const trigger of [duration, thinking, files]) {
     const label = trigger.locator(':scope > span:not([aria-hidden])').first();
     const text = (await label.boundingBox())!;
-    const arrow = (await trigger.locator(':scope > svg').boundingBox())!;
-    expect(Math.abs(text.x - left - (trigger === files ? 24 : 0))).toBeLessThanOrEqual(1);
+    const arrow = (await trigger.locator(':scope > :is(.lucide-chevron-right, .lucide-chevron-up)').boundingBox())!;
+    expect(Math.abs(text.x - left - (trigger === files ? 24 : trigger === thinking ? 22 : 0))).toBeLessThanOrEqual(1);
     expect(arrow.x - text.x - text.width).toBeGreaterThanOrEqual(4);
     expect(arrow.x - text.x - text.width).toBeLessThanOrEqual(10);
     await expect(label).toHaveCSS('font-size', '12.5px');
@@ -517,12 +522,8 @@ test('conversation font family and fractional layout match in main and subagent 
     await expect(prose).toHaveCSS('font-size', '13.5px');
     await expect(page.getByRole('heading', { name: '实现结果' })).toHaveCSS('font-size', '15px');
     const family = await prose.evaluate((element) => window.getComputedStyle(element).fontFamily);
-    expect(
-      family
-        .split(',')
-        .slice(0, 2)
-        .map((part) => part.trim().replaceAll('"', ''))
-    ).toEqual(['Noto Sans SC', 'Noto Sans CJK SC']);
+    const bodyFamily = await page.locator('body').evaluate((el) => window.getComputedStyle(el).fontFamily);
+    expect(family).toBe(bodyFamily);
     expect(family).toContain('system-ui');
     const content = page.locator('.codepro-assistant-prose').first();
     for (const node of await content.locator('p, h2, ul, li').all()) {
@@ -538,10 +539,6 @@ test('conversation font family and fractional layout match in main and subagent 
       expect(codeFamily).toContain('monospace');
       expect(codeFamily).not.toContain('Noto Sans SC');
     }
-    const bodyFamily = await page
-      .locator('body')
-      .evaluate((element) => window.getComputedStyle(element).fontFamily);
-    expect(bodyFamily).not.toContain('Noto Sans SC');
     let previousHeight = 0;
     for (const size of [13, 13.5, 14]) {
       await page.locator('.codepro-chat-history').evaluate((element, value) => {

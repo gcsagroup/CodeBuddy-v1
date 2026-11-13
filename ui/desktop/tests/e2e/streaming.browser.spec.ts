@@ -125,15 +125,20 @@ test('bursty input renders without a playback backlog while table columns stay s
 });
 
 test('scrolling up cancels automatic following while text keeps arriving', async () => {
+  // Hold transport time until the reading gesture has actually reached the viewport.
+  await page.clock.install();
+  await page.clock.pauseAt(new Date(await page.evaluate(() => Date.now() + 1000)));
   await page.getByRole('button', { name: 'Start', exact: true }).click();
-  await page.waitForTimeout(3500);
+  await page.clock.runFor(1000);
   const viewport = page.locator('[data-radix-scroll-area-viewport]');
   await viewport.hover();
+  const followingTop = await viewport.evaluate((el) => el.scrollTop);
   await page.mouse.wheel(0, -220);
-  await page.waitForTimeout(250);
+  await page.clock.runFor(250);
   const before = await viewport.evaluate((el) => el.scrollTop);
+  expect(before).toBeLessThan(followingTop);
   const textBefore = Number(await page.getByTestId('body').getAttribute('data-visible'));
-  await page.waitForTimeout(1400);
+  await page.clock.runFor(2100);
   expect(Math.abs((await viewport.evaluate((el) => el.scrollTop)) - before)).toBeLessThan(2);
   expect(Number(await page.getByTestId('body').getAttribute('data-visible'))).toBeGreaterThan(
     textBefore

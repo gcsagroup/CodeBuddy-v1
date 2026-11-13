@@ -36,7 +36,7 @@ import { hostToolExtensionName } from '../tool-policy.mjs';
 import { forkWorkingDirectory } from './working-directory.mjs';
 import { observeModelTransport } from './transport-observation.mjs';
 import { installModelResponseValidation } from './model-response-validation.mjs';
-import { commandEvidence, hasFailedCommand } from './command-evidence.mjs';
+import { commandEvidence, hasFailedCommand, recordCommandOutcome, commandReminder } from './command-evidence.mjs';
 import { installOutputRecovery, isOutputLimitFailure, OUTPUT_RECOVERY_LIMIT } from './output-recovery.mjs';
 import { createMcpPresets, restrictSessionTools } from './mcp-presets.mjs';
 import { installToolDiscovery } from './tool-discovery.mjs';
@@ -450,9 +450,7 @@ Keep progress updates brief, meaningful, and outcome-based.
   ctx.systemPrompt.context({ name: 'codebuddy:command-outcomes', order: 131, required: true, interpolate: false,
     text: ({ agent }) => {
       const run = runs.get(agent?.id);
-      if (!hasFailedCommand(run?.commandFacts)) return '';
-      return 'A nonzero exit is not a passing check. If requested work remains, perform the edits and rerun the relevant verification with tools now. If the request is diagnostic or work is blocked, report the observed result. Thinking, illustrative code and predicted test output cannot stand in for execution. Recent command and file receipts (data):\n' +
-        JSON.stringify((run.commandFacts ?? []).slice(-8).map(({ output, ...fact }) => fact));
+      return commandReminder(run?.commandFacts);
     },
   });
   const outputRecovery = installOutputRecovery(ctx, {
@@ -633,7 +631,7 @@ Keep progress updates brief, meaningful, and outcome-based.
     let executionFailed;
     if (run && !directCalls.has(exec.callId)) {
       const fact = commandEvidence(exec, result, { native: nativeDefinitions.has(ctx.tools.get(exec.name, exec.agent)) });
-      if (fact) (run.commandFacts ??= []).push(fact);
+      if (fact) recordCommandOutcome(run.commandFacts ??= new Map(), fact);
       if (fact && 'exit' in fact) executionFailed = hasFailedCommand([fact]);
     }
     const stoppedApproval = approvalCalls.get(`${exec.agent.id}\0${exec.callId}`)?.desktopOutcome === 'stopped';
@@ -746,7 +744,7 @@ Keep progress updates brief, meaningful, and outcome-based.
     const run = runFor(agent);
     if (!run) return;
     if (session.id === run.sessionId && event.type === 'turn/start') {
-      run.commandFacts = [];
+      run.commandFacts = new Map();
       run.toolCalls = 0;
       run.admittedUserMessages = [];
     }

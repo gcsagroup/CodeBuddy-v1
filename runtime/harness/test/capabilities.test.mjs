@@ -847,8 +847,8 @@ test('manual compaction uses official summarization and preserves transcript evi
   const previousRequestCount = requests.length;
   const result = await driver.compact(created.sessionId, { onEvent: event => events.push(event) });
   assert.equal(requests.length, previousRequestCount + 1, 'compatibility dispatches one model request');
-  assert.equal(requests.at(-1).reasoning_effort, 'high', 'summary keeps the routed template control');
-  assert.equal(requests.at(-1).max_completion_tokens ?? requests.at(-1).max_tokens, 4096, 'reasoning and the complete checkpoint share a larger output budget');
+  assert.equal(requests.at(-1).reasoning_effort, 'low', 'the independent summarizer must not inherit the high task reasoning setting');
+  assert.equal(requests.at(-1).max_completion_tokens ?? requests.at(-1).max_tokens, 8192, 'the independent summary budget is bounded by this 32K model window');
   assert.ok(result && result.shadowedSeqs.length > 0, JSON.stringify(result));
   const afterHistory = await driver.history(created.sessionId);
   assert.deepEqual(afterHistory.events.slice(0, beforeHistory.events.length), beforeHistory.events);
@@ -907,8 +907,14 @@ test('tool schema pressure preserves explicit output budget with the actual mode
   const history = await driver.history(created.sessionId);
   assert.ok(history.events.some(e => e.type === 'compaction/end' && !e.data.error), 'history pressure on top of tools triggers official compaction');
   assert.ok(requests.at(-1).tools.some(t => t.function?.name === 'large_catalog_fixture'), 'compaction preserves tool access');
-  assert.ok(fits.every(fit => fit.available >= 4096 && fit.effectiveMaxTokens === 4096), 'every conversation and summary request retains the explicit output budget');
-  assert.ok(requests.slice(requestStart).every(request => (request.max_tokens ?? request.max_completion_tokens) === 4096));
+  assert.ok(fits.every(fit => {
+    const budget = fit.purpose === 'compaction' ? 16384 : 4096;
+    return fit.available >= budget && fit.effectiveMaxTokens === budget;
+  }), 'the main request keeps its explicit budget; independent summaries retain their full legal allowance');
+  assert.ok(requests.slice(requestStart).every(request => {
+    const summary = request.messages.at(-1)?.content?.startsWith('You are now acting as a compaction engine for this AI coding assistant.');
+    return (request.max_tokens ?? request.max_completion_tokens) === (summary ? 16384 : 4096);
+  }), 'HTTP uses the same main/summary budgets that the native adapter measured');
   assert.ok(history.events.some(event => event.type === 'assistant/message' && event.data.usage?.inputTokens > 32768), 'the native pressure meter receives controlled service SSE usage for the large schema');
   assert.ok(history.events.filter(event => event.type === 'assistant/message').every(event => event.data.usage.outputTokens <= 4096), 'the controlled responses must respect their output cap');
   t.diagnostic(JSON.stringify({ fixture: 'tool-schema-pressure', fits: fits.map(({ purpose, estimate, available }) => ({ purpose, tokens: estimate.tokens, available })) }));

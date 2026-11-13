@@ -44,6 +44,7 @@ function fixture(reason = { kind: 'stop' }) {
     pressureAttempts: new WeakMap(),
     manualTargets: new WeakMap(),
     summaryFailures: new WeakMap(),
+    summaryRetryCounts: new WeakMap(),
     config: { modelPolicies: [], summarizationProvider: '', summarizationModel: '', maxTokens: 4096 },
     ctx: { sessionProjections: { stateOf: () => ({ pending: null }) }, llm: { resolveModelInfo: async () => ({ reasoning: { efforts: [{ id: 'low' }] } }), async *stream(options) {
       request = options;

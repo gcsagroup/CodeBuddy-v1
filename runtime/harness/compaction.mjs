@@ -2,10 +2,22 @@ import { BasicCompactionEngine } from '@deepseek-ai/dsh-compaction-basic';
 import { createUserMessage } from '@deepseek-ai/dsh-llm';
 
 class UnchangedCheckpoint extends Error {}
-const summaryRoute = agent => {
+const summaryRoute = (agent, config) => {
   const route = agent.session.requestHeader()?.config ?? agent.options;
-  return JSON.stringify([route.provider, route.model, route.reasoningEffort]);
+  return JSON.stringify([route, config]);
 };
+export const SUMMARY_RETRY_POLICY = Object.freeze({ maxAutomaticRetries: 2, delayMs: 30_000, minGrowthTokens: 8192 });
+function rememberSummaryFailure(engine, agent, error) {
+  if (!engine.summaryFailures || engine.summaryFailures.get(agent)?.error === error) return;
+  let tokens;
+  try { tokens = engine.ctx.tokenMeter?.measure(agent.session).totalTokens; }
+  catch { /* Recovery diagnostics must not replace the original summary failure. */ }
+  engine.summaryFailures.set(agent, { route: summaryRoute(agent, engine.config), error,
+    tokens, retryAt: performance.now() + SUMMARY_RETRY_POLICY.delayMs });
+  engine.ctx.logger?.warn('compaction summary backoff: ' + JSON.stringify({ code: fallbackFailure(error, checkpointFailureCodes)?.code,
+    delayMs: SUMMARY_RETRY_POLICY.delayMs, minGrowthTokens: SUMMARY_RETRY_POLICY.minGrowthTokens,
+    maxAutomaticRetries: SUMMARY_RETRY_POLICY.maxAutomaticRetries }));
+}
 const checkpointFailureCodes = new Set(['MAX_TOKENS', 'OUTPUT_TRUNCATED', 'OUTPUT_LENGTH_STOP', 'OUTPUT_LIMIT_REACHED',
   'EMPTY_RESPONSE', 'COMPACTION_EMPTY_SUMMARY', 'COMPACTION_NOT_SMALLER']);
 const fallbackCodes = new Set([...checkpointFailureCodes, 'COMPACTION_OUTPUT_BUDGET_EXHAUSTED', 'CONTEXT_WINDOW_EXCEEDED',
@@ -57,7 +69,7 @@ async function activateFallback(engine, agent, target, error, signal, failedTarg
     return fallback;
   }
   if (preparationError) {
-    if (fallbackFailure(error, checkpointFailureCodes)) engine.summaryFailures.set(agent, { route: summaryRoute(agent), error });
+    if (fallbackFailure(error, checkpointFailureCodes)) rememberSummaryFailure(engine, agent, error);
     throw preparationError;
   }
 }
@@ -150,16 +162,18 @@ export default class CompactionEngine extends BasicCompactionEngine {
   manualSurfaces = new WeakMap();
   manualTargets = new WeakMap();
   summaryFailures = new WeakMap();
+  summaryRetryCounts = new WeakMap();
   fallbackTargets = new WeakMap();
   get fallbackPolicies() { return this.ctx.get('codebuddyCompactionFallbacks') ?? []; }
 
   constructor(ctx, config) {
     super(ctx, config);
-    // A failed summary must not become another paid request on every tool step.
-    // The native turn boundary and an explicit manual request permit a fresh try.
+    // Automatic recovery needs both progress and backoff, with a per-turn cap.
+    // Native idle and an explicit manual request reset that allowance.
     ctx.on('agent/status', ({ agent, status }) => {
       if (status === 'idle') {
         this.summaryFailures.delete(agent);
+        this.summaryRetryCounts.delete(agent);
         this.fallbackTargets.delete(agent);
       }
     });
@@ -167,8 +181,6 @@ export default class CompactionEngine extends BasicCompactionEngine {
 
   async compactNow(agent, signal, sourceCommandId) {
     signal.throwIfAborted();
-    this.summaryFailures.delete(agent);
-    this.fallbackTargets.delete(agent);
     const surface = () => JSON.stringify(agent.session.surface.nodes);
     // Repeating /compact without new conversation evidence needlessly summarizes
     // the same checkpoint again. Keep native admission and cancellation checks.
@@ -178,55 +190,61 @@ export default class CompactionEngine extends BasicCompactionEngine {
         return null;
       });
     }
-    try {
-      const result = await super.compactNow(agent, signal, sourceCommandId);
-      if (result) this.manualSurfaces.set(agent, surface());
-      return result;
-    } finally { this.fallbackTargets.delete(agent); }
+    const result = await super.compactNow(agent, signal, sourceCommandId);
+    if (result) this.manualSurfaces.set(agent, surface());
+    return result;
   }
 
   // The native hook keeps all rounds under one maintenance admission. Native
   // range selection, pairing, validation, durable commits and flushes stay intact.
   async finishManualCompaction(agent, compact, signal) {
-    const target = idleTarget(this.ctx, agent);
-    const rule = this.fallbackPolicies.find(rule => sameTarget(rule.source, target));
-    const { provider, model } = target;
-    const requestConfig = rule?.requestConfig ?? this.ctx.get('codebuddyCompactionRequestConfig') ?? target;
-    const { reasoningEffort, temperature } = requestConfig;
-    const maxTokens = agent.options.maxTokens ?? requestConfig.maxTokens;
-    const call = await this.ctx.llm.prepareCall({ provider, model,
-      ...(reasoningEffort === undefined ? {} : { reasoningEffort }),
-      ...(temperature === undefined ? {} : { temperature }),
-      ...(maxTokens === undefined ? {} : { maxTokens }) }, signal);
-    if (!call.measure) throw new Error('The selected model adapter cannot verify post-compaction request fit');
-    const measure = () => call.measure({ sessionId: agent.session.id, signal,
-      messages: agent.session.deriveMessages(), tools: this.ctx.tools.schemas(agent), toolHistory: agent.session.toolHistory() });
-    let before = await measure(), result;
-    for (let round = 0; round < 8; round++) {
-      signal.throwIfAborted();
-      if (!sameTarget(idleTarget(this.ctx, agent), target)) throw new Error('Model selection changed during compaction; retry for the new selection');
-      for (;;) {
-        try { result = await compact(); break; }
-        catch (error) {
-          signal.throwIfAborted();
-          if (!await activateFallback(this, agent, target, error, signal)) throw error;
+    signal.throwIfAborted();
+    // The native maintenance lock has admitted this explicit operation. A busy
+    // or cancelled /compact must not clear a live turn's retry protection.
+    this.summaryFailures.delete(agent);
+    this.summaryRetryCounts.delete(agent);
+    this.fallbackTargets.delete(agent);
+    try {
+      const target = idleTarget(this.ctx, agent);
+      const rule = this.fallbackPolicies.find(rule => sameTarget(rule.source, target));
+      const { provider, model } = target;
+      const requestConfig = rule?.requestConfig ?? this.ctx.get('codebuddyCompactionRequestConfig') ?? target;
+      const { reasoningEffort, temperature } = requestConfig;
+      const maxTokens = agent.options.maxTokens ?? requestConfig.maxTokens;
+      const call = await this.ctx.llm.prepareCall({ provider, model,
+        ...(reasoningEffort === undefined ? {} : { reasoningEffort }),
+        ...(temperature === undefined ? {} : { temperature }),
+        ...(maxTokens === undefined ? {} : { maxTokens }) }, signal);
+      if (!call.measure) throw new Error('The selected model adapter cannot verify post-compaction request fit');
+      const measure = () => call.measure({ sessionId: agent.session.id, signal,
+        messages: agent.session.deriveMessages(), tools: this.ctx.tools.schemas(agent), toolHistory: agent.session.toolHistory() });
+      let before = await measure(), result;
+      for (let round = 0; round < 8; round++) {
+        signal.throwIfAborted();
+        if (!sameTarget(idleTarget(this.ctx, agent), target)) throw new Error('Model selection changed during compaction; retry for the new selection');
+        for (;;) {
+          try { result = await compact(); break; }
+          catch (error) {
+            signal.throwIfAborted();
+            if (!await activateFallback(this, agent, target, error, signal)) throw error;
+          }
         }
+        const after = await measure();
+        signal.throwIfAborted();
+        if (!sameTarget(idleTarget(this.ctx, agent), target)) throw new Error('Model selection changed during compaction; retry for the new selection');
+        if (after.available >= after.minimumMaxTokens && after.effectiveMaxTokens >= after.minimumMaxTokens) {
+          this.ctx.logger.info('manual compaction destination fit: ' + JSON.stringify({ provider, model,
+            source: after.source, input: after.estimate.tokens, output: after.effectiveMaxTokens, window: after.contextWindow }));
+          return result;
+        }
+        if (!result || !(after.estimate.tokens < before.estimate.tokens))
+          throw Object.assign(new Error('Compaction cannot reduce the protected context enough for the selected model; completed checkpoints were preserved'), { code: 'COMPACTION_TARGET_WINDOW_EXCEEDED' });
+        // A useful segment is not a model failure. Keep the successful route for
+        // the next native range; only a real recoverable error advances fallback.
+        before = after;
       }
-      const after = await measure();
-      signal.throwIfAborted();
-      if (!sameTarget(idleTarget(this.ctx, agent), target)) throw new Error('Model selection changed during compaction; retry for the new selection');
-      if (after.available >= after.minimumMaxTokens && after.effectiveMaxTokens >= after.minimumMaxTokens) {
-        this.ctx.logger.info('manual compaction destination fit: ' + JSON.stringify({ provider, model,
-          source: after.source, input: after.estimate.tokens, output: after.effectiveMaxTokens, window: after.contextWindow }));
-        return result;
-      }
-      if (!result || !(after.estimate.tokens < before.estimate.tokens))
-        throw Object.assign(new Error('Compaction cannot reduce the protected context enough for the selected model; completed checkpoints were preserved'), { code: 'COMPACTION_TARGET_WINDOW_EXCEEDED' });
-      // A useful segment is not a model failure. Keep the successful route for
-      // the next native range; only a real recoverable error advances fallback.
-      before = after;
-    }
-    throw Object.assign(new Error('Compaction still exceeds the selected model window after 8 reductions; completed checkpoints were preserved'), { code: 'COMPACTION_TARGET_WINDOW_EXCEEDED' });
+      throw Object.assign(new Error('Compaction still exceeds the selected model window after 8 reductions; completed checkpoints were preserved'), { code: 'COMPACTION_TARGET_WINDOW_EXCEEDED' });
+    } finally { this.fallbackTargets.delete(agent); }
   }
 
   regionDependencies() {
@@ -235,11 +253,23 @@ export default class CompactionEngine extends BasicCompactionEngine {
 
   async compactIfNeeded(agent, trigger, signal) {
     signal?.throwIfAborted();
-    const route = summaryRoute(agent);
+    const route = summaryRoute(agent, this.config);
     const failed = this.summaryFailures.get(agent);
-    if (failed?.route === route) {
-      if (trigger === 'pressure') return null;
-      throw failed.error;
+    if (failed) {
+      const retries = this.summaryRetryCounts.get(agent) ?? 0;
+      const changed = failed.route !== route;
+      const grown = Number.isFinite(failed.tokens) &&
+        (this.ctx.tokenMeter.measure(agent.session).totalTokens - failed.tokens >= SUMMARY_RETRY_POLICY.minGrowthTokens);
+      if (retries >= SUMMARY_RETRY_POLICY.maxAutomaticRetries ||
+          (!changed && !(performance.now() >= failed.retryAt && grown))) {
+        if (trigger === 'pressure') return null;
+        throw failed.error;
+      }
+      this.summaryRetryCounts.set(agent, retries + 1);
+      this.summaryFailures.delete(agent);
+      this.fallbackTargets.delete(agent);
+      this.ctx.logger?.info('compaction summary recovery: ' + JSON.stringify({ attempt: retries + 1,
+        maxAutomaticRetries: SUMMARY_RETRY_POLICY.maxAutomaticRetries, reason: changed ? 'configuration_changed' : 'history_growth_after_backoff' }));
     }
     const attempt = trigger === 'pressure' ? { result: null } : undefined;
     if (attempt) this.pressureAttempts.set(agent, attempt);
@@ -259,15 +289,23 @@ export default class CompactionEngine extends BasicCompactionEngine {
   async compactRegion(start, end, agent, signal) {
     signal?.throwIfAborted();
     const attempt = this.pressureAttempts.get(agent);
-    const event = start === end ? agent.session.eventAt(start) : undefined;
-    if (attempt && event?.type === 'user/message' && event.data.source?.kind === 'compact-checkpoint')
-      throw new UnchangedCheckpoint();
+    if (attempt) {
+      const nodes = agent.session.surface.nodes;
+      const first = nodes.indexOf(start), last = nodes.indexOf(end);
+      const messages = first < 0 || last < first ? [] : nodes.slice(first, last + 1)
+        .map(seq => agent.session.deriveEventMessage(agent.session.eventAt(seq))).filter(message => message !== null);
+      // Retained positional nodes may no longer produce messages. Test the
+      // actual summary region before opening a transaction, or a no-op would
+      // emit a failed compaction on every pressure step despite doing no work.
+      if (messages.length === 1 && messages[0].role === 'user' && messages[0].source?.kind === 'compact-checkpoint')
+        throw new UnchangedCheckpoint();
+    }
     try {
       const result = await super.compactRegion(start, end, agent, signal);
       if (attempt) attempt.result = result;
       return result;
     } catch (error) {
-      if (fallbackFailure(error, checkpointFailureCodes) && !signal?.aborted) this.summaryFailures.set(agent, { route: summaryRoute(agent), error });
+      if (fallbackFailure(error, checkpointFailureCodes) && !signal?.aborted) rememberSummaryFailure(this, agent, error);
       throw error;
     }
   }
@@ -354,7 +392,7 @@ export default class CompactionEngine extends BasicCompactionEngine {
         }
       }
     } catch (error) {
-      if (fallbackFailure(error, checkpointFailureCodes)) this.summaryFailures?.set(agent, { route: summaryRoute(agent), error });
+      if (fallbackFailure(error, checkpointFailureCodes)) rememberSummaryFailure(this, agent, error);
       throw error;
     }
   }

@@ -101,7 +101,7 @@ test('valid segments keep the successful summary model and stop if protected con
     const agent = { options: { ...source, maxTokens: 256 }, session: {
       id: 'contract', requestHeader: () => ({ config: source }), deriveMessages: () => [], toolHistory: () => new Map(),
     } };
-    const owner = { config: { modelPolicies: [] }, fallbackTargets: new WeakMap(), summaryFailures: new WeakMap(),
+    const owner = { config: { modelPolicies: [] }, fallbackTargets: new WeakMap(), summaryFailures: new WeakMap(), summaryRetryCounts: new WeakMap(),
       fallbackPolicies: [{ source, requestConfig: {}, fallbacks: [async () => { throw Error('Unneeded backup must not be loaded'); }] }],
       ctx: { sessionProjections: { stateOf: () => ({ pending: null }) }, tools: { schemas: () => [] }, logger: { info() {} },
         llm: { prepareCall: async () => ({ measure: async () => {

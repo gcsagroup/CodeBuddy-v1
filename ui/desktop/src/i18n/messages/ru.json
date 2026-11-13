@@ -4838,6 +4838,9 @@
   "modelAndProviderContext.selectModel": {
     "defaultMessage": "Выбрать модель"
   },
+  "modelAndProviderContext.stopBeforeSwitching": {
+    "defaultMessage": "Остановите текущий шаг, прежде чем менять модель."
+  },
   "modelAndProviderContext.unknownProviderMsg": {
     "defaultMessage": "Неизвестный провайдер в конфигурации -- проверьте config.yaml"
   },

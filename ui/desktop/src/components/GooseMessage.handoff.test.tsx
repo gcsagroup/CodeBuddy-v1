@@ -5,7 +5,10 @@ import type { Message } from '../types/message';
 import GooseMessage from './GooseMessage';
 import { DeliveredMediaScope } from './GeneratedMedia';
 
-function terminal(status: 'interrupted' | 'cancelled' | 'failed' | 'completed', text = ''): Message {
+function terminal(
+  status: 'interrupted' | 'cancelled' | 'failed' | 'completed',
+  text = ''
+): Message {
   return {
     id: 'terminal',
     role: 'assistant',
@@ -40,20 +43,32 @@ function terminal(status: 'interrupted' | 'cancelled' | 'failed' | 'completed', 
 function show(message: Message, deliveredPaths: string[] = []) {
   return render(
     <DeliveredMediaScope paths={deliveredPaths}>
-    <GooseMessage
-      sessionId="session"
-      message={message}
-      messages={[message]}
-      toolCallNotifications={new Map()}
-      append={vi.fn()}
-      isStreaming={false}
-    />
+      <GooseMessage
+        sessionId="session"
+        message={message}
+        messages={[message]}
+        toolCallNotifications={new Map()}
+        append={vi.fn()}
+        isStreaming={false}
+      />
     </DeliveredMediaScope>,
     { wrapper: IntlTestWrapper }
   );
 }
 
 describe('handoff versus an unexplained interruption', () => {
+  it('shows safe failure diagnostics even when the native failure has no prose report', () => {
+    const message = terminal('failed');
+    const notification = message.content.find((content) => content.type === 'systemNotification');
+    if (notification?.type === 'systemNotification')
+      notification.data = {
+        ...(notification.data as object),
+        diagnostic: { code: 'AUTH', httpStatus: 401, message: 'PRIVATE' },
+      };
+    show(message);
+    expect(screen.getByText('AUTH; HTTP 401')).toBeInTheDocument();
+    expect(screen.queryByText(/PRIVATE/)).toBeNull();
+  });
   it('explains a restored backend interruption without offering automatic continuation or changing ordinary stops', () => {
     const message = terminal('interrupted');
     const notification = message.content.find((content) => content.type === 'systemNotification');
@@ -69,14 +84,16 @@ describe('handoff versus an unexplained interruption', () => {
   });
   it('shows the missing final reply only when the completed turn also lacks delivered media', () => {
     const message = terminal('completed');
-    const record = message.content.find(c => c.type === 'systemNotification');
+    const record = message.content.find((c) => c.type === 'systemNotification');
     if (record?.type === 'systemNotification')
       record.data = { ...(record.data as object), last_response_text_available: false };
     const empty = show(message);
     expect(screen.getByText(/model response ended without a final reply/i)).toBeVisible();
     empty.unmount();
     show(message, ['generated-images/real-job/1.png']);
-    expect(screen.queryByText(/model response ended without a final reply/i)).not.toBeInTheDocument();
+    expect(
+      screen.queryByText(/model response ended without a final reply/i)
+    ).not.toBeInTheDocument();
   });
   it('does not invent a test failure when a model request fails without verification', () => {
     const message = terminal('failed');

@@ -4865,6 +4865,9 @@
   "modelAndProviderContext.selectModel": {
     "defaultMessage": "Select Model"
   },
+  "modelAndProviderContext.stopBeforeSwitching": {
+    "defaultMessage": "Stop the current turn before changing its model."
+  },
   "modelAndProviderContext.unknownProviderMsg": {
     "defaultMessage": "Unknown provider in config -- please inspect your config.yaml"
   },

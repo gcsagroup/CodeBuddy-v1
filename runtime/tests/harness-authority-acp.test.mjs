@@ -85,6 +85,22 @@ test('loading an interrupted host run explains recovery without executing or cha
   assert.equal(f.notices.slice(start).some(n => n.params.update?.status?.data?.stop_reason === 'process_interrupted'), false);
 });
 
+test('switching models during an active turn keeps its local refusal reason without changing execution', async t => {
+  const f = await fixture(t);
+  const before = f.store.readSession(f.sessionId);
+  f.compat.active.set(f.sessionId, { controller: new AbortController() });
+  try {
+    await assert.rejects(f.request('session/set_config_option', { sessionId: f.sessionId,
+      configId: 'provider_model', value: JSON.stringify({ providerId: 'fixture', modelId: 'fixture' }) }), error => {
+      assert.equal(error.code, -32602);
+      assert.equal(error.data.code, 'SESSION_BUSY');
+      return true;
+    });
+    assert.equal(f.compat.active.get(f.sessionId).controller.signal.aborted, false);
+    assert.deepEqual(f.store.readSession(f.sessionId), before);
+  } finally { f.compat.active.delete(f.sessionId); }
+});
+
 test('a subsequent attempt or normal stop does not retain the backend interruption notice', async t => {
   const f = await fixture(t);
   const run = await f.compat.runs.create({ sessionId: f.sessionId, goal: 'Resume explicitly', sourceMessageId: 'before', executionOwner: 'harness' });

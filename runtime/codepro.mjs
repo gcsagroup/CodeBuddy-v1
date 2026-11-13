@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+import { publicFailure } from './error-presentation.mjs';
 
 const VERSION = 1;
 const TERMINAL = new Set(['completed', 'cancelled', 'failed', 'fatal', 'exhausted']);
@@ -58,8 +59,12 @@ function project(row) {
         if (state.state !== 'cancelled') {
           state.state = p.state;
           state.completionKind = p.completionKind;
-          state.lastReason = p.reason;
-          state.terminalError = p.error ?? null;
+          const failure = p.state === 'failed' ? publicFailure(p.error?.diagnostic ?? p.error) : null;
+          state.lastReason = failure?.message ?? p.reason;
+          if (failure) {
+            const { message, ...diagnostic } = failure;
+            state.terminalError = { message, code: failure.code, diagnostic };
+          } else state.terminalError = p.error ?? null;
           if (p.goal !== undefined) state.nativeGoal = p.goal;
         }
         break;
@@ -207,7 +212,10 @@ function nativeTerminal({ result, error, aborted }, view) {
   const failure = error ?? (code === 'error' ? reason.error : null);
   if (aborted || view.stopRequested || code === 'aborted' || code === 'interrupted') return { state: 'paused', completionKind: null, reason: 'CodeBuddy execution paused', goal };
   if (result?.stopReason === 'max_tokens') return { state: 'paused', completionKind: null, reason: '模型这一步达到输出长度限制，任务尚未完成。此前的修改和操作记录已保留。', goal };
-  if (failure) return { state: 'failed', completionKind: null, reason: failure.message ?? String(failure), error: { message: failure.message ?? String(failure), ...(failure.code !== undefined ? { code: failure.code } : {}) }, goal };
+  if (failure) {
+    const { message: _message, ...diagnostic } = publicFailure(failure);
+    return { state: 'failed', completionKind: null, reason: failure.message ?? String(failure), error: { message: failure.message ?? String(failure), ...(failure.code !== undefined ? { code: failure.code } : {}), diagnostic }, goal };
+  }
   if (code !== 'completed' || result?.stopReason === 'max_turns') return { state: 'paused', completionKind: null, reason: `CodeBuddy stopped: ${result?.stopReason ?? code ?? 'unknown'}`, goal };
   if (goal && goal.phase !== 'complete') return { state: 'paused', completionKind: null, reason: goal.blockedReason?.message ?? `CodeBuddy goal is ${goal.phase}`, goal };
   // A session retains its last completed goal. A later ordinary reply must not
@@ -291,7 +299,9 @@ function activity(row, entry) {
   if (!eventType) return null;
   const ending = nativeEnd || ['task_result', 'tool_result', 'run_completed', 'response_completed', 'run_cancelled', 'pause_requested', 'process_interrupted', 'attempt_finished', 'run_blocked'].includes(entry.eventType);
   const status = eventType === 'run_completed' || p.outcome === 'succeeded' ? 'completed' : p.state === 'failed' || p.outcome === 'failed' ? 'failed' : entry.eventType === 'run_cancelled' ? 'cancelled' : entry.eventType === 'process_interrupted' || p.outcome === 'unknown' ? 'interrupted' : ending ? 'stopped' : 'running';
-  return { schema_version: 1, event_id: entry.eventId, tool_call_id: p.callId, event_type: eventType, session_id: row.sessionId, run_id: row.runId, task_id: p.taskId ?? null, parent_task_id: null, agent_role: null, effective_model: null, status, started_at: entry.occurredAt, finished_at: ending ? entry.occurredAt : null, title: p.summary ?? p.reason ?? p.name ?? view.goal, technical_details: null, path: p.path ?? null, command_summary: p.command ?? null, exit_code: p.exitCode ?? null, diff_summary: null, include_in_model_context: false, retryable: !TERMINAL.has(view.state), retry_from_event_id: null };
+  const title = nativeEnd && p.state === 'failed' ? publicFailure(p.error?.diagnostic ?? p.error).message : p.summary ?? p.reason ?? p.name ?? view.goal;
+  const diagnostic = nativeEnd && p.state === 'failed' ? publicFailure(p.error?.diagnostic ?? p.error) : null;
+  return { schema_version: 1, event_id: entry.eventId, tool_call_id: p.callId, event_type: eventType, session_id: row.sessionId, run_id: row.runId, task_id: p.taskId ?? null, parent_task_id: null, agent_role: null, effective_model: null, status, started_at: entry.occurredAt, finished_at: ending ? entry.occurredAt : null, title, ...(diagnostic ? { diagnostic: { code: diagnostic.code, ...(diagnostic.httpStatus ? { httpStatus: diagnostic.httpStatus } : {}), ...(diagnostic.transportCodes ? { transportCodes: diagnostic.transportCodes } : {}) } } : {}), technical_details: null, path: p.path ?? null, command_summary: p.command ?? null, exit_code: p.exitCode ?? null, diff_summary: null, include_in_model_context: false, retryable: !TERMINAL.has(view.state), retry_from_event_id: null };
 }
 
 export class CodeProRuns {

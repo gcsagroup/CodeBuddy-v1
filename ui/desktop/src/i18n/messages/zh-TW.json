@@ -4847,6 +4847,9 @@
   "modelAndProviderContext.selectModel": {
     "defaultMessage": "選擇模型"
   },
+  "modelAndProviderContext.stopBeforeSwitching": {
+    "defaultMessage": "請先停止目前執行，再切換模型。"
+  },
   "modelAndProviderContext.unknownProviderMsg": {
     "defaultMessage": "設定中有未知的供應商 -- 請檢查您的 config.yaml"
   },

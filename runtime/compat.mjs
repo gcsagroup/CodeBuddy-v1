@@ -14,7 +14,7 @@ import { parseGoalRequest } from './goal-request.mjs';
 import { createHash, randomUUID } from "node:crypto";
 import path from "node:path";
 import { mkdir } from "node:fs/promises";
-import { contextUpdates, unfinishedCompactions, recoveredCompactionUpdates } from "./context-updates.mjs";
+import { contextUpdates, unfinishedCompactions, recoveredCompactionUpdates, publicErrorUpdate } from "./context-updates.mjs";
 import { workStatusUpdates } from "./work-status.mjs";
 import { connectGithubMcp } from './github-mcp.mjs';
 import {
@@ -1785,6 +1785,8 @@ export class Compat {
               ? { ...part, content: imageDisplayBlock(part.content) }
               : part) };
         });
+        transcript.updates = transcript.updates.map(publicErrorUpdate);
+        transcript.usageUpdates = transcript.usageUpdates.map(publicErrorUpdate);
         updateCount =
           transcript.updates.length + transcript.usageUpdates.length;
         checkpoint("projectionMs");
@@ -2019,7 +2021,7 @@ export class Compat {
     if (method === "session/set_config_option") {
       const s = this.session(p.sessionId);
       if (this.active.has(s.id))
-        throw invalid("Stop the current turn before changing its model");
+        throw invalid("Stop the current turn before changing its model", { code: 'SESSION_BUSY' });
       let selection;
       if (p.configId === "provider_model") {
         try {
@@ -3362,6 +3364,7 @@ export class Compat {
             tool_action_count: context.receipts.length,
             copy_artifact_ref: null,
             finished_at: new Date().toISOString(),
+            ...(context.terminalError?.diagnostic ? { diagnostic: context.terminalError.diagnostic } : {}),
             checkpoint_id: null,
             retry_strategy: "not_available",
             report: {

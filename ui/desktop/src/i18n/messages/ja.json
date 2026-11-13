@@ -4838,6 +4838,9 @@
   "modelAndProviderContext.selectModel": {
     "defaultMessage": "モデルを選択"
   },
+  "modelAndProviderContext.stopBeforeSwitching": {
+    "defaultMessage": "モデルを変更する前に、現在の処理を停止してください。"
+  },
   "modelAndProviderContext.unknownProviderMsg": {
     "defaultMessage": "設定内に不明なプロバイダーがあります -- config.yamlを確認してください"
   },

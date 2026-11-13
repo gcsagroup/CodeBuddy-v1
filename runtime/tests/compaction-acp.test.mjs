@@ -118,7 +118,8 @@ test('recovery uses the exact durable Harness outcome when its desktop notificat
     { type: 'compaction/end', data: { compactionId: 'failed', error: 'Controlled native failure' } },
   ]);
   assert.deepEqual(reconciled.map(u => [u.status.data.operation_id, u.status.data.status]), [['committed', 'completed'], ['failed', 'failed'], ['unknown', 'failed']]);
-  assert.equal(reconciled[1].status.data.error, 'Controlled native failure');
+  assert.match(reconciled[1].status.data.error, /UNKNOWN_FAILURE/);
+  assert.equal(reconciled[1].status.data.error.includes('Controlled native failure'), false);
   assert.match(reconciled[2].status.message, /结果未确认/);
   assert.equal(updates[0].status.data.status, 'started', 'persisted projection remains unchanged');
 });

@@ -17,6 +17,7 @@ import {
   type CodeProRiskReason,
   type CodeProRiskTier,
 } from './activityEvent';
+import { parseFailureDiagnostic, type FailureDiagnostic } from '../utils/failureDiagnostic';
 
 export type TurnTerminalStatus = 'completed' | 'failed' | 'cancelled' | 'interrupted';
 
@@ -123,6 +124,7 @@ interface TurnTerminalRecordBase {
   user_action?: CodeProFailureUserAction;
   report?: TurnTerminalReport;
   report_parse_failed?: true;
+  diagnostic?: FailureDiagnostic;
 }
 
 export type TurnTerminalRecord = TurnTerminalRecordBase &
@@ -290,6 +292,9 @@ export function parseTurnTerminalRecord(value: unknown): TurnTerminalRecord | un
   }
 
   const parsed = { ...record } as unknown as TurnTerminalRecord;
+  const diagnostic = parseFailureDiagnostic(record.diagnostic);
+  if (diagnostic) parsed.diagnostic = diagnostic;
+  else delete parsed.diagnostic;
   if (typeof record.last_response_text_available !== 'boolean')
     delete parsed.last_response_text_available;
   if (typeof record.user_requested_stop !== 'boolean') delete parsed.user_requested_stop;

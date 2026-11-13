@@ -4838,6 +4838,9 @@
   "modelAndProviderContext.selectModel": {
     "defaultMessage": "Modeli Seçin"
   },
+  "modelAndProviderContext.stopBeforeSwitching": {
+    "defaultMessage": "Modeli değiştirmeden önce geçerli turu durdurun."
+  },
   "modelAndProviderContext.unknownProviderMsg": {
     "defaultMessage": "Config'de bilinmeyen sağlayıcı -- lütfen config.yaml dosyanızı inceleyin"
   },

@@ -4838,6 +4838,9 @@
   "modelAndProviderContext.selectModel": {
     "defaultMessage": "Pilih Model"
   },
+  "modelAndProviderContext.stopBeforeSwitching": {
+    "defaultMessage": "Hentikan giliran saat ini sebelum mengganti model."
+  },
   "modelAndProviderContext.unknownProviderMsg": {
     "defaultMessage": "Penyedia tidak dikenal dalam konfigurasi -- silakan periksa config.yaml Anda"
   },

@@ -4838,6 +4838,9 @@
   "modelAndProviderContext.selectModel": {
     "defaultMessage": "Seleziona modello"
   },
+  "modelAndProviderContext.stopBeforeSwitching": {
+    "defaultMessage": "Interrompi il turno attuale prima di cambiare modello."
+  },
   "modelAndProviderContext.unknownProviderMsg": {
     "defaultMessage": "Provider sconosciuto nella configurazione -- controlla il tuo config.yaml"
   },

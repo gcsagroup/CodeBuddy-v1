@@ -4838,6 +4838,9 @@
   "modelAndProviderContext.selectModel": {
     "defaultMessage": "मॉडल का चयन करें"
   },
+  "modelAndProviderContext.stopBeforeSwitching": {
+    "defaultMessage": "मॉडल बदलने से पहले मौजूदा चरण रोकें।"
+  },
   "modelAndProviderContext.unknownProviderMsg": {
     "defaultMessage": "कॉन्फ़िग में अज्ञात प्रदाता -- कृपया अपनी config.yaml जांचें"
   },

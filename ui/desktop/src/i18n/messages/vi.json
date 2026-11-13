@@ -4838,6 +4838,9 @@
   "modelAndProviderContext.selectModel": {
     "defaultMessage": "Chọn mô hình"
   },
+  "modelAndProviderContext.stopBeforeSwitching": {
+    "defaultMessage": "Dừng lượt hiện tại trước khi đổi mô hình."
+  },
   "modelAndProviderContext.unknownProviderMsg": {
     "defaultMessage": "Nhà cung cấp không xác định trong cấu hình -- vui lòng kiểm tra config.yaml của bạn"
   },

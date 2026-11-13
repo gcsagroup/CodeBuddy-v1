@@ -4832,6 +4832,9 @@
   "modelAndProviderContext.credentialsRejected": {
     "defaultMessage": "模型服务需要凭据或拒绝了当前凭据，请在设置中检查该提供商。"
   },
+  "modelAndProviderContext.stopBeforeSwitching": {
+    "defaultMessage": "请先停止当前执行，再切换模型。"
+  },
   "modelAndProviderContext.endpointUnreachable": {
     "defaultMessage": "连接不到模型服务，请检查服务地址及网络后重试。"
   },

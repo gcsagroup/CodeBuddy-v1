@@ -1,6 +1,6 @@
 // Render only structured native failures. A timeout or a connection error
 // alone cannot establish whether the user's network or the service is at fault.
-function requestFailureMessage(failure, observation, terminal = false) {
+function requestFailurePresentation(failure, observation) {
   const validStatus = value => Number.isInteger(value) && value >= 100 && value <= 599;
   const status = validStatus(failure?.status) ? failure.status : validStatus(observation?.status) ? observation.status : undefined;
   const http = status >= 300 ? `（HTTP ${status}）` : '';
@@ -77,7 +77,17 @@ function requestFailureMessage(failure, observation, terminal = false) {
       ? '请确认模型服务与连接状态后，在当前对话继续。'
       : '请根据详细原因处理后，在当前对话继续。';
   }
+  return { message, action };
+}
+
+export function requestFailureMessage(failure, observation, terminal = false) {
+  const { message, action } = requestFailurePresentation(failure, observation);
   return terminal ? `${message}。本轮已停止。${action}详细信息可展开“查看未完成原因”。` : message;
+}
+
+export function requestFailureAdvice(failure, observation) {
+  const { message, action } = requestFailurePresentation(failure, observation);
+  return `${message}。${action}`;
 }
 
 // Live presentation only. Native events remain the execution/terminal authority.

@@ -201,6 +201,43 @@ test('ordinary replay stays idempotent across steering, inspection failure and a
   assert.equal(JSON.stringify(c.wire).includes('PRIVATE_INSPECTION'), false);
 });
 
+for (const inspection of ['userTurnTerminals', 'lastUserStop']) test(`readable history survives a stalled ${inspection} without late projection`, { timeout: 5000 }, async t => {
+  const root = await mkdtemp(path.join(tmpdir(), 'codebuddy-stalled-inspection-'));
+  const store = await openStore(root);
+  await store.update(s => {
+    s.providers = [{ id: 'fixture', engine: 'openai_compatible', apiUrl: 'http://127.0.0.1:1', models: ['fixture'], requiresAuth: false }];
+    s.defaults = { providerId: 'fixture', modelId: 'fixture' };
+  });
+  const entered = Promise.withResolvers(), release = Promise.withResolvers();
+  let calls = 0, inspectionSignal;
+  const driver = { permissions: permissionDriver(), async createSession() {}, async listTools() { return []; }, async close() {}, async cancel() {},
+    async prompt() { calls++; throw Object.assign(Error('PRIVATE_SAVED_AUTH'), { code: 'AUTH' }); },
+  };
+  const compat = new Compat(store, driver); await compat.initialize();
+  t.after(async () => { release.resolve(); t.mock.timers.reset(); await compat.close(); });
+  const wire = [], connection = { notify(_method, value) { wire.push(value); }, async ask() {} };
+  const { sessionId } = await compat.request('session/new', { cwd: root, mcpServers: [] }, connection);
+  await compat.request('session/prompt', { sessionId, prompt: [{ type: 'text', text: 'Saved history' }] }, connection).catch(() => {});
+  if (inspection === 'lastUserStop') await store.updateSession(sessionId, s => { s.usageUpdates = []; });
+  driver[inspection] = async (...args) => {
+    inspectionSignal = args.at(-1)?.signal; entered.resolve(); await release.promise;
+    return inspection === 'lastUserStop' ? 1 : [{ sourceId: 'old', time: 1, reason: { kind: 'error', error: { code: 'AUTH' } } }];
+  };
+  t.mock.timers.enable({ apis: ['setTimeout'] });
+  wire.length = 0;
+  const loading = compat.request('session/load', { sessionId }, connection);
+  await entered.promise; t.mock.timers.tick(5000);
+  const completed = await Promise.race([loading.then(() => true), new Promise(resolve => setImmediate(() => resolve(false)))]);
+  assert.equal(completed, true, 'Optional diagnostics must not hide saved history indefinitely');
+  assert.equal(inspectionSignal.aborted, true, 'Only the readonly inspection should receive cancellation');
+  assert.ok(wire.some(x => x.update?.sessionUpdate === 'user_message_chunk'));
+  assert.equal(wire.filter(x => x.update?.status?.data?.terminal_message_id).length, inspection === 'lastUserStop' ? 0 : 1);
+  const snapshot = structuredClone(wire);
+  release.resolve(); await new Promise(resolve => setImmediate(resolve));
+  assert.deepEqual(wire, snapshot, 'A late diagnostic must not publish into the loaded session');
+  assert.equal(calls, 1); assert.equal(JSON.stringify(wire).includes('PRIVATE_'), false);
+});
+
 for (const phase of ['before-native-end', 'driver-cleanup', 'compat-cleanup']) test(`ordinary stop ordering: ${phase}`, async t => {
   const late = phase !== 'before-native-end';
   const root = await mkdtemp(path.join(tmpdir(), 'codebuddy-terminal-stop-race-'));

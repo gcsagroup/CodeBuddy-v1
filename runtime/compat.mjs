@@ -60,6 +60,7 @@ import { mcpSessionApprovalScope, businessPresentationForClient } from './tool-s
 import { HistoryService, updatesFromConversation } from "./history.mjs";
 import { sessionLogDiagnostics } from './session-log-diagnostics.mjs';
 import { publicFailure } from './error-presentation.mjs';
+import { abortable } from './harness/abortable.mjs';
 import { loadLegacyConversation } from "./legacy-migration.mjs";
 import {
   builtinMcp,
@@ -1858,18 +1859,26 @@ export class Compat {
         const lastInputId = current.updates?.[lastInput]?.messageId;
         let historicalTerminals = [];
         if (s.type === 'user' && !s.readonlyHistory && !initialLiveReplay && lastInputId) {
+          const inspection = new AbortController();
+          const timer = setTimeout(() => inspection.abort(), 2000);
           try {
-            const native = await this.driver.userTurnTerminals?.(s.id);
-            if (native) historicalTerminals = native;
-            else if (!current.usageUpdates?.some(u => u.status?.data?.source_user_message_id === lastInputId && u.status.data.terminal_message_id)) {
-              const time = await this.driver.lastUserStop?.(s.id, lastInputId);
-              if (time != null) historicalTerminals = [{ sourceId: lastInputId, time, reason: { kind: 'aborted', reason: { kind: 'user' } } }];
-            }
+            historicalTerminals = await abortable((async () => {
+              const options = { signal: inspection.signal };
+              const native = await this.driver.userTurnTerminals?.(s.id, options);
+              inspection.signal.throwIfAborted();
+              if (native) return native;
+              if (!current.usageUpdates?.some(u => u.status?.data?.source_user_message_id === lastInputId && u.status.data.terminal_message_id)) {
+                const time = await this.driver.lastUserStop?.(s.id, lastInputId, options);
+                inspection.signal.throwIfAborted();
+                if (time != null) return [{ sourceId: lastInputId, time, reason: { kind: 'aborted', reason: { kind: 'user' } } }];
+              }
+              return [];
+            })(), inspection.signal);
           } catch {
             // Diagnosis is optional; a failed inspection must not hide readable
             // history or publish arbitrary exception details to the client/log.
             console.warn('[Session terminal inspection unavailable]');
-          }
+          } finally { clearTimeout(timer); }
           if (current.updatedAt !== this.session(s.id, { fields: ['updatedAt'] }).updatedAt) current = this.session(s.id);
         }
         const imageRepairs = new Map();

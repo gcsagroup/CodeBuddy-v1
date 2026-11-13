@@ -1757,18 +1757,23 @@ Keep progress updates brief, meaningful, and outcome-based.
     },
     async listSessions() { return (await ctx.sessionController.list({}, new AbortController().signal)).items; },
     async history(sessionId) { return ctx.sessionController.inspect(sessionId); },
-    async userTurnTerminals(sessionId) {
+    async userTurnTerminals(sessionId, { signal } = {}) {
+      signal?.throwIfAborted();
       const live = ctx.agents.get(sessionId)?.session;
-      if (!live && !await ctx.sessionPersistence.stat(sessionId)) return [];
-      const observation = live ? undefined : await ctx.sessionQuery.observeSession(sessionId, { projectionMode: 'none' });
-      try { return userTurnTerminals(live?.log ?? observation.events); }
-      finally { observation?.[Symbol.dispose](); }
-    },
-    async lastUserStop(sessionId, sourceId) {
-      const live = ctx.agents.get(sessionId)?.session;
-      if (!live && !await ctx.sessionPersistence.stat(sessionId)) return;
-      const observation = live ? undefined : await ctx.sessionQuery.observeSession(sessionId, { projectionMode: 'none' });
+      if (!live && !await ctx.sessionPersistence.stat(sessionId, { signal })) return [];
+      const observation = live ? undefined : await ctx.sessionQuery.observeSession(sessionId, { signal, projectionMode: 'none' });
       try {
+        signal?.throwIfAborted();
+        return userTurnTerminals(live?.log ?? observation.events);
+      } finally { observation?.[Symbol.dispose](); }
+    },
+    async lastUserStop(sessionId, sourceId, { signal } = {}) {
+      signal?.throwIfAborted();
+      const live = ctx.agents.get(sessionId)?.session;
+      if (!live && !await ctx.sessionPersistence.stat(sessionId, { signal })) return;
+      const observation = live ? undefined : await ctx.sessionQuery.observeSession(sessionId, { signal, projectionMode: 'none' });
+      try {
+        signal?.throwIfAborted();
         const log = live?.log ?? observation.events;
         const end = log.findLast(e => e.type === 'turn/start' || e.type === 'turn/end');
         if (end?.type !== 'turn/end' || end.data.reason?.kind !== 'aborted' || end.data.reason.reason?.kind !== 'user') return;

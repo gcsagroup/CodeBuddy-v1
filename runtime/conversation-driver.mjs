@@ -110,8 +110,8 @@ export function createConversationDriver(driver, store) {
     listResources(id, server, cursor, options) { const actual = nativeId(id); return driver.listResources(actual, server, cursor, callbacks(options, actual, id)); },
     rename(id, title) { return driver.rename(nativeId(id), title); },
     history(id) { return driver.history(nativeId(id)); },
-    lastUserStop(id, sourceId) { return driver.lastUserStop?.(nativeId(id), sourceId); },
-    userTurnTerminals(id) { return driver.userTurnTerminals?.(nativeId(id)); },
+    lastUserStop(id, sourceId, options) { return driver.lastUserStop?.(nativeId(id), sourceId, options); },
+    userTurnTerminals(id, options) { return driver.userTurnTerminals?.(nativeId(id), options); },
     exportSessionLog(id) { return driver.exportSessionLog(nativeId(id)); },
     // Subagent browsing resolves the product root once; child addresses are native.
     nativeHistory(id) { return driver.history(id); },

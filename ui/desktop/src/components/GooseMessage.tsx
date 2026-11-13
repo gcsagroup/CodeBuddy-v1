@@ -709,29 +709,17 @@ export default function GooseMessage({
           const content = block.content[0];
           const key = `${content.type}-${block.start}`;
           if (content.type === 'thinking') {
-            if (providerThinkingSuppressed) return null;
-            if (groupedProcess) {
-              return showGroupedThinking ? (
-                <div
-                  key={key}
-                  className="codepro-thinking-details my-2 text-sm text-text-secondary"
-                >
-                  <MarkdownContent
-                    content={getThinkingContent({ ...message, content: block.content }) ?? ''}
-                    className="!text-text-secondary prose-headings:text-text-secondary prose-strong:text-text-secondary prose-a:text-text-secondary"
-                  />
-                </div>
-              ) : null;
-            }
+            if (providerThinkingSuppressed || (groupedProcess && !showGroupedThinking)) return null;
             const active = thinkingActive && index === contentBlocks.length - 1;
             return (
               <ThinkingContent
                 key={key}
                 content={getThinkingContent({ ...message, content: block.content }) ?? ''}
                 isStreaming={active}
+                showPreview={groupedProcess}
                 storageKey={
                   message.id
-                    ? `provider-${message.id}${block.start === 0 ? '' : `-${block.start}`}`
+                    ? `provider-${message.id}${block.start === 0 && !groupedProcess ? '' : `-${block.start}`}`
                     : undefined
                 }
                 isExpanded={!groupedProcess && active}

@@ -41,10 +41,17 @@ for (const [label, expected] of [['本会话允许网页读取', 'session'], ['�
       await page.getByRole('button',{name:'正在查找可用工具',exact:true}).click();
       const thoughts = page.getByRole('button',{name:'深度思考',exact:true});
       await expect(thoughts).toHaveCount(3);
-      for (let index = 0; index < 3; index += 1) await thoughts.nth(index).click();
-      for (const text of ['第一段分析。', '继续分析。', '找到可用工具后分析。']) {
-        await expect(page.getByText(text,{exact:true})).toBeVisible();
+      const contents = ['第一段分析。', '继续分析。', '找到可用工具后分析。'];
+      for (const [index, text] of contents.entries()) {
+        await expect(thoughts.nth(index)).toHaveAttribute('aria-expanded', 'false');
+        await thoughts.nth(index).click();
+        await expect(page.getByText(text, { exact: true })).toBeVisible();
       }
+      await thoughts.nth(1).click();
+      await expect(thoughts.nth(1)).toHaveAttribute('aria-expanded', 'false');
+      await expect(page.locator('.codepro-thinking-details').getByText(contents[1], { exact: true })).toBeHidden();
+      await expect(page.getByText(contents[0], { exact: true })).toBeVisible();
+      await expect(page.getByText(contents[2], { exact: true })).toBeVisible();
       await page.getByRole('button',{name:label,exact:true}).click();
       await expect(page.locator('#receipt')).toContainText('"optionId":"'+expected+'"');
       await page.screenshot({path:test.info().outputPath('web-read-'+expected+'.png'), fullPage:true});

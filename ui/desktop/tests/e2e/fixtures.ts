@@ -876,6 +876,22 @@ export const test = base.extend<GooseTestFixtures>({
       } catch {
         // Process cleanup still has the launcher-tree fallback below.
       }
+      if (deterministicServer && testInfo.title.startsWith('Message identity ')) {
+        await page.evaluate(async (url) => {
+          const modulePath = '/src/acp/acpConnection.ts';
+          const { getAcpClient } = await import(modulePath);
+          const client = await getAcpClient();
+          const { providerId } = await client.goose.providersCustomCreate_unstable({
+            engine: 'openai_compatible',
+            displayName: 'Identity fixture',
+            apiUrl: url,
+            requiresAuth: false,
+            models: ['codepro-e2e'],
+            supportsStreaming: true,
+          });
+          await client.goose.defaultsSave_unstable({ providerId, modelId: 'codepro-e2e' });
+        }, deterministicServer.baseUrl);
+      }
       await use(page);
     } finally {
       const launcherClose = waitForLauncherClose(appProcess);

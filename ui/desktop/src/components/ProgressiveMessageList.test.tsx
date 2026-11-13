@@ -519,7 +519,9 @@ describe('work / answer presentation boundary', () => {
       ).not.toBeInTheDocument();
       expect(screen.queryByRole('button', { name: 'Reasoning details' })).toBeNull();
       fireEvent.click(screen.getByRole('button', { name: 'Thinking', expanded: false }));
-      expect(screen.getByText('Consider the greeting without any tools.')).toBeVisible();
+      const record = view.container.querySelector<HTMLElement>('.codepro-thinking-record')!;
+      fireEvent.click(within(record).getByRole('button', { name: 'Thinking', expanded: false }));
+      expect(within(record).getByText('Consider the greeting without any tools.')).toBeVisible();
       view.rerender(
         show(
           [...JSON.parse(JSON.stringify(trace)), { ...sourceUserMessage, id: 'next-user' }],
@@ -1184,10 +1186,10 @@ describe('CodePro ordinary tool message presentation', () => {
     openProcess();
     expect(screen.queryByText('Find available tools')).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Reasoning details' })).toBeNull();
-    expect(compactGroups()[0].querySelectorAll('button')).toHaveLength(1);
-    expect(
-      screen.getByRole('region', { name: 'Tool operation records' }).querySelector('button')
-    ).toBeNull();
+    const region = screen.getByRole('region', { name: 'Tool operation records' });
+    const thoughts = within(region).getAllByRole('button', { name: 'Thinking', expanded: false });
+    expect(thoughts).toHaveLength(3);
+    for (const thought of thoughts) fireEvent.click(thought);
     expect(compactGroups()[0].querySelector('.codepro-operation-details')?.className).not.toMatch(
       /max-h-|overflow-y-auto|overflow-y-scroll/
     );

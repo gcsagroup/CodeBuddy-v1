@@ -1,12 +1,4 @@
 {
-  "projectBrief.heading": { "defaultMessage": "Project brief" },
-  "projectBrief.task": { "defaultMessage": "Assignment" },
-  "projectBrief.result": { "defaultMessage": "Project reply" },
-  "projectBrief.files": { "defaultMessage": "Changed files ({count})" },
-  "projectBrief.noReply": { "defaultMessage": "This turn has no final text reply." },
-  "projectBrief.loading": { "defaultMessage": "Reading this turn…" },
-  "projectBrief.unavailable": { "defaultMessage": "Could not read this project turn." },
-  "projectBrief.retry": { "defaultMessage": "Try again" },
   "alertBox.compactNow": {
     "defaultMessage": "Compact now"
   },
@@ -166,14 +158,14 @@
   "baseChat.mainCode": {
     "defaultMessage": "Write and debug code"
   },
+  "baseChat.mainConversationExample": {
+    "defaultMessage": "Try asking me, “Can you check my project’s progress?”"
+  },
   "baseChat.mainConversationHeading": {
     "defaultMessage": "Hi, I’m CodeBuddy, your project assistant."
   },
   "baseChat.mainConversationHelp": {
     "defaultMessage": "I can check how a project is going, find an earlier requirement, or adjust permissions for a single chat. I can also create a project folder, hand the work to a project chat, and bring you a brief when it’s done."
-  },
-  "baseChat.mainConversationExample": {
-    "defaultMessage": "Try asking me, “Can you check my project’s progress?”"
   },
   "baseChat.mainData": {
     "defaultMessage": "Organize documents and data"
@@ -301,6 +293,9 @@
   "chatInput.contextWindow": {
     "defaultMessage": "Context window"
   },
+  "chatInput.continueTask": {
+    "defaultMessage": "Continue task"
+  },
   "chatInput.dictationError": {
     "defaultMessage": "Dictation Error"
   },
@@ -345,9 +340,6 @@
   },
   "chatInput.send": {
     "defaultMessage": "Send"
-  },
-  "chatInput.continueTask": {
-    "defaultMessage": "Continue task"
   },
   "chatInput.stop": {
     "defaultMessage": "Stop"
@@ -1861,12 +1853,14 @@
   "composerStats.cacheUnknown": {
     "defaultMessage": "The latest request has no usable cache receipt yet. Missing data does not mean a 0% hit rate."
   },
-  "composerStats.previous": { "defaultMessage": "Last sampled generation speed" },
   "composerStats.live": {
     "defaultMessage": "Current generation speed"
   },
   "composerStats.liveDetail": {
     "defaultMessage": "Output tokens received per second over the latest sample of this request. ≈ indicates an estimate."
+  },
+  "composerStats.previous": {
+    "defaultMessage": "Last sampled generation speed"
   },
   "composerStats.speed": {
     "defaultMessage": "Average generation speed"
@@ -6131,6 +6125,24 @@
   "progressiveMessageList.turnProcessDuration": {
     "defaultMessage": "This turn: {minutes} min {seconds} sec"
   },
+  "projectBrief.files": {
+    "defaultMessage": "Changed files ({count})"
+  },
+  "projectBrief.heading": {
+    "defaultMessage": "Project brief"
+  },
+  "projectBrief.loading": {
+    "defaultMessage": "Reading this turn…"
+  },
+  "projectBrief.noReply": {
+    "defaultMessage": "This turn has no final text reply."
+  },
+  "projectBrief.retry": {
+    "defaultMessage": "Try again"
+  },
+  "projectBrief.unavailable": {
+    "defaultMessage": "Could not read this project turn."
+  },
   "projectMemoryApproval.confidence": {
     "defaultMessage": "Confidence"
   },
@@ -9803,6 +9815,12 @@
   "workspacePanel.browser": {
     "defaultMessage": "Browser"
   },
+  "workspacePanel.browserActionFailed": {
+    "defaultMessage": "{action} failed"
+  },
+  "workspacePanel.browserControl": {
+    "defaultMessage": "Browser control"
+  },
   "workspacePanel.browserHint": {
     "defaultMessage": "Browse web pages"
   },
@@ -9878,8 +9896,6 @@
   "workspacePanel.fileDenied": {
     "defaultMessage": "Windows denied access to this file. Check its permissions or choose a readable copy."
   },
-  "workspacePanel.browserActionFailed": { "defaultMessage": "{action} failed" },
-  "workspacePanel.browserControl": { "defaultMessage": "Browser control" },
   "workspacePanel.fileMissing": {
     "defaultMessage": "This file was moved or deleted. Check its location and open the link again."
   },

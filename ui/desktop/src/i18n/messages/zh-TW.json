@@ -1,7 +1,5 @@
 {
   "projectBrief.heading": { "defaultMessage": "專案簡報" },
-  "projectBrief.task": { "defaultMessage": "本輪任務" },
-  "projectBrief.result": { "defaultMessage": "專案回覆摘要" },
   "projectBrief.files": { "defaultMessage": "已修改檔案（{count}）" },
   "projectBrief.noReply": { "defaultMessage": "本輪沒有留下最終文字回覆。" },
   "projectBrief.loading": { "defaultMessage": "正在讀取本輪記錄…" },

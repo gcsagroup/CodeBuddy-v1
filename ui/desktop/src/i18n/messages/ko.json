@@ -10024,5 +10024,98 @@
   },
   "workspaceSubagents.unknownState": {
     "defaultMessage": "상태 알 수 없음 · {count}"
+  },
+  "projectBrief.heading": {
+    "defaultMessage": "프로젝트 요약"
+  },
+  "projectBrief.files": {
+    "defaultMessage": "변경된 파일 ({count})"
+  },
+  "projectBrief.noReply": {
+    "defaultMessage": "이 턴에는 최종 텍스트 답변이 없습니다."
+  },
+  "projectBrief.loading": {
+    "defaultMessage": "이 턴을 읽는 중…"
+  },
+  "projectBrief.unavailable": {
+    "defaultMessage": "이 프로젝트 턴을 읽을 수 없습니다."
+  },
+  "projectBrief.retry": {
+    "defaultMessage": "다시 시도"
+  },
+  "baseChat.mainConversationHeading": {
+    "defaultMessage": "안녕하세요. 프로젝트 도우미 CodeBuddy입니다."
+  },
+  "baseChat.mainConversationHelp": {
+    "defaultMessage": "프로젝트 진행 상황을 확인하거나 이전 요구 사항을 찾고, 개별 채팅의 권한을 조정할 수 있습니다. 프로젝트 폴더를 만들고 프로젝트 채팅에 작업을 맡긴 뒤 완료되면 요약을 전달할 수도 있습니다."
+  },
+  "baseChat.mainConversationExample": {
+    "defaultMessage": "“내 프로젝트 진행 상황을 확인해 줄래?”라고 물어보세요."
+  },
+  "chatInput.continueTask": {
+    "defaultMessage": "작업 계속"
+  },
+  "codeProHub.clearWorkspace": {
+    "defaultMessage": "작업 공간 선택 해제"
+  },
+  "composerStats.cache": {
+    "defaultMessage": "캐시 적중"
+  },
+  "composerStats.cacheDetail": {
+    "defaultMessage": "마지막으로 보고된 모델 요청: 캐시된 입력 토큰 {cached} / 전체 입력 토큰 {prompt}. 캐시 쓰기는 적중으로 계산하지 않습니다."
+  },
+  "composerStats.cacheUnavailable": {
+    "defaultMessage": "보고되지 않음"
+  },
+  "composerStats.cacheUnknown": {
+    "defaultMessage": "최근 요청에는 아직 사용할 수 있는 캐시 정보가 없습니다. 데이터가 없다고 적중률이 0%인 것은 아닙니다."
+  },
+  "composerStats.previous": {
+    "defaultMessage": "마지막으로 측정된 생성 속도"
+  },
+  "composerStats.live": {
+    "defaultMessage": "현재 생성 속도"
+  },
+  "composerStats.liveDetail": {
+    "defaultMessage": "이 요청의 최근 측정 구간에서 초당 받은 출력 토큰 수입니다. ≈는 추정값을 뜻합니다."
+  },
+  "composerStats.speed": {
+    "defaultMessage": "평균 생성 속도"
+  },
+  "composerStats.speedDetail": {
+    "defaultMessage": "완료된 모델 요청을 기준으로 한 세션 평균입니다. 첫 토큰 대기와 도구 실행 시간은 제외하며 요청이 완료될 때 갱신됩니다."
+  },
+  "composerStats.speedUnknown": {
+    "defaultMessage": "토큰 및 시간 정보가 있는 요청이 완료되기를 기다리는 중입니다."
+  },
+  "navigationPanel.collapseGroup": {
+    "defaultMessage": "그룹 접기"
+  },
+  "navigationPanel.expandGroup": {
+    "defaultMessage": "그룹 펼치기"
+  },
+  "navigationPanel.newTaskChat": {
+    "defaultMessage": "새 작업 대화"
+  },
+  "navigationPanel.newWorkspaceChat": {
+    "defaultMessage": "작업 공간을 선택하고 대화 시작"
+  },
+  "navigationPanel.noWorkspace": {
+    "defaultMessage": "작업 공간 없음"
+  },
+  "navigationPanel.sectionActions": {
+    "defaultMessage": "{section} 옵션"
+  },
+  "navigationPanel.unknownTime": {
+    "defaultMessage": "시간 정보 없음"
+  },
+  "navigationPanel.updatedAt": {
+    "defaultMessage": "업데이트됨"
+  },
+  "workspacePanel.browserActionFailed": {
+    "defaultMessage": "{action} 실패"
+  },
+  "workspacePanel.browserControl": {
+    "defaultMessage": "브라우저 제어"
   }
 }

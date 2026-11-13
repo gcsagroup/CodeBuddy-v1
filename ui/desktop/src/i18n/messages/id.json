@@ -10024,5 +10024,98 @@
   },
   "workspaceSubagents.unknownState": {
     "defaultMessage": "Status tidak diketahui · {count}"
+  },
+  "projectBrief.heading": {
+    "defaultMessage": "Ringkasan proyek"
+  },
+  "projectBrief.files": {
+    "defaultMessage": "File yang diubah ({count})"
+  },
+  "projectBrief.noReply": {
+    "defaultMessage": "Giliran ini tidak memiliki jawaban teks akhir."
+  },
+  "projectBrief.loading": {
+    "defaultMessage": "Membaca giliran ini…"
+  },
+  "projectBrief.unavailable": {
+    "defaultMessage": "Giliran proyek ini tidak dapat dibaca."
+  },
+  "projectBrief.retry": {
+    "defaultMessage": "Coba lagi"
+  },
+  "baseChat.mainConversationHeading": {
+    "defaultMessage": "Hai, saya CodeBuddy, asisten proyek Anda."
+  },
+  "baseChat.mainConversationHelp": {
+    "defaultMessage": "Saya dapat memeriksa perkembangan proyek, mencari persyaratan terdahulu, atau menyesuaikan izin untuk satu percakapan. Saya juga dapat membuat folder proyek, menyerahkan pekerjaan ke percakapan proyek, lalu memberikan ringkasan setelah selesai."
+  },
+  "baseChat.mainConversationExample": {
+    "defaultMessage": "Coba tanyakan, “Bisakah kamu memeriksa perkembangan proyek saya?”"
+  },
+  "chatInput.continueTask": {
+    "defaultMessage": "Lanjutkan tugas"
+  },
+  "codeProHub.clearWorkspace": {
+    "defaultMessage": "Hapus pilihan ruang kerja"
+  },
+  "composerStats.cache": {
+    "defaultMessage": "Hit cache"
+  },
+  "composerStats.cacheDetail": {
+    "defaultMessage": "Permintaan model terakhir yang dilaporkan: {cached} token masukan dari cache / total {prompt} token masukan. Penulisan cache tidak dihitung sebagai hit."
+  },
+  "composerStats.cacheUnavailable": {
+    "defaultMessage": "Tidak dilaporkan"
+  },
+  "composerStats.cacheUnknown": {
+    "defaultMessage": "Permintaan terakhir belum memiliki data cache yang dapat digunakan. Data yang belum tersedia bukan berarti rasio hit 0%."
+  },
+  "composerStats.previous": {
+    "defaultMessage": "Kecepatan generasi terakhir yang diukur"
+  },
+  "composerStats.live": {
+    "defaultMessage": "Kecepatan generasi saat ini"
+  },
+  "composerStats.liveDetail": {
+    "defaultMessage": "Token keluaran yang diterima per detik pada sampel terakhir permintaan ini. ≈ menunjukkan perkiraan."
+  },
+  "composerStats.speed": {
+    "defaultMessage": "Kecepatan generasi rata-rata"
+  },
+  "composerStats.speedDetail": {
+    "defaultMessage": "Rata-rata sesi dari permintaan model yang selesai. Tidak termasuk waktu tunggu token pertama dan eksekusi alat; diperbarui saat permintaan selesai."
+  },
+  "composerStats.speedUnknown": {
+    "defaultMessage": "Menunggu permintaan selesai dengan data token dan waktu."
+  },
+  "navigationPanel.collapseGroup": {
+    "defaultMessage": "Ciutkan grup"
+  },
+  "navigationPanel.expandGroup": {
+    "defaultMessage": "Perluas grup"
+  },
+  "navigationPanel.newTaskChat": {
+    "defaultMessage": "Percakapan tugas baru"
+  },
+  "navigationPanel.newWorkspaceChat": {
+    "defaultMessage": "Pilih ruang kerja dan mulai percakapan"
+  },
+  "navigationPanel.noWorkspace": {
+    "defaultMessage": "Tidak ada ruang kerja"
+  },
+  "navigationPanel.sectionActions": {
+    "defaultMessage": "Opsi {section}"
+  },
+  "navigationPanel.unknownTime": {
+    "defaultMessage": "Waktu tidak tersedia"
+  },
+  "navigationPanel.updatedAt": {
+    "defaultMessage": "Diperbarui"
+  },
+  "workspacePanel.browserActionFailed": {
+    "defaultMessage": "{action} gagal"
+  },
+  "workspacePanel.browserControl": {
+    "defaultMessage": "Kontrol browser"
   }
 }

@@ -10024,5 +10024,98 @@
   },
   "workspaceSubagents.unknownState": {
     "defaultMessage": "Durum bilinmiyor · {count}"
+  },
+  "projectBrief.heading": {
+    "defaultMessage": "Proje özeti"
+  },
+  "projectBrief.files": {
+    "defaultMessage": "Değiştirilen dosyalar ({count})"
+  },
+  "projectBrief.noReply": {
+    "defaultMessage": "Bu turda son metin yanıtı yok."
+  },
+  "projectBrief.loading": {
+    "defaultMessage": "Bu tur okunuyor…"
+  },
+  "projectBrief.unavailable": {
+    "defaultMessage": "Bu proje turu okunamadı."
+  },
+  "projectBrief.retry": {
+    "defaultMessage": "Tekrar dene"
+  },
+  "baseChat.mainConversationHeading": {
+    "defaultMessage": "Merhaba, ben proje asistanınız CodeBuddy."
+  },
+  "baseChat.mainConversationHelp": {
+    "defaultMessage": "Bir projenin ilerlemesini kontrol edebilir, önceki bir gereksinimi bulabilir veya tek bir sohbetin izinlerini ayarlayabilirim. Ayrıca proje klasörü oluşturabilir, işi bir proje sohbetine devredebilir ve tamamlandığında size bir özet sunabilirim."
+  },
+  "baseChat.mainConversationExample": {
+    "defaultMessage": "“Projemin ilerlemesini kontrol eder misin?” diye sorabilirsiniz."
+  },
+  "chatInput.continueTask": {
+    "defaultMessage": "Göreve devam et"
+  },
+  "codeProHub.clearWorkspace": {
+    "defaultMessage": "Çalışma alanı seçimini temizle"
+  },
+  "composerStats.cache": {
+    "defaultMessage": "Önbellek isabeti"
+  },
+  "composerStats.cacheDetail": {
+    "defaultMessage": "Son bildirilen model isteği: önbellekten {cached} girdi belirteci / toplam {prompt} girdi belirteci. Önbelleğe yazma işlemleri isabet sayılmaz."
+  },
+  "composerStats.cacheUnavailable": {
+    "defaultMessage": "Bildirilmedi"
+  },
+  "composerStats.cacheUnknown": {
+    "defaultMessage": "Son istek için henüz kullanılabilir önbellek verisi yok. Veri eksikliği %0 isabet oranı anlamına gelmez."
+  },
+  "composerStats.previous": {
+    "defaultMessage": "Son ölçülen üretim hızı"
+  },
+  "composerStats.live": {
+    "defaultMessage": "Geçerli üretim hızı"
+  },
+  "composerStats.liveDetail": {
+    "defaultMessage": "Bu isteğin son örnekleminde saniyede alınan çıktı belirteçleri. ≈ tahmini belirtir."
+  },
+  "composerStats.speed": {
+    "defaultMessage": "Ortalama üretim hızı"
+  },
+  "composerStats.speedDetail": {
+    "defaultMessage": "Tamamlanan model isteklerinden hesaplanan oturum ortalaması. İlk belirteci bekleme ve araç çalıştırma süreleri hariçtir; istek tamamlandığında güncellenir."
+  },
+  "composerStats.speedUnknown": {
+    "defaultMessage": "Belirteç ve süre verisi içeren tamamlanmış bir istek bekleniyor."
+  },
+  "navigationPanel.collapseGroup": {
+    "defaultMessage": "Grubu daralt"
+  },
+  "navigationPanel.expandGroup": {
+    "defaultMessage": "Grubu genişlet"
+  },
+  "navigationPanel.newTaskChat": {
+    "defaultMessage": "Yeni görev sohbeti"
+  },
+  "navigationPanel.newWorkspaceChat": {
+    "defaultMessage": "Bir çalışma alanı seçip sohbet başlatın"
+  },
+  "navigationPanel.noWorkspace": {
+    "defaultMessage": "Çalışma alanı yok"
+  },
+  "navigationPanel.sectionActions": {
+    "defaultMessage": "{section} seçenekleri"
+  },
+  "navigationPanel.unknownTime": {
+    "defaultMessage": "Zaman bilgisi yok"
+  },
+  "navigationPanel.updatedAt": {
+    "defaultMessage": "Güncellendi"
+  },
+  "workspacePanel.browserActionFailed": {
+    "defaultMessage": "{action} başarısız oldu"
+  },
+  "workspacePanel.browserControl": {
+    "defaultMessage": "Tarayıcı denetimi"
   }
 }

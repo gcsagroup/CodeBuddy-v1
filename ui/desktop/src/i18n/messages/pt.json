@@ -10024,5 +10024,98 @@
   },
   "workspaceSubagents.unknownState": {
     "defaultMessage": "Estado desconhecido · {count}"
+  },
+  "projectBrief.heading": {
+    "defaultMessage": "Resumo do projeto"
+  },
+  "projectBrief.files": {
+    "defaultMessage": "Arquivos alterados ({count})"
+  },
+  "projectBrief.noReply": {
+    "defaultMessage": "Este turno não tem uma resposta de texto final."
+  },
+  "projectBrief.loading": {
+    "defaultMessage": "Lendo este turno…"
+  },
+  "projectBrief.unavailable": {
+    "defaultMessage": "Não foi possível ler este turno do projeto."
+  },
+  "projectBrief.retry": {
+    "defaultMessage": "Tentar novamente"
+  },
+  "baseChat.mainConversationHeading": {
+    "defaultMessage": "Olá, sou o CodeBuddy, seu assistente de projetos."
+  },
+  "baseChat.mainConversationHelp": {
+    "defaultMessage": "Posso verificar o andamento de um projeto, encontrar um requisito anterior ou ajustar as permissões de uma única conversa. Também posso criar uma pasta de projeto, delegar o trabalho a uma conversa do projeto e trazer um resumo quando terminar."
+  },
+  "baseChat.mainConversationExample": {
+    "defaultMessage": "Experimente perguntar: “Você pode verificar o andamento do meu projeto?”"
+  },
+  "chatInput.continueTask": {
+    "defaultMessage": "Continuar tarefa"
+  },
+  "codeProHub.clearWorkspace": {
+    "defaultMessage": "Limpar seleção do espaço de trabalho"
+  },
+  "composerStats.cache": {
+    "defaultMessage": "Acertos de cache"
+  },
+  "composerStats.cacheDetail": {
+    "defaultMessage": "Última solicitação de modelo informada: {cached} tokens de entrada em cache / {prompt} tokens de entrada no total. Gravações no cache não contam como acertos."
+  },
+  "composerStats.cacheUnavailable": {
+    "defaultMessage": "Não informado"
+  },
+  "composerStats.cacheUnknown": {
+    "defaultMessage": "A última solicitação ainda não tem dados de cache utilizáveis. Dados ausentes não significam uma taxa de acerto de 0%."
+  },
+  "composerStats.previous": {
+    "defaultMessage": "Última velocidade de geração medida"
+  },
+  "composerStats.live": {
+    "defaultMessage": "Velocidade de geração atual"
+  },
+  "composerStats.liveDetail": {
+    "defaultMessage": "Tokens de saída recebidos por segundo na amostra mais recente desta solicitação. ≈ indica uma estimativa."
+  },
+  "composerStats.speed": {
+    "defaultMessage": "Velocidade média de geração"
+  },
+  "composerStats.speedDetail": {
+    "defaultMessage": "Média da sessão calculada com solicitações de modelo concluídas. Exclui a espera pelo primeiro token e a execução de ferramentas; atualiza ao concluir uma solicitação."
+  },
+  "composerStats.speedUnknown": {
+    "defaultMessage": "Aguardando uma solicitação concluída com dados de tokens e tempo."
+  },
+  "navigationPanel.collapseGroup": {
+    "defaultMessage": "Recolher grupo"
+  },
+  "navigationPanel.expandGroup": {
+    "defaultMessage": "Expandir grupo"
+  },
+  "navigationPanel.newTaskChat": {
+    "defaultMessage": "Nova conversa de tarefa"
+  },
+  "navigationPanel.newWorkspaceChat": {
+    "defaultMessage": "Escolha um espaço de trabalho e inicie uma conversa"
+  },
+  "navigationPanel.noWorkspace": {
+    "defaultMessage": "Sem espaço de trabalho"
+  },
+  "navigationPanel.sectionActions": {
+    "defaultMessage": "Opções de {section}"
+  },
+  "navigationPanel.unknownTime": {
+    "defaultMessage": "Horário indisponível"
+  },
+  "navigationPanel.updatedAt": {
+    "defaultMessage": "Atualizado"
+  },
+  "workspacePanel.browserActionFailed": {
+    "defaultMessage": "Falha em {action}"
+  },
+  "workspacePanel.browserControl": {
+    "defaultMessage": "Controle do navegador"
   }
 }

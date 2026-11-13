@@ -1,7 +1,5 @@
 {
   "projectBrief.heading": { "defaultMessage": "项目简报" },
-  "projectBrief.task": { "defaultMessage": "本轮任务" },
-  "projectBrief.result": { "defaultMessage": "项目回复摘要" },
   "projectBrief.files": { "defaultMessage": "已修改文件（{count}）" },
   "projectBrief.noReply": { "defaultMessage": "本轮没有留下最终文字回复。" },
   "projectBrief.loading": { "defaultMessage": "正在读取本轮记录…" },

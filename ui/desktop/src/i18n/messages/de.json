@@ -10024,5 +10024,98 @@
   },
   "workspaceSubagents.unknownState": {
     "defaultMessage": "Status unbekannt · {count}"
+  },
+  "projectBrief.heading": {
+    "defaultMessage": "Projektübersicht"
+  },
+  "projectBrief.files": {
+    "defaultMessage": "Geänderte Dateien ({count})"
+  },
+  "projectBrief.noReply": {
+    "defaultMessage": "Dieser Durchgang enthält keine abschließende Textantwort."
+  },
+  "projectBrief.loading": {
+    "defaultMessage": "Durchgang wird gelesen…"
+  },
+  "projectBrief.unavailable": {
+    "defaultMessage": "Dieser Projektdurchgang konnte nicht gelesen werden."
+  },
+  "projectBrief.retry": {
+    "defaultMessage": "Erneut versuchen"
+  },
+  "baseChat.mainConversationHeading": {
+    "defaultMessage": "Hallo, ich bin CodeBuddy, dein Projektassistent."
+  },
+  "baseChat.mainConversationHelp": {
+    "defaultMessage": "Ich kann den Projektfortschritt prüfen, frühere Anforderungen finden oder Berechtigungen für einen einzelnen Chat anpassen. Ich kann auch einen Projektordner erstellen, die Arbeit an einen Projektchat übergeben und dir danach eine Übersicht bringen."
+  },
+  "baseChat.mainConversationExample": {
+    "defaultMessage": "Frag mich zum Beispiel: „Kannst du den Fortschritt meines Projekts prüfen?“"
+  },
+  "chatInput.continueTask": {
+    "defaultMessage": "Aufgabe fortsetzen"
+  },
+  "codeProHub.clearWorkspace": {
+    "defaultMessage": "Ausgewählten Arbeitsbereich löschen"
+  },
+  "composerStats.cache": {
+    "defaultMessage": "Cache-Treffer"
+  },
+  "composerStats.cacheDetail": {
+    "defaultMessage": "Zuletzt gemeldete Modellanfrage: {cached} zwischengespeicherte Eingabetokens / {prompt} Eingabetokens insgesamt. Cache-Schreibvorgänge zählen nicht als Treffer."
+  },
+  "composerStats.cacheUnavailable": {
+    "defaultMessage": "Nicht gemeldet"
+  },
+  "composerStats.cacheUnknown": {
+    "defaultMessage": "Für die letzte Anfrage liegt noch kein verwertbarer Cache-Nachweis vor. Fehlende Daten bedeuten keine Trefferquote von 0 %."
+  },
+  "composerStats.previous": {
+    "defaultMessage": "Zuletzt gemessene Generierungsgeschwindigkeit"
+  },
+  "composerStats.live": {
+    "defaultMessage": "Aktuelle Generierungsgeschwindigkeit"
+  },
+  "composerStats.liveDetail": {
+    "defaultMessage": "Empfangene Ausgabetokens pro Sekunde im letzten Messintervall dieser Anfrage. ≈ kennzeichnet eine Schätzung."
+  },
+  "composerStats.speed": {
+    "defaultMessage": "Durchschnittliche Generierungsgeschwindigkeit"
+  },
+  "composerStats.speedDetail": {
+    "defaultMessage": "Sitzungsdurchschnitt aus abgeschlossenen Modellanfragen. Wartezeit auf das erste Token und Werkzeugausführung sind ausgeschlossen; Aktualisierung nach Abschluss einer Anfrage."
+  },
+  "composerStats.speedUnknown": {
+    "defaultMessage": "Warte auf eine abgeschlossene Anfrage mit Token- und Zeitdaten."
+  },
+  "navigationPanel.collapseGroup": {
+    "defaultMessage": "Gruppe einklappen"
+  },
+  "navigationPanel.expandGroup": {
+    "defaultMessage": "Gruppe ausklappen"
+  },
+  "navigationPanel.newTaskChat": {
+    "defaultMessage": "Neuer Aufgabenchat"
+  },
+  "navigationPanel.newWorkspaceChat": {
+    "defaultMessage": "Arbeitsbereich auswählen und Chat starten"
+  },
+  "navigationPanel.noWorkspace": {
+    "defaultMessage": "Kein Arbeitsbereich"
+  },
+  "navigationPanel.sectionActions": {
+    "defaultMessage": "Optionen für {section}"
+  },
+  "navigationPanel.unknownTime": {
+    "defaultMessage": "Zeit nicht verfügbar"
+  },
+  "navigationPanel.updatedAt": {
+    "defaultMessage": "Aktualisiert"
+  },
+  "workspacePanel.browserActionFailed": {
+    "defaultMessage": "{action} fehlgeschlagen"
+  },
+  "workspacePanel.browserControl": {
+    "defaultMessage": "Browsersteuerung"
   }
 }

@@ -10024,5 +10024,98 @@
   },
   "workspaceSubagents.unknownState": {
     "defaultMessage": "Статус неизвестен · {count}"
+  },
+  "projectBrief.heading": {
+    "defaultMessage": "Сводка проекта"
+  },
+  "projectBrief.files": {
+    "defaultMessage": "Изменённые файлы ({count})"
+  },
+  "projectBrief.noReply": {
+    "defaultMessage": "В этом ходе нет итогового текстового ответа."
+  },
+  "projectBrief.loading": {
+    "defaultMessage": "Чтение этого хода…"
+  },
+  "projectBrief.unavailable": {
+    "defaultMessage": "Не удалось прочитать этот ход проекта."
+  },
+  "projectBrief.retry": {
+    "defaultMessage": "Повторить"
+  },
+  "baseChat.mainConversationHeading": {
+    "defaultMessage": "Здравствуйте! Я CodeBuddy, ваш помощник по проектам."
+  },
+  "baseChat.mainConversationHelp": {
+    "defaultMessage": "Я могу проверить ход проекта, найти прежнее требование или изменить разрешения для отдельного чата. Также я могу создать папку проекта, передать работу проектному чату и принести сводку после завершения."
+  },
+  "baseChat.mainConversationExample": {
+    "defaultMessage": "Попробуйте спросить: «Можешь проверить ход моего проекта?»"
+  },
+  "chatInput.continueTask": {
+    "defaultMessage": "Продолжить задачу"
+  },
+  "codeProHub.clearWorkspace": {
+    "defaultMessage": "Снять выбор рабочей области"
+  },
+  "composerStats.cache": {
+    "defaultMessage": "Попадания в кэш"
+  },
+  "composerStats.cacheDetail": {
+    "defaultMessage": "Последний запрос модели с данными: {cached} входных токенов из кэша / {prompt} входных токенов всего. Запись в кэш не считается попаданием."
+  },
+  "composerStats.cacheUnavailable": {
+    "defaultMessage": "Нет данных"
+  },
+  "composerStats.cacheUnknown": {
+    "defaultMessage": "Для последнего запроса ещё нет пригодных данных о кэше. Отсутствие данных не означает долю попаданий 0%."
+  },
+  "composerStats.previous": {
+    "defaultMessage": "Последняя измеренная скорость генерации"
+  },
+  "composerStats.live": {
+    "defaultMessage": "Текущая скорость генерации"
+  },
+  "composerStats.liveDetail": {
+    "defaultMessage": "Число выходных токенов, полученных в секунду за последний интервал измерения этого запроса. ≈ означает оценку."
+  },
+  "composerStats.speed": {
+    "defaultMessage": "Средняя скорость генерации"
+  },
+  "composerStats.speedDetail": {
+    "defaultMessage": "Среднее за сеанс по завершённым запросам модели. Не включает ожидание первого токена и выполнение инструментов; обновляется после завершения запроса."
+  },
+  "composerStats.speedUnknown": {
+    "defaultMessage": "Ожидание завершённого запроса с данными о токенах и времени."
+  },
+  "navigationPanel.collapseGroup": {
+    "defaultMessage": "Свернуть группу"
+  },
+  "navigationPanel.expandGroup": {
+    "defaultMessage": "Развернуть группу"
+  },
+  "navigationPanel.newTaskChat": {
+    "defaultMessage": "Новый чат задачи"
+  },
+  "navigationPanel.newWorkspaceChat": {
+    "defaultMessage": "Выбрать рабочую область и начать чат"
+  },
+  "navigationPanel.noWorkspace": {
+    "defaultMessage": "Нет рабочей области"
+  },
+  "navigationPanel.sectionActions": {
+    "defaultMessage": "Параметры раздела «{section}»"
+  },
+  "navigationPanel.unknownTime": {
+    "defaultMessage": "Время недоступно"
+  },
+  "navigationPanel.updatedAt": {
+    "defaultMessage": "Обновлено"
+  },
+  "workspacePanel.browserActionFailed": {
+    "defaultMessage": "Не удалось выполнить: {action}"
+  },
+  "workspacePanel.browserControl": {
+    "defaultMessage": "Управление браузером"
   }
 }

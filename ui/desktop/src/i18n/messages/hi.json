@@ -10024,5 +10024,98 @@
   },
   "workspaceSubagents.unknownState": {
     "defaultMessage": "स्थिति अज्ञात · {count}"
+  },
+  "projectBrief.heading": {
+    "defaultMessage": "प्रोजेक्ट सारांश"
+  },
+  "projectBrief.files": {
+    "defaultMessage": "बदली गई फ़ाइलें ({count})"
+  },
+  "projectBrief.noReply": {
+    "defaultMessage": "इस चरण में अंतिम पाठ उत्तर नहीं है।"
+  },
+  "projectBrief.loading": {
+    "defaultMessage": "यह चरण पढ़ा जा रहा है…"
+  },
+  "projectBrief.unavailable": {
+    "defaultMessage": "प्रोजेक्ट का यह चरण पढ़ा नहीं जा सका।"
+  },
+  "projectBrief.retry": {
+    "defaultMessage": "फिर प्रयास करें"
+  },
+  "baseChat.mainConversationHeading": {
+    "defaultMessage": "नमस्ते, मैं CodeBuddy हूँ, आपका प्रोजेक्ट सहायक।"
+  },
+  "baseChat.mainConversationHelp": {
+    "defaultMessage": "मैं प्रोजेक्ट की प्रगति देख सकता हूँ, कोई पुरानी आवश्यकता ढूँढ सकता हूँ या एक चैट की अनुमतियाँ बदल सकता हूँ। मैं प्रोजेक्ट फ़ोल्डर बनाकर काम प्रोजेक्ट चैट को सौंप सकता हूँ और पूरा होने पर सारांश भी दे सकता हूँ।"
+  },
+  "baseChat.mainConversationExample": {
+    "defaultMessage": "मुझसे पूछें, “क्या आप मेरे प्रोजेक्ट की प्रगति देख सकते हैं?”"
+  },
+  "chatInput.continueTask": {
+    "defaultMessage": "कार्य जारी रखें"
+  },
+  "codeProHub.clearWorkspace": {
+    "defaultMessage": "चुना गया कार्यक्षेत्र हटाएँ"
+  },
+  "composerStats.cache": {
+    "defaultMessage": "कैश हिट"
+  },
+  "composerStats.cacheDetail": {
+    "defaultMessage": "मॉडल के आखिरी बताए गए अनुरोध में: {cached} कैश किए गए इनपुट टोकन / कुल {prompt} इनपुट टोकन। कैश में लिखना हिट नहीं माना जाता।"
+  },
+  "composerStats.cacheUnavailable": {
+    "defaultMessage": "जानकारी नहीं मिली"
+  },
+  "composerStats.cacheUnknown": {
+    "defaultMessage": "आखिरी अनुरोध के लिए अभी उपयोग योग्य कैश जानकारी नहीं है। जानकारी न मिलने का अर्थ 0% हिट दर नहीं है।"
+  },
+  "composerStats.previous": {
+    "defaultMessage": "आखिरी मापी गई जनरेशन गति"
+  },
+  "composerStats.live": {
+    "defaultMessage": "वर्तमान जनरेशन गति"
+  },
+  "composerStats.liveDetail": {
+    "defaultMessage": "इस अनुरोध के आखिरी नमूने में प्रति सेकंड प्राप्त आउटपुट टोकन। ≈ अनुमान दर्शाता है।"
+  },
+  "composerStats.speed": {
+    "defaultMessage": "औसत जनरेशन गति"
+  },
+  "composerStats.speedDetail": {
+    "defaultMessage": "पूरे हुए मॉडल अनुरोधों से सत्र का औसत। पहले टोकन का इंतज़ार और टूल चलने का समय शामिल नहीं है; अनुरोध पूरा होने पर अपडेट होता है।"
+  },
+  "composerStats.speedUnknown": {
+    "defaultMessage": "टोकन और समय की जानकारी वाले पूरे हुए अनुरोध का इंतज़ार है।"
+  },
+  "navigationPanel.collapseGroup": {
+    "defaultMessage": "समूह समेटें"
+  },
+  "navigationPanel.expandGroup": {
+    "defaultMessage": "समूह फैलाएँ"
+  },
+  "navigationPanel.newTaskChat": {
+    "defaultMessage": "नई कार्य बातचीत"
+  },
+  "navigationPanel.newWorkspaceChat": {
+    "defaultMessage": "कार्यक्षेत्र चुनकर बातचीत शुरू करें"
+  },
+  "navigationPanel.noWorkspace": {
+    "defaultMessage": "कोई कार्यक्षेत्र नहीं"
+  },
+  "navigationPanel.sectionActions": {
+    "defaultMessage": "{section} के विकल्प"
+  },
+  "navigationPanel.unknownTime": {
+    "defaultMessage": "समय उपलब्ध नहीं है"
+  },
+  "navigationPanel.updatedAt": {
+    "defaultMessage": "अपडेट किया गया"
+  },
+  "workspacePanel.browserActionFailed": {
+    "defaultMessage": "{action} विफल हुआ"
+  },
+  "workspacePanel.browserControl": {
+    "defaultMessage": "ब्राउज़र नियंत्रण"
   }
 }

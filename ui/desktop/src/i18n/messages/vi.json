@@ -10024,5 +10024,98 @@
   },
   "workspaceSubagents.unknownState": {
     "defaultMessage": "Chưa rõ trạng thái · {count}"
+  },
+  "projectBrief.heading": {
+    "defaultMessage": "Tóm tắt dự án"
+  },
+  "projectBrief.files": {
+    "defaultMessage": "Tệp đã thay đổi ({count})"
+  },
+  "projectBrief.noReply": {
+    "defaultMessage": "Lượt này không có câu trả lời văn bản cuối cùng."
+  },
+  "projectBrief.loading": {
+    "defaultMessage": "Đang đọc lượt này…"
+  },
+  "projectBrief.unavailable": {
+    "defaultMessage": "Không thể đọc lượt này của dự án."
+  },
+  "projectBrief.retry": {
+    "defaultMessage": "Thử lại"
+  },
+  "baseChat.mainConversationHeading": {
+    "defaultMessage": "Xin chào, tôi là CodeBuddy, trợ lý dự án của bạn."
+  },
+  "baseChat.mainConversationHelp": {
+    "defaultMessage": "Tôi có thể kiểm tra tiến độ dự án, tìm yêu cầu trước đây hoặc điều chỉnh quyền cho một cuộc trò chuyện. Tôi cũng có thể tạo thư mục dự án, giao việc cho cuộc trò chuyện dự án và gửi bản tóm tắt khi hoàn tất."
+  },
+  "baseChat.mainConversationExample": {
+    "defaultMessage": "Hãy thử hỏi tôi: “Bạn có thể kiểm tra tiến độ dự án của tôi không?”"
+  },
+  "chatInput.continueTask": {
+    "defaultMessage": "Tiếp tục tác vụ"
+  },
+  "codeProHub.clearWorkspace": {
+    "defaultMessage": "Bỏ chọn không gian làm việc"
+  },
+  "composerStats.cache": {
+    "defaultMessage": "Trúng bộ nhớ đệm"
+  },
+  "composerStats.cacheDetail": {
+    "defaultMessage": "Yêu cầu mô hình được báo cáo gần nhất: {cached} token đầu vào từ bộ nhớ đệm / tổng {prompt} token đầu vào. Việc ghi vào bộ nhớ đệm không được tính là trúng."
+  },
+  "composerStats.cacheUnavailable": {
+    "defaultMessage": "Chưa được báo cáo"
+  },
+  "composerStats.cacheUnknown": {
+    "defaultMessage": "Yêu cầu gần nhất chưa có dữ liệu bộ nhớ đệm dùng được. Thiếu dữ liệu không có nghĩa là tỷ lệ trúng 0%."
+  },
+  "composerStats.previous": {
+    "defaultMessage": "Tốc độ tạo gần nhất đã đo"
+  },
+  "composerStats.live": {
+    "defaultMessage": "Tốc độ tạo hiện tại"
+  },
+  "composerStats.liveDetail": {
+    "defaultMessage": "Số token đầu ra nhận được mỗi giây trong mẫu đo gần nhất của yêu cầu này. ≈ biểu thị giá trị ước tính."
+  },
+  "composerStats.speed": {
+    "defaultMessage": "Tốc độ tạo trung bình"
+  },
+  "composerStats.speedDetail": {
+    "defaultMessage": "Trung bình phiên từ các yêu cầu mô hình đã hoàn tất. Không tính thời gian chờ token đầu tiên và chạy công cụ; cập nhật khi yêu cầu hoàn tất."
+  },
+  "composerStats.speedUnknown": {
+    "defaultMessage": "Đang chờ một yêu cầu hoàn tất có dữ liệu token và thời gian."
+  },
+  "navigationPanel.collapseGroup": {
+    "defaultMessage": "Thu gọn nhóm"
+  },
+  "navigationPanel.expandGroup": {
+    "defaultMessage": "Mở rộng nhóm"
+  },
+  "navigationPanel.newTaskChat": {
+    "defaultMessage": "Cuộc trò chuyện tác vụ mới"
+  },
+  "navigationPanel.newWorkspaceChat": {
+    "defaultMessage": "Chọn không gian làm việc và bắt đầu trò chuyện"
+  },
+  "navigationPanel.noWorkspace": {
+    "defaultMessage": "Không có không gian làm việc"
+  },
+  "navigationPanel.sectionActions": {
+    "defaultMessage": "Tùy chọn {section}"
+  },
+  "navigationPanel.unknownTime": {
+    "defaultMessage": "Không có thông tin thời gian"
+  },
+  "navigationPanel.updatedAt": {
+    "defaultMessage": "Đã cập nhật"
+  },
+  "workspacePanel.browserActionFailed": {
+    "defaultMessage": "{action} thất bại"
+  },
+  "workspacePanel.browserControl": {
+    "defaultMessage": "Điều khiển trình duyệt"
   }
 }

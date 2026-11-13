@@ -17,7 +17,10 @@ async function replay(updates) {
   assert.equal(emitted[0]?._meta?.goose?.transcriptReplayStarted, true,
     'the renderer must reset live replay before receiving compacted history');
   assert.deepEqual(await project(emitted), await project(original), 'all message content, metadata and tool order must survive replay');
-  return emitted.slice(1);
+  const reconciled=emitted.at(-1);
+  assert.equal(reconciled?.sessionUpdate, 'session_info_update');
+  assert.equal(reconciled?._meta?.goose?.activeRunId, null, 'history loading must clear a stale live run');
+  return emitted.slice(1, -1);
 }
 
 const chunk = (kind, id, text, meta = {}) => ({ sessionUpdate: kind, messageId: id, content: { type: 'text', text }, _meta: { goose: { created: 123 }, ...meta } });

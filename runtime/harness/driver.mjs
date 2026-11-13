@@ -1084,7 +1084,7 @@ Keep progress updates brief, meaningful, and outcome-based.
     const remoteServers = mcpServers.filter(server => !server.configurationError && server.transport === 'streamable-http');
     let shared;
     let binding = mcpBindings.get(capabilities.key);
-    const fiber = agent.ctx.isolate('compaction').isolate('codebuddyCompactionFallbacks').plugin({
+    const fiber = agent.ctx.isolate('compaction').isolate('codebuddyCompactionFallbacks').isolate('codebuddyCompactionRequestConfig').plugin({
       name: 'codebuddy-session-capabilities',
       inject: ['skills'],
       async apply(scoped) {
@@ -1172,6 +1172,9 @@ Keep progress updates brief, meaningful, and outcome-based.
           if (builtinScope) builtinDefinitions.set(capabilityCtx.tools.get(tool.name, capabilities.key), { tool, scope: builtinScope });
         }
         scoped.provide('codebuddyCompactionFallbacks', compactionFallbacks);
+        scoped.provide('codebuddyCompactionRequestConfig', {
+          reasoningEffort: settings.thinkingEffort, maxTokens: settings.maxTokens, temperature: settings.temperature,
+        });
         const compactFiber = scoped.plugin(compactionPlugin, {
           thresholdRatio: settings.autoCompactThreshold ?? 0.8,
           // Reserve space for a complete checkpoint, including summary reasoning.

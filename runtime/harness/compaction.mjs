@@ -9,7 +9,7 @@ const summaryRoute = agent => {
 const checkpointFailureCodes = new Set(['MAX_TOKENS', 'OUTPUT_TRUNCATED', 'OUTPUT_LENGTH_STOP', 'OUTPUT_LIMIT_REACHED',
   'EMPTY_RESPONSE', 'COMPACTION_EMPTY_SUMMARY', 'COMPACTION_NOT_SMALLER']);
 const fallbackCodes = new Set([...checkpointFailureCodes, 'COMPACTION_OUTPUT_BUDGET_EXHAUSTED', 'CONTEXT_WINDOW_EXCEEDED',
-  'TRANSPORT', 'TIMEOUT', 'SERVER', 'RATE_LIMIT', 'AUTH', 'INVALID_CREDENTIAL', 'INVALID_REQUEST',
+  'TRANSPORT', 'TIMEOUT', 'SERVER', 'RATE_LIMIT', 'QUOTA', 'AUTH', 'INVALID_CREDENTIAL', 'INVALID_REQUEST',
   'NO_ADAPTER', 'MODEL_NOT_FOUND', 'UNSUPPORTED_CONTENT', 'UNSUPPORTED_OPTION', 'INVALID_OUTPUT_BUDGET', 'PI_AI_ERROR']);
 function fallbackFailure(error, codes = fallbackCodes) {
   const seen = new Set();
@@ -188,13 +188,12 @@ export default class CompactionEngine extends BasicCompactionEngine {
   // The native hook keeps all rounds under one maintenance admission. Native
   // range selection, pairing, validation, durable commits and flushes stay intact.
   async finishManualCompaction(agent, compact, signal) {
-    if (!this.fallbackPolicies.length) return compact();
     const target = idleTarget(this.ctx, agent);
     const rule = this.fallbackPolicies.find(rule => sameTarget(rule.source, target));
-    if (!rule) return compact();
     const { provider, model } = target;
-    const { reasoningEffort, temperature } = rule.requestConfig;
-    const maxTokens = agent.options.maxTokens ?? rule.requestConfig.maxTokens;
+    const requestConfig = rule?.requestConfig ?? this.ctx.get('codebuddyCompactionRequestConfig') ?? target;
+    const { reasoningEffort, temperature } = requestConfig;
+    const maxTokens = agent.options.maxTokens ?? requestConfig.maxTokens;
     const call = await this.ctx.llm.prepareCall({ provider, model,
       ...(reasoningEffort === undefined ? {} : { reasoningEffort }),
       ...(temperature === undefined ? {} : { temperature }),
@@ -214,6 +213,8 @@ export default class CompactionEngine extends BasicCompactionEngine {
         }
       }
       const after = await measure();
+      signal.throwIfAborted();
+      if (!sameTarget(idleTarget(this.ctx, agent), target)) throw new Error('Model selection changed during compaction; retry for the new selection');
       if (after.available >= after.minimumMaxTokens && after.effectiveMaxTokens >= after.minimumMaxTokens) {
         this.ctx.logger.info('manual compaction destination fit: ' + JSON.stringify({ provider, model,
           source: after.source, input: after.estimate.tokens, output: after.effectiveMaxTokens, window: after.contextWindow }));
@@ -221,9 +222,8 @@ export default class CompactionEngine extends BasicCompactionEngine {
       }
       if (!result || !(after.estimate.tokens < before.estimate.tokens))
         throw Object.assign(new Error('Compaction cannot reduce the protected context enough for the selected model; completed checkpoints were preserved'), { code: 'COMPACTION_TARGET_WINDOW_EXCEEDED' });
-      // A valid checkpoint alone is not success when the destination still cannot reply.
-      if (!sameTarget(this.fallbackTargets.get(agent)?.source, target))
-        await activateFallback(this, agent, target, { code: 'CONTEXT_WINDOW_EXCEEDED' }, signal);
+      // A useful segment is not a model failure. Keep the successful route for
+      // the next native range; only a real recoverable error advances fallback.
       before = after;
     }
     throw Object.assign(new Error('Compaction still exceeds the selected model window after 8 reductions; completed checkpoints were preserved'), { code: 'COMPACTION_TARGET_WINDOW_EXCEEDED' });

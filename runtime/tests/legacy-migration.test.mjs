@@ -703,7 +703,7 @@ test("real ACP lazily loads and exports imported history without invoking the ag
         sessionId: selected.id,
         prompt: [{ type: "text", text: "Resume the old task" }],
       }),
-      /read-only/u,
+      /IMPORTED_HISTORY_READ_ONLY/u,
     );
     assert.deepEqual(executionCalls, []);
     const persisted = await readFile(

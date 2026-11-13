@@ -100,6 +100,36 @@ describe('ModelsAndRuntimeSettings', () => {
     ]);
   });
 
+  it('opens compaction from the existing menu and retains its draft before saving the optional model', async () => {
+    vi.mocked(acpListProviderDetails).mockResolvedValue([
+      {
+        ...customProvider,
+        metadata: {
+          ...customProvider.metadata,
+          known_models: [{ name: 'backup-one', context_limit: 196608 }],
+        },
+      },
+    ]);
+    render(<ModelsAndRuntimeSettings setView={vi.fn()} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Context compaction' }));
+    await waitFor(() =>
+      expect(screen.getByRole('combobox', { name: 'Optional backup model' })).toHaveTextContent(
+        'backup-one'
+      )
+    );
+    fireEvent.change(screen.getByRole('combobox'), {
+      target: { value: JSON.stringify(['studio', 'backup-one']) },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Back to menu' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Context compaction' }));
+    expect(screen.getByRole('combobox')).toHaveValue(JSON.stringify(['studio', 'backup-one']));
+    fireEvent.click(screen.getByRole('button', { name: 'Save compaction settings' }));
+    await screen.findByText('Saved. Applies to the next compaction.');
+    expect(acpUpsertConfig).toHaveBeenLastCalledWith('compactionFallbackModel', {
+      model: { providerId: 'studio', modelId: 'backup-one' },
+    });
+  });
+
   it('shows only first-party and custom connection choices in the settings page', async () => {
     render(<ModelsAndRuntimeSettings setView={vi.fn()} />);
     expect(screen.queryByTestId('custom-provider-grid')).not.toBeInTheDocument();

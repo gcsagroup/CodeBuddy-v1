@@ -634,14 +634,15 @@ test('technical text keeps a three-line preview and animates to the full origina
   expect((await body.boundingBox())!.height).toBe(before);
 });
 
-test('compact work plan remains visible above its trigger and fades during closing', async () => {
+test('compact work plan opens below its trigger and closes on a second click', async () => {
   await openActivityFixture();
   const heading = page.locator('[data-testid="work-plan"] summary');
   await heading.click();
   await settle();
   const plan = page.getByText('First step', { exact: true });
   await expect(plan).toBeVisible();
-  expect((await plan.boundingBox())!.y).toBeLessThan((await heading.boundingBox())!.y);
+  const trigger = (await heading.boundingBox())!;
+  expect((await plan.boundingBox())!.y).toBeGreaterThanOrEqual(trigger.y + trigger.height);
   await heading.click();
   await settle();
   await expect(plan).toBeHidden();

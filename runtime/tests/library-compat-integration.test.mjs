@@ -261,10 +261,12 @@ test('legacy automatic follow-ups reuse the real Harness chat, model, context an
   assert.equal(state.sessions.find(s => s.id === session.sessionId).scheduleId, undefined);
   assert.equal(state.schedules[0].attempts.length, 2);
   await client.request('session/delete', { sessionId: session.sessionId });
-  const job = (await client.request(method('schedules/list'))).jobs[0];
-  assert.equal(job.paused, true);
-  assert.equal(job.tested, false);
-  await assert.rejects(client.request(method('schedules/run-now'), { scheduleId: job.id }));
+  await t.waitFor(async () => {
+    const job = (await client.request(method('schedules/list'))).jobs.find(item => item.id === created.job.id);
+    assert.equal(job?.paused, true);
+    assert.equal(job.tested, false);
+  }, { timeout: 10000 });
+  await assert.rejects(client.request(method('schedules/run-now'), { scheduleId: created.job.id }));
 });
 
 for (const workspaceMode of ["code", "codepro"])
@@ -1144,7 +1146,9 @@ test('archiving or deleting a chat stops its native reminders without recreating
     assert.equal(result.isError, false, JSON.stringify(result));
     assert.equal((await client.request(method('native-schedules/catalog'), {})).records.length, 1);
     await client.request(operation === 'delete' ? 'session/delete' : method('session/archive'), { sessionId });
-    assert.deepEqual((await client.request(method('native-schedules/catalog'), {})).records, []);
+    await t.waitFor(async () => {
+      assert.deepEqual((await client.request(method('native-schedules/catalog'), {})).records, []);
+    }, { timeout: 10000 });
     if (operation === 'archive') {
       await client.request(method('session/unarchive'), { sessionId });
       assert.deepEqual((await client.request(method('native-schedules/catalog'), {})).records, [], 'unarchiving must not re-arm removed tasks');

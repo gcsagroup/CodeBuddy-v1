@@ -9,6 +9,7 @@ import { createMcpAppProxy } from "./mcp-app-proxy.mjs";
 import { acquireProfileLock } from "./profile-lock.mjs";
 import { createSourceStatus } from './source-status.mjs';
 import { clientDisconnectedError } from './session-connection.mjs';
+import { publicRpcError } from './error-presentation.mjs';
 
 const previewSource = process.env.CODEBUDDY_HARNESS_PREVIEW === '1'
   ? createSourceStatus(path.dirname(fileURLToPath(import.meta.url))).catch(() => undefined)
@@ -295,7 +296,8 @@ export async function createCompatServer({ dataDir, secret, driver, defaultModel
           } catch (error) {
             // In-flight finalizers can fail while persisting their last result.
             // A disconnected renderer cannot report that failure to the updater.
-            if (stopping && error.name !== 'AbortError') shutdownRequestError ??= error;
+            const abandonedSetup = msg.method === 'session/new' && error.code === 'ACP_CLIENT_DISCONNECTED';
+            if (stopping && !abandonedSetup && error.name !== 'AbortError') shutdownRequestError ??= error;
             throw error;
           } finally {
             pendingRequests--;
@@ -312,11 +314,7 @@ export async function createCompatServer({ dataDir, secret, driver, defaultModel
             send({
               jsonrpc: "2.0",
               id: msg.id,
-              error: {
-                code: Number.isInteger(error.code) ? error.code : -32603,
-                message: error.message,
-                data: error.data,
-              },
+              error: publicRpcError(error, msg.method),
             });
           // Log method and code only; parameters can contain model credentials or user prompts.
           console.error(

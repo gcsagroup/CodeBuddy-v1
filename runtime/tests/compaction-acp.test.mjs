@@ -19,7 +19,7 @@ test('ACP live threshold, repeated compaction, manual command, cancellation and 
   const requests = [], notifications = [];
   let slow = false, slowStarted = Promise.withResolvers();
   const server = createServer(async (req, res) => {
-    if (req.url.endsWith('/models')) { res.end(JSON.stringify({ data: [{ id: 'fixture', contextWindow: 32768 }] })); return; }
+    if (req.url.endsWith('/models')) { res.end(JSON.stringify({ data: ['fixture', 'replacement-model'].map(id => ({ id, contextWindow: 32768 })) })); return; }
     let raw = ''; for await (const c of req) raw += c;
     const request = JSON.parse(raw);
     if (replyToNoActionReview(request, res)) return;
@@ -97,6 +97,16 @@ test('ACP live threshold, repeated compaction, manual command, cancellation and 
   assert.ok(updates().some(u => u.sessionUpdate === 'usage_update'));
   assert.equal(compact().at(-1).status.data.status, 'cancelled');
   assert.equal((await prompt('Resume after restart.')).stopReason, 'end_turn');
+  const replacement = await ext('providers/custom/create', { engine: 'openai_compatible', displayName: 'Replacement fixture', apiUrl: `http://127.0.0.1:${server.address().port}`, requiresAuth: false, models: ['replacement-model'], headers: {}, supportsStreaming: true });
+  await rpc('session/set_config_option', { sessionId, configId: 'provider_model',
+    value: JSON.stringify({ providerId: replacement.providerId, modelId: 'replacement-model' }) });
+  ws.close(); await app.close(); await connect(); notifications.length = 0;
+  await rpc('session/load', { sessionId, cwd: root, mcpServers: [] });
+  const sent = requests.length;
+  await prompt('/compact');
+  assert.deepEqual(requests.slice(sent).map(request => request.model), ['replacement-model'],
+    'changing the UI selection then compacting a cold chat must not dispatch to its retired connection');
+  assert.equal(compact().at(-1).status.data.status, 'completed');
 });
 
 test('recovery uses the exact durable Harness outcome when its desktop notification was lost', () => {
@@ -108,7 +118,8 @@ test('recovery uses the exact durable Harness outcome when its desktop notificat
     { type: 'compaction/end', data: { compactionId: 'failed', error: 'Controlled native failure' } },
   ]);
   assert.deepEqual(reconciled.map(u => [u.status.data.operation_id, u.status.data.status]), [['committed', 'completed'], ['failed', 'failed'], ['unknown', 'failed']]);
-  assert.equal(reconciled[1].status.data.error, 'Controlled native failure');
+  assert.match(reconciled[1].status.data.error, /UNKNOWN_FAILURE/);
+  assert.equal(reconciled[1].status.data.error.includes('Controlled native failure'), false);
   assert.match(reconciled[2].status.message, /结果未确认/);
   assert.equal(updates[0].status.data.status, 'started', 'persisted projection remains unchanged');
 });

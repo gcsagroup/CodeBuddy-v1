@@ -37,7 +37,7 @@ test('preview CLI seeds the same main and vision defaults as the installed deskt
   assert.deepEqual(state.modelRouting.visionRoute, { enabled: true, mode: 'auto', ...state.defaults });
   assert.equal(state.modelCapabilities.overrides[0].imageInput, 'force_supported');
   assert.equal(state.providers.length, 2);
-  assert.deepEqual(state.providers[1].models, ['Qwen3.8-27B-FP4', 'Qwen3.8-27B-CyberSecurity']);
+  assert.deepEqual(state.providers[1].models, ['qwen3.8-flash-next-uncensored', 'Qwen3.8-27B-FP4', 'Qwen3.8-27B-CyberSecurity']);
   assert.equal(state.providers[0].secret, null);
 });
 
@@ -47,14 +47,14 @@ async function fixture(t) {
   return dir;
 }
 
-test('fresh installed profile exposes Gemma and both Qwen models without credentials', async t => {
+test('fresh installed profile exposes Gemma, Flash and both existing Qwen models without credentials', async t => {
   const dir = await fixture(t);
   const store = await openStore(dir, { defaultModel });
   const { defaults, providers } = store.read();
   assert.equal(providers.length, 2);
   const qwen = providers.find(provider => provider.id === 'custom_codebuddy_qwen_lan');
   assert.equal(qwen.apiUrl, 'http://192.168.9.120:8001');
-  assert.deepEqual(qwen.models, ['Qwen3.8-27B-FP4', 'Qwen3.8-27B-CyberSecurity']);
+  assert.deepEqual(qwen.models, ['qwen3.8-flash-next-uncensored', 'Qwen3.8-27B-FP4', 'Qwen3.8-27B-CyberSecurity']);
   assert.equal(qwen.requiresAuth, false);
   assert.equal(qwen.secret, null);
   assert.equal(qwen.headersProtected, null);

@@ -5,6 +5,8 @@ import { llmPatch } from './sdk-budget/llm-patch.mjs';
 import { adapterPatch } from './sdk-budget/adapter-patch.mjs';
 import { compactionPatch } from './sdk-budget/compaction-patch.mjs';
 import { retryPatch } from './sdk-budget/retry-patch.mjs';
+import { runtimeContextSessionPatch, runtimeContextMeterPatch, runtimeContextImageOffloadPatch } from './sdk-budget/runtime-context-patch.mjs';
+import { patchChatTools, piCompatSchemaPatch } from './sdk-budget/chat-tools-patch.mjs';
 
 // The adapter's estimator and 4096-token reservation belong to this exact Pi
 // release. Do not silently combine the shim with independently upgraded helpers.
@@ -25,7 +27,8 @@ if (piVersion !== '1.2.0') throw new Error('Review the SDK request-fit contract 
 
 // Register every seam before importing any SDK module: their dependencies share
 // native module identities. A loaded or upgraded module must fail explicitly.
-const patches = [llmPatch, adapterPatch, compactionPatch, retryPatch].map(patch => {
+const patches = [llmPatch, adapterPatch, compactionPatch, retryPatch,
+  runtimeContextSessionPatch, runtimeContextMeterPatch, runtimeContextImageOffloadPatch].map(patch => {
   const url = import.meta.resolve(patch.name);
   const source = readFileSync(new URL(url), 'utf8');
   const version = JSON.parse(readFileSync(new URL('../package.json', url), 'utf8')).version;
@@ -40,7 +43,7 @@ const completionUrl = import.meta.resolve('@earendil-works/pi-ai/api/openai-comp
 const completionSource = readFileSync(new URL(completionUrl), 'utf8');
 if (createHash('sha256').update(completionSource).digest('hex') !== '5a79cc5aa41dee180692695e65771720d1ea556e9a978649dc2040278be51753')
   throw new Error('Review the pinned chat tokenizer projection.');
-const completionProjection = completionSource
+const completionProjection = patchChatTools(completionSource
   .replace('export const streamSimple = (model, context, options) => {', 'const simpleOptions = (model, context, options) => {')
   .replace('return stream(model, context, {\n        ...base,', 'return {\n        ...base,')
   .replace('thinkingBudgets: options?.thinkingBudgets,\n    });\n};', `thinkingBudgets: options?.thinkingBudgets,
@@ -48,7 +51,13 @@ const completionProjection = completionSource
 };
 export const streamSimple = (model, context, options) => stream(model, context, simpleOptions(model, context, options));
 export const countPayload = (model, context, options) => buildParams(model,
-    resolveTranscript(context, getCompat(model).supportsMidConvoSystemMessages), simpleOptions(model, context, options));`);
+    resolveTranscript(context, getCompat(model).supportsMidConvoSystemMessages), simpleOptions(model, context, options));`));
+const compatUrl = import.meta.resolve(piCompatSchemaPatch.name);
+const compatSource = readFileSync(new URL(compatUrl), 'utf8');
+if (createHash('sha256').update(compatSource).digest('hex') !== piCompatSchemaPatch.hash)
+  throw new Error('Review the pinned Pi empty-tools compatibility schema.');
+patches.unshift({ ...piCompatSchemaPatch, url: compatUrl, source: compatSource,
+  replacement: piCompatSchemaPatch.transform(compatSource), applied: false });
 patches.unshift({ name: 'pi-ai chat serializer', url: completionUrl, source: completionSource, replacement: completionProjection, applied: false });
 const hook = registerHooks({
   load(url, context, nextLoad) {

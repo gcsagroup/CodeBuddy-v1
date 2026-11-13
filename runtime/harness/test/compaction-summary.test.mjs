@@ -42,9 +42,11 @@ function fixture(reason = { kind: 'stop' }) {
   const requests = [];
   const owner = {
     pressureAttempts: new WeakMap(),
+    manualTargets: new WeakMap(),
     summaryFailures: new WeakMap(),
+    summaryRetryCounts: new WeakMap(),
     config: { modelPolicies: [], summarizationProvider: '', summarizationModel: '', maxTokens: 4096 },
-    ctx: { llm: { resolveModelInfo: async () => ({ reasoning: { efforts: [{ id: 'low' }] } }), async *stream(options) {
+    ctx: { sessionProjections: { stateOf: () => ({ pending: null }) }, llm: { resolveModelInfo: async () => ({ reasoning: { efforts: [{ id: 'low' }] } }), async *stream(options) {
       request = options;
       requests.push(options);
       const current = Array.isArray(reason) ? reason[Math.min(requests.length - 1, reason.length - 1)] : reason;
@@ -55,7 +57,7 @@ function fixture(reason = { kind: 'stop' }) {
   };
   const route = { provider: 'fixture', model: 'same-model' };
   const history = new Map();
-  const agent = { options: route, session: { id: 'fixture-session', requestHeader: () => ({ config: route }), toolHistory: () => history } };
+  const agent = { options: route, session: { id: 'fixture-session', log: [], requestHeader: () => ({ config: route }), toolHistory: () => history } };
   const input = Object.freeze({
     tools: Object.freeze([{ name: 'read', parameters: { type: 'object' } }]),
     messages: Object.freeze([
@@ -94,6 +96,71 @@ test('a truncated summary gets one larger attempt and preserves the actual succe
   assert.equal(result.maxTokens, 8192);
   assert.equal(f.owner.summaryFailures.has(f.agent), false);
   assert.deepEqual(f.requests[0].messages, f.requests[1].messages);
+});
+
+test('manual summaries use the pending native selection for both capacity and dispatch without rewriting history', async () => {
+  for (const model of ['same-model', 'other-model']) {
+    const f = fixture();
+    const pending = { provider: 'current-connection', model };
+    const header = structuredClone(f.agent.session.requestHeader());
+    f.agent.session.log.push({ type: 'compaction/start', data: { turn: null } });
+    f.owner.ctx.sessionProjections.stateOf = () => ({ pending });
+    f.owner.ctx.llm.resolveModelInfo = async (provider, model) => {
+      assert.deepEqual({ provider, model }, pending, 'the retired historical adapter must not be queried');
+      return { context: { contextWindow: 8192 } };
+    };
+    await f.summarize();
+    assert.deepEqual({ provider: f.request().provider, model: f.request().model }, pending);
+    assert.equal(f.request().maxTokens, 2048, 'budget belongs to the selected summary model');
+    assert.deepEqual(f.agent.session.requestHeader(), header);
+    assert.equal(f.owner.ctx.sessionProjections.stateOf().pending, pending, 'maintenance does not consume the next chat selection');
+  }
+});
+
+test('native dedicated-summary policies retain their priority, including an explicit empty override', async () => {
+  for (const scenario of [
+    { global: {}, policy: {}, expected: ['current', 'selected', 4096] },
+    { global: { summarizationProvider: 'dedicated', summarizationModel: 'global' }, policy: {}, expected: ['dedicated', 'global', 4096] },
+    { global: { summarizationProvider: 'dedicated', summarizationModel: 'global' }, policy: { summarizationProvider: 'override', summarizationModel: 'special', maxTokens: 1024 }, expected: ['override', 'special', 1024] },
+    { global: { summarizationProvider: 'dedicated', summarizationModel: 'global' }, policy: { summarizationProvider: '', summarizationModel: '', maxTokens: 2048 }, expected: ['current', 'selected', 2048] },
+  ]) {
+    const f = fixture(), lookups = [];
+    f.agent.session.log.push({ type: 'compaction/start', data: { turn: null } });
+    f.owner.ctx.sessionProjections.stateOf = () => ({ pending: { provider: 'current', model: 'selected' } });
+    Object.assign(f.owner.config, scenario.global, { modelPolicies: [
+      { provider: 'fixture', model: 'same-model', maxTokens: 128 },
+      { provider: 'current', model: 'selected', ...scenario.policy },
+    ] });
+    const config = structuredClone(f.owner.config);
+    f.owner.ctx.llm.resolveModelInfo = async (...args) => { lookups.push(args.slice(0, 2)); return {}; };
+    await f.summarize();
+    assert.deepEqual(lookups, [scenario.expected.slice(0, 2)]);
+    assert.deepEqual([f.request().provider, f.request().model, f.request().maxTokens], scenario.expected);
+    assert.deepEqual(f.owner.config, config, 'one summary must not alter shared configuration');
+  }
+});
+
+test('active-turn summaries keep the routed request even when the next model is pending', async () => {
+  const f = fixture();
+  f.agent.session.log.push({ type: 'compaction/start', data: { turn: 7 } });
+  f.owner.ctx.sessionProjections.stateOf = () => { throw Error('an active request must not consume the next selection'); };
+  await f.summarize();
+  assert.equal(f.request().provider, 'fixture');
+  assert.equal(f.request().model, 'same-model');
+});
+
+test('one native maintenance operation retains its selected target across local fit continuations', async () => {
+  const f = fixture();
+  let pending = { provider: 'selected', model: 'first' };
+  f.agent.session.log.push({ type: 'compaction/start', data: { turn: null } });
+  f.owner.ctx.sessionProjections.stateOf = () => ({ pending });
+  await f.summarize();
+  pending = { provider: 'next', model: 'later' };
+  await f.summarize();
+  assert.deepEqual(f.requests.map(request => [request.provider, request.model]), [['selected', 'first'], ['selected', 'first']]);
+  f.agent.session.log.push({ type: 'compaction/end', data: { turn: null } }, { type: 'compaction/start', data: { turn: null } });
+  await f.summarize();
+  assert.equal(f.request().provider, 'next', 'a new native operation takes the new selection');
 });
 
 test('exhausted and empty checkpoints cannot repeatedly call the model at subsequent tool steps', async () => {

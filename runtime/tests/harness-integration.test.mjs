@@ -288,7 +288,13 @@ test('ACP facade runs official Harness with permissions, cancellation and restar
 
   await t.test('provider errors remain JSON-RPC errors through the actual execution core', async () => {
     const sessionId = await newSession();
-    await assert.rejects(prompt(sessionId, 'bridge_fixture_error'), /controlled bridge provider failure|400/);
+    await assert.rejects(prompt(sessionId, 'bridge_fixture_error'), error => {
+      assert.equal(error.data?.diagnostic?.code, 'INVALID_REQUEST');
+      assert.equal(error.data.diagnostic.httpStatus, 400);
+      assert.match(error.message, /HTTP 400/);
+      assert.doesNotMatch(error.message, /controlled bridge provider failure/);
+      return true;
+    });
   });
 
   await t.test('changing models on an existing ACP session preserves history', async () => {

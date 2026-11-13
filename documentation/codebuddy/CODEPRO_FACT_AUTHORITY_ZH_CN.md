@@ -6,6 +6,12 @@
 
 繁體：目標對話的原生輸入事件確認受理，執行結果決定完成。English: The target chat's native input event confirms acceptance. Its run and receipts establish execution and completion.
 
+## 2026-11-12 已批准：压缩的可选模型与固定 Flash 兜底
+
+2026-11-13 运行快照缺陷修复：锁版兼容入口使 Session 的原生模型消息投影只保留最新完整 runtime-context 快照，TokenMeter 复用同一原生前缀解释器；原始日志、位置范围和格式不变。命令提醒只索引本轮未解决的原生进程回执，不裁决业务验收；摘要失败沿用现有抑制，并增加有界的配置/历史进展恢复条件。执行、权限、重试、范围与检查点权威仍归 Harness，详见 `docs/runtime-context-safety.zh-CN.md`。
+
+Compat 解析现有连接中的原生压缩、用户指定可选兜底、固定 Qwen Flash 的有序路线；设置页仅保存可选模型，不判定成功或擅自切换聊天模型。Harness 的既有压缩引擎继续持有范围、配对、摘要校验、检查点提交、取消和失败事实；按本次已尝试路线去重，不轮回重试。手动压缩在原生维护锁内有界缩减，由当前聊天模型的原生请求投影和适配器计量验收。有效检查点仍需继续分段时保留当前压缩路线；所有层级失败时保留历史、文件和已完成回执，明确重试不重做工具。旧配置不迁移或覆盖，既有独立摘要配置继续作为第一级。配置与边界见 `docs/compaction-fallback.zh-CN.md`。
+
 ## 2026-11-11 已批准：主对话管理项目、对话与会话级权限
 
 主对话的可信身份沿用 Compat 的内部标识。`inspect_workspace` 消费 WorkspaceService 的项目来源、会话索引、Harness 运行投影及当前原生历史。`manage_workspace` 仅在主对话根轮次注册，跨目标修改显示精确目标并按次批准。WorkspaceService 写项目资料与分配文件夹；Compat 复用会话创建、归档、重命名与逻辑删除入口。Store 在目标会话中保存可选的 `permissionOverride`；旧会话缺省继承原规则，显式继承恢复默认。运行中的轮次保留准入时的覆盖，Harness 持有实际权限。全局设置及现有 ACP 全局模式语义继续沿用。清空／分叉后的历史查询跟随产品身份解析的新原生 ID。概览只投影事实，不持有执行、授权或完成状态。

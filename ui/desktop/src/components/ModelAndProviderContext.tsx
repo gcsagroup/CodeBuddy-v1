@@ -13,9 +13,13 @@ import {
   getProviderDisplayName,
 } from './settings/models/predefinedModelsUtils';
 import { defineMessages, useIntl } from '../i18n';
-import { acpErrorCode } from '../acp/errors';
+import { acpErrorCode, acpErrorDiagnostic } from '../acp/errors';
 
 const i18n = defineMessages({
+  stopBeforeSwitching: {
+    id: 'modelAndProviderContext.stopBeforeSwitching',
+    defaultMessage: 'Stop the current turn before changing its model.',
+  },
   unknownProviderTitle: {
     id: 'modelAndProviderContext.unknownProviderTitle',
     defaultMessage: 'Provider name lookup',
@@ -158,6 +162,7 @@ export const ModelAndProviderProvider: React.FC<ModelAndProviderProviderProps> =
         }
         console.error(`Unable to change model during the ${phase} step.`);
         const messages: Record<string, typeof i18n.modelChangeFailedMessage> = {
+          SESSION_BUSY: i18n.stopBeforeSwitching,
           custom_provider_model_unavailable: i18n.modelUnavailable,
           custom_provider_endpoint_unreachable: i18n.endpointUnreachable,
           custom_provider_invalid_credentials: i18n.credentialsRejected,
@@ -171,7 +176,8 @@ export const ModelAndProviderProvider: React.FC<ModelAndProviderProviderProps> =
         const message = intl.formatMessage(
           messages[acpErrorCode(error) ?? ''] ?? i18n.modelChangeFailedMessage
         );
-        options?.onError?.(message);
+        const diagnostic = acpErrorDiagnostic(error);
+        options?.onError?.(message + (diagnostic ? ` [${diagnostic}]` : ''));
         return false;
       }
     },

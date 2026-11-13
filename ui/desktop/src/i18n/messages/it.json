@@ -1583,6 +1583,48 @@
   "compaction.failed": {
     "defaultMessage": "Context compaction failed. The previous context is preserved."
   },
+  "compactionSettings.description": {
+    "defaultMessage": "Try the current chat model first, then your optional backup, then Qwen Flash. Repeated models are skipped."
+  },
+  "compactionSettings.empty": {
+    "defaultMessage": "Add a model connection to choose an optional backup."
+  },
+  "compactionSettings.last": {
+    "defaultMessage": "Qwen Flash is the final backup and uses your configured connection. Compaction must fit the current chat model before you can continue."
+  },
+  "compactionSettings.legacy": {
+    "defaultMessage": "Your existing model-specific backups are kept until you save a choice here."
+  },
+  "compactionSettings.loadError": {
+    "defaultMessage": "Could not load compaction settings. Retry before saving."
+  },
+  "compactionSettings.loading": {
+    "defaultMessage": "Loading compaction settings…"
+  },
+  "compactionSettings.model": {
+    "defaultMessage": "Optional backup model"
+  },
+  "compactionSettings.none": {
+    "defaultMessage": "Not specified — use Qwen Flash directly after a failure"
+  },
+  "compactionSettings.retry": {
+    "defaultMessage": "Retry"
+  },
+  "compactionSettings.save": {
+    "defaultMessage": "Save compaction settings"
+  },
+  "compactionSettings.saveError": {
+    "defaultMessage": "Could not save. Your selection is kept; try again."
+  },
+  "compactionSettings.saved": {
+    "defaultMessage": "Saved. Applies to the next compaction."
+  },
+  "compactionSettings.title": {
+    "defaultMessage": "Context compaction"
+  },
+  "compactionSettings.unavailable": {
+    "defaultMessage": "Saved model unavailable. Select another model or leave the optional backup unspecified."
+  },
   "composerCommands.active": {
     "defaultMessage": "Active"
   },
@@ -4790,6 +4832,9 @@
   "modelAndProviderContext.selectModel": {
     "defaultMessage": "Seleziona modello"
   },
+  "modelAndProviderContext.stopBeforeSwitching": {
+    "defaultMessage": "Interrompi il turno attuale prima di cambiare modello."
+  },
   "modelAndProviderContext.unknownProviderMsg": {
     "defaultMessage": "Provider sconosciuto nella configurazione -- controlla il tuo config.yaml"
   },
@@ -5086,6 +5131,12 @@
   },
   "modelsAndRuntime.codeBuddyModelDescription": {
     "defaultMessage": "The first-party CodeBuddy model is still in development."
+  },
+  "modelsAndRuntime.compaction": {
+    "defaultMessage": "Context compaction"
+  },
+  "modelsAndRuntime.compactionDescription": {
+    "defaultMessage": "Choose an optional backup model for context compaction."
   },
   "modelsAndRuntime.connections": {
     "defaultMessage": "Modelli e connessioni"

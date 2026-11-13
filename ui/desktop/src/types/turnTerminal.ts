@@ -18,6 +18,7 @@ import {
   type CodeProRiskReason,
   type CodeProRiskTier,
 } from './activityEvent';
+import { parseFailureDiagnostic, type FailureDiagnostic } from '../utils/failureDiagnostic';
 
 export type TurnTerminalStatus = 'completed' | 'failed' | 'cancelled' | 'interrupted';
 
@@ -104,7 +105,7 @@ interface TurnTerminalRecordBase {
   last_response_text_available?: boolean;
   // Display intent from the host's cancel request, not an execution state.
   user_requested_stop?: boolean;
-  stop_reason?: 'max_tokens' | 'context_budget';
+  stop_reason?: 'max_tokens' | 'context_budget' | 'process_interrupted';
   output_limit?: {
     automaticAttempts: number;
     maxAutomaticAttempts: 1 | 2;
@@ -125,6 +126,7 @@ interface TurnTerminalRecordBase {
   user_action?: CodeProFailureUserAction;
   report?: TurnTerminalReport;
   report_parse_failed?: true;
+  diagnostic?: FailureDiagnostic;
 }
 
 export type TurnTerminalRecord = TurnTerminalRecordBase &
@@ -314,10 +316,17 @@ export function parseTurnTerminalRecord(value: unknown): TurnTerminalRecord | un
   }
 
   const parsed = { ...record } as unknown as TurnTerminalRecord;
+  const diagnostic = parseFailureDiagnostic(record.diagnostic);
+  if (diagnostic) parsed.diagnostic = diagnostic;
+  else delete parsed.diagnostic;
   if (typeof record.last_response_text_available !== 'boolean')
     delete parsed.last_response_text_available;
   if (typeof record.user_requested_stop !== 'boolean') delete parsed.user_requested_stop;
-  if (record.stop_reason !== 'max_tokens' && record.stop_reason !== 'context_budget')
+  if (
+    record.stop_reason !== 'max_tokens' &&
+    record.stop_reason !== 'context_budget' &&
+    record.stop_reason !== 'process_interrupted'
+  )
     delete parsed.stop_reason;
   const limit = record.output_limit as Record<string, unknown> | undefined;
   if (

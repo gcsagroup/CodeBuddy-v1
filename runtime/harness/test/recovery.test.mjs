@@ -109,3 +109,98 @@ test('stream interruption after a completed tool keeps partial evidence and retr
   assert.equal(history.events.filter(e => e.type === 'turn/end').length, 1);
   assert.equal(history.events.at(-1).data.reason.kind, 'completed');
 });
+
+test('account and unknown request failures retain native retry policy, useful notices and completed work', { timeout: 30000 }, async t => {
+  for (const scenario of [
+    { status: 429, code: 'insufficient_quota', message: 'You exceeded your current quota.', native: 'QUOTA', notice: /额度不足/, retries: 0 },
+    { status: 400, code: 'insufficient_balance', message: 'Insufficient balance.', native: 'QUOTA', notice: /额度不足/, retries: 0 },
+    { status: 402, code: 'unrecognized_fixture_error', message: 'PRIVATE_UPSTREAM_DETAIL', native: 'PI_AI_ERROR', notice: /账户额度或付费状态/, retries: 0 },
+    { status: 413, code: 'payload_too_large', message: 'Request body too large.', native: 'INVALID_REQUEST', notice: /请求体过大/, retries: 0 },
+    { status: 200, code: 'insufficient_quota', message: 'You exceeded your current quota.', native: 'QUOTA', notice: /额度不足/, retries: 0, streamError: true },
+    { status: 429, code: 'rate_limit_exceeded', message: 'Rate limit reached.', native: 'RATE_LIMIT', notice: /请求受限/, retries: 1 },
+  ]) await t.test(`${scenario.status} ${scenario.code}`, async t => {
+    let online = false, effects = 0;
+    const f = await fixture(t, async (_req, res, _body, count) => {
+      if (count === 1) {
+        start(res);
+        res.write(`data: ${JSON.stringify({ id: 'fixture', choices: [{ index: 0, delta: { tool_calls: [{ index: 0, id: 'checkpoint', type: 'function', function: { name: 'fixture_effect', arguments: '{}' } }] }, finish_reason: 'tool_calls' }] })}\n\n`);
+        res.end('data: [DONE]\n\n'); return;
+      }
+      if (online) { const emit = start(res); emit('Continued from the existing checkpoint.'); done(res, emit); return; }
+      if (scenario.streamError) {
+        res.writeHead(200, { 'content-type': 'text/event-stream' }).end(`data: ${JSON.stringify({ error: { code: scenario.code, message: scenario.message } })}\n\n`); return;
+      }
+      res.writeHead(scenario.status, { 'content-type': 'application/json' }).end(JSON.stringify({ error: { code: scenario.code, message: scenario.message } }));
+    }, { mode: 'normal', maxRetries: 1, backoff: { initialDelayMs: 5, maxDelayMs: 5, jitterRatio: 0 } });
+    await f.driver.configureSession(f.sessionId, { tools: [{ name: 'fixture_effect', description: 'Write an isolated checkpoint once', inputSchema: { type: 'object', properties: {} }, async execute() {
+      effects++; await writeFile(join(f.root, 'checkpoint.txt'), 'Completed before request failure'); return { written: true };
+    } }] });
+    const project = workStatusUpdates({ sessionId: f.sessionId }), statuses = [];
+    await assert.rejects(f.driver.prompt(f.sessionId, 'Write the checkpoint, then continue.', { onPermission: () => true, onEvent: event => statuses.push(...project(event)) }), error => error.code === scenario.native);
+    const history = await f.driver.history(f.sessionId);
+    assert.equal(history.events.filter(e => e.type === 'llm/retry').length, scenario.retries);
+    assert.equal(f.requests.length, 2 + scenario.retries, 'Presentation must not add requests or change native retry policy');
+    assert.equal(history.events.at(-1).data.reason.kind, 'error');
+    assert.equal(statuses.at(-1).status.type, 'notice');
+    assert.match(statuses.at(-1).status.message, scenario.notice);
+    if (scenario.status >= 400) assert.match(statuses.at(-1).status.message, new RegExp(`HTTP ${scenario.status}`));
+    assert.match(statuses.at(-1).status.message, /本轮已停止.*查看未完成原因/);
+    assert.doesNotMatch(statuses.at(-1).status.message, /PRIVATE|已回滚|已保存/);
+    assert.ok(statuses.filter(s => s.status.message.includes('正在重试')).every(s => s.status.type === 'progress' && !s.status.message.includes('已停止')));
+    assert.equal(await readFile(join(f.root, 'checkpoint.txt'), 'utf8'), 'Completed before request failure');
+    online = true;
+    const continued = await f.driver.prompt(f.sessionId, 'Continue without repeating completed work.');
+    assert.equal(continued.stopReason, 'end_turn');
+    assert.equal(effects, 1);
+    assert.ok(f.requests.at(-1).messages.some(m => m.role === 'tool' && m.tool_call_id === 'checkpoint'));
+  });
+});
+
+test('explicit always retry remains native and can be cancelled without a false terminal error', { timeout: 15000 }, async t => {
+  let online = false;
+  const f = await fixture(t, async (_req, res) => {
+    if (online) { const emit = start(res); emit('Service recovered.'); done(res, emit); return; }
+    res.writeHead(429, { 'content-type': 'application/json' }).end(JSON.stringify({ error: { code: 'insufficient_quota', message: 'You exceeded your current quota.' } }));
+  }, { mode: 'always', backoff: { initialDelayMs: 5, maxDelayMs: 5, jitterRatio: 0 } });
+  const controller = new AbortController(), project = workStatusUpdates({ sessionId: f.sessionId, signal: controller.signal });
+  const statuses = []; let retries = 0;
+  const result = await f.driver.prompt(f.sessionId, 'hello', { signal: controller.signal, onEvent(event) {
+    statuses.push(...project(event));
+    if (event.type === 'harness_event' && event.event.type === 'llm/retry' && ++retries === 2) controller.abort();
+  } });
+  assert.equal(result.stopReason, 'cancelled');
+  assert.equal(retries, 2);
+  assert.equal(f.requests.length, 2, 'Cancelling backoff must prevent the third request');
+  assert.ok(statuses.some(s => /正在重试.*额度不足/.test(s.status.message)));
+  assert.ok(statuses.every(s => s.status.type !== 'notice' && !s.status.message.includes('本轮已停止')));
+  const history = await f.driver.history(f.sessionId);
+  assert.equal(history.events.at(-1).data.reason.kind, 'aborted');
+  online = true;
+  assert.equal((await f.driver.prompt(f.sessionId, 'Continue after service recovery.')).stopReason, 'end_turn');
+  assert.equal(f.requests.length, 3);
+});
+
+test('a tool proposed in an interrupted response cannot execute until the native retry completes that response', { timeout: 15000 }, async t => {
+  let effects = 0;
+  const f = await fixture(t, async (req, res, _body, count) => {
+    const emit = start(res);
+    if (count <= 2) {
+      res.write(`data: ${JSON.stringify({ id: 'fixture', choices: [{ index: 0, delta: { tool_calls: [{ index: 0, id: 'interrupted-call', type: 'function', function: { name: 'fixture_effect', arguments: '{}' } }] }, finish_reason: count === 2 ? 'tool_calls' : null }] })}\n\n`);
+      if (count === 1) { await delay(60); req.socket.destroy(); return; }
+      res.end('data: [DONE]\n\n'); return;
+    }
+    emit('Completed after the one actual tool execution.'); done(res, emit);
+  }, { mode: 'normal', maxRetries: 1, backoff: { initialDelayMs: 5, maxDelayMs: 5, jitterRatio: 0 } });
+  await f.driver.configureSession(f.sessionId, { tools: [{ name: 'fixture_effect', description: 'Count an isolated side effect', inputSchema: { type: 'object', properties: {} }, async execute() {
+    effects++; return { count: effects };
+  } }] });
+  const result = await f.driver.prompt(f.sessionId, 'Execute the fixture effect once.', { onPermission: () => true });
+  assert.equal(result.stopReason, 'end_turn');
+  assert.equal(effects, 1);
+  assert.equal(f.requests.length, 3);
+  assert.ok(!f.requests[1].messages.some(m => m.role === 'tool' && m.tool_call_id === 'interrupted-call'));
+  assert.ok(f.requests[2].messages.some(m => m.role === 'tool' && m.tool_call_id === 'interrupted-call'));
+  const history = await f.driver.history(f.sessionId);
+  assert.equal(history.events.filter(e => e.type === 'llm/retry').length, 1);
+  assert.equal(history.events.filter(e => e.type === 'tool/result' && e.data.message.toolCallId === 'interrupted-call').length, 1);
+});

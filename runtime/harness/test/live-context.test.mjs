@@ -17,7 +17,9 @@ test('live stream updates survive SDK parsing; one multi-step turn compacts repe
     let raw='';for await(const p of req)raw+=p;
     const body=JSON.parse(raw);
     if (replyToNoActionReview(body, res)) return;
-    const summary=(body.max_tokens??body.max_completion_tokens)===4096;
+    const last=body.messages.at(-1)?.content;
+    const text=typeof last==='string'?last:(last??[]).map(block=>block.text??'').join('\n');
+    const summary=text.startsWith('You are now acting as a compaction engine for this AI coding assistant.');
     res.writeHead(200,{'content-type':'text/event-stream'});
     const emit=(delta,finish_reason=null)=>res.write(`data: ${JSON.stringify({id:'live',object:'chat.completion.chunk',created:1,model:body.model,choices:[{index:0,delta,finish_reason}]})}\n\n`);
     if(summary){summaries++;emit({content:'Goal: complete eight fixture steps. Preserve API A and requirement B. Continue remaining steps.'});emit({},'stop');}

@@ -1,3 +1,5 @@
+import { formatFailureDiagnostic } from '../utils/failureDiagnostic';
+
 export interface AcpCreditsExhaustedError {
   message: string;
   url?: string;
@@ -58,6 +60,10 @@ export function acpErrorCode(error: unknown): string | null {
 
 export function acpErrorData(error: unknown): Record<string, unknown> | null {
   return asAcpJsonRpcError(error)?.data ?? null;
+}
+
+export function acpErrorDiagnostic(error: unknown): string | undefined {
+  return formatFailureDiagnostic(acpErrorData(error)?.diagnostic);
 }
 
 export function acpErrorMessage(error: unknown): string | null {

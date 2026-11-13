@@ -42,7 +42,8 @@ test('diagnostic download uses mapped history without modifying the complete nat
   assert.deepEqual(rows.slice(1).map(e=>e.seq), events.map(e=>e.seq));
   assert.equal(await readFile(path.join(dataDir, 'sessions', journal), 'utf8'), original);
   const beforeImport = store.read().sessions.length;
-  await assert.rejects(request().request('session/import', { source: 'json', input: response.data }));
+  await assert.rejects(request().request('_goose/unstable/session/import', { source: 'json', input: response.data }),
+    error => error.code === -32602);
   assert.equal(store.read().sessions.length, beforeImport, 'diagnostics cannot create a resumable conversation');
   await native.close();
   native = await createHarnessDriver({ dataDir, cwd: root });

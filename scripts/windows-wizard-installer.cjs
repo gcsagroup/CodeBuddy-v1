@@ -56,16 +56,17 @@ function inspectApplication(packaged, stage) {
   }
   let longestRelativePath = 0;
   let files = 0;
+  let installedBytes = 0;
   const walk = directory => {
     for (const entry of fs.readdirSync(directory, { withFileTypes: true })) {
       const full = path.join(directory, entry.name);
       if (entry.isSymbolicLink()) throw new Error(`Installer input must not contain links: ${full}`);
       if (entry.isDirectory()) walk(full);
-      else { longestRelativePath = Math.max(longestRelativePath, path.relative(packaged, full).length); files += 1; }
+      else { longestRelativePath = Math.max(longestRelativePath, path.relative(packaged, full).length); files += 1; installedBytes += fs.statSync(full).size; }
     }
   };
   walk(packaged);
-  return { sourceDigest: manifest.sourceDigest, appAsarSha256: hash(path.join(packaged, 'resources/app.asar')), longestRelativePath, files };
+  return { sourceDigest: manifest.sourceDigest, appAsarSha256: hash(path.join(packaged, 'resources/app.asar')), longestRelativePath, files, installedBytes };
 }
 
 function makeWizardInstaller({ root, stage, tools = resolveCompiler() }) {
@@ -78,17 +79,28 @@ function makeWizardInstaller({ root, stage, tools = resolveCompiler() }) {
     if (copied.appAsarSha256 !== identity.appAsarSha256 || copied.files !== identity.files) throw new Error('Short installer input differs from the completed application');
   }
   const { version } = JSON.parse(fs.readFileSync(path.join(desktop, 'package.json'), 'utf8'));
-  const output = path.join(desktop, 'out/make/inno.windows/x64');
+  let output = path.join(desktop, 'out/make/inno.windows/x64');
   fs.mkdirSync(output, { recursive: true });
+  // Windows may keep a previously delivered installer open. Publish the
+  // new build beside it and keep its receipt paired with its executable.
+  if (fs.existsSync(path.join(output, 'CodeBuddy-Setup.exe')))
+    output = fs.mkdtempSync(path.join(output, 'build-'));
   const target = path.join(output, 'CodeBuddy-Setup.exe');
-  if (fs.existsSync(target)) throw new Error('Installer already exists; preserve it before building another candidate');
   const args = [`/DAppSource=${compilerInput}`, `/DAppVersion=${version}`, `/DOutputDir=${output}`,
     `/DProductIcon=${path.join(desktop, 'src/images/icon.ico')}`, `/DProductImage=${path.join(desktop, 'src/images/icon-512.png')}`,
     `/DChineseMessages=${tools.chineseMessages}`, `/DMaxRelativePath=${identity.longestRelativePath}`,
     path.join(root, 'scripts/installer/codebuddy.iss')];
-  const result = spawnSync(tools.compiler, args, { cwd: root, stdio: 'inherit', windowsHide: true });
-  if (result.error) throw result.error;
-  if (result.status !== 0) throw new Error(`Inno Setup compilation exited ${result.status}`);
+  const inner = path.join(output, 'CodeBuddy-Install.exe');
+  const data = path.join(output, 'CodeBuddy-Install-1.bin');
+  const defines = [...args.slice(0, -1), '/DBundledData=' + data];
+  const launcher = [...defines, '/DInnerSetup=' + inner, path.join(root, 'scripts/installer/scope-launcher.iss')];
+  for (const command of [[...defines, args.at(-1)], launcher]) {
+    const result = spawnSync(tools.compiler, command, { cwd: root, stdio: 'inherit', windowsHide: true });
+    if (result.error) throw result.error;
+    if (result.status !== 0) throw new Error(`Inno Setup compilation exited ${result.status}`);
+  }
+  fs.unlinkSync(inner);
+  fs.unlinkSync(data);
   if (!fs.existsSync(target)) throw new Error('Inno Setup did not produce CodeBuddy-Setup.exe');
   const receipt = { installer: 'inno', version, builtAt: new Date().toISOString(), compiler: tools.compiler, compilerInput,
     ...identity, installerSha256: hash(target), installerBytes: fs.statSync(target).size };

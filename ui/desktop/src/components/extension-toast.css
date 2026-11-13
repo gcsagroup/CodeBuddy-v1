@@ -167,7 +167,6 @@
   color: light-dark(#547ea7, #9bbde5);
 }
 .notification-spinner {
-  animation: notification-spin 1s linear infinite;
   flex-shrink: 0;
 }
 .notification-details {
@@ -214,11 +213,6 @@
 .codebuddy-toasts .Toastify__bounce-exit--top-right {
   animation-name: codepro-extension-toast-out;
   animation-duration: 160ms;
-}
-@keyframes notification-spin {
-  to {
-    transform: rotate(360deg);
-  }
 }
 @media (max-width: 480px) {
   .Toastify__toast-container.codebuddy-toasts {

@@ -39,8 +39,11 @@ begin
   end;
   ErrorCode := DLLGetLastError;
   if ErrorCode = 5 then
-    Result := '当前账户没有写入此安装位置的权限。请选择默认位置 ' +
-      ExpandConstant('{localappdata}\Programs\CodeBuddy') + '，或联系管理员。'
+  begin
+    Result := '没有写入此安装位置的权限。可选择默认位置 ' + ExpandConstant('{autopf}\CodeBuddy') + '。';
+    if not IsAdminInstallMode then
+      Result := Result + '如果要安装到 Program Files，请重新打开安装包并选择“为此电脑上的所有用户安装”。';
+  end
   else
     Result := '无法访问安装位置 ' + Directory + '。' + SysErrorMessage(ErrorCode);
 end;

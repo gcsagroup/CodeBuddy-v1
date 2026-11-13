@@ -3,7 +3,7 @@ import { acpListProviderDetails } from '../../acp/providers';
 import { CodeBuddyMark } from '../CodeBuddyMark';
 import { Button } from '../ui/button';
 import { defineMessages, useIntl } from '../../i18n';
-import { LoaderCircle } from 'lucide-react';
+import SuspenseLoader from '../../suspense-loader';
 
 const i18n = defineMessages({
   configureTitle: {
@@ -85,25 +85,15 @@ export default function OnboardingGuard({
   }, [requireModel, attempt, admitted]);
 
   // Settings must remain reachable even if the connection inventory cannot load.
-  if (!requireModel || checkState === 'ready') return <>{children}</>;
+  const checking = requireModel && checkState === 'loading';
+  if (!requireModel || admitted) {
+    return <>{children}</>;
+  }
 
-  if (checkState === 'loading') {
-    return (
-      <div
-        role="status"
-        aria-live="polite"
-        className="h-full w-full bg-background-default flex flex-col items-center justify-center"
-      >
-        <CodeBuddyMark className="size-8" />
-        <div className="mt-4 flex items-center gap-2 text-sm text-text-muted">
-          <LoaderCircle className="size-4 animate-spin" aria-hidden="true" />
-          <span>{intl.formatMessage(i18n.loadingProviders)}</span>
-        </div>
-        <Button variant="outline" className="mt-6" onClick={onConfigure}>
-          {intl.formatMessage(i18n.configureModel)}
-        </Button>
-      </div>
-    );
+  if (checking) {
+    return <SuspenseLoader label={intl.formatMessage(i18n.loadingProviders)} action={
+      <Button variant="outline" onClick={onConfigure}>{intl.formatMessage(i18n.configureModel)}</Button>
+    } />;
   }
 
   const failed = checkState === 'error';

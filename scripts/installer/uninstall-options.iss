@@ -27,7 +27,8 @@ begin
     Log(Problem);
     Exit;
   end;
-  if UninstallSilent then
+  { An elevated uninstaller may be running under a different account. }
+  if UninstallSilent or IsAdminInstallMode then
   begin
     Result := True;
     Exit;

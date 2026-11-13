@@ -1,3 +1,9 @@
+## 项目附加文件夹
+
+WorkspaceService 按主工作目录保存桌面用户选择的附加目录、目录身份、访问方式及配置版本。侧栏编辑项目和会话提示消费同一份配置。Harness 文件工具在每次写入时查询当前关联，允许修改的附加目录仍受会话只读模式限制。终端继续使用会话沙箱策略。解除关联只更新配置。
+
+繁體：WorkspaceService 保存附加資料夾及其權限，Harness 檔案工具在寫入時核對。終端機沿用對話權限。English: WorkspaceService owns linked folders and their access modes. Harness file tools check current grants on mutation. Shell sessions retain their own sandbox policy.
+
 ## 2026-11-12 主对话进度与项目派发
 
 进度查询只按目标会话聚合当前原生历史、工具回执和运行状态。项目启动和后续派发沿用主对话的目标审批和目标会话自身的 prompt 入口。按原生用户输入的 request ID 确认受理、识别重试，执行和完成仍由目标 Harness 负责。主对话工作区不承担项目运行。

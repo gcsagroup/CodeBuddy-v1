@@ -31,12 +31,12 @@ const customOneDarkTheme: NonNullable<SyntaxHighlighterProps['style']> = {
   'code[class*="language-"]': {
     ...oneDark['code[class*="language-"]'],
     color: '#e6e6e6',
-    fontSize: 'var(--conversation-code-size, 14px)',
+    fontSize: 'var(--conversation-code-size, var(--code-font-size, 14px))',
   },
   'pre[class*="language-"]': {
     ...oneDark['pre[class*="language-"]'],
     color: '#e6e6e6',
-    fontSize: 'var(--conversation-code-size, 14px)',
+    fontSize: 'var(--conversation-code-size, var(--code-font-size, 14px))',
   },
   comment: { ...oneDark.comment, color: '#a0a0a0', fontStyle: 'italic' },
   prolog: { ...oneDark.prolog, color: '#a0a0a0' },
@@ -233,7 +233,7 @@ const CodeBlock = memo(function CodeBlock({
               whiteSpace: 'pre-wrap',
               overflowWrap: 'anywhere',
               fontFamily: 'var(--font-mono)',
-              fontSize: 'var(--conversation-code-size, 14px)',
+              fontSize: 'var(--conversation-code-size, var(--code-font-size, 14px))',
             }}
           >
             {children}
@@ -261,7 +261,7 @@ const CodeBlock = memo(function CodeBlock({
             wordBreak: 'normal',
             overflowWrap: 'anywhere',
             fontFamily: 'var(--font-mono)',
-            fontSize: 'var(--conversation-code-size, 14px)',
+            fontSize: 'var(--conversation-code-size, var(--code-font-size, 14px))',
           },
         }}
         // Performance optimizations for SyntaxHighlighter

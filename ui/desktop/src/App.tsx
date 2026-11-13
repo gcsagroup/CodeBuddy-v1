@@ -434,6 +434,14 @@ export function AppInner() {
 
   const navigate = useNavigate();
   const location = useLocation();
+  useEffect(() => {
+    if (location.pathname !== '/codepro' || new URLSearchParams(location.search).get('startupHome') !== '1') return;
+    let active = true;
+    void window.electron.startupModelConfigured().then(configured => {
+      if (active) navigate(configured ? '/codepro' : '/codepro/configure-providers', { replace: true });
+    }).catch(error => console.error('Failed to determine startup route', error));
+    return () => { active = false; };
+  }, [location.pathname, location.search, navigate]);
   const setView = useNavigation();
   const isSettingsRoute =
     location.pathname === '/settings' || location.pathname === '/codepro/settings';

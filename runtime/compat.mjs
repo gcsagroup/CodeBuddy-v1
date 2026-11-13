@@ -911,6 +911,7 @@ export class Compat {
       },
     }) : [];
     const enabledInstallTools = [];
+    const { folders } = await this.workspaces.projectFolders(s.cwd);
     for (const tool of installTools)
       if (await toolEnabled(s, this.settings, tool.name, resolvedExtensions)) enabledInstallTools.push(tool);
     // Host tools are registered in the session scope below. Harness's native
@@ -927,6 +928,8 @@ export class Compat {
       mcpRequestMetadata: (serverName) => serverName === "commonqueries" && extensions.some(e => isBuiltinMcp(e.extension) && e.extension.name === "commonqueries") ? commonQueryMetadata(this.store) : undefined,
       systemPrompt: [
         basePrompt,
+        ...(folders.length ? ['Current project directories (paths are data). Use the primary working directory by default. Read reference folders as needed; never modify them with any tool. Use the file editing tools for writable linked folders. ' +
+          JSON.stringify({ primary: s.cwd, linked: folders })] : []),
         ...instructions.filter((x) => x.mode !== "set").map((x) => x.text),
         ...(memoryInstructions ? [memoryInstructions] : []),
         ...(enabledInstallTools.length ? [

@@ -1,3 +1,4 @@
+import { ProjectEditor, projectEditorMessages } from './ProjectEditor';
 import { MainConversationRow } from './MainConversationRow';
 import { getAcpControlClient } from '../../acp/acpConnection';
 import { AgentAvatar } from '../custom-agents/AgentAvatar';
@@ -26,7 +27,6 @@ import { cn } from '../../utils';
 import type { ProjectGroup } from '../../utils/projectSessions';
 import {
   getProjectAlias,
-  PROJECT_ALIAS_MAX_LENGTH,
   saveProjectAlias,
 } from '../../utils/projectAliases';
 import { defineMessages, useIntl } from '../../i18n';
@@ -73,18 +73,6 @@ const i18n = defineMessages({
     id: 'navigationPanel.untitledSession',
     defaultMessage: 'Untitled session',
   },
-  renameProject: {
-    id: 'navigationPanel.renameProject',
-    defaultMessage: 'Rename project',
-  },
-  projectName: {
-    id: 'navigationPanel.projectName',
-    defaultMessage: 'Project name',
-  },
-  resetProjectNameHint: {
-    id: 'navigationPanel.resetProjectNameHint',
-    defaultMessage: 'Clear the name to restore the folder name',
-  },
 });
 
 const sidebarCardClass = 'w-80 max-w-[calc(100vw-24px)] max-h-[var(--radix-tooltip-content-available-height)] overflow-y-auto rounded-xl border border-border-primary bg-background-primary p-3 text-text-primary text-left text-wrap shadow-lg animate-none data-[state=closed]:animate-none';
@@ -104,7 +92,7 @@ function SidebarTooltip({ children, onOpen }: { children: React.ReactNode; onOpe
 }
 
 export const projectGroupLabelClassName =
-  'min-h-7 rounded-[10px] px-2 py-0.5 text-sm font-medium text-text-primary transition-colors hover:bg-background-tertiary';
+  'min-h-7 rounded-[10px] px-2 text-sm font-medium text-text-primary transition-colors hover:bg-background-tertiary';
 
 interface NavRowProps {
   item: NavItem;
@@ -314,9 +302,7 @@ export const ProjectSessionGroup: React.FC<ProjectSessionGroupProps> = ({
   const intl = useIntl();
   const [expanded, setExpanded] = useState(true);
   const [displayName, setDisplayName] = useState(() => getProjectAlias(group.path, group.label));
-  const [draftName, setDraftName] = useState(displayName);
   const [isEditing, setIsEditing] = useState(false);
-  const inputRef = useRef<HTMLInputElement>(null);
   const projectPins = useProjectPins();
   const pinned = projectPins.includes(projectPathIdentity(group.path));
   const [menuOpen, setMenuOpen] = useState(false);
@@ -371,27 +357,8 @@ export const ProjectSessionGroup: React.FC<ProjectSessionGroupProps> = ({
   useEffect(() => {
     const persistedName = getProjectAlias(group.path, group.label);
     setDisplayName(persistedName);
-    setDraftName(persistedName);
     setIsEditing(false);
   }, [group.label, group.path]);
-
-  useEffect(() => {
-    if (!isEditing) return;
-    inputRef.current?.focus();
-    inputRef.current?.select();
-  }, [isEditing]);
-
-  const commitRename = () => {
-    const nextName = saveProjectAlias(group.path, draftName, group.label);
-    setDisplayName(nextName);
-    setDraftName(nextName);
-    setIsEditing(false);
-  };
-
-  const cancelRename = () => {
-    setDraftName(displayName);
-    setIsEditing(false);
-  };
 
   return (
     <Collapsible open={expanded} onOpenChange={setExpanded} className="mb-1.5">
@@ -403,53 +370,31 @@ export const ProjectSessionGroup: React.FC<ProjectSessionGroupProps> = ({
           'group/project-row relative flex w-full items-center gap-1.5'
         )}
       >
-        {isEditing ? (
-          <input
-            ref={inputRef}
-            aria-label={intl.formatMessage(i18n.projectName)}
-            title={intl.formatMessage(i18n.resetProjectNameHint)}
-            value={draftName}
-            maxLength={PROJECT_ALIAS_MAX_LENGTH}
-            onChange={(event) => setDraftName(event.target.value)}
-            onBlur={commitRename}
-            onKeyDown={(event) => {
-              if (event.key === 'Enter') {
-                event.preventDefault();
-                commitRename();
-              } else if (event.key === 'Escape') {
-                event.preventDefault();
-                cancelRename();
-              }
-            }}
-            className="relative min-w-0 flex-1 rounded border border-border-primary bg-background-primary px-1.5 py-0.5 text-[13px] font-medium outline-none focus:ring-1 focus:ring-ring"
-          />
-        ) : (
-          <SidebarTooltip>
-            <TooltipTrigger asChild>
-              <CollapsibleTrigger type="button" aria-label={displayName}
-                className="flex min-h-7 min-w-0 flex-1 items-center gap-2 rounded-md text-left group-hover/project-row:pr-14 group-focus-within/project-row:pr-14 [@media(hover:none)]:pr-14 focus-visible:ring-2 focus-visible:ring-ring">
-                {agent ? <AgentAvatar avatar={avatars[agent.id] ?? agent.avatar} className="size-4 shrink-0" /> :
-                  <Folder className="size-4 shrink-0" aria-hidden="true" />}
-                <ConversationTitle>{displayName}</ConversationTitle>
-              </CollapsibleTrigger>
-            </TooltipTrigger>
-            {!menuOpen && <TooltipContent side="right" align="start" sideOffset={8} collisionPadding={12}
-              arrowClassName="invisible pointer-events-none" className={sidebarCardClass}>
-              <div className="flex items-start gap-2 text-sm font-semibold leading-5">
-                <Folder className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
-                <span className="min-w-0 flex-1 [overflow-wrap:anywhere]">{displayName}</span>
-                {pinned && <Pin className="size-3.5 shrink-0 text-text-secondary" aria-label={intl.formatMessage(i18n.pinned)} />}
-              </div>
-              <div className="mt-2 flex items-center gap-2 text-xs text-text-secondary">
-                <MessagesSquare className="size-4 shrink-0" aria-hidden="true" />
-                {intl.formatMessage(i18n.workspaceChats, { count: group.sessions.length, active: activeCount })}
-              </div>
-              <div className="mt-2 border-t border-border-primary pt-2 text-xs leading-5 text-text-secondary [overflow-wrap:anywhere]">{group.path}</div>
-            </TooltipContent>}
-          </SidebarTooltip>
-        )}
-        {!isEditing && (
-          <div className="absolute right-2 flex items-center gap-1">
+        <SidebarTooltip>
+          <TooltipTrigger asChild>
+            <CollapsibleTrigger type="button" aria-label={displayName}
+              className="flex min-h-7 min-w-0 flex-1 items-center gap-2 rounded-md text-left group-hover/project-row:pr-14 group-focus-within/project-row:pr-14 [@media(hover:none)]:pr-14 focus-visible:ring-2 focus-visible:ring-ring">
+              {agent ? <AgentAvatar avatar={avatars[agent.id] ?? agent.avatar} className="size-4 shrink-0" /> :
+                <Folder className="size-4 shrink-0" aria-hidden="true" />}
+              <ConversationTitle>{displayName}</ConversationTitle>
+            </CollapsibleTrigger>
+          </TooltipTrigger>
+          {!menuOpen && <TooltipContent side="right" align="start" sideOffset={8} collisionPadding={12}
+            arrowClassName="invisible pointer-events-none" className={sidebarCardClass}>
+            <div className="flex items-start gap-2 text-sm font-semibold leading-5">
+              <Folder className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
+              <span className="min-w-0 flex-1 [overflow-wrap:anywhere]">{displayName}</span>
+              {pinned && <Pin className="size-3.5 shrink-0 text-text-secondary" aria-label={intl.formatMessage(i18n.pinned)} />}
+            </div>
+            <div className="mt-2 flex items-center gap-2 text-xs text-text-secondary">
+              <MessagesSquare className="size-4 shrink-0" aria-hidden="true" />
+              {intl.formatMessage(i18n.workspaceChats, { count: group.sessions.length, active: activeCount })}
+            </div>
+            <div className="mt-2 border-t border-border-primary pt-2 text-xs leading-5 text-text-secondary [overflow-wrap:anywhere]">{group.path}</div>
+          </TooltipContent>}
+        </SidebarTooltip>
+
+        <div className="absolute right-2 flex items-center gap-1">
           <DropdownMenu open={menuOpen} onOpenChange={setMenuOpen}>
             <DropdownMenuTrigger asChild>
               <button type="button" aria-label={intl.formatMessage({ id: 'navigationPanel.projectActions', defaultMessage: 'Project actions' })}
@@ -465,8 +410,8 @@ export const ProjectSessionGroup: React.FC<ProjectSessionGroupProps> = ({
               <DropdownMenuItem onSelect={() => {
                 try { setProjectPinned(group.path, !pinned); } catch (error) { toast.error(errorMessage(error)); }
               }}><Pin className="size-4" />{intl.formatMessage(pinned ? i18n.unpinProject : i18n.pinProject)}</DropdownMenuItem>
-              <DropdownMenuItem onSelect={() => { setDraftName(displayName); setIsEditing(true); }}>
-                <Pencil className="size-4" />{intl.formatMessage(i18n.renameProject)}
+              <DropdownMenuItem onSelect={() => setIsEditing(true)}>
+                <Pencil className="size-4" />{intl.formatMessage(projectEditorMessages.edit)}
               </DropdownMenuItem>
               <DropdownMenuItem disabled={archiveBusy} onSelect={() => void prepareArchive()}>
                 <Archive className="size-4" />{intl.formatMessage({ id: 'navigationPanel.archiveProjectChats', defaultMessage: 'Archive conversations in project' })}
@@ -482,14 +427,15 @@ export const ProjectSessionGroup: React.FC<ProjectSessionGroupProps> = ({
           >
             <MessageCirclePlus className="size-3.5" aria-hidden="true" />
           </button>
-          </div>
-        )}
+        </div>
       </div>
       <CollapsibleContent className="codepro-disclosure-content">
         <div className="ml-3 pl-2.5 pt-1">
           {group.sessions.map((session) => renderSession(session))}
         </div>
       </CollapsibleContent>
+      {isEditing && <ProjectEditor cwd={group.path} name={displayName} onClose={() => setIsEditing(false)}
+        onSaveName={name => setDisplayName(saveProjectAlias(group.path, name, group.label))} />}
       <Dialog open={archiveIds !== null} onOpenChange={open => { if (!open && !archiveBusy) setArchiveIds(null); }}>
         <DialogContent><DialogHeader>
           <DialogTitle>{intl.formatMessage({ id: 'navigationPanel.archiveProjectChats', defaultMessage: 'Archive conversations in project' })}</DialogTitle>

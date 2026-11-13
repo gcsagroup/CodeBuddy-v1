@@ -957,6 +957,8 @@ test("shutdown cancels an active prompt and flushes its partial transcript befor
     })
     .catch(() => null);
   await began;
+  const activity = await fetch(`${fixture.baseUrl}/status`, { headers: { "X-Secret-Key": secret } });
+  assert.equal((await activity.json()).hasActiveTasks, true);
   const reopened = await fixture.restart();
   await pending;
   await reopened.request("session/load", {

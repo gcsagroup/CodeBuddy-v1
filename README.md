@@ -34,13 +34,13 @@ macOS Apple Silicon 原生构建、签名 DMG 安装、电脑控制及独立 MCP
 node scripts/build-harness-windows.cjs --installer=inno
 ```
 
-产物为 `ui/desktop/out/make/inno.windows/x64/CodeBuddy-Setup.exe`；包含安装位置选择、真实安装进度、完成页可选桌面快捷方式、开始菜单入口与启动应用，以及 Windows 卸载入口。界面为简体中文，采用 Windows 11 简约样式。默认仅为当前用户安装到 `%LOCALAPPDATA%/Programs/CodeBuddy`，可选择其他可写位置。卸载默认保留用户数据。
+产物为 `ui/desktop/out/make/inno.windows/x64/CodeBuddy-Setup.exe`。打开安装包先选择安装范围。「仅为我安装」默认使用 `%LOCALAPPDATA%\Programs\CodeBuddy`。「为此电脑上的所有用户安装」需要管理员授权，默认使用 `%ProgramFiles%\CodeBuddy`。随后可选择安装目录，在完成页选择快捷方式及是否启动应用。快捷方式、链接协议和卸载入口跟随安装范围。
 
 用户数据位置不在安装时选择：新安装使用 `~/.CodeBuddy`，升级保留已保存的位置；此前保存的数据位置继续沿用，设置中不再提供存储管理。
 
 安装界面采用原生浅色布局，统一标题、间距和按钮尺寸；完成页以左侧标识、右侧说明与选项排列。进度条上方直接显示当前操作和正在处理的组件，不再使用展开链接或日志框。内部路径和依赖文件名仅保留在诊断日志。界面与隔离验收说明见[安装器界面](docs/windows-installer-ui.zh-CN.md)。
 
-Inno 再次安装默认沿用同一应用的历史安装目录。安装前检查 CodeBuddy 和安装目录内的后台进程，要求用户退出后再继续，不自动强制关闭。普通卸载先显示选择窗口，默认保留个人数据；也可选择仅清理聊天历史或清理全部个人数据，两者均需确认。工作区及已登记项目保留。静默卸载不清理个人数据。程序文件由 Inno 删除，选定数据由随包清理助手处理；清理失败会停止程序卸载并留下报告。详见[安装器界面与清理范围](docs/windows-installer-ui.zh-CN.md)。
+Inno 再次安装沿用所选范围的历史目录。安装前检查 CodeBuddy 和安装目录内的后台进程，要求用户退出后再继续。卸载个人安装时默认保留个人数据，也可确认清理聊天历史或个人数据；工作区及已登记项目保留。全机卸载与静默卸载都保留个人数据。详见[安装器界面与清理范围](docs/windows-installer-ui.zh-CN.md)。
 
 向导使用已有 Inno Setup 6.7+（或 7.x），不自动安装编译工具。安装官方编译器后，将其 `ISCC.exe` 路径通过 `CODEBUDDY_ISCC` 指定，或使用当前用户／Program Files 下的标准安装位置。简体中文翻译使用 [Inno Setup 6.7.3 的 ChineseSimplified.isl](https://github.com/jrsoftware/issrc/blob/is-6_7_3/Files/Languages/Unofficial/ChineseSimplified.isl)，放在编译器 `Languages/` 目录，或通过 `CODEBUDDY_INNO_ZH_CN` 指定。工具准备及载荷下载需先获授权。
 

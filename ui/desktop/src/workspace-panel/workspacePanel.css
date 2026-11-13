@@ -256,7 +256,7 @@
 .wb-code {
   min-width: 100%;
   font:
-    12px/1.85 'Cascadia Code',
+    var(--code-font-size, 12px)/1.85 'Cascadia Code',
     Consolas,
     monospace;
   tab-size: 4;
@@ -362,7 +362,7 @@
   background: var(--color-background-primary);
   padding: 18px 22px;
   font:
-    12px/1.85 'Cascadia Code',
+    var(--code-font-size, 12px)/1.85 'Cascadia Code',
     Consolas,
     monospace;
   outline: none;
@@ -511,15 +511,7 @@
   background: linear-gradient(90deg, transparent, #72a3ed, transparent);
   background-size: 50% 100%;
   background-repeat: no-repeat;
-  animation: wb-loading 1.2s ease-in-out infinite alternate;
-}
-@keyframes wb-loading {
-  from {
-    background-position: 0% 0;
-  }
-  to {
-    background-position: 100% 0;
-  }
+  animation: loading-track 1.7s ease-in-out infinite alternate;
 }
 @media (prefers-reduced-motion: reduce) {
   .wb-loading {

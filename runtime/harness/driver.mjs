@@ -67,7 +67,7 @@ function nativeProviderRoute(provider, model) {
 }
 
 /** Boot the official Harness Host and expose the existing CodeBuddy transport seam. */
-export async function createHarnessDriver({ dataDir, cwd = process.cwd(), instructionsHome, sharedSkillDir, managedWorkspaceRoot } = {}) {
+export async function createHarnessDriver({ dataDir, cwd = process.cwd(), instructionsHome, sharedSkillDir, managedWorkspaceRoot, projectFolders } = {}) {
   if (!dataDir) throw new TypeError('Harness dataDir is required for old/new data isolation');
   await ensureGitEnvironment();
   // The public entry establishes the alpha2 contracts before loading this driver.
@@ -110,6 +110,7 @@ export async function createHarnessDriver({ dataDir, cwd = process.cwd(), instru
   let skillRefresh = Promise.resolve();
   let selection = { provider: 'codebuddy-unconfigured', model: 'unconfigured' };
   const ctx = await boot('codebuddy-harness', configPath, [], host => {
+    if (projectFolders) host.provide('codebuddyProjectFolders', projectFolders);
     // Both phases precede the transport observer. A stalled phase must be
     // identifiable even if the first model request is never constructed.
     async function tracePreparation(phase, agent, next) {

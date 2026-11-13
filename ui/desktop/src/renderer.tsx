@@ -8,6 +8,7 @@ import SuspenseLoader from './suspense-loader';
 import { applyThemeTokens } from './theme/theme-tokens';
 import { currentLocale, currentMessageLocale, loadMessages } from './i18n';
 import { initializeNewTaskDrafts } from './utils/newTaskDraft';
+import { TypographyProvider } from './contexts/TypographyContext';
 
 // Apply theme tokens to :root before first paint.
 applyThemeTokens();
@@ -52,7 +53,7 @@ function handleIntlError(err: { code: string; message?: string }) {
         <Suspense fallback={<SuspenseLoader />}>
           <ConfigProvider>
             <ErrorBoundary>
-              <App />
+              <TypographyProvider><App /></TypographyProvider>
             </ErrorBoundary>
           </ConfigProvider>
         </Suspense>

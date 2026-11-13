@@ -48,6 +48,7 @@ export async function createCompatServer({ dataDir, secret, driver, defaultModel
         (loaded ??= import("./harness/index.mjs").then((m) =>
           m.createHarnessDriver({
             dataDir: path.join(dataDir, "harness"),
+            projectFolders: { writeAccess: (cwd, target) => compat.workspaces.linkedWriteAccess(cwd, target) },
             instructionsHome: path.dirname(dataDir),
             managedWorkspaceRoot: process.env.CODEBUDDY_WORKSPACE_ROOT ?? path.join(dataDir, 'workspaces'),
           }),
@@ -180,6 +181,7 @@ export async function createCompatServer({ dataDir, secret, driver, defaultModel
             engine: "deepseek-harness",
             preview: true,
             modelConfigured: Boolean(d.providerId && d.modelId),
+            hasActiveTasks: compat.active.size > 0 || (compat.schedules?.active.size ?? 0) > 0,
             runtime: runtimeIdentity,
           }),
         );

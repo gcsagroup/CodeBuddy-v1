@@ -65,6 +65,7 @@ import { rootCleanupDialogOptions } from './utils/rootCleanupPicker';
 import { selectNativeText } from './utils/nativeLocalization';
 import type { Settings, SettingKey } from './utils/settings';
 import { defaultSettings, getKeyboardShortcuts } from './utils/settings';
+import { defaultTypography, readTypography, zoomRange, type Typography } from './utils/typography';
 import * as crypto from 'crypto';
 import * as yaml from 'yaml';
 import windowStateKeeper from 'electron-window-state';
@@ -124,6 +125,7 @@ if (harnessPackaged) {
   process.env.CODEBUDDY_DISABLE_PROTOCOL_REGISTRATION = 'true';
 }
 let packagedHarnessService: Awaited<ReturnType<typeof startHarnessService>> | undefined;
+let packagedHomePending = harnessPackaged;
 let previewInitialRoute =
   harnessPreview &&
   ['/configure-providers', '/codepro/configure-providers'].includes(
@@ -397,6 +399,7 @@ function getSettings(): Settings {
     return {
       ...defaultSettings,
       ...stored,
+      ...readTypography(stored),
       externalGoosed: {
         ...defaultSettings.externalGoosed,
         ...(stored.externalGoosed ?? {}),
@@ -545,6 +548,32 @@ app.on('certificate-error', (event, _webContents, url, _error, certificate, call
 });
 
 app.whenReady().then(() => {
+  if (started || !gotTheLock) return;
+  // Resolve the first launch decision before later ready handlers can open
+  // a renderer, deliver a deep link, start Harness, or check for updates.
+  if (getSettings().networkAccessAllowed !== true) {
+    const choice = dialog.showMessageBoxSync({
+      type: 'question',
+      title: 'CodeBuddy',
+      message: nativeT('Allow CodeBuddy to access the network?', '允许 CodeBuddy 访问网络吗？', '允許 CodeBuddy 存取網路嗎？'),
+      detail: nativeT(
+        'Online models, connected tools and software updates use the network. Choose Exit to close CodeBuddy. You can decide again the next time you open it.',
+        '在线模型、联网工具和软件更新需要访问网络。选择「退出」将关闭 CodeBuddy，下次打开时可以重新选择。',
+        '線上模型、連網工具與軟體更新需要存取網路。選擇「結束」將關閉 CodeBuddy，下次開啟時可以重新選擇。'
+      ),
+      buttons: [nativeT('Allow', '允许', '允許'), nativeT('Exit', '退出', '結束')],
+      defaultId: 1, cancelId: 1, noLink: true,
+    });
+    if (choice !== 0) { app.exit(0); return; }
+    try {
+      updateSettings(settings => { settings.networkAccessAllowed = true; });
+    } catch (error) {
+      dialog.showErrorBox('CodeBuddy', nativeT('Could not save network permission.', '无法保存联网授权。', '無法儲存連網授權。'));
+      log.error('Saving network consent failed', error);
+      app.exit(1);
+      return;
+    }
+  }
   appConfig.GOOSE_LOCALE = getConfiguredGooseLocale();
   registerDesktopControl();
 });
@@ -588,7 +617,14 @@ if (harnessPreview && process.env.CODEBUDDY_PREVIEW_DEVTOOLS_PORT) {
 
 // Lifecycle probes run unpackaged builds beside a real installation and must not
 // replace that installation's protocol handler. Normal launches still register.
-const protocolRegistrationEnabled = process.env.CODEBUDDY_DISABLE_PROTOCOL_REGISTRATION !== 'true';
+// Inno registers codebuddy:// for the selected scope. Registering it again
+// from Electron would shadow the machine-wide handler in the user's registry.
+const innoInstallation =
+  process.platform === 'win32' &&
+  app.isPackaged &&
+  fsSync.existsSync(path.join(path.dirname(process.execPath), 'unins000.exe'));
+const protocolRegistrationEnabled =
+  !innoInstallation && process.env.CODEBUDDY_DISABLE_PROTOCOL_REGISTRATION !== 'true';
 
 // In development mode, force registration as the default protocol client.
 // In production, register normally unless an isolated lifecycle probe opted out.
@@ -1115,6 +1151,7 @@ let appConfig = {
 const windowMap = new Map<number, BrowserWindow>();
 const appWindows = new Map<string, BrowserWindow>();
 
+const pendingWindowBindings = new Map<number, Promise<void>>();
 const gooseServeLeases = new GooseServeLeaseRegistry(log);
 
 const taskWakelock = new TaskWakelock(powerSaveBlocker);
@@ -1161,9 +1198,12 @@ const createChat = async (
   } = options;
   const settings = getSettings();
 
+  // The packaged renderer can mount while its private loopback endpoint is starting.
+  // External backends still use their existing certificate and connectivity checks.
+  const runtime = harnessPackaged ? packagedStartup() : undefined;
   let externalBackend: ExternalBackend | null;
   try {
-    externalBackend = getActiveExternalBackend(settings);
+    externalBackend = runtime ? null : getActiveExternalBackend(settings);
   } catch (error) {
     dialog.showMessageBoxSync({
       type: 'error',
@@ -1340,7 +1380,7 @@ const createChat = async (
       app.quit();
       return;
     }
-  } else {
+  } else if (!runtime) {
     log.error('Harness runtime is missing. Use start-preview.ps1 or the Harness installer.');
     dialog.showMessageBoxSync({
       type: 'error',
@@ -1407,6 +1447,7 @@ const createChat = async (
       ),
       webPreferences: {
         spellcheck: settings.spellcheckEnabled ?? true,
+        zoomFactor: settings.windowZoom / 100,
         preload: path.join(__dirname, 'preload.js'),
         webSecurity: true,
         nodeIntegration: false,
@@ -1456,6 +1497,25 @@ const createChat = async (
     });
   }
 
+  if (runtime) {
+    const id = mainWindow.id;
+    const binding = runtime.then(({ service }) => {
+      if (!mainWindow.isDestroyed()) {
+        gooseServeLeases.attachWindow(id, gooseServeLeases.createExternal(
+          acpWebSocketUrlFromHttpBase(service.url, service.secret), service.secret
+        ));
+      }
+    });
+    pendingWindowBindings.set(id, binding);
+    void binding.catch(() => {});
+    mainWindow.once('closed', () => {
+      pendingWindowBindings.delete(id);
+      void gooseServeLeases.releaseWindow(id);
+    });
+    mainWindow.once('ready-to-show', () => {
+      if (!mainWindow.isDestroyed() && !mainWindow.isVisible()) mainWindow.show();
+    });
+  }
   if (gooseServeLease) {
     const lease = gooseServeLease;
     mainWindow.once('closed', () => {
@@ -1622,6 +1682,10 @@ const createChat = async (
   }
 
   let searchParams = new URLSearchParams();
+  if (packagedHomePending && appPath === '/' && !viewType && !resumeSessionId) {
+    packagedHomePending = false;
+    searchParams.set('startupHome', '1');
+  }
   if (viewType === 'settings' && settingsSection) searchParams.set('section', settingsSection);
   if (resumeSessionId) {
     searchParams.set('resumeSessionId', resumeSessionId);
@@ -1802,7 +1866,9 @@ let tray: Tray | null = null;
 const attachTrayLifecycle = registerTrayLifecycle(
   app,
   () => !!tray && !tray.isDestroyed(),
-  process.platform
+  process.platform,
+  () => harnessQuitFinished,
+  () => windowMap.size === 1
 );
 
 const destroyTray = () => {
@@ -2146,9 +2212,9 @@ ipcMain.handle('open-external', async (_event, url: string) => {
   await shell.openExternal(url);
 });
 
-ipcMain.handle('directory-chooser', async () => {
+ipcMain.handle('directory-chooser', async (_event, multiple = false) => {
   return dialog.showOpenDialog({
-    properties: ['openDirectory', 'createDirectory'],
+    properties: multiple === true ? ['openDirectory', 'multiSelections'] : ['openDirectory', 'createDirectory'],
     defaultPath: os.homedir(),
   });
 });
@@ -2267,9 +2333,25 @@ const validSettingKeys: Set<string> = new Set([
   'language',
   'responseStyle',
   'showPricing',
+  'windowZoom',
+  'textSize',
+  'codeFontSize',
+  'uiFont',
   'seenAnnouncementIds',
   'disableAutoDownload',
 ]);
+
+function saveTypography(key: keyof Typography, value: unknown) {
+  const settings = getSettings();
+  const typography = readTypography({ ...settings, [key]: value });
+  if (typography[key] !== value) throw new Error('Invalid typography setting');
+  fsSync.writeFileSync(SETTINGS_FILE, JSON.stringify({ ...settings, ...typography }, null, 2));
+  for (const win of windowMap.values()) {
+    if (win.isDestroyed()) continue;
+    if (key === 'windowZoom') win.webContents.setZoomFactor(typography.windowZoom / 100);
+    win.webContents.send('typography-changed', typography);
+  }
+}
 
 ipcMain.handle('set-setting', (_event, key: SettingKey, value: unknown) => {
   // Validate key at runtime to prevent prototype pollution
@@ -2283,6 +2365,7 @@ ipcMain.handle('set-setting', (_event, key: SettingKey, value: unknown) => {
     return;
   }
 
+  if (key === 'windowZoom' || key === 'textSize' || key === 'codeFontSize' || key === 'uiFont') return saveTypography(key, value);
   const settings = getSettings();
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   (settings as any)[key] = value;
@@ -2303,12 +2386,19 @@ ipcMain.handle('set-setting', (_event, key: SettingKey, value: unknown) => {
   }
 });
 
-ipcMain.handle('get-secret-key', (event) => {
+ipcMain.handle('get-secret-key', async (event) => {
   const windowId = BrowserWindow.fromWebContents(event.sender)?.id;
   if (!windowId) {
     return null;
   }
+  await pendingWindowBindings.get(windowId);
   return gooseServeLeases.getSecretKey(windowId) ?? null;
+});
+
+ipcMain.handle('startup-model-configured', async event => {
+  const owner = BrowserWindow.fromWebContents(event.sender);
+  if (!owner || !pendingWindowBindings.has(owner.id)) return true;
+  return (await packagedStartup()).modelConfigured;
 });
 
 ipcMain.handle('get-acp-url', async (event) => {
@@ -2316,6 +2406,7 @@ ipcMain.handle('get-acp-url', async (event) => {
   if (!windowId) {
     return null;
   }
+  await pendingWindowBindings.get(windowId);
   return gooseServeLeases.getAcpUrl(windowId) ?? null;
 });
 
@@ -2751,27 +2842,39 @@ const registerGlobalShortcuts = () => {
   }
 };
 
-async function appMain() {
-  if (harnessPackaged) {
-    packagedHarnessService = await startHarnessService({
-      resourcesPath: process.resourcesPath,
-      home: storagePaths.homeDir,
-      workspace: process.env.CODEBUDDY_WORKSPACE_ROOT!,
-      onUnexpectedExit: () => {
-        log.error('Packaged Harness exited unexpectedly; preserving conversation data');
-        app.quit();
-      },
-    });
-    process.env.CODEBUDDY_EXTERNAL_BACKEND = 'true';
-    process.env.CODEBUDDY_EXTERNAL_BACKEND_URL = packagedHarnessService.url;
-    process.env.CODEBUDDY_SERVER__SECRET_KEY = packagedHarnessService.secret;
-    const status = await net
-      .fetch(`${packagedHarnessService.url}/status`, {
-        headers: { 'X-Secret-Key': packagedHarnessService.secret },
-      })
-      .then((response) => response.json());
-    if (status.modelConfigured !== true) previewInitialRoute = '/configure-providers';
+// All launch paths (including file and URL opens) share one child and one readiness result.
+let startupPromise: ReturnType<typeof bootPackagedHarness> | undefined;
+function packagedStartup() {
+  if (!startupPromise) {
+    startupPromise = bootPackagedHarness();
+    // appMain observes the failure after registering the desktop event handlers.
+    void startupPromise.catch(() => {});
   }
+  return startupPromise;
+}
+async function bootPackagedHarness() {
+  packagedHarnessService = await startHarnessService({
+    resourcesPath: process.resourcesPath,
+    home: storagePaths.homeDir,
+    workspace: process.env.CODEBUDDY_WORKSPACE_ROOT!,
+    onUnexpectedExit: () => {
+      log.error('Packaged Harness exited unexpectedly; preserving conversation data');
+      app.quit();
+    },
+  });
+  process.env.CODEBUDDY_EXTERNAL_BACKEND = 'true';
+  process.env.CODEBUDDY_EXTERNAL_BACKEND_URL = packagedHarnessService.url;
+  process.env.CODEBUDDY_SERVER__SECRET_KEY = packagedHarnessService.secret;
+  const response = await net.fetch(`${packagedHarnessService.url}/status`, {
+    headers: { 'X-Secret-Key': packagedHarnessService.secret }, signal: AbortSignal.timeout(10000),
+  });
+  if (!response.ok) throw new Error(`CodeBuddy startup status: HTTP ${response.status}`);
+  const status = await response.json();
+  return { service: packagedHarnessService, modelConfigured: status.modelConfigured === true };
+}
+
+async function appMain() {
+  const startup = harnessPackaged ? packagedStartup() : undefined;
   powerMonitor.on('resume', () => {
     for (const window of applicationWindows()) {
       if (!window.isDestroyed()) {
@@ -2864,7 +2967,7 @@ async function appMain() {
     app.dock?.setMenu(dockMenu);
   }
 
-  const menu = Menu.getApplicationMenu();
+  let menu = Menu.getApplicationMenu();
 
   const shortcuts = getKeyboardShortcuts(settings);
 
@@ -3190,6 +3293,27 @@ async function appMain() {
     // File/Edit/View/Window/Help and submenu items populated by roles) before
     // installing the menu. Called last so the lookups above that match on the
     // English labels still succeed.
+    const view = menu.items.find(item => item.label === 'View');
+    if (view?.submenu) {
+      const items = view.submenu.items.map(item => {
+        const role = item.role?.toLowerCase();
+        if (role !== 'zoomin' && role !== 'zoomout' && role !== 'resetzoom') return item;
+        return new MenuItem({
+          label: item.label,
+          accelerator: item.accelerator ?? ({
+            zoomin: 'CommandOrControl+Plus', zoomout: 'CommandOrControl+-', resetzoom: 'CommandOrControl+0',
+          }[role]),
+          click: () => {
+            const current = getSettings().windowZoom;
+            const next = role === 'resetzoom' ? defaultTypography.windowZoom :
+              current + (role === 'zoomin' ? zoomRange.step : -zoomRange.step);
+            saveTypography('windowZoom', Math.min(zoomRange.max, Math.max(zoomRange.min, next)));
+          },
+        });
+      });
+      const updatedView = new MenuItem({ label: view.label, submenu: Menu.buildFromTemplate(items) });
+      menu = Menu.buildFromTemplate(menu.items.map(item => item === view ? updatedView : item));
+    }
     translateMenuLabels(menu.items);
     Menu.setApplicationMenu(menu);
     if (process.platform === 'win32') {
@@ -3370,8 +3494,8 @@ async function appMain() {
 
   // Handle app restart
   ipcMain.on('restart-app', () => {
-    app.relaunch();
-    app.exit(0);
+    restartAfterQuit = true;
+    app.quit();
   });
 
   // Handler for getting app version
@@ -3404,6 +3528,7 @@ async function appMain() {
       }
 
       const launchingWindowId = launchingWindow.id;
+      await pendingWindowBindings.get(launchingWindowId);
       const launchingGooseServeLease = gooseServeLeases.get(launchingWindowId);
       if (!launchingGooseServeLease) {
         throw new Error('No backend lease found for launching window');
@@ -3498,6 +3623,7 @@ async function appMain() {
       throw error;
     }
   });
+  await startup;
 }
 
 app.whenReady().then(async () => {
@@ -3588,13 +3714,58 @@ async function getAllowList(): Promise<string[]> {
 }
 
 let harnessQuitFinished = false;
+let quitPending = false;
+let restartAfterQuit = false;
+
+async function confirmTaskExit(): Promise<boolean> {
+  const url = packagedHarnessService?.url ?? (harnessPreview ? process.env.CODEBUDDY_EXTERNAL_BACKEND_URL : undefined);
+  if (!url) return true;
+  let busy: boolean;
+  let unknown = false;
+  try {
+    const response = await net.fetch(new URL('/status', url).href, {
+      headers: { 'X-Secret-Key': process.env.CODEBUDDY_SERVER__SECRET_KEY ?? '' },
+      signal: AbortSignal.timeout(2000),
+    });
+    if (!response.ok) throw new Error('Runtime status unavailable');
+    const status = await response.json();
+    if (typeof status.hasActiveTasks !== 'boolean') throw new Error('Missing runtime activity');
+    busy = status.hasActiveTasks;
+  } catch {
+    busy = true;
+    unknown = true;
+  }
+  if (!busy) return true;
+  const choice = dialog.showMessageBoxSync({
+    type: 'warning', title: 'CodeBuddy',
+    message: unknown
+      ? nativeT('Task status is unavailable. Quit CodeBuddy?', '暂时无法确认任务状态，仍要退出吗？', '暫時無法確認任務狀態，仍要結束嗎？')
+      : nativeT('A task is running. Quit CodeBuddy?', '有任务正在执行，确认要退出吗？', '有任務正在執行，確認要結束嗎？'),
+    detail: nativeT('Quitting may interrupt work in progress.', '退出可能中断正在执行的任务，导致进度丢失。', '結束可能中斷正在執行的任務，導致進度遺失。'),
+    buttons: [nativeT('Cancel', '取消', '取消'), nativeT('Quit anyway', '仍然退出', '仍要結束')],
+    defaultId: 0, cancelId: 0, noLink: true,
+  });
+  return choice === 1;
+}
+
 app.on('before-quit', (event) => {
   if (harnessQuitFinished) return;
   event.preventDefault();
-  void Promise.all([draftStore?.flush(), packagedHarnessService?.close()]).finally(() => {
-    harnessQuitFinished = true;
-    app.quit();
-  });
+  if (quitPending) return;
+  quitPending = true;
+  void (async () => {
+    try {
+      if (!await confirmTaskExit()) { restartAfterQuit = false; return; }
+      const closeRuntime = packagedHarnessService?.close() ??
+        startupPromise?.then(({ service }) => service.close(), () => packagedHarnessService?.close());
+      await Promise.allSettled([draftStore?.flush(), closeRuntime]);
+      harnessQuitFinished = true;
+      if (restartAfterQuit) app.relaunch();
+      app.quit();
+    } finally {
+      quitPending = false;
+    }
+  })();
 });
 
 app.on('will-quit', async () => {

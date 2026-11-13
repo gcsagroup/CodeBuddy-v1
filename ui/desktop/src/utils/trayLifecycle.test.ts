@@ -6,7 +6,8 @@ import { registerTrayLifecycle } from './trayLifecycle';
 function fixture(platform = 'win32') {
   const app = Object.assign(new EventEmitter(), { quit: vi.fn() });
   let tray = true;
-  const attach = registerTrayLifecycle(app as unknown as App, () => tray, platform);
+  let approved = false;
+  const attach = registerTrayLifecycle(app as unknown as App, () => tray, platform, () => approved, () => true);
   const window = Object.assign(new EventEmitter(), { hide: vi.fn() });
   attach(window as unknown as BrowserWindow);
   const close = () => {
@@ -14,7 +15,7 @@ function fixture(platform = 'win32') {
     window.emit('close', event);
     return event;
   };
-  return { app, window, attach, close, setTray: (value: boolean) => { tray = value; } };
+  return { app, window, attach, close, approve: () => { approved = true; }, setTray: (value: boolean) => { tray = value; } };
 }
 
 describe('Windows close to tray', () => {
@@ -31,7 +32,7 @@ describe('Windows close to tray', () => {
     const f = fixture();
     f.close();
     f.window.hide.mockClear();
-    f.app.emit('before-quit');
+    f.approve();
     expect(f.close().preventDefault).not.toHaveBeenCalled();
     f.app.emit('before-quit');
     expect(f.close().preventDefault).not.toHaveBeenCalled();
@@ -41,8 +42,7 @@ describe('Windows close to tray', () => {
   it('uses current tray availability and never hides without a working tray', () => {
     const f = fixture();
     f.setTray(false);
-    expect(f.close().preventDefault).not.toHaveBeenCalled();
-    f.app.emit('window-all-closed');
+    expect(f.close().preventDefault).toHaveBeenCalledOnce();
     expect(f.app.quit).toHaveBeenCalledOnce();
     f.setTray(true);
     expect(f.close().preventDefault).toHaveBeenCalledOnce();
@@ -61,7 +61,7 @@ describe('Windows close to tray', () => {
     f.attach(other as unknown as BrowserWindow);
     f.close();
     expect(other.hide).not.toHaveBeenCalled();
-    f.app.emit('before-quit');
+    f.approve();
     const event = { preventDefault: vi.fn() };
     other.emit('close', event);
     expect(event.preventDefault).not.toHaveBeenCalled();

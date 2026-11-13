@@ -223,6 +223,7 @@ const i18n = defineMessages({
 });
 
 interface ChatInputProps {
+  submissionDisabled?: boolean;
   onOpenPermissions?: () => void;
   modelToolbarSlot?: React.ReactNode;
   placeholder?: string;
@@ -289,6 +290,7 @@ export function shouldShowWorkingDirectorySwitcher(canChangeWorkingDirectory: bo
 }
 
 export default function ChatInput({
+  submissionDisabled = false,
   onOpenPermissions,
   modelToolbarSlot,
   placeholder,
@@ -1517,6 +1519,7 @@ export default function ChatInput({
 
   const performSubmit = useCallback(
     async (text?: string, preserveDraft = false) => {
+      if (submissionDisabled) return;
       // Control commands must remain usable while the ordinary prompt awaits completion.
       const commandText =
         text ?? (composerMode ? `/${composerMode} ${displayValue.trim()}` : displayValue.trim());
@@ -1704,7 +1707,7 @@ export default function ChatInput({
       }
     },
     [
-      composerMode,
+      submissionDisabled, composerMode,
       isFilePickerOpen,
       onOpenPermissions,
       sessionId,
@@ -1727,6 +1730,7 @@ export default function ChatInput({
   );
 
   const handleKeyDown = (evt: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (submissionDisabled && evt.key === 'Enter' && !evt.shiftKey && !evt.altKey && !isComposing && !evt.nativeEvent.isComposing) { evt.preventDefault(); return; }
     if (evt.key === 'Enter' && (isComposing || evt.nativeEvent.isComposing)) return;
     if (mentionPopover.isOpen && mentionPopoverRef.current) {
       if (evt.key === 'ArrowDown') {
@@ -1802,6 +1806,7 @@ export default function ChatInput({
 
   const onFormSubmit = (e: React.FormEvent | React.MouseEvent) => {
     e.preventDefault();
+    if (submissionDisabled) return;
     if (
       composerMode ||
       parseComposerCommand(displayValue) ||
@@ -2005,7 +2010,7 @@ export default function ChatInput({
   const continueAction = chatState === ChatState.Idle && !draftText.trim() &&
     !pastedImages.length && !allDroppedFiles.length && !isRecording && !isTranscribing
     ? onContinue : undefined;
-  const primaryActionDisabled = !continueAction && (
+  const primaryActionDisabled = submissionDisabled || !continueAction && (
     isCurrentDraftSubmitted ||
     !hasSubmittableContent ||
     isAnyImageLoading ||

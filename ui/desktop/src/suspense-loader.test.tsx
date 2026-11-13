@@ -16,7 +16,7 @@ describe('startup loading screen', () => {
       </IntlProvider>
     );
     expect(screen.getByRole('status')).toHaveTextContent(loading);
-    expect(screen.getByRole('heading', { name: 'CodeBuddy' })).toBeVisible();
+    expect(screen.getByRole('heading', { name: loading })).toBeVisible();
     expect(screen.queryByRole('progressbar')).not.toBeInTheDocument();
   });
 

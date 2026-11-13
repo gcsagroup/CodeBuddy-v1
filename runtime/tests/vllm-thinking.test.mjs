@@ -88,7 +88,7 @@ test(`discovered ${backend} modes reach real Harness HTTP requests`, { timeout: 
     let raw = ''; for await (const chunk of req) raw += chunk;
     const body = JSON.parse(raw);
     if (req.url === previewPath) {
-      const modes = { none: [1], low: [2], medium: [3], xhigh: [4] };
+      const modes = { none: [1], low: [2], medium: [3], xhigh: [4], high: [5], minimal: [6], max: [7] };
       const token_ids = modes[body.reasoning_effort ?? 'xhigh'];
       res.statusCode = token_ids ? 200 : 400;
       return res.end(JSON.stringify(token_ids ? preview(token_ids) : { error: 'unsupported' }));
@@ -109,15 +109,36 @@ test(`discovered ${backend} modes reach real Harness HTTP requests`, { timeout: 
   driver = await createHarnessDriver({ dataDir: path.join(root, 'state'), cwd: root });
   const provider = { id: 'wire-vllm', engine: 'openai_compatible', apiUrl: `http://127.0.0.1:${server.address().port}`, models: [model], requiresAuth: false };
   const profile = await driverProvider(provider, model);
-  for (const effort of [undefined, 'low', 'none']) {
+  for (const [effort, expectedBudget, outputLimit] of [[undefined, 16384], ['minimal', 512], ['low', 2048],
+    ['medium', 4096], ['xhigh', 16384], ['high', 8192], ['max', 16384], ['none', undefined],
+    ['xhigh', 2048, 3072]]) {
     const configured = applyModelThinking(profile, modelThinkingPreference(thinkingProfile(provider, model), effort));
+    if (outputLimit) configured.provider.requestMaxTokens = outputLimit;
     const session = await driver.createSession({ cwd: root, provider: configured.provider, model, options: { thinkingEffort: configured.thinkingEffort } });
     assert.equal((await driver.prompt(session.sessionId, 'Reply OK.')).stopReason, 'end_turn');
     assert.equal(requests.at(-1).reasoning_effort, effort ?? 'xhigh');
-    assert.equal(requests.at(-1).thinking_token_budget, backend !== 'vllm' || effort === 'none' ? undefined : effort === 'low' ? 1024 : 8192);
+    assert.equal(requests.at(-1).thinking_token_budget, backend === 'vllm' ? expectedBudget : undefined);
   }
 });
 }
+
+test('a mixed gateway advertises the numeric budget only for its vLLM model', async t => {
+  const models = ['qwen-local', 'qwen-served-by-sglang'];
+  const provider = { id: 'mixed-budget', engine: 'openai_compatible', apiUrl: 'http://mixed.invalid', models, requiresAuth: false };
+  t.mock.method(globalThis, 'fetch', async (input, opts) => {
+    const url = new URL(input);
+    if (url.pathname === '/v1/models') return Response.json({ data: models.map((id, i) => ({ id, owned_by: i ? 'sglang' : 'vllm' })) });
+    if (url.pathname === '/openapi.json') return Response.json({ components: { schemas: { ChatCompletionRequest: { properties: { thinking_token_budget: {} } } } } });
+    const tokens = JSON.parse(opts.body).reasoning_effort === 'none' ? [1] : [2];
+    return Response.json(url.pathname === '/v1/tokenize' ? { tokens } : { token_ids: tokens });
+  });
+  const local = await driverProvider(provider, models[0]);
+  const other = await driverProvider(provider, models[1]);
+  assert.equal(local.compat.thinkingTokenBudgetField, 'thinking_token_budget');
+  assert.equal(other.reasoningEfforts.medium, 'medium');
+  assert.equal(other.compat?.thinkingTokenBudgetField, undefined);
+  assert.equal(other.thinkingBudgets, undefined);
+});
 
 test('SGLang keeps proxy base paths, authentication and per-model capabilities', async t => {
   const provider = { id: 'sglang-proxy', engine: 'openai_compatible', apiUrl: 'http://sglang-proxy.invalid/gateway/v1', models: ['graded', 'toggle'], requiresAuth: false, headers: { 'x-fixture-auth': 'fixture-only' } };
@@ -169,7 +190,7 @@ test('Gemma legacy thinking template still sends the advertised vLLM budget', { 
   const configured = applyModelThinking(profile, 'medium');
   const session = await driver.createSession({ cwd: root, provider: configured.provider, model, options: { thinkingEffort: configured.thinkingEffort } });
   assert.equal((await driver.prompt(session.sessionId, 'Reply OK.')).stopReason, 'end_turn');
-  assert.equal(requests.at(-1).thinking_token_budget, 2048);
+  assert.equal(requests.at(-1).thinking_token_budget, 4096);
   assert.equal(requests.at(-1).chat_template_kwargs.enable_thinking, true);
   await driverProvider(provider, model);
   assert.equal(schemaReads, 1, 'Warm model reads must reuse the capability probe');

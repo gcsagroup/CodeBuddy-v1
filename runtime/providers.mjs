@@ -798,7 +798,7 @@ export async function driverProvider(provider, model, { legacyThinking = false }
       outputTokens !== undefined && requestMaxTokens > outputTokens))
     throw providerError('invalid_output_budget', 'The configured output budget must be a positive integer within the known model capacity.');
   const { thinkingToggle: _toggle, thinkingDefault: _default, compat: thinkingCompat, ...nativeThinking } = legacyThinking ? modelThinkingProfile(model) : thinkingProfile(provider, model);
-  const compat = nativeThinking.reasoningEfforts && cachedModels(provider)?.thinkingBudgetField
+  const compat = nativeThinking.reasoningEfforts && cachedModels(provider)?.templateBackends?.[model] === 'vllm' && cachedModels(provider)?.thinkingBudgetField
     ? { ...thinkingCompat, thinkingTokenBudgetField: cachedModels(provider).thinkingBudgetField } : thinkingCompat;
   const protocol = endpoints(provider).completion.pathname.endsWith("/responses")
     ? "openai-responses" : "openai-completions";

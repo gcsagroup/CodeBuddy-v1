@@ -129,10 +129,11 @@ type ElectronAPI = {
   webLinkMenu: (request: WebLinkMenuRequest) => Promise<{ action: 'preview' | null }>;
   platform: string;
   arch: string;
+  startupModelConfigured: () => Promise<boolean>;
   reactReady: () => void;
   getConfig: () => Record<string, unknown>;
   hideWindow: () => void;
-  directoryChooser: () => Promise<Electron.OpenDialogReturnValue>;
+  directoryChooser: (multiple?: boolean) => Promise<Electron.OpenDialogReturnValue>;
   defaultCodeProWorkspacePath: () => Promise<string>;
   inspectCodeProWorkspace: (input: {
     prompt: string;
@@ -259,6 +260,7 @@ const electronAPI: ElectronAPI = {
   webLinkMenu: (request) => ipcRenderer.invoke('web-link-menu', request),
   platform: process.platform,
   arch: process.arch,
+  startupModelConfigured: () => ipcRenderer.invoke('startup-model-configured'),
   reactReady: () => ipcRenderer.send('react-ready'),
   getConfig: () => {
     if (!config || Object.keys(config).length === 0) {
@@ -269,7 +271,7 @@ const electronAPI: ElectronAPI = {
     return config;
   },
   hideWindow: () => ipcRenderer.send('hide-window'),
-  directoryChooser: () => ipcRenderer.invoke('directory-chooser'),
+  directoryChooser: (multiple = false) => ipcRenderer.invoke('directory-chooser', multiple),
   defaultCodeProWorkspacePath: () => ipcRenderer.invoke('default-codepro-workspace-path'),
   inspectCodeProWorkspace: (input) => ipcRenderer.invoke('inspect-codepro-workspace', input),
   confirmCodeProWorkspace: (input) => ipcRenderer.invoke('confirm-codepro-workspace', input),

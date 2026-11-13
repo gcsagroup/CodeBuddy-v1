@@ -38,7 +38,10 @@ try {
   $parent = Get-Process -Id $config.parentPid -ErrorAction SilentlyContinue
   if ($parent -and !$parent.WaitForExit(60000)) { throw 'Application did not exit; installation cancelled' }
   Assert-Installer
-  $arguments = @('/SP-', '/SILENT', '/NORESTART', '/NOCLOSEAPPLICATIONS', '/NORESTARTAPPLICATIONS', '/CURRENTUSER', '/CODEBUDDYUPDATE=1', ('/DIR="' + $config.directory + '"'), ('/LOG="' + $config.log + '"'))
+  $machineKey = 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\{57246561-8F37-48B1-9DE6-2878918A3EBA}_is1'
+  $machineDirectory = Get-ItemPropertyValue -LiteralPath $machineKey -Name 'Inno Setup: App Path' -ErrorAction SilentlyContinue
+  $scope = if ($machineDirectory -and ([IO.Path]::GetFullPath($machineDirectory).TrimEnd('\') -eq $config.directory)) { '/ALLUSERS' } else { '/CURRENTUSER' }
+  $arguments = @('/SP-', '/SILENT', '/NORESTART', '/NOCLOSEAPPLICATIONS', '/NORESTARTAPPLICATIONS', $scope, '/CODEBUDDYUPDATE=1', ('/DIR="' + $config.directory + '"'), ('/LOG="' + $config.log + '"'))
   $installer = Start-Process -FilePath $config.installer -ArgumentList $arguments -PassThru -Wait
   if ($installer.ExitCode -ne 0) { throw ('Installer exit code: ' + $installer.ExitCode) }
   $version = (Get-Item -LiteralPath $config.executable).VersionInfo.ProductVersion

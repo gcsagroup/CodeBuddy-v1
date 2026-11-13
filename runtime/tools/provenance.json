@@ -44,11 +44,11 @@
       "path": "bin/qwen-computer-use.exe",
       "platform": "win32",
       "architecture": "x64",
-      "sha256": "51d8e2245c0c2daa0459c817b5c1c4155cec1d4b2ee3898d4266d110ee4198d5",
-      "bytes": 4857856,
+      "sha256": "954d4941947f51a1f7566db283d737c64382e4a51d8f8f22ef47097c3b771e05",
+      "bytes": 5189120,
       "sourcePath": "target/debug/qwen-computer-use.exe",
-      "sourceModifiedAt": "2026-10-29T09:53:50.3015428Z",
-      "sourceBaselineRevision": "bfbef730a50ac409afb5bb166027164c14ff781c",
+      "sourceModifiedAt": "2026-11-13T03:42:54.8327496Z",
+      "sourceBaselineRevision": "411dce84a2c13e687b58a28632af5a5e64316c96",
       "sourceBaselineIncludesUncommittedChanges": true,
       "rebuiltForThisRevision": true,
       "license": "MIT",
@@ -60,8 +60,10 @@
           "mcp"
         ]
       ],
-      "buildProfile": "go1.27.3 windows/amd64; go build -o ../../target/debug/qwen-computer-use.exe .",
-      "buildLog": "C:/Users/jiangrui/AppData/Local/Temp/codebuddy-merge-go-build.log"
+      "buildProfile": "go1.27.0 windows/amd64; go build -o ../../target/debug/qwen-computer-use.exe .",
+      "buildLog": ".local/tool-artifact-repair-20261113/go-build.log",
+      "sourceManifest": ".local/tool-artifact-repair-20261113/go-source-manifest.json",
+      "validation": "go test ./... (54 passed, 2 skipped); go vet ./..."
     }
   ]
 }

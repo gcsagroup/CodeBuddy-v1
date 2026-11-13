@@ -7434,16 +7434,7 @@
     "defaultMessage": "Sesión duplicada"
   },
   "sessionActionsHeader.exportLog": {
-    "defaultMessage": "Exportar diagnóstico"
-  },
-  "sessionActionsHeader.exportLogFailed": {
-    "defaultMessage": "No se pudo guardar el diagnóstico. El historial completo permanece en este equipo. Inténtalo de nuevo."
-  },
-  "sessionActionsHeader.exportLogNotice": {
-    "defaultMessage": "Solo se exportan el orden de eventos, los estados y las categorías de error seguras. El contenido, los datos de herramientas y el historial completo permanecen en este equipo. Este archivo no permite restaurar una conversación."
-  },
-  "sessionActionsHeader.exportLogSaved": {
-    "defaultMessage": "Diagnóstico guardado"
+    "defaultMessage": "Exportar registros"
   },
   "sessionActionsHeader.exportLogWriteFailed": {
     "defaultMessage": "The log file could not be saved."
@@ -10117,5 +10108,44 @@
   },
   "workspacePanel.browserControl": {
     "defaultMessage": "Control del navegador"
+  },
+  "diagnosticExport.cancel": {
+    "defaultMessage": "Cancelar"
+  },
+  "diagnosticExport.detailed": {
+    "defaultMessage": "Registro detallado"
+  },
+  "diagnosticExport.detailedHint": {
+    "defaultMessage": "Añade extractos de errores, pilas y salidas de herramientas. Revise el contenido antes de guardar."
+  },
+  "diagnosticExport.failed": {
+    "defaultMessage": "No se pudieron preparar o guardar los registros. Inténtelo de nuevo."
+  },
+  "diagnosticExport.loading": {
+    "defaultMessage": "Preparando registros…"
+  },
+  "diagnosticExport.notice": {
+    "defaultMessage": "Se guardará el registro mostrado. El original local no cambia."
+  },
+  "diagnosticExport.preview": {
+    "defaultMessage": "Vista previa del archivo"
+  },
+  "diagnosticExport.retry": {
+    "defaultMessage": "Reintentar"
+  },
+  "diagnosticExport.save": {
+    "defaultMessage": "Guardar esta vista previa"
+  },
+  "diagnosticExport.saved": {
+    "defaultMessage": "Registros guardados"
+  },
+  "diagnosticExport.standard": {
+    "defaultMessage": "Registro estándar"
+  },
+  "diagnosticExport.standardHint": {
+    "defaultMessage": "Rutas de modelos, límites, orden de llamadas y errores. Sin conversaciones ni razonamiento."
+  },
+  "diagnosticExport.title": {
+    "defaultMessage": "Exportar registros"
   }
 }

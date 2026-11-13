@@ -7434,16 +7434,7 @@
     "defaultMessage": "Đã nhân bản phiên"
   },
   "sessionActionsHeader.exportLog": {
-    "defaultMessage": "Xuất chẩn đoán"
-  },
-  "sessionActionsHeader.exportLogFailed": {
-    "defaultMessage": "Không thể lưu chẩn đoán. Toàn bộ lịch sử vẫn ở máy tính này. Vui lòng thử lại."
-  },
-  "sessionActionsHeader.exportLogNotice": {
-    "defaultMessage": "Chỉ xuất thứ tự sự kiện, trạng thái và loại lỗi an toàn. Nội dung hội thoại, dữ liệu công cụ và toàn bộ lịch sử vẫn ở máy tính này. Không thể dùng tệp này để khôi phục hội thoại."
-  },
-  "sessionActionsHeader.exportLogSaved": {
-    "defaultMessage": "Đã lưu chẩn đoán hội thoại"
+    "defaultMessage": "Xuất nhật ký"
   },
   "sessionActionsHeader.exportLogWriteFailed": {
     "defaultMessage": "The log file could not be saved."
@@ -10117,5 +10108,44 @@
   },
   "workspacePanel.browserControl": {
     "defaultMessage": "Điều khiển trình duyệt"
+  },
+  "diagnosticExport.cancel": {
+    "defaultMessage": "Hủy"
+  },
+  "diagnosticExport.detailed": {
+    "defaultMessage": "Nhật ký chi tiết"
+  },
+  "diagnosticExport.detailedHint": {
+    "defaultMessage": "Thêm trích đoạn lỗi, ngăn xếp và đầu ra công cụ. Kiểm tra nội dung trước khi lưu."
+  },
+  "diagnosticExport.failed": {
+    "defaultMessage": "Không thể chuẩn bị hoặc lưu nhật ký. Hãy thử lại."
+  },
+  "diagnosticExport.loading": {
+    "defaultMessage": "Đang chuẩn bị nhật ký…"
+  },
+  "diagnosticExport.notice": {
+    "defaultMessage": "Lưu nhật ký đang hiển thị. Nhật ký gốc cục bộ không thay đổi."
+  },
+  "diagnosticExport.preview": {
+    "defaultMessage": "Xem trước tệp"
+  },
+  "diagnosticExport.retry": {
+    "defaultMessage": "Thử lại"
+  },
+  "diagnosticExport.save": {
+    "defaultMessage": "Lưu bản xem trước này"
+  },
+  "diagnosticExport.saved": {
+    "defaultMessage": "Đã lưu nhật ký"
+  },
+  "diagnosticExport.standard": {
+    "defaultMessage": "Nhật ký tiêu chuẩn"
+  },
+  "diagnosticExport.standardHint": {
+    "defaultMessage": "Tuyến mô hình, ngân sách, thứ tự gọi và lỗi. Không gồm hội thoại hoặc suy luận."
+  },
+  "diagnosticExport.title": {
+    "defaultMessage": "Xuất nhật ký"
   }
 }

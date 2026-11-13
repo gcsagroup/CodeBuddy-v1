@@ -7434,16 +7434,7 @@
     "defaultMessage": "セッションを複製しました"
   },
   "sessionActionsHeader.exportLog": {
-    "defaultMessage": "診断情報をエクスポート"
-  },
-  "sessionActionsHeader.exportLogFailed": {
-    "defaultMessage": "診断情報を保存できませんでした。完全な履歴はこのコンピューターに保持されています。再試行してください。"
-  },
-  "sessionActionsHeader.exportLogNotice": {
-    "defaultMessage": "イベントの順序、状態、安全なエラー分類のみを出力します。会話本文、ツールのデータ、完全な履歴はこのコンピューターに保持されます。この診断ファイルから会話を復元することはできません。"
-  },
-  "sessionActionsHeader.exportLogSaved": {
-    "defaultMessage": "会話の診断情報を保存しました"
+    "defaultMessage": "ログをエクスポート"
   },
   "sessionActionsHeader.exportLogWriteFailed": {
     "defaultMessage": "The log file could not be saved."
@@ -10117,5 +10108,44 @@
   },
   "workspacePanel.browserControl": {
     "defaultMessage": "ブラウザー操作"
+  },
+  "diagnosticExport.cancel": {
+    "defaultMessage": "キャンセル"
+  },
+  "diagnosticExport.detailed": {
+    "defaultMessage": "詳細ログ"
+  },
+  "diagnosticExport.detailedHint": {
+    "defaultMessage": "エラー、スタック、ツール出力の抜粋を追加します。保存前に内容を確認できます。"
+  },
+  "diagnosticExport.failed": {
+    "defaultMessage": "ログの準備または保存に失敗しました。再試行してください。"
+  },
+  "diagnosticExport.loading": {
+    "defaultMessage": "ログを準備しています…"
+  },
+  "diagnosticExport.notice": {
+    "defaultMessage": "表示中のログを保存します。ローカルの元のログは変更されません。"
+  },
+  "diagnosticExport.preview": {
+    "defaultMessage": "ファイルのプレビュー"
+  },
+  "diagnosticExport.retry": {
+    "defaultMessage": "再試行"
+  },
+  "diagnosticExport.save": {
+    "defaultMessage": "このプレビューを保存"
+  },
+  "diagnosticExport.saved": {
+    "defaultMessage": "ログを保存しました"
+  },
+  "diagnosticExport.standard": {
+    "defaultMessage": "標準ログ"
+  },
+  "diagnosticExport.standardHint": {
+    "defaultMessage": "モデルルート、予算、呼び出し順序、エラーを含みます。会話や思考の本文は含みません。"
+  },
+  "diagnosticExport.title": {
+    "defaultMessage": "ログをエクスポート"
   }
 }

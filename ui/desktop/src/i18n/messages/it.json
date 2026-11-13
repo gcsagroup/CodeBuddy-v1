@@ -7434,16 +7434,7 @@
     "defaultMessage": "Sessione duplicata"
   },
   "sessionActionsHeader.exportLog": {
-    "defaultMessage": "Esporta diagnostica"
-  },
-  "sessionActionsHeader.exportLogFailed": {
-    "defaultMessage": "Impossibile salvare la diagnostica. La cronologia completa resta su questo computer. Riprova."
-  },
-  "sessionActionsHeader.exportLogNotice": {
-    "defaultMessage": "Vengono esportati solo ordine degli eventi, stati e categorie di errore sicure. Contenuti, dati degli strumenti e cronologia completa restano su questo computer. Il file non consente di ripristinare una conversazione."
-  },
-  "sessionActionsHeader.exportLogSaved": {
-    "defaultMessage": "Diagnostica salvata"
+    "defaultMessage": "Esporta log"
   },
   "sessionActionsHeader.exportLogWriteFailed": {
     "defaultMessage": "The log file could not be saved."
@@ -10117,5 +10108,44 @@
   },
   "workspacePanel.browserControl": {
     "defaultMessage": "Controllo del browser"
+  },
+  "diagnosticExport.cancel": {
+    "defaultMessage": "Annulla"
+  },
+  "diagnosticExport.detailed": {
+    "defaultMessage": "Log dettagliato"
+  },
+  "diagnosticExport.detailedHint": {
+    "defaultMessage": "Aggiunge estratti di errori, stack e risultati degli strumenti. Verificare prima di salvare."
+  },
+  "diagnosticExport.failed": {
+    "defaultMessage": "Impossibile preparare o salvare i log. Riprovare."
+  },
+  "diagnosticExport.loading": {
+    "defaultMessage": "Preparazione dei log…"
+  },
+  "diagnosticExport.notice": {
+    "defaultMessage": "Salva il log visualizzato. Il log locale originale rimane invariato."
+  },
+  "diagnosticExport.preview": {
+    "defaultMessage": "Anteprima del file"
+  },
+  "diagnosticExport.retry": {
+    "defaultMessage": "Riprova"
+  },
+  "diagnosticExport.save": {
+    "defaultMessage": "Salva questa anteprima"
+  },
+  "diagnosticExport.saved": {
+    "defaultMessage": "Log salvati"
+  },
+  "diagnosticExport.standard": {
+    "defaultMessage": "Log standard"
+  },
+  "diagnosticExport.standardHint": {
+    "defaultMessage": "Percorsi dei modelli, budget, ordine delle chiamate ed errori. Senza conversazioni o ragionamenti."
+  },
+  "diagnosticExport.title": {
+    "defaultMessage": "Esporta log"
   }
 }

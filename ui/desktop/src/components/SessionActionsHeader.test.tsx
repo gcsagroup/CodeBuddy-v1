@@ -143,8 +143,7 @@ describe('SessionActionsContextMenu', () => {
       'data-disabled'
     );
     expect(screen.getByText('View session JSON')).toBeVisible();
-    expect(screen.getByText('Export diagnostics')).toBeVisible();
-    expect(screen.getByTestId('diagnostic-export-notice')).toHaveTextContent('This diagnostic file cannot restore a conversation.');
+    expect(screen.getByText('Export logs')).toBeVisible();
     expect(screen.queryByText('View recent model interactions')).not.toBeInTheDocument();
   });
 
@@ -187,28 +186,37 @@ describe('SessionActionsContextMenu', () => {
         fireEvent.contextMenu(screen.getByText('Export chat'));
         fireEvent.click(
           await screen.findByRole('menuitem', {
-            name: kind === 'logs' ? 'Export diagnostics' : 'Export session',
+            name: kind === 'logs' ? 'Export logs' : 'Export session',
           })
         );
+        if (kind === 'logs') {
+          if (outcome === 'read-error') {
+            expect(await screen.findByRole('alert')).not.toHaveTextContent('PRIVATE_CANARY');
+            expect(write).not.toHaveBeenCalled();
+            return;
+          }
+          await screen.findByRole('textbox', { name: 'File preview' });
+          fireEvent.click(screen.getByRole('button', { name: 'Save this preview' }));
+        }
         await waitFor(() =>
           expect(save).toHaveBeenCalledExactlyOnceWith(
             expect.objectContaining({
               defaultDirectory: 'desktop',
-              defaultPath: kind === 'logs' ? 'codebuddy-diagnostics.jsonl' : 'session-product.json',
+              defaultPath: kind === 'logs' ? 'session-log.jsonl' : 'session-product.json',
             })
           )
         );
         if (outcome === 'cancelled') {
-          expect(exporter).not.toHaveBeenCalled();
+          if (kind === 'session') expect(exporter).not.toHaveBeenCalled();
           expect(write).not.toHaveBeenCalled();
           expect(toast.error).not.toHaveBeenCalled();
         } else if (outcome === 'saved') {
           await waitFor(() =>
             expect(toast.success).toHaveBeenCalledWith(
-              kind === 'logs' ? 'Session diagnostics saved' : 'Session exported successfully'
+              kind === 'logs' ? 'Logs saved' : 'Session exported successfully'
             )
           );
-          expect(exporter).toHaveBeenCalledWith('product');
+          expect(exporter).toHaveBeenCalledWith(...(kind === 'logs' ? ['product', 'standard'] : ['product']));
           expect(write).toHaveBeenCalledWith('/chosen/session.jsonl', journal);
         } else {
           await waitFor(() => expect(toast.error).toHaveBeenCalled());

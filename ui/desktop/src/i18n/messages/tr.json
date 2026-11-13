@@ -7434,16 +7434,7 @@
     "defaultMessage": "Session duplicated"
   },
   "sessionActionsHeader.exportLog": {
-    "defaultMessage": "Tanı bilgilerini dışa aktar"
-  },
-  "sessionActionsHeader.exportLogFailed": {
-    "defaultMessage": "Tanı bilgileri kaydedilemedi. Tüm geçmiş bu bilgisayarda kalır. Yeniden deneyin."
-  },
-  "sessionActionsHeader.exportLogNotice": {
-    "defaultMessage": "Yalnızca olay sırası, durumlar ve güvenli hata kategorileri dışa aktarılır. Sohbet içeriği, araç verileri ve tüm geçmiş bu bilgisayarda kalır. Bu tanı dosyası bir sohbeti geri yükleyemez."
-  },
-  "sessionActionsHeader.exportLogSaved": {
-    "defaultMessage": "Sohbet tanı bilgileri kaydedildi"
+    "defaultMessage": "Günlükleri dışa aktar"
   },
   "sessionActionsHeader.exportLogWriteFailed": {
     "defaultMessage": "The log file could not be saved."
@@ -10117,5 +10108,44 @@
   },
   "workspacePanel.browserControl": {
     "defaultMessage": "Tarayıcı denetimi"
+  },
+  "diagnosticExport.cancel": {
+    "defaultMessage": "İptal"
+  },
+  "diagnosticExport.detailed": {
+    "defaultMessage": "Ayrıntılı günlük"
+  },
+  "diagnosticExport.detailedHint": {
+    "defaultMessage": "Hata, yığın ve araç çıktısı alıntıları ekler. Kaydetmeden önce içeriği kontrol edin."
+  },
+  "diagnosticExport.failed": {
+    "defaultMessage": "Günlükler hazırlanamadı veya kaydedilemedi. Yeniden deneyin."
+  },
+  "diagnosticExport.loading": {
+    "defaultMessage": "Günlükler hazırlanıyor…"
+  },
+  "diagnosticExport.notice": {
+    "defaultMessage": "Gösterilen günlüğü kaydedin. Özgün yerel günlük değişmez."
+  },
+  "diagnosticExport.preview": {
+    "defaultMessage": "Dosya önizlemesi"
+  },
+  "diagnosticExport.retry": {
+    "defaultMessage": "Yeniden dene"
+  },
+  "diagnosticExport.save": {
+    "defaultMessage": "Bu önizlemeyi kaydet"
+  },
+  "diagnosticExport.saved": {
+    "defaultMessage": "Günlükler kaydedildi"
+  },
+  "diagnosticExport.standard": {
+    "defaultMessage": "Standart günlük"
+  },
+  "diagnosticExport.standardHint": {
+    "defaultMessage": "Model yolları, bütçeler, çağrı sırası ve hatalar. Konuşma veya akıl yürütme metni içermez."
+  },
+  "diagnosticExport.title": {
+    "defaultMessage": "Günlükleri dışa aktar"
   }
 }

@@ -7434,16 +7434,7 @@
     "defaultMessage": "Sesi diduplikasi"
   },
   "sessionActionsHeader.exportLog": {
-    "defaultMessage": "Eksport diagnostik"
-  },
-  "sessionActionsHeader.exportLogFailed": {
-    "defaultMessage": "Diagnostik tidak dapat disimpan. Sejarah penuh kekal pada komputer ini. Cuba lagi."
-  },
-  "sessionActionsHeader.exportLogNotice": {
-    "defaultMessage": "Hanya urutan peristiwa, status dan kategori ralat selamat dieksport. Kandungan perbualan, data alat dan sejarah penuh kekal pada komputer ini. Fail ini tidak boleh memulihkan perbualan."
-  },
-  "sessionActionsHeader.exportLogSaved": {
-    "defaultMessage": "Diagnostik perbualan disimpan"
+    "defaultMessage": "Eksport log"
   },
   "sessionActionsHeader.exportLogWriteFailed": {
     "defaultMessage": "The log file could not be saved."
@@ -10117,5 +10108,44 @@
   },
   "workspacePanel.browserControl": {
     "defaultMessage": "Kawalan pelayar"
+  },
+  "diagnosticExport.cancel": {
+    "defaultMessage": "Batal"
+  },
+  "diagnosticExport.detailed": {
+    "defaultMessage": "Log terperinci"
+  },
+  "diagnosticExport.detailedHint": {
+    "defaultMessage": "Menambah petikan ralat, tindanan dan output alat. Semak kandungan sebelum menyimpan."
+  },
+  "diagnosticExport.failed": {
+    "defaultMessage": "Log tidak dapat disediakan atau disimpan. Cuba lagi."
+  },
+  "diagnosticExport.loading": {
+    "defaultMessage": "Menyediakan log…"
+  },
+  "diagnosticExport.notice": {
+    "defaultMessage": "Simpan log yang dipaparkan. Log setempat asal tidak berubah."
+  },
+  "diagnosticExport.preview": {
+    "defaultMessage": "Pratonton fail"
+  },
+  "diagnosticExport.retry": {
+    "defaultMessage": "Cuba lagi"
+  },
+  "diagnosticExport.save": {
+    "defaultMessage": "Simpan pratonton ini"
+  },
+  "diagnosticExport.saved": {
+    "defaultMessage": "Log disimpan"
+  },
+  "diagnosticExport.standard": {
+    "defaultMessage": "Log standard"
+  },
+  "diagnosticExport.standardHint": {
+    "defaultMessage": "Laluan model, belanjawan, urutan panggilan dan ralat. Tanpa perbualan atau penaakulan."
+  },
+  "diagnosticExport.title": {
+    "defaultMessage": "Eksport log"
   }
 }

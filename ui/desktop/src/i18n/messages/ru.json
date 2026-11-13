@@ -7434,16 +7434,7 @@
     "defaultMessage": "Session duplicated"
   },
   "sessionActionsHeader.exportLog": {
-    "defaultMessage": "Экспорт диагностики"
-  },
-  "sessionActionsHeader.exportLogFailed": {
-    "defaultMessage": "Не удалось сохранить диагностику. Полная история остаётся на этом компьютере. Повторите попытку."
-  },
-  "sessionActionsHeader.exportLogNotice": {
-    "defaultMessage": "Экспортируются только порядок событий, состояния и безопасные категории ошибок. Содержимое беседы, данные инструментов и полная история остаются на этом компьютере. Этот файл не позволяет восстановить беседу."
-  },
-  "sessionActionsHeader.exportLogSaved": {
-    "defaultMessage": "Диагностика беседы сохранена"
+    "defaultMessage": "Экспорт журналов"
   },
   "sessionActionsHeader.exportLogWriteFailed": {
     "defaultMessage": "The log file could not be saved."
@@ -10117,5 +10108,44 @@
   },
   "workspacePanel.browserControl": {
     "defaultMessage": "Управление браузером"
+  },
+  "diagnosticExport.cancel": {
+    "defaultMessage": "Отмена"
+  },
+  "diagnosticExport.detailed": {
+    "defaultMessage": "Подробный журнал"
+  },
+  "diagnosticExport.detailedHint": {
+    "defaultMessage": "Добавляет фрагменты ошибок, стека и вывода инструментов. Проверьте содержимое перед сохранением."
+  },
+  "diagnosticExport.failed": {
+    "defaultMessage": "Не удалось подготовить или сохранить журналы. Повторите попытку."
+  },
+  "diagnosticExport.loading": {
+    "defaultMessage": "Подготовка журналов…"
+  },
+  "diagnosticExport.notice": {
+    "defaultMessage": "Сохранится показанный журнал. Исходный локальный журнал не изменится."
+  },
+  "diagnosticExport.preview": {
+    "defaultMessage": "Предпросмотр файла"
+  },
+  "diagnosticExport.retry": {
+    "defaultMessage": "Повторить"
+  },
+  "diagnosticExport.save": {
+    "defaultMessage": "Сохранить этот предпросмотр"
+  },
+  "diagnosticExport.saved": {
+    "defaultMessage": "Журналы сохранены"
+  },
+  "diagnosticExport.standard": {
+    "defaultMessage": "Стандартный журнал"
+  },
+  "diagnosticExport.standardHint": {
+    "defaultMessage": "Маршруты моделей, лимиты, порядок вызовов и ошибки. Без текста диалога и рассуждений."
+  },
+  "diagnosticExport.title": {
+    "defaultMessage": "Экспорт журналов"
   }
 }

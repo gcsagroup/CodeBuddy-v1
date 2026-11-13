@@ -7434,16 +7434,7 @@
     "defaultMessage": "Session duplicated"
   },
   "sessionActionsHeader.exportLog": {
-    "defaultMessage": "निदान निर्यात करें"
-  },
-  "sessionActionsHeader.exportLogFailed": {
-    "defaultMessage": "निदान सहेजा नहीं जा सका। पूरा इतिहास इसी कंप्यूटर पर सुरक्षित है। फिर कोशिश करें।"
-  },
-  "sessionActionsHeader.exportLogNotice": {
-    "defaultMessage": "केवल घटनाओं का क्रम, स्थिति और सुरक्षित त्रुटि श्रेणियाँ निर्यात होंगी। बातचीत, टूल का डेटा और पूरा इतिहास इसी कंप्यूटर पर रहेंगे। इस निदान फ़ाइल से बातचीत बहाल नहीं की जा सकती।"
-  },
-  "sessionActionsHeader.exportLogSaved": {
-    "defaultMessage": "बातचीत का निदान सहेजा गया"
+    "defaultMessage": "लॉग निर्यात करें"
   },
   "sessionActionsHeader.exportLogWriteFailed": {
     "defaultMessage": "The log file could not be saved."
@@ -10117,5 +10108,44 @@
   },
   "workspacePanel.browserControl": {
     "defaultMessage": "ब्राउज़र नियंत्रण"
+  },
+  "diagnosticExport.cancel": {
+    "defaultMessage": "रद्द करें"
+  },
+  "diagnosticExport.detailed": {
+    "defaultMessage": "विस्तृत लॉग"
+  },
+  "diagnosticExport.detailedHint": {
+    "defaultMessage": "त्रुटि, स्टैक और टूल आउटपुट के अंश जोड़ता है। सहेजने से पहले सामग्री जाँचें।"
+  },
+  "diagnosticExport.failed": {
+    "defaultMessage": "लॉग तैयार या सहेजे नहीं जा सके। फिर प्रयास करें।"
+  },
+  "diagnosticExport.loading": {
+    "defaultMessage": "लॉग तैयार हो रहे हैं…"
+  },
+  "diagnosticExport.notice": {
+    "defaultMessage": "दिखाया गया लॉग सहेजें। मूल स्थानीय लॉग अपरिवर्तित रहता है।"
+  },
+  "diagnosticExport.preview": {
+    "defaultMessage": "फ़ाइल पूर्वावलोकन"
+  },
+  "diagnosticExport.retry": {
+    "defaultMessage": "पुनः प्रयास करें"
+  },
+  "diagnosticExport.save": {
+    "defaultMessage": "यह पूर्वावलोकन सहेजें"
+  },
+  "diagnosticExport.saved": {
+    "defaultMessage": "लॉग सहेजे गए"
+  },
+  "diagnosticExport.standard": {
+    "defaultMessage": "मानक लॉग"
+  },
+  "diagnosticExport.standardHint": {
+    "defaultMessage": "मॉडल रूट, बजट, कॉल क्रम और त्रुटियाँ। बातचीत और तर्क का पाठ शामिल नहीं है।"
+  },
+  "diagnosticExport.title": {
+    "defaultMessage": "लॉग निर्यात करें"
   }
 }

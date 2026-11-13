@@ -7465,16 +7465,7 @@
     "defaultMessage": "已建立對話分支"
   },
   "sessionActionsHeader.exportLog": {
-    "defaultMessage": "匯出安全診斷"
-  },
-  "sessionActionsHeader.exportLogFailed": {
-    "defaultMessage": "無法儲存對話診斷。完整歷史仍保留於本機，請重試。"
-  },
-  "sessionActionsHeader.exportLogNotice": {
-    "defaultMessage": "僅匯出事件順序、狀態與安全錯誤分類；對話正文、工具資料及完整歷史保留於本機。此診斷檔案無法用於還原對話。"
-  },
-  "sessionActionsHeader.exportLogSaved": {
-    "defaultMessage": "對話診斷已儲存"
+    "defaultMessage": "匯出日誌"
   },
   "sessionActionsHeader.exportLogWriteFailed": {
     "defaultMessage": "日誌檔案儲存失敗。"
@@ -10069,5 +10060,44 @@
   },
   "navigationPanel.unknownTime": {
     "defaultMessage": "時間未知"
+  },
+  "diagnosticExport.cancel": {
+    "defaultMessage": "取消"
+  },
+  "diagnosticExport.detailed": {
+    "defaultMessage": "詳細日誌"
+  },
+  "diagnosticExport.detailedHint": {
+    "defaultMessage": "加入錯誤、堆疊與工具輸出片段，可在預覽中檢查要匯出的內容。"
+  },
+  "diagnosticExport.failed": {
+    "defaultMessage": "無法產生或儲存日誌，請重試。"
+  },
+  "diagnosticExport.loading": {
+    "defaultMessage": "正在產生日誌…"
+  },
+  "diagnosticExport.notice": {
+    "defaultMessage": "儲存預覽中的這份日誌，本機原始日誌不變。"
+  },
+  "diagnosticExport.preview": {
+    "defaultMessage": "檔案預覽"
+  },
+  "diagnosticExport.retry": {
+    "defaultMessage": "重試"
+  },
+  "diagnosticExport.save": {
+    "defaultMessage": "儲存這份預覽"
+  },
+  "diagnosticExport.saved": {
+    "defaultMessage": "日誌已儲存"
+  },
+  "diagnosticExport.standard": {
+    "defaultMessage": "標準日誌"
+  },
+  "diagnosticExport.standardHint": {
+    "defaultMessage": "保留模型路由、預算、呼叫順序與錯誤資訊，不含對話及思考正文。"
+  },
+  "diagnosticExport.title": {
+    "defaultMessage": "匯出日誌"
   }
 }

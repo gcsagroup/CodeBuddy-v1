@@ -7434,16 +7434,7 @@
     "defaultMessage": "Sessão duplicada"
   },
   "sessionActionsHeader.exportLog": {
-    "defaultMessage": "Exportar diagnóstico"
-  },
-  "sessionActionsHeader.exportLogFailed": {
-    "defaultMessage": "Não foi possível salvar o diagnóstico. O histórico completo permanece neste computador. Tente novamente."
-  },
-  "sessionActionsHeader.exportLogNotice": {
-    "defaultMessage": "São exportados apenas a ordem dos eventos, os estados e as categorias de erro seguras. O conteúdo, os dados das ferramentas e o histórico completo ficam neste computador. Este arquivo não permite restaurar uma conversa."
-  },
-  "sessionActionsHeader.exportLogSaved": {
-    "defaultMessage": "Diagnóstico salvo"
+    "defaultMessage": "Exportar logs"
   },
   "sessionActionsHeader.exportLogWriteFailed": {
     "defaultMessage": "The log file could not be saved."
@@ -10117,5 +10108,44 @@
   },
   "workspacePanel.browserControl": {
     "defaultMessage": "Controle do navegador"
+  },
+  "diagnosticExport.cancel": {
+    "defaultMessage": "Cancelar"
+  },
+  "diagnosticExport.detailed": {
+    "defaultMessage": "Log detalhado"
+  },
+  "diagnosticExport.detailedHint": {
+    "defaultMessage": "Adiciona trechos de erros, pilhas e saídas de ferramentas. Revise o conteúdo antes de salvar."
+  },
+  "diagnosticExport.failed": {
+    "defaultMessage": "Não foi possível preparar ou salvar os logs. Tente novamente."
+  },
+  "diagnosticExport.loading": {
+    "defaultMessage": "Preparando logs…"
+  },
+  "diagnosticExport.notice": {
+    "defaultMessage": "Salve o log exibido. O log local original permanece inalterado."
+  },
+  "diagnosticExport.preview": {
+    "defaultMessage": "Prévia do arquivo"
+  },
+  "diagnosticExport.retry": {
+    "defaultMessage": "Tentar novamente"
+  },
+  "diagnosticExport.save": {
+    "defaultMessage": "Salvar esta prévia"
+  },
+  "diagnosticExport.saved": {
+    "defaultMessage": "Logs salvos"
+  },
+  "diagnosticExport.standard": {
+    "defaultMessage": "Log padrão"
+  },
+  "diagnosticExport.standardHint": {
+    "defaultMessage": "Rotas dos modelos, limites, ordem de chamadas e erros. Sem conversa ou raciocínio."
+  },
+  "diagnosticExport.title": {
+    "defaultMessage": "Exportar logs"
   }
 }

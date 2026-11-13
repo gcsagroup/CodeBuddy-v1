@@ -7434,16 +7434,7 @@
     "defaultMessage": "Session dupliquée"
   },
   "sessionActionsHeader.exportLog": {
-    "defaultMessage": "Exporter le diagnostic"
-  },
-  "sessionActionsHeader.exportLogFailed": {
-    "defaultMessage": "Impossible d’enregistrer le diagnostic. L’historique complet reste sur cet ordinateur. Réessayez."
-  },
-  "sessionActionsHeader.exportLogNotice": {
-    "defaultMessage": "Seuls l’ordre des événements, les états et les catégories d’erreur sûres sont exportés. Le contenu, les données des outils et l’historique complet restent sur cet ordinateur. Ce fichier ne permet pas de restaurer une conversation."
-  },
-  "sessionActionsHeader.exportLogSaved": {
-    "defaultMessage": "Diagnostic enregistré"
+    "defaultMessage": "Exporter les journaux"
   },
   "sessionActionsHeader.exportLogWriteFailed": {
     "defaultMessage": "The log file could not be saved."
@@ -10117,5 +10108,44 @@
   },
   "workspacePanel.browserControl": {
     "defaultMessage": "Contrôle du navigateur"
+  },
+  "diagnosticExport.cancel": {
+    "defaultMessage": "Annuler"
+  },
+  "diagnosticExport.detailed": {
+    "defaultMessage": "Journal détaillé"
+  },
+  "diagnosticExport.detailedHint": {
+    "defaultMessage": "Ajoute des extraits d’erreurs, de piles et de sorties d’outils. Vérifiez le contenu avant d’enregistrer."
+  },
+  "diagnosticExport.failed": {
+    "defaultMessage": "Impossible de préparer ou enregistrer les journaux. Réessayez."
+  },
+  "diagnosticExport.loading": {
+    "defaultMessage": "Préparation des journaux…"
+  },
+  "diagnosticExport.notice": {
+    "defaultMessage": "Enregistrez le journal affiché. Le journal local original est inchangé."
+  },
+  "diagnosticExport.preview": {
+    "defaultMessage": "Aperçu du fichier"
+  },
+  "diagnosticExport.retry": {
+    "defaultMessage": "Réessayer"
+  },
+  "diagnosticExport.save": {
+    "defaultMessage": "Enregistrer cet aperçu"
+  },
+  "diagnosticExport.saved": {
+    "defaultMessage": "Journaux enregistrés"
+  },
+  "diagnosticExport.standard": {
+    "defaultMessage": "Journal standard"
+  },
+  "diagnosticExport.standardHint": {
+    "defaultMessage": "Routes des modèles, budgets, ordre des appels et erreurs. Sans conversation ni raisonnement."
+  },
+  "diagnosticExport.title": {
+    "defaultMessage": "Exporter les journaux"
   }
 }

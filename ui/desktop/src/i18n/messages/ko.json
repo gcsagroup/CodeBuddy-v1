@@ -7434,16 +7434,7 @@
     "defaultMessage": "세션이 복제되었습니다"
   },
   "sessionActionsHeader.exportLog": {
-    "defaultMessage": "진단 내보내기"
-  },
-  "sessionActionsHeader.exportLogFailed": {
-    "defaultMessage": "진단을 저장하지 못했습니다. 전체 기록은 이 컴퓨터에 보관됩니다. 다시 시도하세요."
-  },
-  "sessionActionsHeader.exportLogNotice": {
-    "defaultMessage": "이벤트 순서, 상태, 안전한 오류 분류만 내보냅니다. 대화 내용, 도구 데이터, 전체 기록은 이 컴퓨터에 보관됩니다. 이 진단 파일로 대화를 복원할 수 없습니다."
-  },
-  "sessionActionsHeader.exportLogSaved": {
-    "defaultMessage": "대화 진단 저장됨"
+    "defaultMessage": "로그 내보내기"
   },
   "sessionActionsHeader.exportLogWriteFailed": {
     "defaultMessage": "The log file could not be saved."
@@ -10117,5 +10108,44 @@
   },
   "workspacePanel.browserControl": {
     "defaultMessage": "브라우저 제어"
+  },
+  "diagnosticExport.cancel": {
+    "defaultMessage": "취소"
+  },
+  "diagnosticExport.detailed": {
+    "defaultMessage": "상세 로그"
+  },
+  "diagnosticExport.detailedHint": {
+    "defaultMessage": "오류, 스택 및 도구 출력 발췌를 추가합니다. 저장 전에 내용을 확인하세요."
+  },
+  "diagnosticExport.failed": {
+    "defaultMessage": "로그를 준비하거나 저장하지 못했습니다. 다시 시도하세요."
+  },
+  "diagnosticExport.loading": {
+    "defaultMessage": "로그 준비 중…"
+  },
+  "diagnosticExport.notice": {
+    "defaultMessage": "표시된 로그를 저장합니다. 원본 로컬 로그는 변경되지 않습니다."
+  },
+  "diagnosticExport.preview": {
+    "defaultMessage": "파일 미리 보기"
+  },
+  "diagnosticExport.retry": {
+    "defaultMessage": "다시 시도"
+  },
+  "diagnosticExport.save": {
+    "defaultMessage": "이 미리 보기 저장"
+  },
+  "diagnosticExport.saved": {
+    "defaultMessage": "로그 저장됨"
+  },
+  "diagnosticExport.standard": {
+    "defaultMessage": "표준 로그"
+  },
+  "diagnosticExport.standardHint": {
+    "defaultMessage": "모델 경로, 예산, 호출 순서 및 오류입니다. 대화와 추론 본문은 제외됩니다."
+  },
+  "diagnosticExport.title": {
+    "defaultMessage": "로그 내보내기"
   }
 }

@@ -2582,6 +2582,45 @@
   "defaultProviderSetupForm.showOptions": {
     "defaultMessage": "Show {count} options"
   },
+  "diagnosticExport.cancel": {
+    "defaultMessage": "Cancel"
+  },
+  "diagnosticExport.detailed": {
+    "defaultMessage": "Detailed logs"
+  },
+  "diagnosticExport.detailedHint": {
+    "defaultMessage": "Adds error, stack and tool-output excerpts. Check the contents in the preview before saving."
+  },
+  "diagnosticExport.failed": {
+    "defaultMessage": "Logs could not be prepared or saved. Please retry."
+  },
+  "diagnosticExport.loading": {
+    "defaultMessage": "Preparing logs…"
+  },
+  "diagnosticExport.notice": {
+    "defaultMessage": "Save the log shown in the preview. The original local log is unchanged."
+  },
+  "diagnosticExport.preview": {
+    "defaultMessage": "File preview"
+  },
+  "diagnosticExport.retry": {
+    "defaultMessage": "Try again"
+  },
+  "diagnosticExport.save": {
+    "defaultMessage": "Save this preview"
+  },
+  "diagnosticExport.saved": {
+    "defaultMessage": "Logs saved"
+  },
+  "diagnosticExport.standard": {
+    "defaultMessage": "Standard logs"
+  },
+  "diagnosticExport.standardHint": {
+    "defaultMessage": "Model routes, budgets, call order and errors. Conversation and reasoning text are excluded."
+  },
+  "diagnosticExport.title": {
+    "defaultMessage": "Export logs"
+  },
   "diagnosticsModal.attachHint": {
     "defaultMessage": "Review and remove sensitive information before sharing the report."
   },
@@ -7521,16 +7560,7 @@
     "defaultMessage": "Conversation branch created"
   },
   "sessionActionsHeader.exportLog": {
-    "defaultMessage": "Export diagnostics"
-  },
-  "sessionActionsHeader.exportLogFailed": {
-    "defaultMessage": "Session diagnostics could not be saved. The complete history remains on this computer. Please try again."
-  },
-  "sessionActionsHeader.exportLogNotice": {
-    "defaultMessage": "Exports event order, status and safe error categories only. Conversation content, tool data and the complete history stay on this computer. This diagnostic file cannot restore a conversation."
-  },
-  "sessionActionsHeader.exportLogSaved": {
-    "defaultMessage": "Session diagnostics saved"
+    "defaultMessage": "Export logs"
   },
   "sessionActionsHeader.exportLogWriteFailed": {
     "defaultMessage": "The log file could not be saved."

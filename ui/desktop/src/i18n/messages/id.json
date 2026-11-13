@@ -7434,16 +7434,7 @@
     "defaultMessage": "Sesi digandakan"
   },
   "sessionActionsHeader.exportLog": {
-    "defaultMessage": "Ekspor diagnostik"
-  },
-  "sessionActionsHeader.exportLogFailed": {
-    "defaultMessage": "Diagnostik tidak dapat disimpan. Riwayat lengkap tetap di komputer ini. Coba lagi."
-  },
-  "sessionActionsHeader.exportLogNotice": {
-    "defaultMessage": "Hanya urutan kejadian, status, dan kategori kesalahan aman yang diekspor. Isi percakapan, data alat, dan riwayat lengkap tetap di komputer ini. Berkas ini tidak dapat memulihkan percakapan."
-  },
-  "sessionActionsHeader.exportLogSaved": {
-    "defaultMessage": "Diagnostik percakapan disimpan"
+    "defaultMessage": "Ekspor log"
   },
   "sessionActionsHeader.exportLogWriteFailed": {
     "defaultMessage": "The log file could not be saved."
@@ -10117,5 +10108,44 @@
   },
   "workspacePanel.browserControl": {
     "defaultMessage": "Kontrol browser"
+  },
+  "diagnosticExport.cancel": {
+    "defaultMessage": "Batal"
+  },
+  "diagnosticExport.detailed": {
+    "defaultMessage": "Log terperinci"
+  },
+  "diagnosticExport.detailedHint": {
+    "defaultMessage": "Menambahkan cuplikan galat, stack dan keluaran alat. Periksa isinya sebelum menyimpan."
+  },
+  "diagnosticExport.failed": {
+    "defaultMessage": "Log tidak dapat disiapkan atau disimpan. Coba lagi."
+  },
+  "diagnosticExport.loading": {
+    "defaultMessage": "Menyiapkan log…"
+  },
+  "diagnosticExport.notice": {
+    "defaultMessage": "Simpan log yang ditampilkan. Log lokal asli tidak berubah."
+  },
+  "diagnosticExport.preview": {
+    "defaultMessage": "Pratinjau berkas"
+  },
+  "diagnosticExport.retry": {
+    "defaultMessage": "Coba lagi"
+  },
+  "diagnosticExport.save": {
+    "defaultMessage": "Simpan pratinjau ini"
+  },
+  "diagnosticExport.saved": {
+    "defaultMessage": "Log tersimpan"
+  },
+  "diagnosticExport.standard": {
+    "defaultMessage": "Log standar"
+  },
+  "diagnosticExport.standardHint": {
+    "defaultMessage": "Rute model, anggaran, urutan panggilan dan galat. Tanpa percakapan atau penalaran."
+  },
+  "diagnosticExport.title": {
+    "defaultMessage": "Ekspor log"
   }
 }

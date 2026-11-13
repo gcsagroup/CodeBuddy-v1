@@ -7434,16 +7434,7 @@
     "defaultMessage": "Sitzung dupliziert"
   },
   "sessionActionsHeader.exportLog": {
-    "defaultMessage": "Diagnose exportieren"
-  },
-  "sessionActionsHeader.exportLogFailed": {
-    "defaultMessage": "Die Diagnose konnte nicht gespeichert werden. Der vollständige Verlauf bleibt auf diesem Computer. Bitte erneut versuchen."
-  },
-  "sessionActionsHeader.exportLogNotice": {
-    "defaultMessage": "Es werden nur Ereignisreihenfolge, Status und sichere Fehlerkategorien exportiert. Gesprächsinhalte, Werkzeugdaten und der vollständige Verlauf bleiben auf diesem Computer. Diese Diagnosedatei kann kein Gespräch wiederherstellen."
-  },
-  "sessionActionsHeader.exportLogSaved": {
-    "defaultMessage": "Gesprächsdiagnose gespeichert"
+    "defaultMessage": "Protokolle exportieren"
   },
   "sessionActionsHeader.exportLogWriteFailed": {
     "defaultMessage": "The log file could not be saved."
@@ -10117,5 +10108,44 @@
   },
   "workspacePanel.browserControl": {
     "defaultMessage": "Browsersteuerung"
+  },
+  "diagnosticExport.cancel": {
+    "defaultMessage": "Abbrechen"
+  },
+  "diagnosticExport.detailed": {
+    "defaultMessage": "Ausführliches Protokoll"
+  },
+  "diagnosticExport.detailedHint": {
+    "defaultMessage": "Enthält Auszüge aus Fehlern, Stacktraces und Werkzeugausgaben. Inhalt vor dem Speichern prüfen."
+  },
+  "diagnosticExport.failed": {
+    "defaultMessage": "Protokoll konnte nicht erstellt oder gespeichert werden. Erneut versuchen."
+  },
+  "diagnosticExport.loading": {
+    "defaultMessage": "Protokoll wird vorbereitet…"
+  },
+  "diagnosticExport.notice": {
+    "defaultMessage": "Gespeichert wird das angezeigte Protokoll. Das lokale Original bleibt unverändert."
+  },
+  "diagnosticExport.preview": {
+    "defaultMessage": "Dateivorschau"
+  },
+  "diagnosticExport.retry": {
+    "defaultMessage": "Erneut versuchen"
+  },
+  "diagnosticExport.save": {
+    "defaultMessage": "Diese Vorschau speichern"
+  },
+  "diagnosticExport.saved": {
+    "defaultMessage": "Protokoll gespeichert"
+  },
+  "diagnosticExport.standard": {
+    "defaultMessage": "Standardprotokoll"
+  },
+  "diagnosticExport.standardHint": {
+    "defaultMessage": "Modellrouten, Budgets, Aufrufreihenfolge und Fehler. Ohne Gesprächs- oder Denkinhalte."
+  },
+  "diagnosticExport.title": {
+    "defaultMessage": "Protokolle exportieren"
   }
 }

@@ -489,12 +489,31 @@ export async function acpExportSession(sessionId: string): Promise<string> {
   return response.data;
 }
 
-export async function acpExportSessionLog(sessionId: string): Promise<string> {
+export type DiagnosticDetail = 'standard' | 'detailed';
+
+export async function acpExportSessionLog(
+  sessionId: string,
+  detail: DiagnosticDetail = 'standard'
+): Promise<string> {
   const client = await getAcpClient();
   const response = (await client.extMethod('_goose/unstable/session/log/export', {
     sessionId,
+    detail,
   })) as { data?: unknown };
   if (typeof response?.data !== 'string') throw new Error('Invalid session log response');
+  const header = JSON.parse(response.data.split('\n', 1)[0]) as {
+    type?: unknown;
+    revision?: unknown;
+    detail?: unknown;
+    restorable?: unknown;
+  };
+  if (
+    header?.type !== 'log-export' ||
+    header.revision !== 'codebuddy-log-v2' ||
+    header.detail !== detail ||
+    header.restorable !== false
+  )
+    throw new Error('The backend does not support this diagnostic format');
   return response.data;
 }
 

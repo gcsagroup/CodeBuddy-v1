@@ -29,7 +29,7 @@ test('sidebar downloads safe diagnostics over actual ACP, preserving native hist
   });
   try {
     const page = await browser.newPage();
-    const destination = join(ready.root, 'codebuddy-diagnostics.jsonl');
+    const destination = join(ready.root, 'session-log.jsonl');
     let cancel = true;
     let writes = 0;
     await page.exposeFunction('chooseLogDestination', () => ({
@@ -55,19 +55,23 @@ test('sidebar downloads safe diagnostics over actual ACP, preserving native hist
       page.getByRole('menuitem', { name: 'View recent model interactions' })
     ).toHaveCount(0);
     await expect(page.getByRole('menuitem', { name: 'View session JSON' })).toBeVisible();
-    await expect(page.getByTestId('diagnostic-export-notice')).toContainText('This diagnostic file cannot restore a conversation.');
     await page.screenshot({ path: info.outputPath('export-log-menu.png') });
-    await page.getByRole('menuitem', { name: 'Export diagnostics' }).click();
+    await page.getByRole('menuitem', { name: 'Export logs' }).click();
+    await expect(page.getByRole('textbox', { name: 'File preview' })).toBeVisible();
+    await page.getByRole('button', { name: 'Save this preview' }).click();
     expect(writes).toBe(0);
     await expect(stat(destination)).rejects.toThrow();
+    await page.getByRole('button', { name: 'Cancel', exact: true }).click();
     cancel = false;
     await open();
-    await page.getByRole('menuitem', { name: 'Export diagnostics' }).click();
-    await expect(page.getByText('Session diagnostics saved', { exact: true })).toBeVisible();
+    await page.getByRole('menuitem', { name: 'Export logs' }).click();
+    await expect(page.getByRole('textbox', { name: 'File preview' })).toBeVisible();
+    await page.getByRole('button', { name: 'Save this preview' }).click();
+    await expect(page.getByText('Logs saved', { exact: true })).toBeVisible();
     const downloaded = await readFile(destination, 'utf8');
     const rows = downloaded.trim().split('\n').map(line => JSON.parse(line));
     const original = ready.original.trim().split('\n').map(line => JSON.parse(line));
-    expect(rows[0].type).toBe('diagnostic-export');
+    expect(rows[0].type).toBe('log-export');
     expect(rows[0].restorable).toBe(false);
     expect(rows[0].eventCount).toBe(original.length - 1);
     expect(rows.slice(1).map(row => row.seq)).toEqual(original.slice(1).map(row => row.seq));
@@ -78,7 +82,9 @@ test('sidebar downloads safe diagnostics over actual ACP, preserving native hist
     expect(writes).toBe(1);
     cancel = true;
     await open();
-    await page.getByRole('menuitem', { name: 'Export diagnostics' }).click();
+    await page.getByRole('menuitem', { name: 'Export logs' }).click();
+    await expect(page.getByRole('textbox', { name: 'File preview' })).toBeVisible();
+    await page.getByRole('button', { name: 'Save this preview' }).click();
     expect(await readFile(destination, 'utf8')).toBe(downloaded);
     expect(await readFile(ready.nativeJournal, 'utf8')).toBe(ready.original);
     expect(writes).toBe(1);

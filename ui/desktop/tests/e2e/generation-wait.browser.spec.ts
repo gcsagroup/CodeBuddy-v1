@@ -30,6 +30,11 @@ for (const kind of ['image', 'video']) {
   test(`${kind}: local animation, real progress and final media in a real browser`, async () => {
     const page = await browser.newPage({ viewport: { width: 420, height: 640 }, locale: 'zh-CN' });
     try {
+      if (kind === 'video') {
+        await page.route('**/fixture-output/result.mp4', (route) =>
+          route.fulfill({ path: resolve('../../runtime/tests/fixtures/media-lake.mp4'), contentType: 'video/mp4' })
+        );
+      }
       await page.goto(
         `${server.resolvedUrls!.local[0]}tests/browser-fixtures/generation-wait.html?${kind}`
       );

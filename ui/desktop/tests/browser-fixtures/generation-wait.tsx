@@ -8,36 +8,11 @@ import '../../src/styles/main.css';
 const scope = { sessionId: 'fixture', root: 'D:/fixture' };
 const params = new URLSearchParams(location.search);
 applyThemeTokens(params.has('dark') ? 'dark' : 'light');
-// A small local media fixture exercises the actual browser player without a GPU job.
-const videoFixture = params.has('video')
-  ? new Promise<string>((resolve) => {
-      const canvas = document.createElement('canvas');
-      canvas.width = canvas.height = 100;
-      const stream = canvas.captureStream(10);
-      const recorder = new MediaRecorder(stream, { mimeType: 'video/webm' });
-      const chunks: Blob[] = [];
-      recorder.ondataavailable = (event) => chunks.push(event.data);
-      recorder.onstop = () => {
-        stream.getTracks().forEach((track) => track.stop());
-        resolve(URL.createObjectURL(new Blob(chunks, { type: 'video/webm' })));
-      };
-      recorder.start();
-      const context = canvas.getContext('2d')!;
-      const timer = setInterval(() => {
-        context.fillStyle = 'seagreen';
-        context.fillRect(0, 0, 100, 100);
-      }, 100);
-      setTimeout(() => {
-        clearInterval(timer);
-        recorder.stop();
-      }, 1000);
-    })
-  : Promise.resolve('');
 window.electron = {
   workspacePanel: async ({ path }: { path: string }) => ({
     document: {
       media: path.endsWith('.mp4')
-        ? { kind: 'video', mimeType: 'video/webm', url: await videoFixture }
+        ? { kind: 'video', mimeType: 'video/mp4', url: '/fixture-output/result.mp4' }
         : {
             kind: 'image',
             mimeType: 'image/svg+xml',

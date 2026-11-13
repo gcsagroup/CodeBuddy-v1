@@ -1,14 +1,25 @@
-# 安全诊断导出
+# 日志导出
 
-聊天菜单的“导出安全诊断”用于提供运行排查材料。它输出 `codebuddy-diagnostics.jsonl`，首行包含 `diagnostic-export`、版本 `codebuddy-safe-v1` 与 `restorable: false`，不冒充可恢复的原生会话归档。
+聊天菜单的“导出日志”先生成文件预览，默认选择标准日志；也可选择详细日志。标准文件名为 `session-log.jsonl`，详细版为 `session-log-detailed.jsonl`。首行包含 `log-export`、版本 `codebuddy-log-v2`、详细级别与 `restorable: false`，不冒充可恢复的原生会话归档。
 
-Compat 的 `session/log/export` 下载出口只构造白名单字段：事件顺序、相对时间、轮次和步骤计数、导出内引用别名、结束种类、工具错误标记，以及既有 `publicFailure` 提供的安全错误分类。原始错误仅有自由文本时，具体原因记为未知，不从文本猜测。原生 `TOOL_OUTCOME_UNKNOWN` 保持“工具结果未知”的含义，不视为成功。
+Compat 的 `session/log/export` 沿用同一出口，缺省 `detail` 为 `standard`，也接受 `detailed`；不支持原文模式。标准日志保留事件顺序、相对时间、轮次/步骤、导出内关联别名、结束种类，以及既有 `publicFailure` 提供的安全错误分类。还保留原生记录中的匿名模型/连接路由、窗口容量、请求 maxTokens/思考档位、工具声明和参数结构、压缩范围/被替换序号/token 统计，以及 stream 内的 usage 和 finish 分类。usage 标明来源，不重复累加。原生 `TOOL_OUTCOME_UNKNOWN` 保持“工具结果未知”，不视为成功。
 
-对话与思考正文、工具名称及参数/结果、工作区路径、标题、模型连接、请求头、附件、回放元数据和未知字段不进入诊断文件。未知事件类型归为 `other`。引用别名只在该文件内用于对应调用与回执，不暴露原 ID；默认文件名也不带会话 ID。读取、解析和保存失败不回显原错误、路径或日志片段。诊断仍包含运行顺序、计数等元数据，不代表完全没有可识别的运行特征。
+公共内置工具名保留；自定义工具、模型、连接、路径和会话标识使用导出内的一致别名。参数值、schema 的描述/default/examples/enum 值、对话及思考正文、附件、回放元数据、凭据、完整请求头和未知字段不导出。未知事件类型仍为 `other`。只采用日志中已经记录的事实，不读取今天的模型配置来补历史：缺少成功 summary 的压缩失败可能没有摘要路由/预算，只保留实际存在的字段。`request/header` 是规范化的原生声明，空工具会规范化为缺省；不能据此声称 HTTP wire 上发送了 tools 空数组。`adapterDefaults` 是 header 上的布尔来源标记，不是另一个预算数值。`parentSession` 保留的是原生 seed/fork 关系，不能自行当成子任务调度权威。
+
+详细版增加后端脱敏后的错误、堆栈和工具输出摘录，仍不包含对话、思考、摘要正文或 replay payload。它会清除从当前原生日志识别到的凭据值，并处理常见认证文本、转义、跨块片段、路径和地址。自动处理无法识别任意自由文本中的业务秘密，因此保留文件预览，保存的就是预览内容；不增加额外勾选确认；后端不会先把原文传给桌面再脱敏，也不调用远端模型。识别型脱敏不是绝对匿名保证。
+
+每段原始摘录最多处理 32768 字符，结果最多 4096 字符；超出则整段省略并标记 truncated，避免先截断导致凭据前缀泄漏。错误和工具输出分别有 65536 原始字符预算，优先保留近期事件；所有事件本身和顺序仍保留。凭据扫描遇深度/容量限制时停止输出详细摘录，明确标记省略，不放行未检查原文。诊断可能含运行特征、计数和字符长度，不代表完全没有可识别的元数据。
+
+桌面只保存预览的同一份字节，不在保存时重新读取变化中的日志。切换会话/级别或关闭预览会丢弃迟到读取；取消不写文件，读取/保存失败不回显原异常。新桌面拒绝不匹配的旧诊断格式，避免把旧后端的原文当作安全预览。旧客户端缺省请求仍得到标准日志；诊断头版本已升级，消费者应按版本读取。
+
+这种按字段处理、局部替换和预览的方式参考 [OWASP 日志数据排除](https://cheatsheetseries.owasp.org/cheatsheets/Logging_Cheat_Sheet.html#data-to-exclude) 与 [Sentry 字段级脱敏](https://docs.sentry.io/security-legal-pii/scrubbing/advanced-datascrubbing/)。预览复用项目现有 Radix Dialog；异步读取按 [React 的迟到结果处理方式](https://react.dev/reference/react/useEffect#fetching-data-with-effects) 丢弃过期结果，未新增执行状态机。
 
 完整历史没有删除或重写：`driver.exportSessionLog`、Harness 原生日志、检查点、工具回执和恢复输入继续采用原机制。只有下载副本被投影；导出不发起模型请求、工具调用或压缩。诊断文件不能导入为可执行会话，原始历史恢复应使用本机已有数据及正式备份流程。
 
 “查看会话 JSON”“导出会话”仍属于用户选择的内容导出，会包含对话、工具内容等业务资料；它们不是本安全诊断出口，外发前需要检查。原始本机 Harness 日志同样不是脱敏文件。
+
+
+已有产品历史中的结构化故障观察会放在导出头的 observations 中，明确标为 saved_product_diagnostic。它可能保留原生日志未持久化的 HTTP 状态；只按原始 run/user/operation 引用匿名关联，不按时间或报错文字强行合并，不改写原生失败。exportEnvironment 只表示导出时的环境，不冒充故障发生时的版本。
 
 ## 普通聊天的失败原因恢复
 
@@ -23,10 +34,12 @@ Compat 的 `session/log/export` 下载出口只构造白名单字段：事件顺
 ## 验证边界
 
 - `runtime/tests/session-log-export.test.mjs` 覆盖下载成功/失败的隐私哨兵、原日志不变、重启重导、事件对应及拒绝将诊断导入为会话。
+- `runtime/tests/session-diagnostic-detail.test.mjs` 覆盖路由/工具声明/压缩与流结束事实、真实 adapterDefaults 形状、已知凭据跨片段与深度限制、自定义认证头、摘录预算及标准版不含正文。
+- `ui/desktop/src/components/DiagnosticExportDialog.test.tsx` 覆盖纯文本预览、详细模式、预览/保存字节一致、迟到读取、会话/级别切换、取消与固定错误提示。
 - `runtime/tests/ordinary-chat-failure-replay.test.mjs` 覆盖原生追加输入归属、旧失败冷补、重复加载、输出限制、可选诊断失败、异步加载与新请求竞争、停止前后次序和隐私哨兵。真实 HTTP 服务及 ACP 与有屏障的协议夹具分开验证。
 - `runtime/tests/ordinary-chat-subagent-replay.test.mjs` 通过真实 Harness 和本机可控模型验证子结果自动续轮失败后的冷恢复，检查完整原始历史与工具调用数不变；`runtime/tests/user-turn-terminals.test.mjs` 补充独立输入、原生 steer、通知链与取消边界。
 - `runtime/tests/compaction-diagnostics.test.mjs` 分别核对安全下载与完整本机压缩日志，保留原生失败及检查点断言。
 - `runtime/tests/tool-crash-recovery.test.mjs` 在工具副作用发生前/后、回执未持久化时强制终止隔离 Host。恢复追加原生 `TOOL_OUTCOME_UNKNOWN` 错误回执与 `interrupted`，不自动推理或重放工具，原日志前缀保留。显式继续的模型夹具不再次提案该操作。
 - `runtime/tests/timeout-exhaustion.test.mjs` 让真实本机 HTTP 连接完全无响应或只返回 SSE 响应头。在隔离提供商中缩短 watchdog 与退避，保留原生五次重试，核对六次实际超时、最终 `TIMEOUT`、停止后无额外请求、冷恢复和继续不重复工具。本测试不更改产品默认超时配置。
-- `ui/desktop/tests/e2e/session-log-export.browser.spec.ts` 通过真实 ACP 下载安全诊断，核对菜单说明、保存文件、取消不覆盖和本机原生日志不变；文件对话框使用测试桥接，不代表原生系统对话框验收。
+- `ui/desktop/tests/e2e/session-log-export.browser.spec.ts` 通过真实 ACP 导出日志，核对入口、预览、保存文件、取消不覆盖和本机原生日志不变；文件对话框使用测试桥接，不代表原生系统对话框验收。
 - 上述结果不保证任意外部工具“恰好执行一次”。副作用已发生、回执缺失时，结果仍未知；模型若再次提出非幂等操作，应先核对外部状态或征询用户，不能把未知当作未执行。

@@ -2757,8 +2757,9 @@ export class Compat {
       case "session/log/export": {
         const s = this.session(p.sessionId);
         if (s.readonlyHistory) throw invalid("旧版导入的聊天没有 Harness 日志，请使用查看会话 JSON。");
+        if (p.detail !== undefined && !['standard', 'detailed'].includes(p.detail)) throw invalid('Unsupported diagnostic detail');
         try {
-          return { data: sessionLogDiagnostics(await this.driver.exportSessionLog(s.id)) };
+          return { data: sessionLogDiagnostics(await this.driver.exportSessionLog(s.id), { detail: p.detail, observations: s.usageUpdates ?? [] }) };
         } catch {
           // File errors and parse errors can contain private paths or log text.
           throw Object.assign(new Error('无法导出会话诊断。本机完整历史已保留，请重试或联系维护者。'), { code: -32603 });

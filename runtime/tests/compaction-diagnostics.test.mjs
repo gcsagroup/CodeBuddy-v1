@@ -89,7 +89,7 @@ test('actual summary failures publish safe native reasons and preserve them acro
   assert.equal(lifecycle().at(-1).status,'completed');assert.equal(lifecycle().at(-1).diagnostic,undefined,'previous model errors must not poison a successful transaction');
   await prompt('Continue without tools.');
   const {data}=await ext('session/log/export',{sessionId});
-  assert.equal(JSON.parse(data.split('\n')[0]).type,'diagnostic-export');
+  assert.equal(JSON.parse(data.split('\n')[0]).type,'log-export');
   assert.equal(data.includes(privateText),false);
   const files=[];for await(const file of glob(path.join(dataDir,'harness/sessions/**',sessionId,'session.v4.jsonl').replaceAll('\\','/')))files.push(file);
   assert.equal(files.length,1);

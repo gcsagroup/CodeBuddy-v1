@@ -28,7 +28,7 @@ test('diagnostic download uses mapped history without modifying the complete nat
   const request = () => new Compat(store, createConversationDriver(native, store));
   const response = await request().request('_goose/unstable/session/log/export', { sessionId: 'product-id' });
   const rows = response.data.trimEnd().split('\n').map(line => JSON.parse(line));
-  assert.equal(rows[0].type, 'diagnostic-export');
+  assert.equal(rows[0].type, 'log-export');
   assert.equal(rows[0].restorable, false);
   assert.doesNotMatch(response.data, /native-current|日志导出|DO_NOT_EXPORT/);
   assert.equal(response.data.includes(root), false);
@@ -41,6 +41,10 @@ test('diagnostic download uses mapped history without modifying the complete nat
   assert.equal(rows[0].eventCount, events.length);
   assert.deepEqual(rows.slice(1).map(e=>e.seq), events.map(e=>e.seq));
   assert.equal(await readFile(path.join(dataDir, 'sessions', journal), 'utf8'), original);
+  const detailed = await request().request('_goose/unstable/session/log/export', { sessionId: 'product-id', detail: 'detailed' });
+  assert.equal(JSON.parse(detailed.data.split('\n')[0]).detail, 'detailed');
+  assert.equal(await readFile(path.join(dataDir, 'sessions', journal), 'utf8'), original);
+  await assert.rejects(request().request('_goose/unstable/session/log/export', { sessionId: 'product-id', detail: 'raw' }), error => error.code === -32602);
   const beforeImport = store.read().sessions.length;
   await assert.rejects(request().request('_goose/unstable/session/import', { source: 'json', input: response.data }),
     error => error.code === -32602);

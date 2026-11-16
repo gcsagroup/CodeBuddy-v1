@@ -1,3 +1,4 @@
+import type { IpcMainInvokeEvent } from 'electron';
 import { registerDesktopControl } from './desktopControlMain';
 import { registerWindowMenu } from './windowMenu';
 import { revealChatOnActivate } from './utils/revealChatOnActivate';
@@ -415,7 +416,7 @@ function getSettings(): Settings {
 }
 
 function updateSettings(modifier: (settings: Settings) => void): void {
-  const settings = getSettings();
+  const settings = { ...getSettings() };
   modifier(settings);
   fsSync.writeFileSync(SETTINGS_FILE, JSON.stringify(settings, null, 2));
 }
@@ -548,33 +549,40 @@ app.on('certificate-error', (event, _webContents, url, _error, certificate, call
   );
 });
 
+let pendingNetworkConsent: Promise<boolean> | undefined;
+
+function requestNetworkAccess(event: IpcMainInvokeEvent): Promise<boolean> {
+  const owner = BrowserWindow.fromWebContents(event.sender);
+  if (!owner || event.senderFrame !== event.sender.mainFrame || !applicationWindows().includes(owner))
+    return Promise.resolve(false);
+  if (getSettings().networkAccessAllowed === true) return Promise.resolve(true);
+  return pendingNetworkConsent ??= dialog.showMessageBox(owner, {
+    type: 'question',
+    title: 'CodeBuddy',
+    message: nativeT('Allow CodeBuddy to access the network?', '允许 CodeBuddy 访问网络吗？', '允許 CodeBuddy 存取網路嗎？'),
+    detail: nativeT(
+      'This action needs a network connection. Allow access for online models, connected tools and updates, or cancel this action and keep using CodeBuddy.',
+      '此操作需要联网。允许后，在线模型、联网工具和更新可使用网络；选择「取消」可继续使用 CodeBuddy。',
+      '此操作需要連網。允許後，線上模型、連網工具和更新可使用網路；選擇「取消」可繼續使用 CodeBuddy。'
+    ),
+    buttons: [nativeT('Allow', '允许', '允許'), nativeT('Cancel', '取消', '取消')],
+    defaultId: 1, cancelId: 1, noLink: true,
+  }).then(({ response }) => {
+    if (response !== 0) return false;
+    updateSettings(settings => { settings.networkAccessAllowed = true; });
+    for (const win of applicationWindows()) win.webContents.send('network-access-granted');
+    return true;
+  }).catch(error => {
+    log.error('Network consent failed', error);
+    dialog.showErrorBox('CodeBuddy', nativeT('Could not save network permission.', '无法保存联网授权。', '無法儲存連網授權。'));
+    return false;
+  }).finally(() => { pendingNetworkConsent = undefined; });
+}
+
+ipcMain.handle('request-network-access', requestNetworkAccess);
+
 app.whenReady().then(() => {
   if (started || !gotTheLock) return;
-  // Resolve the first launch decision before later ready handlers can open
-  // a renderer, deliver a deep link, start Harness, or check for updates.
-  if (getSettings().networkAccessAllowed !== true) {
-    const choice = dialog.showMessageBoxSync({
-      type: 'question',
-      title: 'CodeBuddy',
-      message: nativeT('Allow CodeBuddy to access the network?', '允许 CodeBuddy 访问网络吗？', '允許 CodeBuddy 存取網路嗎？'),
-      detail: nativeT(
-        'Online models, connected tools and software updates use the network. Choose Exit to close CodeBuddy. You can decide again the next time you open it.',
-        '在线模型、联网工具和软件更新需要访问网络。选择「退出」将关闭 CodeBuddy，下次打开时可以重新选择。',
-        '線上模型、連網工具與軟體更新需要存取網路。選擇「結束」將關閉 CodeBuddy，下次開啟時可以重新選擇。'
-      ),
-      buttons: [nativeT('Allow', '允许', '允許'), nativeT('Exit', '退出', '結束')],
-      defaultId: 1, cancelId: 1, noLink: true,
-    });
-    if (choice !== 0) { app.exit(0); return; }
-    try {
-      updateSettings(settings => { settings.networkAccessAllowed = true; });
-    } catch (error) {
-      dialog.showErrorBox('CodeBuddy', nativeT('Could not save network permission.', '无法保存联网授权。', '無法儲存連網授權。'));
-      log.error('Saving network consent failed', error);
-      app.exit(1);
-      return;
-    }
-  }
   appConfig.GOOSE_LOCALE = getConfiguredGooseLocale();
   registerDesktopControl();
 });
@@ -1527,7 +1535,7 @@ const createChat = async (
     gooseServeLease = null;
   }
 
-  if (!app.isPackaged && !harnessPreview) {
+  if (!app.isPackaged && !harnessPreview && getSettings().networkAccessAllowed === true) {
     installExtension(REACT_DEVELOPER_TOOLS, {
       loadExtensionOptions: { allowFileAccess: true },
       session: mainWindow.webContents.session,
@@ -2857,6 +2865,7 @@ function packagedStartup() {
 async function bootPackagedHarness() {
   packagedHarnessService = await startHarnessService({
     resourcesPath: process.resourcesPath,
+    userData: app.getPath('userData'),
     home: storagePaths.homeDir,
     workspace: process.env.CODEBUDDY_WORKSPACE_ROOT!,
     onUnexpectedExit: () => {
@@ -2888,6 +2897,7 @@ async function appMain() {
   await configureProxy();
 
   registerProductUpdates({
+    requestNetworkAccess,
     hasTerminals: hasWorkspaceTerminals,
     reserveTerminals: reserveWorkspaceUpdate,
     closeForUpdate: async () => {
@@ -3651,6 +3661,31 @@ app.whenReady().then(async () => {
     cacheTimer.unref();
     taskWakelock.setEnabled(getSettings().enableWakelock ?? false);
     await registerDesktopPet({
+      onQuestion: (owner, task, questionId) => {
+        const focused = applicationWindows().find(win => win.isFocused());
+        (focused ?? owner).webContents.send('agent-question-notice', { sessionId: task.sessionId, title: task.title, questionId });
+        if (focused || getSettings().enableNotifications !== true) return;
+        if (process.platform === 'win32') {
+          owner.flashFrame(true);
+          owner.once('focus', () => owner.flashFrame(false));
+        }
+        if (!Notification.isSupported()) return;
+        const notice = new Notification({
+          title: nativeT('CodeBuddy needs your reply', 'CodeBuddy 等待你回复', 'CodeBuddy 等待你回覆'),
+          body: task.title || nativeT('Open the conversation to reply.', '打开对话以回复。', '開啟對話以回覆。'),
+          urgency: 'critical',
+          timeoutType: 'never',
+        });
+        notice.on('failed', (_event, error) => log.warn('Question notification failed', error));
+        notice.on('click', () => {
+          if (owner.isDestroyed()) return;
+          if (owner.isMinimized()) owner.restore();
+          owner.show();
+          owner.focus();
+          owner.webContents.send('pet-open-session', task.sessionId);
+        });
+        notice.show();
+      },
       onWorkingChange: (working) => taskWakelock.setWorking(working),
       preload: path.join(__dirname, 'preload.js'),
       rendererUrl: formatUrl(getAppUrl()),

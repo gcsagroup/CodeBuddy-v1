@@ -65,8 +65,8 @@ function isStaleRunnableSnapshot(snapshot: AcpChatSessionSnapshot | undefined): 
 
 const i18n = defineMessages({
   notificationTitle: {
-    id: 'chat.notification.taskComplete.title',
-    defaultMessage: 'CodeBuddy finished the task.',
+    id: 'chat.notification.executionEnded.title',
+    defaultMessage: 'CodeBuddy finished this execution turn.',
   },
   notificationBody: {
     id: 'chat.notification.taskComplete.body',
@@ -242,7 +242,12 @@ export function useChatSession({
         ? {
             ...createUserMessage(userMessage, images),
             ...(input.messageId ? { id: input.messageId } : {}),
-            metadata: { userVisible: true, agentVisible: true, presentation: input.presentation },
+            metadata: {
+              userVisible: true,
+              agentVisible: true,
+              presentation: input.presentation,
+              ...(input.queuedWhileBusy ? { queuedWhileBusy: true as const } : {}),
+            },
           }
         : currentMessages[currentMessages.length - 1];
       if (hasNewMessage && input.planMode !== undefined)
@@ -320,6 +325,7 @@ export function useChatSession({
 
       try {
         const steeredMessage = createUserMessage(userMessage, images);
+        if (input.queuedWhileBusy === true) steeredMessage.metadata.queuedWhileBusy = true;
         const response = await acpSteerSession(sessionId, steeredMessage, activeRunId);
         const localSteerMessage: Message = {
           ...steeredMessage,

@@ -22,6 +22,8 @@ describe('SessionIndicators', () => {
       </IntlTestWrapper>
     );
     expect(screen.getByLabelText('Streaming')).toHaveAttribute('title', 'Streaming');
+    expect(view.container.querySelector('.activity-dots')).not.toBeInTheDocument();
+    expect(view.container.querySelector('.conversation-loading-spinner')).toBeInTheDocument();
 
     view.rerender(
       <IntlTestWrapper>

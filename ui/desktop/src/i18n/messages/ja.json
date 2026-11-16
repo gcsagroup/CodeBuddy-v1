@@ -275,9 +275,6 @@
   "chat.notification.taskComplete.body": {
     "defaultMessage": "クリックしてCodeBuddyにフォーカスを戻します。"
   },
-  "chat.notification.taskComplete.title": {
-    "defaultMessage": "CodeBuddyがタスクを完了しました。"
-  },
   "chatInput.attachFile": {
     "defaultMessage": "Attach file"
   },
@@ -5504,12 +5501,6 @@
   "navigationPanel.projectName": {
     "defaultMessage": "Project name"
   },
-  "navigationPanel.renameProject": {
-    "defaultMessage": "Rename project"
-  },
-  "navigationPanel.resetProjectNameHint": {
-    "defaultMessage": "Clear the name to restore the folder name"
-  },
   "navigationPanel.unpinProject": {
     "defaultMessage": "Unpin project"
   },
@@ -10147,5 +10138,92 @@
   },
   "diagnosticExport.title": {
     "defaultMessage": "ログをエクスポート"
+  },
+  "app.questionNotice": {
+    "defaultMessage": "{title} · エージェントに返信"
+  },
+  "chat.notification.executionEnded.title": {
+    "defaultMessage": "CodeBuddy は今回の実行ターンを終了しました。"
+  },
+  "navigationPanel.removeProject": {
+    "defaultMessage": "プロジェクトを一覧から外す"
+  },
+  "navigationPanel.stopBeforeMove": {
+    "defaultMessage": "ワークスペースを変更する前に、現在のタスクを停止してください。"
+  },
+  "projectEditor.add": {
+    "defaultMessage": "フォルダーを追加"
+  },
+  "projectEditor.edit": {
+    "defaultMessage": "プロジェクトを編集"
+  },
+  "projectEditor.hint": {
+    "defaultMessage": "チャットはメインフォルダーで開始します。ファイルの編集にはここで選んだアクセス権が適用されます。ターミナルにはセッションの権限が適用されます。"
+  },
+  "projectEditor.linked": {
+    "defaultMessage": "追加のフォルダー"
+  },
+  "projectEditor.main": {
+    "defaultMessage": "メインフォルダー"
+  },
+  "projectEditor.reference": {
+    "defaultMessage": "参照のみ"
+  },
+  "projectEditor.remove": {
+    "defaultMessage": "{name} のリンクを解除"
+  },
+  "projectEditor.write": {
+    "defaultMessage": "編集を許可"
+  },
+  "sessionIndicators.awaitingReply": {
+    "defaultMessage": "返信待ち"
+  },
+  "typography.default": {
+    "defaultMessage": "CodeBuddy の既定値"
+  },
+  "typography.failed": {
+    "defaultMessage": "表示設定を保存できませんでした。"
+  },
+  "typography.font": {
+    "defaultMessage": "インターフェースのフォント"
+  },
+  "typography.less": {
+    "defaultMessage": "{setting}を小さくする"
+  },
+  "typography.more": {
+    "defaultMessage": "{setting}を大きくする"
+  },
+  "typography.reset": {
+    "defaultMessage": "{setting}をリセット"
+  },
+  "typography.sample": {
+    "defaultMessage": "メッセージはこのように表示されます。"
+  },
+  "typography.serif": {
+    "defaultMessage": "セリフ体"
+  },
+  "typography.size": {
+    "defaultMessage": "コードのフォントサイズ"
+  },
+  "typography.sizeHint": {
+    "defaultMessage": "コードブロック、ファイルエディター、差分表示に適用します。"
+  },
+  "typography.system": {
+    "defaultMessage": "システムフォント"
+  },
+  "typography.text": {
+    "defaultMessage": "インターフェースの文字サイズ"
+  },
+  "typography.textHint": {
+    "defaultMessage": "チャット、メッセージ入力欄、ラベルの文字サイズを変更します。"
+  },
+  "typography.title": {
+    "defaultMessage": "フォントと文字サイズ"
+  },
+  "typography.zoom": {
+    "defaultMessage": "ウィンドウの拡大率"
+  },
+  "typography.zoomHint": {
+    "defaultMessage": "チャット、サイドバー、操作ボタンをまとめて拡大・縮小します。"
   }
 }

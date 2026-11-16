@@ -1,5 +1,6 @@
 import type { ExtensionConfig, ExtensionEntry } from '../types/extensions';
 import type { GooseExtension, GooseExtensionEntry } from '@aaif/goose-sdk';
+import { requireNetworkAccess } from '../utils/networkAccess';
 import { getAcpClient } from './acpConnection';
 
 export type ConfiguredExtensionEntry = ExtensionEntry & { configKey?: string };
@@ -190,6 +191,7 @@ export async function testConfigExtension(
     throw new Error(`Unsupported extension type for ACP: ${config.type}`);
   }
   const client = await getAcpClient();
+  if (extension.type === 'mcp') await requireNetworkAccess();
   const response = await client.goose.configExtensionsTest_unstable({
     extension,
     environment,

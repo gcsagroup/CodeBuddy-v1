@@ -1056,6 +1056,8 @@ export default function BaseChat({
                   ? () => onMessageUpdate(stoppedRequest, '', 'resume_stopped') : undefined}
                 onPendingMessageChange={onPendingMessageChange}
                 onSteerQueuedMessage={onSteerQueuedMessage}
+                automaticSteeringAllowed={Boolean(activeRunId) && !cancelling && !acpRecovering &&
+                  !loadingHistory && !modeSaving && !workspaceReconfirmation}
                 globalConversation={session?.global_conversation}
                 pauseQueueOnStop={pauseQueueOnStop}
                 queueProcessingBlocked={

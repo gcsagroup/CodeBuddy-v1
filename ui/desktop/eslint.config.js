@@ -58,6 +58,8 @@ module.exports = [
         TextDecoder: 'readonly',
         TextEncoder: 'readonly',
         // Browser globals
+        crypto: 'readonly',
+        HTMLVideoElement: 'readonly',
         window: 'readonly',
         createImageBitmap: 'readonly',
         structuredClone: 'readonly',

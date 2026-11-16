@@ -136,6 +136,12 @@ describe('chat row archive button', () => {
     fireEvent.click(screen.getByText('Original chat'));
     expect(onClick).toHaveBeenCalledOnce();
   });
+  it('allows native drag initiation without the outer menu cancelling pointer defaults', () => {
+    const view = render(<div onPointerDown={event => event.preventDefault()}><SessionRow session={session} status={undefined} active onClick={vi.fn()} onRenamed={vi.fn()} /></div>);
+    const row = view.container.querySelector('[data-session-row]')!;
+    expect(row).toHaveAttribute('draggable', 'true');
+    expect(fireEvent.pointerDown(row, { button: 0 })).toBe(true);
+  });
   it('keeps the automation clock visible independently of chat activity', () => {
     const base = { session, active: true, hasSchedule: true, onClick: vi.fn(), onRenamed: vi.fn() };
     const view = render(<SessionRow {...base} status={undefined} />);
@@ -402,4 +408,13 @@ it('collects all project pages before confirming archive and never archives anot
   await userEvent.click(screen.getByRole('button', { name: 'Archive session' }));
   await waitFor(() => expect(acpArchiveSession).toHaveBeenCalledTimes(2));
   expect(vi.mocked(acpArchiveSession).mock.calls.map(args => args[0])).toEqual(['p1', 'p2']);
+});
+
+it('offers project removal in the existing right-click menu', async () => {
+  const group = { path: 'D:/remove-fixture', label: 'remove-fixture', sessions: [], lastActivityAt: '' };
+  const view = render(<ProjectSessionGroup group={group} renderSession={() => null} />);
+  fireEvent.contextMenu(view.container.querySelector('[data-workspace-row]')!);
+  await userEvent.click(await screen.findByRole('menuitem', { name: 'Remove project' }));
+  const entries = JSON.parse(localStorage.getItem('codebuddy.sidebarProjects.v1')!);
+  expect(entries.find((entry: {path: string}) => entry.path === group.path).removed).toBe(true);
 });

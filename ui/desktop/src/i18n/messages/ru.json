@@ -275,9 +275,6 @@
   "chat.notification.taskComplete.body": {
     "defaultMessage": "Нажмите здесь, чтобы сфокусироваться на CodeBuddy."
   },
-  "chat.notification.taskComplete.title": {
-    "defaultMessage": "CodeBuddy завершил задачу."
-  },
   "chatInput.attachFile": {
     "defaultMessage": "Attach file"
   },
@@ -5504,12 +5501,6 @@
   "navigationPanel.projectName": {
     "defaultMessage": "Project name"
   },
-  "navigationPanel.renameProject": {
-    "defaultMessage": "Rename project"
-  },
-  "navigationPanel.resetProjectNameHint": {
-    "defaultMessage": "Clear the name to restore the folder name"
-  },
   "navigationPanel.unpinProject": {
     "defaultMessage": "Unpin project"
   },
@@ -10147,5 +10138,92 @@
   },
   "diagnosticExport.title": {
     "defaultMessage": "Экспорт журналов"
+  },
+  "app.questionNotice": {
+    "defaultMessage": "{title} · Ответить агенту"
+  },
+  "chat.notification.executionEnded.title": {
+    "defaultMessage": "CodeBuddy завершил этот этап выполнения."
+  },
+  "navigationPanel.removeProject": {
+    "defaultMessage": "Убрать проект из списка"
+  },
+  "navigationPanel.stopBeforeMove": {
+    "defaultMessage": "Остановите текущую задачу, прежде чем менять её рабочую область."
+  },
+  "projectEditor.add": {
+    "defaultMessage": "Добавить папку"
+  },
+  "projectEditor.edit": {
+    "defaultMessage": "Изменить проект"
+  },
+  "projectEditor.hint": {
+    "defaultMessage": "Чаты запускаются в основной папке. Для редактирования файлов применяются выбранные здесь права доступа. Терминал использует разрешения сеанса."
+  },
+  "projectEditor.linked": {
+    "defaultMessage": "Дополнительные папки"
+  },
+  "projectEditor.main": {
+    "defaultMessage": "Основная папка"
+  },
+  "projectEditor.reference": {
+    "defaultMessage": "Только для справки"
+  },
+  "projectEditor.remove": {
+    "defaultMessage": "Отвязать {name}"
+  },
+  "projectEditor.write": {
+    "defaultMessage": "Разрешить редактирование"
+  },
+  "sessionIndicators.awaitingReply": {
+    "defaultMessage": "Ожидается ответ"
+  },
+  "typography.default": {
+    "defaultMessage": "По умолчанию в CodeBuddy"
+  },
+  "typography.failed": {
+    "defaultMessage": "Не удалось сохранить настройки отображения."
+  },
+  "typography.font": {
+    "defaultMessage": "Шрифт интерфейса"
+  },
+  "typography.less": {
+    "defaultMessage": "Уменьшить {setting}"
+  },
+  "typography.more": {
+    "defaultMessage": "Увеличить {setting}"
+  },
+  "typography.reset": {
+    "defaultMessage": "Сбросить {setting}"
+  },
+  "typography.sample": {
+    "defaultMessage": "Так будут выглядеть ваши сообщения."
+  },
+  "typography.serif": {
+    "defaultMessage": "С засечками"
+  },
+  "typography.size": {
+    "defaultMessage": "Размер шрифта кода"
+  },
+  "typography.sizeHint": {
+    "defaultMessage": "Применяется к блокам кода, редактору файлов и просмотру различий."
+  },
+  "typography.system": {
+    "defaultMessage": "Системный шрифт"
+  },
+  "typography.text": {
+    "defaultMessage": "Размер текста интерфейса"
+  },
+  "typography.textHint": {
+    "defaultMessage": "Меняет размер текста в чате, поле сообщения и подписях интерфейса."
+  },
+  "typography.title": {
+    "defaultMessage": "Настройки шрифтов"
+  },
+  "typography.zoom": {
+    "defaultMessage": "Масштаб окна"
+  },
+  "typography.zoomHint": {
+    "defaultMessage": "Одновременно меняет масштаб чата, боковой панели и элементов управления."
   }
 }

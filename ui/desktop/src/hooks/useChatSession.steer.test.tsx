@@ -204,12 +204,16 @@ describe('useChatSession steering acceptance', () => {
   it('adds a pending local message only when the accepted run is still current', async () => {
     vi.mocked(acpSteerSession).mockResolvedValue({ runId: 'run-1', messageId: 'accepted-steer' });
     const { result } = setup();
-    await expect(result.current.onSteerQueuedMessage!(input)).resolves.toBe(true);
+    await expect(result.current.onSteerQueuedMessage!({ ...input, queuedWhileBusy: true })).resolves.toBe(true);
+    expect(acpSteerSession).toHaveBeenCalledWith('session-1', expect.objectContaining({
+      content: expect.arrayContaining([expect.objectContaining({ text: input.msg })]),
+      metadata: expect.objectContaining({ queuedWhileBusy: true }),
+    }), 'run-1');
     expect(acpChatSessionActions.addPendingLocalSteerMessage).toHaveBeenCalledWith(
       'session-1',
       expect.objectContaining({
         id: 'accepted-steer',
-        metadata: expect.objectContaining({ steer: true }),
+        metadata: expect.objectContaining({ steer: true, queuedWhileBusy: true }),
       })
     );
   });
@@ -291,6 +295,9 @@ describe('useChatSession steering acceptance', () => {
       await result.current.handleSubmit({ msg: 'continue from terminal', images: [] });
 
       expect(showNotification).toHaveBeenCalledTimes(expectedNotification ? 1 : 0);
+      if (expectedNotification) expect(showNotification).toHaveBeenCalledWith(expect.objectContaining({
+        title: 'CodeBuddy finished this execution turn.',
+      }));
     }
   );
 

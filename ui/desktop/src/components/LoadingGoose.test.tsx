@@ -23,6 +23,22 @@ function renderLoadingIndicator(chatState: ChatState, assistantName?: 'Code' | '
 }
 
 describe('LoadingGoose', () => {
+  it('shows distinct icons for reasoning, streaming, questions, and context cleanup', () => {
+    const states = [
+      [ChatState.Thinking, 'atom'],
+      [ChatState.Streaming, 'message-square-text'],
+      [ChatState.WaitingForUserInput, 'message-circle-question-mark'],
+      [ChatState.Compacting, 'archive'],
+    ] as const;
+    for (const [state, icon] of states) {
+      const view = renderLoadingIndicator(state);
+      expect(view.container.querySelector(`svg.lucide-${icon}`)).toBeInTheDocument();
+      view.unmount();
+    }
+    const loading = renderLoadingIndicator(ChatState.LoadingConversation);
+    expect(loading.container.querySelector('.conversation-loading-spinner')).toBeInTheDocument();
+    loading.unmount();
+  });
   it('shows elapsed compaction and a long-wait explanation without a fabricated percentage', () => {
     vi.useFakeTimers();
     try {

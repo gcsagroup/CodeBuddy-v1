@@ -55,6 +55,12 @@
   --toastify-spinner-color: #547ea7;
   --toastify-spinner-color-empty-area: var(--color-border-primary);
 }
+.Toastify__toast-container--top-center.codebuddy-toasts {
+  left: 50%;
+  right: auto;
+  transform: translateX(-50%);
+}
+
 .codebuddy-toasts .Toastify__toast {
   width: 100%;
   min-height: 60px;

@@ -481,6 +481,7 @@ export type StorageFixtureMode = 'fresh' | 'legacy';
 type GooseTestFixtures = {
   appPage: Page;
   goosePage: Page;
+  networkConsentGranted: boolean;
   profileMode: ProfileMode;
   storageFixtureMode: StorageFixtureMode;
   isolatedProfileRoot: string;
@@ -491,6 +492,7 @@ type GooseTestFixtures = {
 };
 
 export const test = base.extend<GooseTestFixtures>({
+  networkConsentGranted: [true, { option: true }],
   profileMode: ['isolated', { option: true }],
   storageFixtureMode: ['fresh', { option: true }],
   initialWorkingDir: ['', { option: true }],
@@ -526,6 +528,7 @@ export const test = base.extend<GooseTestFixtures>({
   appPage: async (
     {
       profileMode,
+      networkConsentGranted,
       storageFixtureMode,
       isolatedProfileRoot,
       initialWorkingDir,
@@ -630,6 +633,11 @@ export const test = base.extend<GooseTestFixtures>({
       const appData = join(profileRoot, 'AppData', 'Roaming');
       const localAppData = join(profileRoot, 'AppData', 'Local');
       const codeBuddyHome = join(profileRoot, '.CodeBuddy');
+      if (networkConsentGranted && storageFixtureMode === 'fresh') {
+        const state = join(codeBuddyHome, 'state', 'electron-app');
+        mkdirSync(state, { recursive: true });
+        writeFileSync(join(state, 'settings.json'), JSON.stringify({ networkAccessAllowed: true }));
+      }
       const temporaryDirectory = join(profileRoot, 'Temp');
       mkdirSync(appData, { recursive: true });
       mkdirSync(localAppData, { recursive: true });
@@ -876,14 +884,15 @@ export const test = base.extend<GooseTestFixtures>({
       } catch {
         // Process cleanup still has the launcher-tree fallback below.
       }
-      if (deterministicServer && testInfo.title.startsWith('Message identity ')) {
+      if (deterministicServer && (testInfo.title.startsWith('Message identity ') ||
+          testInfo.title.startsWith('Question attention '))) {
         await page.evaluate(async (url) => {
           const modulePath = '/src/acp/acpConnection.ts';
           const { getAcpClient } = await import(modulePath);
           const client = await getAcpClient();
           const { providerId } = await client.goose.providersCustomCreate_unstable({
             engine: 'openai_compatible',
-            displayName: 'Identity fixture',
+            displayName: 'Local test model',
             apiUrl: url,
             requiresAuth: false,
             models: ['codepro-e2e'],

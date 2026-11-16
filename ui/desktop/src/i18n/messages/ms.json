@@ -275,9 +275,6 @@
   "chat.notification.taskComplete.body": {
     "defaultMessage": "Klik di sini untuk membawa CodeBuddy kembali ke fokus."
   },
-  "chat.notification.taskComplete.title": {
-    "defaultMessage": "CodeBuddy telah menyelesaikan tugasan."
-  },
   "chatInput.attachFile": {
     "defaultMessage": "Attach file"
   },
@@ -5504,12 +5501,6 @@
   "navigationPanel.projectName": {
     "defaultMessage": "Project name"
   },
-  "navigationPanel.renameProject": {
-    "defaultMessage": "Rename project"
-  },
-  "navigationPanel.resetProjectNameHint": {
-    "defaultMessage": "Clear the name to restore the folder name"
-  },
   "navigationPanel.unpinProject": {
     "defaultMessage": "Unpin project"
   },
@@ -10147,5 +10138,92 @@
   },
   "diagnosticExport.title": {
     "defaultMessage": "Eksport log"
+  },
+  "app.questionNotice": {
+    "defaultMessage": "{title} · Balas ejen"
+  },
+  "chat.notification.executionEnded.title": {
+    "defaultMessage": "CodeBuddy telah menamatkan giliran pelaksanaan ini."
+  },
+  "navigationPanel.removeProject": {
+    "defaultMessage": "Keluarkan projek daripada senarai"
+  },
+  "navigationPanel.stopBeforeMove": {
+    "defaultMessage": "Hentikan tugas semasa sebelum menukar ruang kerjanya."
+  },
+  "projectEditor.add": {
+    "defaultMessage": "Tambah folder"
+  },
+  "projectEditor.edit": {
+    "defaultMessage": "Edit projek"
+  },
+  "projectEditor.hint": {
+    "defaultMessage": "Sembang bermula dalam folder utama. Penyuntingan fail mengikut akses yang dipilih di sini. Terminal menggunakan kebenaran sesi."
+  },
+  "projectEditor.linked": {
+    "defaultMessage": "Folder tambahan"
+  },
+  "projectEditor.main": {
+    "defaultMessage": "Folder utama"
+  },
+  "projectEditor.reference": {
+    "defaultMessage": "Untuk rujukan sahaja"
+  },
+  "projectEditor.remove": {
+    "defaultMessage": "Nyahpaut {name}"
+  },
+  "projectEditor.write": {
+    "defaultMessage": "Benarkan penyuntingan"
+  },
+  "sessionIndicators.awaitingReply": {
+    "defaultMessage": "Menunggu balasan"
+  },
+  "typography.default": {
+    "defaultMessage": "Lalai CodeBuddy"
+  },
+  "typography.failed": {
+    "defaultMessage": "Pilihan paparan anda tidak dapat disimpan."
+  },
+  "typography.font": {
+    "defaultMessage": "Fon antara muka"
+  },
+  "typography.less": {
+    "defaultMessage": "Kurangkan {setting}"
+  },
+  "typography.more": {
+    "defaultMessage": "Tingkatkan {setting}"
+  },
+  "typography.reset": {
+    "defaultMessage": "Tetapkan semula {setting}"
+  },
+  "typography.sample": {
+    "defaultMessage": "Mesej anda akan kelihatan seperti ini."
+  },
+  "typography.serif": {
+    "defaultMessage": "Serif"
+  },
+  "typography.size": {
+    "defaultMessage": "Saiz fon kod"
+  },
+  "typography.sizeHint": {
+    "defaultMessage": "Terpakai pada blok kod, penyunting fail dan paparan perbezaan."
+  },
+  "typography.system": {
+    "defaultMessage": "Fon sistem"
+  },
+  "typography.text": {
+    "defaultMessage": "Saiz teks antara muka"
+  },
+  "typography.textHint": {
+    "defaultMessage": "Ubah saiz teks sembang, kotak mesej dan label antara muka."
+  },
+  "typography.title": {
+    "defaultMessage": "Tipografi"
+  },
+  "typography.zoom": {
+    "defaultMessage": "Zum tetingkap"
+  },
+  "typography.zoomHint": {
+    "defaultMessage": "Laraskan skala sembang, bar sisi dan kawalan serentak."
   }
 }

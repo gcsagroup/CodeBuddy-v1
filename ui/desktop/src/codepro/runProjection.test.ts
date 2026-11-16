@@ -2,6 +2,7 @@ import type { CodeProRunSnapshot } from '@aaif/goose-sdk';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   applyCodeProRunSnapshot,
+  applyCodeProRunNotification,
   clearAllCodeProRunProjections,
   getCodeProRunProjection,
   listObservedCodeProRuns,
@@ -44,10 +45,14 @@ describe('CodePro run projection store', () => {
     expect(getCodeProRunProjection('session-2', 'run-1')).toBeUndefined();
   });
 
-  it('rejects sequence regression and same-sequence conflicts', () => {
-    applyCodeProRunSnapshot(snapshot());
+  it('ignores stale snapshots without notifying or regressing state, but rejects conflicts', () => {
+    const listener = vi.fn();
+    subscribeToCodeProRun('session-1', 'run-1', listener);
+    const current = applyCodeProRunSnapshot(snapshot());
 
-    expect(() => applyCodeProRunSnapshot(snapshot({ lastSequence: 3 }))).toThrow(/regressed/);
+    expect(applyCodeProRunSnapshot(snapshot({ lastSequence: 3, state: 'planning' }))).toBe(current);
+    expect(applyCodeProRunNotification({ snapshot: snapshot({ lastSequence: 2 }) })).toBe(current);
+    expect(listener).toHaveBeenCalledTimes(1);
     expect(() => applyCodeProRunSnapshot(snapshot({ state: 'paused' }))).toThrow(/conflicting/);
     expect(getCodeProRunProjection('session-1', 'run-1')?.state).toBe('running');
   });

@@ -8,6 +8,9 @@
   "app.chooseFolder": {
     "defaultMessage": "Choose folder"
   },
+  "app.questionNotice": {
+    "defaultMessage": "{title} · Reply to agent"
+  },
   "app.toastNotifications": {
     "defaultMessage": "Toast notifications"
   },
@@ -281,11 +284,11 @@
   "cardButtons.launch": {
     "defaultMessage": "Launch"
   },
+  "chat.notification.executionEnded.title": {
+    "defaultMessage": "CodeBuddy finished this execution turn."
+  },
   "chat.notification.taskComplete.body": {
     "defaultMessage": "Click here to bring CodeBuddy back into focus."
-  },
-  "chat.notification.taskComplete.title": {
-    "defaultMessage": "CodeBuddy finished the task."
   },
   "chatInput.attachFile": {
     "defaultMessage": "Attach file"
@@ -4335,7 +4338,7 @@
     "defaultMessage": "CodeBuddy is working on it…"
   },
   "loadingGoose.loadingConversation": {
-    "defaultMessage": "loading conversation..."
+    "defaultMessage": "Loading conversation…"
   },
   "loadingGoose.restartingAgent": {
     "defaultMessage": "restarting session..."
@@ -5603,14 +5606,14 @@
   "navigationPanel.projectName": {
     "defaultMessage": "Project name"
   },
-  "navigationPanel.renameProject": {
-    "defaultMessage": "Rename project"
-  },
-  "navigationPanel.resetProjectNameHint": {
-    "defaultMessage": "Clear the name to restore the folder name"
+  "navigationPanel.removeProject": {
+    "defaultMessage": "Remove project"
   },
   "navigationPanel.sectionActions": {
     "defaultMessage": "{section} options"
+  },
+  "navigationPanel.stopBeforeMove": {
+    "defaultMessage": "Stop the current task before changing its workspace."
   },
   "navigationPanel.unknownTime": {
     "defaultMessage": "Time unavailable"
@@ -6176,14 +6179,8 @@
   "projectBrief.noReply": {
     "defaultMessage": "This turn has no final text reply."
   },
-  "projectBrief.result": {
-    "defaultMessage": "Project reply"
-  },
   "projectBrief.retry": {
     "defaultMessage": "Try again"
-  },
-  "projectBrief.task": {
-    "defaultMessage": "Assignment"
   },
   "projectBrief.unavailable": {
     "defaultMessage": "Could not read this project turn."
@@ -7640,6 +7637,9 @@
   "sessionCapabilities.forkUnavailable": {
     "defaultMessage": "Copying is unavailable for this session. Start a new task to work independently."
   },
+  "sessionIndicators.awaitingReply": {
+    "defaultMessage": "Awaiting reply"
+  },
   "sessionIndicators.error": {
     "defaultMessage": "Session encountered an error"
   },
@@ -8383,9 +8383,6 @@
   },
   "standaloneAppView.missingParams": {
     "defaultMessage": "Missing required parameters"
-  },
-  "startup.draftHint": {
-    "defaultMessage": "Connecting to your model. You can write your message now."
   },
   "stringUtils.configuredProvider": {
     "defaultMessage": "{name} provider is configured"

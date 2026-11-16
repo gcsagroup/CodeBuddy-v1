@@ -1,3 +1,4 @@
+import type { IpcMainEvent } from 'electron';
 import { randomUUID } from 'node:crypto';
 import { app, BrowserWindow, ipcMain, Menu, nativeImage, screen } from 'electron';
 import fs from 'node:fs';
@@ -41,6 +42,7 @@ export async function registerDesktopPet(options: {
   rendererUrl: string;
   builtinDirectory: string;
   onWorkingChange?: (working: boolean) => void;
+  onQuestion?: (owner: BrowserWindow, task: PetTask, questionId: string) => void;
   openChat: (options: {
     query?: string;
     dir?: string;
@@ -84,15 +86,17 @@ export async function registerDesktopPet(options: {
     for (const tasks of tasksByWindow.values()) {
       for (const task of tasks.values()) {
         // A second window can replay this chat as idle while its original window is live.
-        if (task.state === 'idle') continue;
+        if (task.state === 'idle' && !task.questions?.length) continue;
         const previous = latest.get(task.sessionId);
-        if (!previous || taskUpdates.get(task)! > taskUpdates.get(previous)!)
+        if (!previous || (task.questions?.length && !previous.questions?.length) ||
+          (Boolean(task.questions?.length) === Boolean(previous.questions?.length) &&
+            taskUpdates.get(task)! > taskUpdates.get(previous)!))
           latest.set(task.sessionId, task);
       }
     }
     return sortPetTasks(
       [...latest.values()].map((t) =>
-        t.terminalId && readTerminals.get(t.sessionId) === t.terminalId
+        !t.questions?.length && t.terminalId && readTerminals.get(t.sessionId) === t.terminalId
           ? { ...t, state: 'idle' as const }
           : t
       )
@@ -408,7 +412,7 @@ export async function registerDesktopPet(options: {
           destination.focus();
           const deliveryId = randomUUID();
           await new Promise<void>((resolve, reject) => {
-            const finish = (_event: Electron.IpcMainEvent, result: { deliveryId?: string; error?: string }) => {
+            const finish = (_event: IpcMainEvent, result: { deliveryId?: string; error?: string }) => {
               if (_event.sender !== destination.webContents || result?.deliveryId !== deliveryId) return;
               clearTimeout(timeout);
               ipcMain.removeListener('pet-message-result', finish);
@@ -509,7 +513,7 @@ export async function registerDesktopPet(options: {
           if (!destination || destination.isDestroyed()) throw new Error('审批请求已失效，请查看最新通知');
           const deliveryId = randomUUID();
           await new Promise<void>((resolve, reject) => {
-            const finish = (reply: Electron.IpcMainEvent, result: { deliveryId?: string; error?: string }) => {
+            const finish = (reply: IpcMainEvent, result: { deliveryId?: string; error?: string }) => {
               if (reply.sender !== destination.webContents || result?.deliveryId !== deliveryId) return;
               clearTimeout(timeout); ipcMain.removeListener('pet-message-result', finish);
               if (result.error) reject(new Error(result.error)); else resolve();
@@ -609,9 +613,13 @@ export async function registerDesktopPet(options: {
         broadcast();
       });
     }
+    const knownQuestions = task.questions?.length ? new Set([...tasksByWindow.values()]
+      .flatMap(entries => entries.get(task.sessionId)?.questions?.map(q => q.id) ?? [])) : undefined;
     taskUpdates.set(task, ++taskSequence);
     tasks.set(task.sessionId, task);
     broadcast();
+    const added = task.questions?.find(question => !knownQuestions?.has(question.id));
+    if (added) options.onQuestion?.(window, task, added.id);
   });
   ipcMain.on('pet-read', (event, input: { sessionId: string; terminalId: string }) => {
     if (

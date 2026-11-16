@@ -275,9 +275,6 @@
   "chat.notification.taskComplete.body": {
     "defaultMessage": "Nhấp vào đây để đưa CodeBuddy trở lại tiêu điểm."
   },
-  "chat.notification.taskComplete.title": {
-    "defaultMessage": "CodeBuddy đã hoàn thành tác vụ."
-  },
   "chatInput.attachFile": {
     "defaultMessage": "Attach file"
   },
@@ -5504,12 +5501,6 @@
   "navigationPanel.projectName": {
     "defaultMessage": "Project name"
   },
-  "navigationPanel.renameProject": {
-    "defaultMessage": "Rename project"
-  },
-  "navigationPanel.resetProjectNameHint": {
-    "defaultMessage": "Clear the name to restore the folder name"
-  },
   "navigationPanel.unpinProject": {
     "defaultMessage": "Unpin project"
   },
@@ -10147,5 +10138,92 @@
   },
   "diagnosticExport.title": {
     "defaultMessage": "Xuất nhật ký"
+  },
+  "app.questionNotice": {
+    "defaultMessage": "{title} · Trả lời tác nhân"
+  },
+  "chat.notification.executionEnded.title": {
+    "defaultMessage": "CodeBuddy đã kết thúc lượt thực thi này."
+  },
+  "navigationPanel.removeProject": {
+    "defaultMessage": "Gỡ dự án khỏi danh sách"
+  },
+  "navigationPanel.stopBeforeMove": {
+    "defaultMessage": "Hãy dừng tác vụ hiện tại trước khi đổi không gian làm việc."
+  },
+  "projectEditor.add": {
+    "defaultMessage": "Thêm thư mục"
+  },
+  "projectEditor.edit": {
+    "defaultMessage": "Chỉnh sửa dự án"
+  },
+  "projectEditor.hint": {
+    "defaultMessage": "Cuộc trò chuyện bắt đầu trong thư mục chính. Việc chỉnh sửa tệp tuân theo quyền truy cập đã chọn ở đây. Thiết bị đầu cuối dùng quyền của phiên."
+  },
+  "projectEditor.linked": {
+    "defaultMessage": "Thư mục bổ sung"
+  },
+  "projectEditor.main": {
+    "defaultMessage": "Thư mục chính"
+  },
+  "projectEditor.reference": {
+    "defaultMessage": "Chỉ để tham khảo"
+  },
+  "projectEditor.remove": {
+    "defaultMessage": "Hủy liên kết {name}"
+  },
+  "projectEditor.write": {
+    "defaultMessage": "Cho phép chỉnh sửa"
+  },
+  "sessionIndicators.awaitingReply": {
+    "defaultMessage": "Đang chờ trả lời"
+  },
+  "typography.default": {
+    "defaultMessage": "Mặc định của CodeBuddy"
+  },
+  "typography.failed": {
+    "defaultMessage": "Không thể lưu tùy chọn hiển thị."
+  },
+  "typography.font": {
+    "defaultMessage": "Phông chữ giao diện"
+  },
+  "typography.less": {
+    "defaultMessage": "Giảm {setting}"
+  },
+  "typography.more": {
+    "defaultMessage": "Tăng {setting}"
+  },
+  "typography.reset": {
+    "defaultMessage": "Đặt lại {setting}"
+  },
+  "typography.sample": {
+    "defaultMessage": "Tin nhắn của bạn sẽ hiển thị như thế này."
+  },
+  "typography.serif": {
+    "defaultMessage": "Có chân"
+  },
+  "typography.size": {
+    "defaultMessage": "Cỡ chữ mã nguồn"
+  },
+  "typography.sizeHint": {
+    "defaultMessage": "Áp dụng cho khối mã, trình chỉnh sửa tệp và phần so sánh thay đổi."
+  },
+  "typography.system": {
+    "defaultMessage": "Phông chữ hệ thống"
+  },
+  "typography.text": {
+    "defaultMessage": "Cỡ chữ giao diện"
+  },
+  "typography.textHint": {
+    "defaultMessage": "Đổi cỡ chữ trong cuộc trò chuyện, ô tin nhắn và nhãn giao diện."
+  },
+  "typography.title": {
+    "defaultMessage": "Kiểu chữ"
+  },
+  "typography.zoom": {
+    "defaultMessage": "Thu phóng cửa sổ"
+  },
+  "typography.zoomHint": {
+    "defaultMessage": "Thay đổi tỷ lệ cuộc trò chuyện, thanh bên và các nút điều khiển cùng lúc."
   }
 }

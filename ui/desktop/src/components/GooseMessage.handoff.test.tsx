@@ -82,6 +82,12 @@ describe('handoff versus an unexplained interruption', () => {
     expect(screen.queryByRole('button', { name: /continu/i })).not.toBeInTheDocument();
     expect(screen.queryByText('Stopped')).not.toBeInTheDocument();
   });
+  it('omits the acceptance reminder without promoting model claims to PASS', () => {
+    show(terminal('completed', 'All changes and tests passed.'));
+    expect(screen.queryByTestId('acceptance-unverified')).not.toBeInTheDocument();
+    expect(screen.getByText('All changes and tests passed.')).toBeVisible();
+    expect(screen.queryByText('PASS', { exact: true })).not.toBeInTheDocument();
+  });
   it('shows the missing final reply only when the completed turn also lacks delivered media', () => {
     const message = terminal('completed');
     const record = message.content.find((c) => c.type === 'systemNotification');

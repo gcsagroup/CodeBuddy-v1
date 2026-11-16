@@ -125,13 +125,14 @@ export default function ModelsBottomBar({
   useEffect(() => {
     if (!open) return;
     let active = true;
-    const version = ++loadVersion.current;
+    const versions = loadVersion;
+    const version = ++versions.current;
     setLoading(true);
     setLoadError(false);
     setRefreshResult(null);
     void acpListProviderDetails()
       .then((all) => {
-        if (!active || version !== loadVersion.current) return;
+        if (!active || version !== versions.current) return;
         const configured = all.filter(
           (provider) => provider.is_configured && !providerActivationDisabledReason(provider)
         );
@@ -145,7 +146,7 @@ export default function ModelsBottomBar({
       });
     return () => {
       active = false;
-      ++loadVersion.current;
+      ++versions.current;
     };
   }, [open, retry]);
   const refreshModels = async () => {

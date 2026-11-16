@@ -507,6 +507,7 @@ const MentionPopover = forwardRef<
       [displayItems, onSelect, onClose]
     );
 
+    const hasQuery = Boolean(query.trim());
     useEffect(() => {
       if (!isSlashCommand) return;
       let cancelled = false;
@@ -516,7 +517,7 @@ const MentionPopover = forwardRef<
         const cached = inventoryCache.current?.key === key ? inventoryCache.current : null;
         setItems([...composerCommandItems(intl), ...(cached?.commands ?? []), ...(cached?.inventory ?? [])]);
         setInventoryError(false);
-        if (addOnly && !inventoryRequested && !query.trim()) {
+        if (addOnly && !inventoryRequested && !hasQuery) {
           setIsLoading(false);
           return;
         }
@@ -613,7 +614,7 @@ const MentionPopover = forwardRef<
       return () => {
         cancelled = true;
       };
-    }, [isOpen, isSlashCommand, currentWorkingDir, sessionId, intl, addOnly, inventoryRequested, Boolean(query.trim())]);
+    }, [isOpen, isSlashCommand, currentWorkingDir, sessionId, intl, addOnly, inventoryRequested, hasQuery]);
 
     useEffect(() => {
       const handleClickOutside = (event: MouseEvent) => {

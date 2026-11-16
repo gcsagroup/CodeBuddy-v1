@@ -275,9 +275,6 @@
   "chat.notification.taskComplete.body": {
     "defaultMessage": "CodeBuddy에 다시 초점을 맞추려면 여기를 클릭하세요."
   },
-  "chat.notification.taskComplete.title": {
-    "defaultMessage": "CodeBuddy가 작업을 완료했습니다."
-  },
   "chatInput.attachFile": {
     "defaultMessage": "Attach file"
   },
@@ -5504,12 +5501,6 @@
   "navigationPanel.projectName": {
     "defaultMessage": "Project name"
   },
-  "navigationPanel.renameProject": {
-    "defaultMessage": "Rename project"
-  },
-  "navigationPanel.resetProjectNameHint": {
-    "defaultMessage": "Clear the name to restore the folder name"
-  },
   "navigationPanel.unpinProject": {
     "defaultMessage": "Unpin project"
   },
@@ -10147,5 +10138,92 @@
   },
   "diagnosticExport.title": {
     "defaultMessage": "로그 내보내기"
+  },
+  "app.questionNotice": {
+    "defaultMessage": "{title} · 에이전트에게 답장"
+  },
+  "chat.notification.executionEnded.title": {
+    "defaultMessage": "CodeBuddy가 이번 실행을 마쳤습니다."
+  },
+  "navigationPanel.removeProject": {
+    "defaultMessage": "목록에서 프로젝트 제거"
+  },
+  "navigationPanel.stopBeforeMove": {
+    "defaultMessage": "작업 공간을 변경하기 전에 현재 작업을 중지하세요."
+  },
+  "projectEditor.add": {
+    "defaultMessage": "폴더 추가"
+  },
+  "projectEditor.edit": {
+    "defaultMessage": "프로젝트 편집"
+  },
+  "projectEditor.hint": {
+    "defaultMessage": "채팅은 기본 폴더에서 시작합니다. 파일 편집에는 여기서 선택한 접근 권한이 적용됩니다. 터미널은 세션 권한을 사용합니다."
+  },
+  "projectEditor.linked": {
+    "defaultMessage": "추가 폴더"
+  },
+  "projectEditor.main": {
+    "defaultMessage": "기본 폴더"
+  },
+  "projectEditor.reference": {
+    "defaultMessage": "참조 전용"
+  },
+  "projectEditor.remove": {
+    "defaultMessage": "{name} 연결 해제"
+  },
+  "projectEditor.write": {
+    "defaultMessage": "편집 허용"
+  },
+  "sessionIndicators.awaitingReply": {
+    "defaultMessage": "답장 대기 중"
+  },
+  "typography.default": {
+    "defaultMessage": "CodeBuddy 기본값"
+  },
+  "typography.failed": {
+    "defaultMessage": "화면 설정을 저장할 수 없습니다."
+  },
+  "typography.font": {
+    "defaultMessage": "인터페이스 글꼴"
+  },
+  "typography.less": {
+    "defaultMessage": "{setting} 줄이기"
+  },
+  "typography.more": {
+    "defaultMessage": "{setting} 늘리기"
+  },
+  "typography.reset": {
+    "defaultMessage": "{setting} 초기화"
+  },
+  "typography.sample": {
+    "defaultMessage": "메시지가 이렇게 표시됩니다."
+  },
+  "typography.serif": {
+    "defaultMessage": "세리프"
+  },
+  "typography.size": {
+    "defaultMessage": "코드 글꼴 크기"
+  },
+  "typography.sizeHint": {
+    "defaultMessage": "코드 블록, 파일 편집기 및 변경 내용 비교에 적용됩니다."
+  },
+  "typography.system": {
+    "defaultMessage": "시스템 글꼴"
+  },
+  "typography.text": {
+    "defaultMessage": "인터페이스 글자 크기"
+  },
+  "typography.textHint": {
+    "defaultMessage": "채팅, 메시지 입력란, 인터페이스 레이블의 글자 크기를 변경합니다."
+  },
+  "typography.title": {
+    "defaultMessage": "글꼴 설정"
+  },
+  "typography.zoom": {
+    "defaultMessage": "창 확대/축소"
+  },
+  "typography.zoomHint": {
+    "defaultMessage": "채팅, 사이드바, 컨트롤의 크기를 함께 조정합니다."
   }
 }

@@ -275,9 +275,6 @@
   "chat.notification.taskComplete.body": {
     "defaultMessage": "Klik di sini untuk membawa CodeBuddy kembali ke fokus."
   },
-  "chat.notification.taskComplete.title": {
-    "defaultMessage": "CodeBuddy telah menyelesaikan tugas."
-  },
   "chatInput.attachFile": {
     "defaultMessage": "Attach file"
   },
@@ -5504,12 +5501,6 @@
   "navigationPanel.projectName": {
     "defaultMessage": "Project name"
   },
-  "navigationPanel.renameProject": {
-    "defaultMessage": "Rename project"
-  },
-  "navigationPanel.resetProjectNameHint": {
-    "defaultMessage": "Clear the name to restore the folder name"
-  },
   "navigationPanel.unpinProject": {
     "defaultMessage": "Unpin project"
   },
@@ -10147,5 +10138,92 @@
   },
   "diagnosticExport.title": {
     "defaultMessage": "Ekspor log"
+  },
+  "app.questionNotice": {
+    "defaultMessage": "{title} · Balas agen"
+  },
+  "chat.notification.executionEnded.title": {
+    "defaultMessage": "CodeBuddy telah menyelesaikan giliran eksekusi ini."
+  },
+  "navigationPanel.removeProject": {
+    "defaultMessage": "Hapus proyek dari daftar"
+  },
+  "navigationPanel.stopBeforeMove": {
+    "defaultMessage": "Hentikan tugas saat ini sebelum mengganti ruang kerjanya."
+  },
+  "projectEditor.add": {
+    "defaultMessage": "Tambahkan folder"
+  },
+  "projectEditor.edit": {
+    "defaultMessage": "Edit proyek"
+  },
+  "projectEditor.hint": {
+    "defaultMessage": "Percakapan dimulai di folder utama. Pengeditan berkas mengikuti akses yang dipilih di sini. Terminal menggunakan izin sesi."
+  },
+  "projectEditor.linked": {
+    "defaultMessage": "Folder tambahan"
+  },
+  "projectEditor.main": {
+    "defaultMessage": "Folder utama"
+  },
+  "projectEditor.reference": {
+    "defaultMessage": "Hanya untuk referensi"
+  },
+  "projectEditor.remove": {
+    "defaultMessage": "Putuskan tautan {name}"
+  },
+  "projectEditor.write": {
+    "defaultMessage": "Izinkan pengeditan"
+  },
+  "sessionIndicators.awaitingReply": {
+    "defaultMessage": "Menunggu balasan"
+  },
+  "typography.default": {
+    "defaultMessage": "Bawaan CodeBuddy"
+  },
+  "typography.failed": {
+    "defaultMessage": "Preferensi tampilan tidak dapat disimpan."
+  },
+  "typography.font": {
+    "defaultMessage": "Font antarmuka"
+  },
+  "typography.less": {
+    "defaultMessage": "Kurangi {setting}"
+  },
+  "typography.more": {
+    "defaultMessage": "Tingkatkan {setting}"
+  },
+  "typography.reset": {
+    "defaultMessage": "Atur ulang {setting}"
+  },
+  "typography.sample": {
+    "defaultMessage": "Pesan Anda akan terlihat seperti ini."
+  },
+  "typography.serif": {
+    "defaultMessage": "Serif"
+  },
+  "typography.size": {
+    "defaultMessage": "Ukuran font kode"
+  },
+  "typography.sizeHint": {
+    "defaultMessage": "Berlaku untuk blok kode, editor berkas, dan tampilan perbedaan."
+  },
+  "typography.system": {
+    "defaultMessage": "Font sistem"
+  },
+  "typography.text": {
+    "defaultMessage": "Ukuran teks antarmuka"
+  },
+  "typography.textHint": {
+    "defaultMessage": "Ubah ukuran teks percakapan, kotak pesan, dan label antarmuka."
+  },
+  "typography.title": {
+    "defaultMessage": "Tipografi"
+  },
+  "typography.zoom": {
+    "defaultMessage": "Zoom jendela"
+  },
+  "typography.zoomHint": {
+    "defaultMessage": "Ubah skala percakapan, bilah samping, dan kontrol secara bersamaan."
   }
 }

@@ -275,9 +275,6 @@
   "chat.notification.taskComplete.body": {
     "defaultMessage": "Klicken Sie hier, um CodeBuddy wieder in den Vordergrund zu holen."
   },
-  "chat.notification.taskComplete.title": {
-    "defaultMessage": "CodeBuddy hat die Aufgabe abgeschlossen."
-  },
   "chatInput.attachFile": {
     "defaultMessage": "Attach file"
   },
@@ -5504,12 +5501,6 @@
   "navigationPanel.projectName": {
     "defaultMessage": "Project name"
   },
-  "navigationPanel.renameProject": {
-    "defaultMessage": "Rename project"
-  },
-  "navigationPanel.resetProjectNameHint": {
-    "defaultMessage": "Clear the name to restore the folder name"
-  },
   "navigationPanel.unpinProject": {
     "defaultMessage": "Unpin project"
   },
@@ -10147,5 +10138,92 @@
   },
   "diagnosticExport.title": {
     "defaultMessage": "Protokolle exportieren"
+  },
+  "app.questionNotice": {
+    "defaultMessage": "{title} · Dem Agenten antworten"
+  },
+  "chat.notification.executionEnded.title": {
+    "defaultMessage": "CodeBuddy hat diesen Ausführungsschritt beendet."
+  },
+  "navigationPanel.removeProject": {
+    "defaultMessage": "Projekt entfernen"
+  },
+  "navigationPanel.stopBeforeMove": {
+    "defaultMessage": "Beenden Sie die aktuelle Aufgabe, bevor Sie den Arbeitsbereich wechseln."
+  },
+  "projectEditor.add": {
+    "defaultMessage": "Ordner hinzufügen"
+  },
+  "projectEditor.edit": {
+    "defaultMessage": "Projekt bearbeiten"
+  },
+  "projectEditor.hint": {
+    "defaultMessage": "Chats beginnen im Hauptordner. Für Dateiänderungen gelten die hier gewählten Zugriffsrechte. Das Terminal verwendet die Sitzungsberechtigungen."
+  },
+  "projectEditor.linked": {
+    "defaultMessage": "Weitere Ordner"
+  },
+  "projectEditor.main": {
+    "defaultMessage": "Hauptordner"
+  },
+  "projectEditor.reference": {
+    "defaultMessage": "Nur als Referenz"
+  },
+  "projectEditor.remove": {
+    "defaultMessage": "Verknüpfung mit {name} aufheben"
+  },
+  "projectEditor.write": {
+    "defaultMessage": "Bearbeitung erlauben"
+  },
+  "sessionIndicators.awaitingReply": {
+    "defaultMessage": "Antwort ausstehend"
+  },
+  "typography.default": {
+    "defaultMessage": "CodeBuddy-Standard"
+  },
+  "typography.failed": {
+    "defaultMessage": "Die Anzeigeeinstellung konnte nicht gespeichert werden."
+  },
+  "typography.font": {
+    "defaultMessage": "Schriftart der Oberfläche"
+  },
+  "typography.less": {
+    "defaultMessage": "{setting} verringern"
+  },
+  "typography.more": {
+    "defaultMessage": "{setting} erhöhen"
+  },
+  "typography.reset": {
+    "defaultMessage": "{setting} zurücksetzen"
+  },
+  "typography.sample": {
+    "defaultMessage": "So werden Ihre Nachrichten aussehen."
+  },
+  "typography.serif": {
+    "defaultMessage": "Serifenschrift"
+  },
+  "typography.size": {
+    "defaultMessage": "Schriftgröße für Code"
+  },
+  "typography.sizeHint": {
+    "defaultMessage": "Gilt für Codeblöcke, den Dateieditor und die Änderungsansicht."
+  },
+  "typography.system": {
+    "defaultMessage": "Systemschrift"
+  },
+  "typography.text": {
+    "defaultMessage": "Textgröße der Oberfläche"
+  },
+  "typography.textHint": {
+    "defaultMessage": "Ändert die Textgröße im Chat, im Eingabefeld und in den Beschriftungen."
+  },
+  "typography.title": {
+    "defaultMessage": "Typografie"
+  },
+  "typography.zoom": {
+    "defaultMessage": "Fensterzoom"
+  },
+  "typography.zoomHint": {
+    "defaultMessage": "Skaliert Chat, Seitenleiste und Bedienelemente gemeinsam."
   }
 }

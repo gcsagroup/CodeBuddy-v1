@@ -44,6 +44,7 @@ Object.assign(navigator, {
 
 // Mock settings store for tests
 const mockSettings: Record<string, unknown> = {
+  networkAccessAllowed: true,
   showMenuBarIcon: true,
   showDockIcon: true,
   enableWakelock: false,
@@ -78,6 +79,7 @@ Object.defineProperty(window, 'electron', {
   writable: true,
   value: {
     platform: 'darwin',
+    requestNetworkAccess: vi.fn(async () => true),
     getSetting: vi.fn((key: string) => Promise.resolve(mockSettings[key])),
     setSetting: vi.fn((key: string, value: unknown) => {
       mockSettings[key] = value;

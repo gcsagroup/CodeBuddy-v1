@@ -24,7 +24,7 @@ function paintClick(x: number, y: number) {
     'box-shadow:0 0 0 4px rgba(59,180,255,.25)!important;width:24px!important;height:24px!important;' +
     `left:${x - 12}px!important;top:${y - 12}px!important;`;
   (document.fullscreenElement ?? document.documentElement).append(ring);
-  if (!matchMedia('(prefers-reduced-motion: reduce)').matches)
+  if (!window.matchMedia('(prefers-reduced-motion: reduce)').matches)
     ring.animate([{ scale: '0.65' }, { scale: '1.3', offset: 0.4 }, { scale: '1' }], 650);
   setTimeout(() => {
     ring.remove();

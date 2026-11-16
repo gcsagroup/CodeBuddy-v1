@@ -170,6 +170,7 @@ export function WorkspacePanel(props: Props) {
       {...props}
       scope={scope}
       messages={snapshot?.messages ?? EMPTY_MESSAGES}
+      loadSubagentsOnOpen={!!snapshot?.session && !scope.root && snapshot.chatState !== ChatState.LoadingConversation}
     />
   );
 }
@@ -281,7 +282,8 @@ export function WorkspacePanelContent({
   onChatCollapsedChange,
   onResetWidth,
   messages = EMPTY_MESSAGES,
-}: Props & { scope: PanelScope; messages?: Message[] }) {
+  loadSubagentsOnOpen = false,
+}: Props & { scope: PanelScope; messages?: Message[]; loadSubagentsOnOpen?: boolean }) {
   const intl = useIntl(),
     key = scopeKey(scope);
   const changeSource = useConversationChangeMessages(scope.sessionId, messages);
@@ -1288,7 +1290,11 @@ export function WorkspacePanelContent({
       {selected?.kind === 'local-files' ? (
         <WorkspaceLocalFiles key={selected.id} selection={selected.selection} />
       ) : state.active === 'subagents' ? (
-        <WorkspaceSubagents key={conversationRevision} parentSessionId={scope.sessionId} />
+        <WorkspaceSubagents
+          key={conversationRevision}
+          parentSessionId={scope.sessionId}
+          loadOnDemand={expanded && loadSubagentsOnOpen}
+        />
       ) : state.active === 'media' ? (
         <WorkspaceGeneration scope={scope} jobs={mediaJobs} disconnected={mediaDisconnected}
           selectedJobId={previewJobId} onShowAll={() => setPreviewJobId(undefined)} />

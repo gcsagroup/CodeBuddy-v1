@@ -228,6 +228,12 @@ export function CodeProHub({ launchIntent }: { launchIntent?: CodeProLaunchInten
       setSetupError(null);
       setRetryIntent(null);
       try {
+        if (!intent.noAutoSubmit && (initialMessage.msg.trim() || initialMessage.images.length) &&
+            !await window.electron.requestNetworkAccess()) {
+          submissionLifecycleRef.current?.onRejectedBeforeAcceptance();
+          submissionLifecycleRef.current = undefined;
+          return;
+        }
         const explicitWorkingDir = workingDir || rootContainer;
         const selectedWorkingDir =
           explicitWorkingDir || (await window.electron.defaultCodeProWorkspacePath());

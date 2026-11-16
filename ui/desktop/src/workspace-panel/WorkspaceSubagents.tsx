@@ -528,9 +528,15 @@ function CatalogBranch({ children, turns, error, parentSessionId }: SubagentCata
   );
 }
 
-export function WorkspaceSubagents({ parentSessionId }: { parentSessionId: string }) {
+export function WorkspaceSubagents({
+  parentSessionId,
+  loadOnDemand = false,
+}: {
+  parentSessionId: string;
+  loadOnDemand?: boolean;
+}) {
   const snapshot = useContext(SubagentCatalogContext);
-  if (!snapshot || snapshot.parentSessionId !== parentSessionId)
+  if (!snapshot || snapshot.parentSessionId !== parentSessionId || (loadOnDemand && !snapshot.enabled))
     return (
       <SubagentCatalogProvider key={parentSessionId} parentSessionId={parentSessionId}>
         <WorkspaceSubagents parentSessionId={parentSessionId} />

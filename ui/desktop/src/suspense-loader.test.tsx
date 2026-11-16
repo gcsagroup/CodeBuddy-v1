@@ -17,6 +17,7 @@ describe('startup loading screen', () => {
     );
     expect(screen.getByRole('status')).toHaveTextContent(loading);
     expect(screen.getByRole('heading', { name: loading })).toBeVisible();
+    expect(screen.getByRole('status').querySelector('.conversation-loading-brand')).toBeInTheDocument();
     expect(screen.queryByRole('progressbar')).not.toBeInTheDocument();
   });
 

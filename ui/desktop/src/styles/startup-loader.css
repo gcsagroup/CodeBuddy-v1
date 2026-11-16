@@ -15,19 +15,28 @@
 .no-first-paint .first-paint { display: none; }
 .dark .first-paint { color: #eee; background: #191a1c; }
 .startup-loader__content { display: grid; justify-items: center; gap: 1rem; max-width: 30rem; text-align: center; }
-.startup-loader__mark { display: grid; justify-items: center; gap: 1.125rem; }
+.startup-loader__mark { display: grid; justify-items: center; }
 .startup-loader__mark img { width: 4rem; height: auto; display: block; }
-.startup-loader__mark::after {
-  content: '';
-  width: 4.5rem;
-  height: 3px;
-  border-radius: 4px;
-  background: linear-gradient(90deg, transparent, currentColor, transparent) no-repeat,
-    color-mix(in srgb, currentColor 12%, transparent);
-  background-size: 50% 100%, 100% 100%;
-  animation: loading-track 1.7s ease-in-out infinite alternate;
+.conversation-loading-brand {
+  position: relative;
+  display: grid;
+  width: 92px;
+  height: 92px;
+  flex: none;
+  place-items: center;
 }
-@keyframes loading-track { from { background-position: 0% 0; } to { background-position: 100% 0; } }
+.conversation-loading-brand::before {
+  position: absolute;
+  inset: 0;
+  border: 2px solid transparent;
+  border-top-color: #475569;
+  border-right-color: #94a3b8;
+  border-radius: 29px;
+  content: '';
+  animation: conversation-loading-orbit 1.8s linear infinite;
+}
+.conversation-loading-brand img { box-shadow: 0 10px 26px rgb(15 23 42 / 0.12); }
+@keyframes conversation-loading-orbit { to { transform: rotate(360deg); } }
 .startup-loader__title { margin: 0; font-size: 1.125rem; line-height: 1.5; font-weight: 500; text-wrap: balance; }
 .startup-loader__content button { min-height: 2.5rem; padding-inline: 1.2rem; font-size: 1rem; }
 .activity-dots {
@@ -39,5 +48,5 @@
 .activity-dots i:nth-child(3) { animation-delay: .26s; }
 @keyframes activity-wave { 0%, 65%, 100% { opacity: .42; transform: translateY(0); } 32% { opacity: 1; transform: translateY(-.16em); } }
 @media (prefers-reduced-motion: reduce) {
-  .activity-dots i, .startup-loader__mark::after { animation: none; }
+  .activity-dots i, .conversation-loading-brand::before { animation: none; }
 }

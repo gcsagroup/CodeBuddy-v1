@@ -14,6 +14,7 @@ Object.assign(window, {
   appConfig: { get: () => undefined },
   electron: {
     platform: 'win32', logInfo: () => {},
+    requestNetworkAccess: async () => true,
     openPastedText: async (text: string) => { Object.assign(window, { openedPastedText: text }); return { opened: true }; },
     listRecentDirs: async () => new URLSearchParams(location.search).has('hub') ? ['D:/Another'] : [],
     addRecentDir: async () => {},

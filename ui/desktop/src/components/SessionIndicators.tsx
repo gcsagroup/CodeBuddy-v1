@@ -1,6 +1,7 @@
-import { AlertCircle, CircleDot, Loader2 } from 'lucide-react';
+import { AlertCircle, CircleDot, MessageCircleQuestionMark } from 'lucide-react';
 import React from 'react';
 import { defineMessages, useIntl } from '../i18n';
+import AnimatedIcons from './AnimatedIcons';
 
 const i18n = defineMessages({
   error: {
@@ -21,17 +22,25 @@ interface SessionIndicatorsProps {
   isStreaming: boolean;
   hasUnread: boolean;
   hasError: boolean;
+  awaitingReply?: boolean;
 }
 
 /**
  * Visual indicators for session status (priority order: error > streaming > unread)
  */
 export const SessionIndicators = React.memo<SessionIndicatorsProps>(
-  ({ isStreaming, hasUnread, hasError }) => {
+  ({ isStreaming, hasUnread, hasError, awaitingReply }) => {
     const intl = useIntl();
     const errorLabel = intl.formatMessage(i18n.error);
     const streamingLabel = intl.formatMessage(i18n.streaming);
     const unreadLabel = intl.formatMessage(i18n.newActivity);
+
+    if (awaitingReply) return (
+      <span role="status" className="inline-flex shrink-0 items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-900 dark:bg-amber-950 dark:text-amber-200">
+        <MessageCircleQuestionMark aria-hidden="true" className="size-3.5" />
+        {intl.formatMessage({ id: 'sessionIndicators.awaitingReply', defaultMessage: 'Awaiting reply' })}
+      </span>
+    );
 
     if (hasError) {
       return (
@@ -54,7 +63,7 @@ export const SessionIndicators = React.memo<SessionIndicatorsProps>(
           aria-label={streamingLabel}
           title={streamingLabel}
         >
-          <Loader2 className="w-3 h-3 text-blue-500 animate-spin" aria-hidden="true" />
+          <AnimatedIcons variant="waiting" />
         </div>
       );
     }

@@ -113,6 +113,7 @@ export function groupNavigationSessions(
     // New sessions retain the actual choice. Older records only know their cwd;
     // the configured managed root is their display fallback, never a permissions rule.
     const isTask =
+      session.sidebarPlacement === 'tasks' ? true : session.sidebarPlacement === 'project' ? false :
       session.workspaceOrigin === 'selected'
         ? false
         : session.workspaceOrigin === 'default' ||

@@ -2,11 +2,13 @@ import { useState } from 'react';
 import { render, screen, fireEvent, waitFor, act, within } from '@testing-library/react';
 import { beforeEach, expect, it, vi } from 'vitest';
 import { IntlTestWrapper } from '../i18n/test-utils';
-import { WorkspacePanel, WorkspacePanelContent } from './WorkspacePanel';
+import { WorkspacePanel, WorkspacePanelContent, WorkspaceSubagentProvider } from './WorkspacePanel';
 import type { PanelRequest } from './workspacePanelTypes';
 import type { Message } from '../types/message';
 import type { MediaJob } from './WorkspaceGeneration';
 import { AppEvents } from '../constants/events';
+import { readSubagentCatalog } from '../acp/subagentCatalog';
+import { readSubagentConversation } from '../acp/subagentConversation';
 import { getSessionGoal } from '../acp/goals';
 import { OPEN_GOAL_EDITOR } from './goalPanel';
 
@@ -282,6 +284,16 @@ vi.mock('../components/MarkdownContent', () => ({
   default: ({ content }: { content: string }) => <pre>{content}</pre>,
 }));
 const invoke = vi.fn();
+vi.mock('../acp/subagentConversation', async (original) => ({
+  ...(await original<typeof import('../acp/subagentConversation')>()),
+  readSubagentConversation: vi.fn(async (sessionId: string, childSessionId: string, afterSeq: number) => ({
+    sessionId,
+    childSessionId,
+    throughSeq: afterSeq,
+    events: [],
+    hasMore: false,
+  })),
+}));
 vi.mock('../acp/subagentCatalog', () => ({
   readSubagentCatalog: vi.fn(async (sessionId: string) => ({
     sessionId,
@@ -292,17 +304,19 @@ vi.mock('../acp/subagentCatalog', () => ({
   })),
 }));
 it('browses the native subagent catalog without a writable root or parent tool receipts', async () => {
+  snapshotMock.sessionId = 'catalog-history';
   render(
-    <WorkspacePanelContent
-      scope={{ sessionId: 'catalog-history', root: '' }}
-      expanded
-      width={560}
-      onExpandedChange={vi.fn()}
-    />,
+    <WorkspaceSubagentProvider expanded>
+      <WorkspacePanel expanded width={560} onExpandedChange={vi.fn()} />
+    </WorkspaceSubagentProvider>,
     { wrapper: IntlTestWrapper }
   );
-  fireEvent.click(screen.getByRole('tab', { name: 'Subagents' }));
+  expect(readSubagentCatalog).not.toHaveBeenCalledWith('catalog-history', []);
+  await act(async () => {
+    fireEvent.click(screen.getByRole('tab', { name: 'Subagents' }));
+  });
   const child = await screen.findByRole('button', { name: 'Catalog review' });
+  expect(readSubagentConversation).toHaveBeenCalledWith('catalog-history', 'catalog-only-child', -1, []);
   const avatar = child.querySelector('[data-subagent-avatar]')!;
   const colors = (element: typeof avatar) =>
     [...element.classList].filter((name) => /^(bg-|text-|dark:)/.test(name));
@@ -320,15 +334,39 @@ it('browses the native subagent catalog without a writable root or parent tool r
     new CustomEvent('codebuddy:open-subagent-catalog', { detail: { parentSessionId: 'foreign' } })
   );
   expect(screen.getByText('child-conversation:catalog-only-child')).toBeVisible();
-  fireEvent(
-    window,
-    new CustomEvent('codebuddy:open-subagent-catalog', {
-      detail: { parentSessionId: 'catalog-history' },
-    })
-  );
+  await act(async () => {
+    fireEvent(
+      window,
+      new CustomEvent('codebuddy:open-subagent-catalog', {
+        detail: { parentSessionId: 'catalog-history' },
+      })
+    );
+  });
   fireEvent.click(await screen.findByRole('button', { name: 'Catalog review' }));
   expect(screen.getAllByRole('tab', { name: 'Catalog review' })).toHaveLength(1);
   fireEvent.click(screen.getByRole('button', { name: 'Close Catalog review' }));
+  expect(invoke).not.toHaveBeenCalled();
+});
+it('reports a readonly catalog error and retries the same session to an empty directory', async () => {
+  snapshotMock.sessionId = 'empty-imported-history';
+  snapshotMock.readonlyHistory = true;
+  vi.mocked(readSubagentCatalog)
+    .mockRejectedValueOnce(new Error('History unavailable'))
+    .mockResolvedValueOnce({ sessionId: snapshotMock.sessionId, ancestorSessionIds: [], children: [] });
+  render(
+    <WorkspaceSubagentProvider expanded>
+      <WorkspacePanel expanded width={560} onExpandedChange={vi.fn()} />
+    </WorkspaceSubagentProvider>,
+    { wrapper: IntlTestWrapper }
+  );
+  expect(readSubagentCatalog).not.toHaveBeenCalledWith(snapshotMock.sessionId, []);
+  fireEvent.click(screen.getByRole('tab', { name: 'Subagents' }));
+  expect(await screen.findByRole('alert')).toHaveTextContent('History unavailable');
+  fireEvent.click(screen.getByRole('button', { name: 'Refresh subagents' }));
+  expect(await screen.findByText('No subagents in this directory.')).toBeVisible();
+  expect(screen.queryByRole('alert')).toBeNull();
+  expect(screen.queryByText('Loading subagents…')).toBeNull();
+  expect(readSubagentCatalog).toHaveBeenLastCalledWith(snapshotMock.sessionId, []);
   expect(invoke).not.toHaveBeenCalled();
 });
 it('opens historical changes without a writable workspace and keeps file tabs separate by turn', () => {

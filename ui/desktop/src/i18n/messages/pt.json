@@ -275,9 +275,6 @@
   "chat.notification.taskComplete.body": {
     "defaultMessage": "Clique aqui para colocar o CodeBuddy novamente em foco."
   },
-  "chat.notification.taskComplete.title": {
-    "defaultMessage": "O CodeBuddy concluiu a tarefa."
-  },
   "chatInput.attachFile": {
     "defaultMessage": "Attach file"
   },
@@ -5504,12 +5501,6 @@
   "navigationPanel.projectName": {
     "defaultMessage": "Project name"
   },
-  "navigationPanel.renameProject": {
-    "defaultMessage": "Rename project"
-  },
-  "navigationPanel.resetProjectNameHint": {
-    "defaultMessage": "Clear the name to restore the folder name"
-  },
   "navigationPanel.unpinProject": {
     "defaultMessage": "Unpin project"
   },
@@ -10147,5 +10138,92 @@
   },
   "diagnosticExport.title": {
     "defaultMessage": "Exportar logs"
+  },
+  "app.questionNotice": {
+    "defaultMessage": "{title} · Responder ao agente"
+  },
+  "chat.notification.executionEnded.title": {
+    "defaultMessage": "O CodeBuddy terminou este turno de execução."
+  },
+  "navigationPanel.removeProject": {
+    "defaultMessage": "Remover projeto"
+  },
+  "navigationPanel.stopBeforeMove": {
+    "defaultMessage": "Pare a tarefa atual antes de alterar o espaço de trabalho."
+  },
+  "projectEditor.add": {
+    "defaultMessage": "Adicionar pasta"
+  },
+  "projectEditor.edit": {
+    "defaultMessage": "Editar projeto"
+  },
+  "projectEditor.hint": {
+    "defaultMessage": "As conversas começam na pasta principal. A edição de arquivos segue o acesso selecionado aqui. O terminal usa as permissões da sessão."
+  },
+  "projectEditor.linked": {
+    "defaultMessage": "Pastas adicionais"
+  },
+  "projectEditor.main": {
+    "defaultMessage": "Pasta principal"
+  },
+  "projectEditor.reference": {
+    "defaultMessage": "Somente referência"
+  },
+  "projectEditor.remove": {
+    "defaultMessage": "Desvincular {name}"
+  },
+  "projectEditor.write": {
+    "defaultMessage": "Permitir edição"
+  },
+  "sessionIndicators.awaitingReply": {
+    "defaultMessage": "Aguardando resposta"
+  },
+  "typography.default": {
+    "defaultMessage": "Padrão do CodeBuddy"
+  },
+  "typography.failed": {
+    "defaultMessage": "Não foi possível salvar a preferência de exibição."
+  },
+  "typography.font": {
+    "defaultMessage": "Fonte da interface"
+  },
+  "typography.less": {
+    "defaultMessage": "Diminuir {setting}"
+  },
+  "typography.more": {
+    "defaultMessage": "Aumentar {setting}"
+  },
+  "typography.reset": {
+    "defaultMessage": "Redefinir {setting}"
+  },
+  "typography.sample": {
+    "defaultMessage": "Suas mensagens terão esta aparência."
+  },
+  "typography.serif": {
+    "defaultMessage": "Com serifa"
+  },
+  "typography.size": {
+    "defaultMessage": "Tamanho da fonte do código"
+  },
+  "typography.sizeHint": {
+    "defaultMessage": "Aplica-se a blocos de código, ao editor de arquivos e às diferenças."
+  },
+  "typography.system": {
+    "defaultMessage": "Fonte do sistema"
+  },
+  "typography.text": {
+    "defaultMessage": "Tamanho do texto da interface"
+  },
+  "typography.textHint": {
+    "defaultMessage": "Altere o tamanho do texto das conversas, da caixa de mensagens e dos rótulos da interface."
+  },
+  "typography.title": {
+    "defaultMessage": "Tipografia"
+  },
+  "typography.zoom": {
+    "defaultMessage": "Zoom da janela"
+  },
+  "typography.zoomHint": {
+    "defaultMessage": "Ajuste a escala da conversa, da barra lateral e dos controles em conjunto."
   }
 }

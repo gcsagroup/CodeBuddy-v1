@@ -1,4 +1,4 @@
-import { Bot, BriefcaseBusiness, CalendarClock, History, Images, Settings, SquarePen } from 'lucide-react';
+import { Bot, CalendarDays, Clapperboard, History, PanelsTopLeft, Settings2, SquarePen } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { defineMessages, type IntlShape, type MessageDescriptor } from 'react-intl';
 
@@ -25,14 +25,14 @@ export const NAV_ITEMS: NavItem[] = [
     id: 'scheduler',
     path: '/schedules',
     label: 'Automatic Tasks',
-    icon: CalendarClock,
+    icon: CalendarDays,
     searchAliases: ['Scheduler'],
   },
   {
     id: 'toolbox',
     path: '/toolbox',
     label: 'Toolbox',
-    icon: BriefcaseBusiness,
+    icon: PanelsTopLeft,
     searchAliases: ['Skills', 'Apps', 'Extensions', 'MCP'],
   },
   {
@@ -46,7 +46,7 @@ export const NAV_ITEMS: NavItem[] = [
     id: 'media-library',
     path: '/media-library',
     label: 'Media Library',
-    icon: Images,
+    icon: Clapperboard,
     searchAliases: ['Images', 'Videos', '素材库'],
   },
   { id: 'custom-agents', path: '/custom-agents', label: 'Custom Agents', icon: Bot, searchAliases: ['自定义智能体', '角色'] },
@@ -57,7 +57,7 @@ export const SETTINGS_NAV_ITEM: NavItem = {
   id: 'settings',
   path: '/settings',
   label: 'Settings',
-  icon: Settings,
+  icon: Settings2,
 };
 
 // Translation descriptors for nav labels. Kept here next to NAV_ITEMS so the two

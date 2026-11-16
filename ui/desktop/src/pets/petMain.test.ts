@@ -134,9 +134,11 @@ describe('bundled pet registry and saved selection', () => {
     vi.useRealTimers();
     await fs.rm(host.root, { recursive: true, force: true });
   });
-  const start = (onWorkingChange?: (working: boolean) => void) =>
+  const start = (onWorkingChange?: (working: boolean) => void,
+    onQuestion?: Parameters<typeof registerDesktopPet>[0]['onQuestion']) =>
     registerDesktopPet({
       onWorkingChange,
+      onQuestion,
       preload: 'unused',
       rendererUrl: 'http://localhost/',
       builtinDirectory: path.join(host.root, 'bundled'),
@@ -163,6 +165,22 @@ describe('bundled pet registry and saved selection', () => {
     const [, onCrash] = host.sender.on.mock.calls.find(([event]) => event === 'render-process-gone')!;
     onCrash();
     expect(working).toHaveBeenLastCalledWith(false);
+  });
+
+  it('announces each live question once and keeps it visible independently of another session', async () => {
+    const remind = vi.fn();
+    await start(undefined, remind);
+    const publish = (sessionId: string, state: string, ids: string[]) => host.signals.get('pet-task')!(
+      { sender: host.sender }, { sessionId, state, title: sessionId, questions: ids.map(id => ({ id, summary: 'Same text' })) });
+    publish('a', 'working', ['1']);
+    publish('a', 'idle', ['1']);
+    publish('b', 'working', []);
+    expect(remind).toHaveBeenCalledTimes(1);
+    expect((await request({action:'get'})).task?.sessionId).toBe('a');
+    publish('a', 'working', ['1', '2']);
+    expect(remind.mock.calls.map(call => call[2])).toEqual(['1', '2']);
+    publish('a', 'idle', []);
+    expect((await request({action:'get'})).tasks?.map(t => t.sessionId)).toEqual(['b']);
   });
 
   it('loads all three bundled choices and persists the chosen animal separately from visibility', async () => {

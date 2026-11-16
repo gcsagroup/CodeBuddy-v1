@@ -1,8 +1,9 @@
 {
+  "navigationPanel.removeProject": {"defaultMessage": "移除專案"},
+  "navigationPanel.stopBeforeMove": {"defaultMessage": "請先停止目前任務，再切換工作區。"},
   "typography.text": { "defaultMessage": "介面字級" },
   "typography.textHint": { "defaultMessage": "調整聊天內文、輸入框與介面文字。" },
   "typography.sample": { "defaultMessage": "你的訊息會以這個大小顯示。" },
-  "startup.draftHint": { "defaultMessage": "正在連線到模型，現在就可以撰寫訊息。" },
   "typography.title": { "defaultMessage": "字體與縮放" },
   "typography.zoom": { "defaultMessage": "介面縮放" },
   "typography.zoomHint": { "defaultMessage": "同時調整對話、側欄和按鈕的大小。" },
@@ -66,6 +67,9 @@
   },
   "app.chooseFolder": {
     "defaultMessage": "Choose folder"
+  },
+  "app.questionNotice": {
+    "defaultMessage": "{title} · 去回覆 Agent"
   },
   "app.toastNotifications": {
     "defaultMessage": "Toast notifications"
@@ -343,8 +347,8 @@
   "chat.notification.taskComplete.body": {
     "defaultMessage": "按一下這裡讓 CodeBuddy 重新回到焦點。"
   },
-  "chat.notification.taskComplete.title": {
-    "defaultMessage": "CodeBuddy 已完成工作。"
+  "chat.notification.executionEnded.title": {
+    "defaultMessage": "CodeBuddy 本輪執行已結束。"
   },
   "chatInput.attachFile": {
     "defaultMessage": "Attach file"
@@ -5563,12 +5567,6 @@
   "navigationPanel.projectName": {
     "defaultMessage": "專案名稱"
   },
-  "navigationPanel.renameProject": {
-    "defaultMessage": "重新命名專案"
-  },
-  "navigationPanel.resetProjectNameHint": {
-    "defaultMessage": "清除名稱即可還原資料夾名稱"
-  },
   "navigationPanel.unpinProject": {
     "defaultMessage": "取消專案置頂"
   },
@@ -7539,6 +7537,9 @@
   },
   "sessionCapabilities.forkUnavailable": {
     "defaultMessage": "此對話不支援複製。請新增任務以獨立進行工作。"
+  },
+  "sessionIndicators.awaitingReply": {
+    "defaultMessage": "待回覆"
   },
   "sessionIndicators.error": {
     "defaultMessage": "工作階段發生錯誤"

@@ -170,7 +170,9 @@ export default function GitHubConnections({
     [onConnected]
   );
   const check = useCallback(
-    async (forceConnect = false) => {
+    async (forceConnect = false, interactive = false) => {
+      const allowed = interactive ? await window.electron.requestNetworkAccess() : await window.electron.getSetting('networkAccessAllowed');
+      if (!allowed || !mounted.current) return;
       if (logoutPending.current || mcpConnectPending.current) return;
       const current = ++generation.current;
       setChecking(true);
@@ -285,6 +287,7 @@ export default function GitHubConnections({
     setStarting(true);
     setFailed(false);
     try {
+      if (!await window.electron.requestNetworkAccess()) return;
       const next = await window.electron.githubCliLoginStart();
       if (!mounted.current) {
         await window.electron.githubCliLoginCancel(next.flowId);
@@ -395,7 +398,7 @@ export default function GitHubConnections({
               size="sm"
               variant="outline"
               disabled={checking || connectingMcp || signingOut || starting}
-              onClick={() => void check(true)}
+              onClick={() => void check(true, true)}
             >
               {connectingMcp
                 ? t('Connecting…', '连接中…', '連線中…')
@@ -459,7 +462,7 @@ export default function GitHubConnections({
               size="sm"
               variant="outline"
               disabled={checking || starting || signingOut || connectingMcp}
-              onClick={() => void check()}
+              onClick={() => void check(false, true)}
             >
               <RefreshCw className="h-4 w-4" />
               {intl.formatMessage(checking ? messages.checking : messages.check)}
@@ -485,7 +488,7 @@ export default function GitHubConnections({
             status?.state !== 'restart_required' && (
               <Button
                 size="sm"
-                disabled={!status || checkingAccount || starting || signingOut || connectingMcp}
+                disabled={checkingAccount || starting || signingOut || connectingMcp}
                 onClick={() => void start()}
               >
                 {starting && <Loader2 className="h-4 w-4 animate-spin" />}

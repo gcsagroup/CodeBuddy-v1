@@ -275,9 +275,6 @@
   "chat.notification.taskComplete.body": {
     "defaultMessage": "CodeBuddy'yi tekrar odağa almak için buraya tıklayın."
   },
-  "chat.notification.taskComplete.title": {
-    "defaultMessage": "CodeBuddy görevi tamamladı."
-  },
   "chatInput.attachFile": {
     "defaultMessage": "Attach file"
   },
@@ -5504,12 +5501,6 @@
   "navigationPanel.projectName": {
     "defaultMessage": "Project name"
   },
-  "navigationPanel.renameProject": {
-    "defaultMessage": "Rename project"
-  },
-  "navigationPanel.resetProjectNameHint": {
-    "defaultMessage": "Clear the name to restore the folder name"
-  },
   "navigationPanel.unpinProject": {
     "defaultMessage": "Unpin project"
   },
@@ -10147,5 +10138,92 @@
   },
   "diagnosticExport.title": {
     "defaultMessage": "Günlükleri dışa aktar"
+  },
+  "app.questionNotice": {
+    "defaultMessage": "{title} · Ajana yanıt ver"
+  },
+  "chat.notification.executionEnded.title": {
+    "defaultMessage": "CodeBuddy bu yürütme turunu tamamladı."
+  },
+  "navigationPanel.removeProject": {
+    "defaultMessage": "Projeyi listeden kaldır"
+  },
+  "navigationPanel.stopBeforeMove": {
+    "defaultMessage": "Çalışma alanını değiştirmeden önce geçerli görevi durdurun."
+  },
+  "projectEditor.add": {
+    "defaultMessage": "Klasör ekle"
+  },
+  "projectEditor.edit": {
+    "defaultMessage": "Projeyi düzenle"
+  },
+  "projectEditor.hint": {
+    "defaultMessage": "Sohbetler ana klasörde başlar. Dosya düzenleme işlemlerinde burada seçilen erişim geçerlidir. Terminal oturum izinlerini kullanır."
+  },
+  "projectEditor.linked": {
+    "defaultMessage": "Ek klasörler"
+  },
+  "projectEditor.main": {
+    "defaultMessage": "Ana klasör"
+  },
+  "projectEditor.reference": {
+    "defaultMessage": "Yalnızca başvuru için"
+  },
+  "projectEditor.remove": {
+    "defaultMessage": "{name} bağlantısını kaldır"
+  },
+  "projectEditor.write": {
+    "defaultMessage": "Düzenlemeye izin ver"
+  },
+  "sessionIndicators.awaitingReply": {
+    "defaultMessage": "Yanıt bekleniyor"
+  },
+  "typography.default": {
+    "defaultMessage": "CodeBuddy varsayılanı"
+  },
+  "typography.failed": {
+    "defaultMessage": "Görüntüleme tercihiniz kaydedilemedi."
+  },
+  "typography.font": {
+    "defaultMessage": "Arayüz yazı tipi"
+  },
+  "typography.less": {
+    "defaultMessage": "{setting} değerini azalt"
+  },
+  "typography.more": {
+    "defaultMessage": "{setting} değerini artır"
+  },
+  "typography.reset": {
+    "defaultMessage": "{setting} değerini sıfırla"
+  },
+  "typography.sample": {
+    "defaultMessage": "Mesajlarınız böyle görünecek."
+  },
+  "typography.serif": {
+    "defaultMessage": "Serif"
+  },
+  "typography.size": {
+    "defaultMessage": "Kod yazı tipi boyutu"
+  },
+  "typography.sizeHint": {
+    "defaultMessage": "Kod blokları, dosya düzenleyicisi ve fark görünümleri için geçerlidir."
+  },
+  "typography.system": {
+    "defaultMessage": "Sistem yazı tipi"
+  },
+  "typography.text": {
+    "defaultMessage": "Arayüz metin boyutu"
+  },
+  "typography.textHint": {
+    "defaultMessage": "Sohbetin, mesaj kutusunun ve arayüz etiketlerinin metin boyutunu değiştirin."
+  },
+  "typography.title": {
+    "defaultMessage": "Tipografi"
+  },
+  "typography.zoom": {
+    "defaultMessage": "Pencere yakınlaştırması"
+  },
+  "typography.zoomHint": {
+    "defaultMessage": "Sohbeti, kenar çubuğunu ve denetimleri birlikte ölçeklendirin."
   }
 }

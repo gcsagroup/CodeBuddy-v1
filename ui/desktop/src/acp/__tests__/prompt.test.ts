@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Message } from '../../types/message';
 import { isTurnTerminalRecord } from '../../types/turnTerminal';
 import { getAcpClient } from '../acpConnection';
-import { acpPromptSession, messageToAcpPromptContent } from '../prompt';
+import { acpPromptSession, acpSteerSession, messageToAcpPromptContent } from '../prompt';
 import { currentLocale } from '../../i18n';
 
 vi.mock('../acpConnection', () => ({
@@ -11,6 +11,20 @@ vi.mock('../acpConnection', () => ({
 
 beforeEach(() => {
   vi.clearAllMocks();
+});
+
+it('preserves queued origin and original content when steering the active native turn', async () => {
+  const steer = vi.fn().mockResolvedValue({ runId: 'run', messageId: 'accepted' });
+  vi.mocked(getAcpClient).mockResolvedValue({ goose: { sessionSteer_unstable: steer } } as never);
+  const message: Message = { id: 'queued', role: 'user', created: 1,
+    content: [{ type: 'text', text: '补充：保留原要求。' }],
+    metadata: { userVisible: true, agentVisible: true, queuedWhileBusy: true } };
+  await acpSteerSession('session', message, 'run');
+  expect(steer).toHaveBeenLastCalledWith({ sessionId: 'session', expectedRunId: 'run',
+    prompt: [{ type: 'text', text: '补充：保留原要求。' }],
+    _meta: { 'codebuddy/input-origin': 'queued-while-busy' } });
+  await acpSteerSession('session', { ...message, metadata: { userVisible: true, agentVisible: true } }, 'run');
+  expect(steer.mock.calls[steer.mock.calls.length - 1]?.[0]).not.toHaveProperty('_meta');
 });
 
 describe('messageToAcpPromptContent', () => {
@@ -53,6 +67,26 @@ describe('messageToAcpPromptContent', () => {
 });
 
 describe('acpPromptSession', () => {
+  it('carries a busy-queue origin separately from the original user text and leaves ordinary input unmarked', async () => {
+    const prompt = vi.fn().mockResolvedValue({ stopReason: 'end_turn' });
+    vi.mocked(getAcpClient).mockResolvedValue({ prompt } as never);
+    const message: Message = { role: 'user', created: 1, content: [{ type: 'text', text: 'Add this after existing work' }],
+      metadata: { userVisible: true, agentVisible: true, queuedWhileBusy: true } };
+    await acpPromptSession('parent', message);
+    expect(prompt.mock.calls[0][0]._meta['codebuddy/input-origin']).toBe('queued-while-busy');
+    expect(prompt.mock.calls[0][0].prompt).toEqual(message.content);
+    await acpPromptSession('parent', { ...message, metadata: { userVisible: true, agentVisible: true } });
+    expect(prompt.mock.calls[1][0]._meta).not.toHaveProperty('codebuddy/input-origin');
+    await acpPromptSession('parent', message, { schemaVersion: 1, sourceRunId: 'original-run', sourceUserMessageId: 'original-input', strategy: 'replay_user_request', checkpointId: null });
+    expect(prompt.mock.calls[2][0]._meta).not.toHaveProperty('codebuddy/input-origin');
+  });
+  it('cancels locally before delivering a draft from an existing session', async () => {
+    vi.mocked(window.electron.requestNetworkAccess).mockResolvedValueOnce(false);
+    const message: Message = { role: 'user', created: 1, content: [{ type: 'text', text: 'hello' }],
+      metadata: { userVisible: true, agentVisible: true } };
+    expect(await acpPromptSession('saved', message)).toEqual({ stopReason: 'cancelled' });
+    expect(getAcpClient).not.toHaveBeenCalled();
+  });
   it('ignores obsolete verification metadata when sending a saved message', async () => {
     const prompt = vi.fn().mockResolvedValue({ stopReason: 'end_turn' });
     vi.mocked(getAcpClient).mockResolvedValue({ prompt } as never);

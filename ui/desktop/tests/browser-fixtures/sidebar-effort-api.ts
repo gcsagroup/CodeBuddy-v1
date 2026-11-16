@@ -25,7 +25,7 @@ const client = {
     sessionArchive_unstable: async ({ sessionId }: any) => { await request('archive', { sessionId }); const record: any = records.find(s => s.id === sessionId); record.archived = true; },
     providersConfigSave_unstable: (input: unknown) => request('config-save', input),
   },
-  extMethod: async (method: string) => method === '_codebuddy/agents/list' ? { profiles: [] } : { records: [] },
+  extMethod: async (method: string, input: unknown) => method === '_codebuddy/agents/list' ? { profiles: [] } : method === '_goose/unstable/session/navigation/move' ? request('navigation-move', input) : { records: [] },
 };
 export async function getAcpClient() { return client; }
 export async function getAcpControlClient() { return client; }

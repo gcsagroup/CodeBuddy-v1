@@ -233,6 +233,9 @@ test('reopening history preserves running indicators independently for two sideb
     await status('a-new', 'loading');
     await expect(spinner(project)).toBeVisible();
     await expect(spinner(task)).toBeVisible();
+    await expect(spinner(project).locator('.conversation-loading-spinner')).toBeVisible();
+    await expect(spinner(project).locator('.activity-dots')).toHaveCount(0);
+    await page.screenshot({ path: test.info().outputPath('sidebar-running-icons.png') });
     await status('a-new', 'idle');
     await expect(spinner(project)).toHaveCount(0);
     await expect(spinner(task)).toBeVisible();
@@ -287,5 +290,35 @@ for (const dark of [false, true]) test(`workspace card, long and short folder na
     await expect(short.locator('.conversation-title-text')).toHaveCSS('animation-name', 'none');
     await short.click();
     await expect(short).toHaveAttribute('aria-expanded', 'false');
+  } finally { await page.close(); }
+});
+
+test('sidebar accepts drops in task whitespace and project padding, with destination highlighting', async () => {
+  const page = await browser.newPage({ viewport: { width: 1100, height: 1200 } });
+  const requests: {method: string; input: any}[] = [];
+  await page.exposeFunction('fixtureRequest', (method: string, input: any) => { requests.push({method, input}); return {}; });
+  try {
+    await page.goto(server.resolvedUrls!.local[0] + 'tests/browser-fixtures/sidebar-effort.html?tall=1');
+    const tasks = page.locator('[data-task-drop]');
+    const source = page.locator('[data-session-row]').filter({hasText:'项目甲的新对话'});
+    await source.waitFor();
+    const box = (await tasks.boundingBox())!;
+    const last = (await page.locator('[data-session-row]').filter({hasText:'旧任务'}).boundingBox())!;
+    expect(box.y + box.height - (last.y + last.height)).toBeGreaterThan(60);
+    const start = (await source.boundingBox())!;
+    await page.mouse.move(start.x + 5, start.y + 12); await page.mouse.down();
+    await page.mouse.move(start.x + 15, start.y + 18, {steps: 5});
+    await page.mouse.move(box.x + 40, box.y + box.height - 30, {steps: 10});
+    await page.mouse.move(box.x + 41, box.y + box.height - 29);
+    await expect(tasks).toHaveAttribute('data-drop-active', 'true');
+    await page.mouse.up();
+    await expect.poll(() => requests.filter(r => r.method === 'navigation-move').map(r => r.input)).toContainEqual({sessionId:'a-new',destination:'tasks'});
+    await expect(tasks).not.toHaveAttribute('data-drop-active', 'true');
+    const project = page.locator('[data-project-drop="D:/Alpha"]');
+    const projectBox = (await project.boundingBox())!;
+    await page.locator('[data-session-row]').filter({hasText:'旧任务'}).dragTo(project, {sourcePosition:{x:5,y:12},targetPosition:{x:15,y:projectBox.height-5}});
+    await expect.poll(() => requests.filter(r => r.method === 'navigation-move').map(r => r.input)).toContainEqual({sessionId:'t-old',destination:'project',workingDir:'D:/Alpha'});
+    await project.locator('[data-workspace-row]').click({button:'right'});
+    await expect(page.getByRole('menuitem',{name:'移除项目',exact:true}).locator('.lucide-folder-minus')).toBeVisible();
   } finally { await page.close(); }
 });

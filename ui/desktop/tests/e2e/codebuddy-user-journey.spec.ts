@@ -8,16 +8,15 @@ test.setTimeout(480_000);
 
 async function expectCodeProHome(appPage: Page) {
   await expect(appPage.getByRole('heading', { name: '我是 CodeBuddy，一起把事情做好。' })).toBeVisible();
-  await expect(appPage.getByText('自动拆分任务')).toBeVisible();
-  await expect(appPage.getByText('多模型协作')).toBeVisible();
-  await expect(appPage.getByText('原位编辑并保留完整活动记录')).toBeVisible();
+  await expect(appPage.getByText('写代码与排错', { exact: true })).toBeVisible();
+  await expect(appPage.getByText('整理文档与数据', { exact: true })).toBeVisible();
+  await expect(appPage.getByText('规划、执行与验证', { exact: true })).toBeVisible();
   await expect(appPage.getByTestId('chat-input')).toBeVisible();
 }
 
-async function continueWithSelectedProject(appPage: Page) {
-  await expect(appPage.getByRole('heading', { name: '选择这个对话所属的项目' })).toBeVisible();
-  await appPage.getByRole('button', { name: '继续这个项目', exact: true }).click();
-  await expect(appPage.getByRole('heading', { name: '选择这个对话所属的项目' })).not.toBeVisible();
+async function expectSelectedProjectChat(appPage: Page) {
+  await expect(appPage).toHaveURL(/\/codepro\/pair\?resumeSessionId=[^&]+/);
+  await expect(appPage.getByRole('heading', { name: '选择这个对话所属的项目' })).toHaveCount(0);
 }
 
 test('opens the unified CodePro home', async ({ appPage }, testInfo) => {
@@ -31,7 +30,7 @@ test('opens the unified CodePro home', async ({ appPage }, testInfo) => {
 test('opens current workspace destinations', async ({ appPage }) => {
   await expectCodeProHome(appPage);
 
-  for (const label of ['常用任务', '自动任务', '工具箱', '历史记录']) {
+  for (const label of ['自动任务', '工具箱', '历史记录']) {
     await appPage.getByRole('button', { name: label, exact: true }).click();
     await expect(appPage.locator('#root')).toBeVisible();
     await expect(appPage.getByRole('heading', { name: label, exact: true })).toBeVisible();
@@ -43,16 +42,14 @@ test('opens current workspace destinations', async ({ appPage }) => {
 
 test('keeps common task controls usable at the minimum window width', async ({ appPage }) => {
   await expectCodeProHome(appPage);
-  await appPage.setViewportSize({ width: 480, height: 400 });
-  const expandNavigation = appPage.getByRole('button', { name: '展开导航', exact: true });
-  if (await expandNavigation.isVisible()) {
-    await expandNavigation.click();
-  }
-  await appPage.getByRole('button', { name: '常用任务', exact: true }).click();
+  const opened = appPage.context().waitForEvent('page');
+  await appPage.evaluate(() => window.electron.createChatWindow({ viewType: 'recipes' }));
+  const recipes = await opened;
+  await recipes.setViewportSize({ width: 480, height: 400 });
 
-  const heading = appPage.getByRole('heading', { name: '常用任务' });
-  const createButton = appPage.getByRole('button', { name: '创建常用任务', exact: true });
-  const importButton = appPage.getByRole('button', { name: '导入配方', exact: true });
+  const heading = recipes.getByRole('heading', { name: '常用任务' });
+  const createButton = recipes.getByRole('button', { name: '创建常用任务', exact: true });
+  const importButton = recipes.getByRole('button', { name: '导入配方', exact: true });
   await expect(heading).toBeVisible();
   await expect(createButton).toBeVisible();
   await expect(importButton).toBeVisible();
@@ -116,7 +113,7 @@ test('creates an exact workspace and continues without a second confirmation', a
   registerArtifactCleanup(workspace);
   expect(existsSync(workspace)).toBe(false);
   await appPage.evaluate((dir) => window.electron.addRecentDir(dir), 'C:\\');
-  const unboundDirectory = appPage.getByRole('button', { name: '请选择目录' });
+  const unboundDirectory = appPage.getByRole('button', { name: /^(选择工作区|请选择目录)$/ });
   await unboundDirectory.click();
   await appPage.getByRole('menuitem').filter({ hasText: 'C:' }).click();
   await expect(appPage.getByRole('button', { name: 'C:' })).toBeVisible();
@@ -153,14 +150,14 @@ test('executes the confirmed change plan through coder and tester', async ({
   );
 
   await appPage.evaluate((dir) => window.electron.addRecentDir(dir), workspace);
-  const unboundDirectory = appPage.getByRole('button', { name: '请选择目录' });
+  const unboundDirectory = appPage.getByRole('button', { name: /^(选择工作区|请选择目录)$/ });
   await unboundDirectory.click();
   await appPage.getByRole('menuitem').filter({ hasText: 'change-workspace' }).click();
   await expect(appPage.getByRole('button', { name: 'change-workspace' })).toBeVisible();
   const input = appPage.getByTestId('chat-input');
   await input.fill(`请在 "${workspace}" Implement the greeting route and add tests.`);
   await input.press('Enter');
-  await continueWithSelectedProject(appPage);
+  await expectSelectedProjectChat(appPage);
 
   await expect
     .poll(() => readFileSync(join(workspace, 'src', 'controller.js'), 'utf8'), {
@@ -211,12 +208,12 @@ test('Permission approval persists, takes effect, and does not prompt twice', as
   );
 
   await appPage.evaluate((dir) => window.electron.addRecentDir(dir), workspace);
-  await appPage.getByRole('button', { name: '请选择目录' }).click();
+  await appPage.getByRole('button', { name: /^(选择工作区|请选择目录)$/ }).click();
   await appPage.getByRole('menuitem').filter({ hasText: 'permission-workspace' }).click();
   const input = appPage.getByTestId('chat-input');
   await input.fill('执行两个需要用户授权的本地写入，授权一次后继续并验证权限已经生效');
   await input.press('Enter');
-  await continueWithSelectedProject(appPage);
+  await expectSelectedProjectChat(appPage);
 
   const approvalActions = appPage.getByTestId('tool-approval-actions');
   await expect(approvalActions).toHaveCount(1, { timeout: 120_000 });

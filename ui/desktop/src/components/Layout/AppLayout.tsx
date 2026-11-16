@@ -178,11 +178,19 @@ const AppLayoutContent: React.FC<AppLayoutContentProps> = ({ activeSessions }) =
   const [taskPanelPreferences] = useState(() =>
     readCodeProTaskPanelPreferences(typeof window === 'undefined' ? undefined : window.localStorage)
   );
-  const [isCodeProTaskPanelExpanded, setIsCodeProTaskPanelExpanded] = useState(
-    taskPanelPreferences.expanded
-  );
+  // Scope the layout to the conversation, including callbacks still completing for an older route.
+  const [panels, setPanels] = useState(() => new Map<string | null, 'split' | 'full'>());
+  const panelMode = panels.get(currentSessionId);
+  const isCodeProTaskPanelExpanded = panelMode !== undefined;
+  const isChatCollapsed = panelMode === 'full';
+  const setPanelMode = (mode?: 'split' | 'full') => setPanels(previous => {
+    if (previous.get(currentSessionId) === mode) return previous;
+    const next = new Map(previous);
+    if (mode) next.set(currentSessionId, mode);
+    else next.delete(currentSessionId);
+    return next;
+  });
   const [codeProTaskPanelWidth, setCodeProTaskPanelWidth] = useState(taskPanelPreferences.width);
-  const [isChatCollapsed, setIsChatCollapsed] = useState(false);
   const [isPanelResizing, setIsPanelResizing] = useState(false);
   const workAreaRef = useRef<HTMLDivElement>(null);
   const [availableWidth, setAvailableWidth] = useState(() =>
@@ -221,7 +229,7 @@ const AppLayoutContent: React.FC<AppLayoutContentProps> = ({ activeSessions }) =
     } catch {
       // Preferences are optional when storage is unavailable.
     }
-  }, [codeProTaskPanelWidth, isCodeProTaskPanelExpanded]);
+  }, [codeProTaskPanelWidth]);
 
   const { isNavExpanded, setIsNavExpanded } = useNavigationContext();
   const navigationToggleRef = useRef<HTMLButtonElement>(null);
@@ -259,24 +267,22 @@ const AppLayoutContent: React.FC<AppLayoutContentProps> = ({ activeSessions }) =
       (isChatCollapsed || codeProTaskPanelLayout === 'drawer'));
   const panelWidth = chatHidden ? availableWidth : splitWidth;
   const changeChatCollapsed = (collapsed: boolean) => {
-    setIsChatCollapsed(collapsed);
-    if (!collapsed && codeProTaskPanelLayout === 'drawer') setIsCodeProTaskPanelExpanded(false);
+    setPanelMode(collapsed ? 'full' : codeProTaskPanelLayout === 'drawer' ? undefined : 'split');
   };
   const resizePanel = (requested: number, commit = true) => {
     setIsPanelResizing(!commit);
     if (commit && requested < CODEPRO_PANEL_MIN_WIDTH) {
-      setIsCodeProTaskPanelExpanded(false);
-      setIsChatCollapsed(false);
+      setPanelMode();
     } else if (commit && requested > availableWidth - CODEPRO_CHAT_MIN_WIDTH) {
-      setIsChatCollapsed(true);
+      setPanelMode('full');
     } else {
-      if (requested <= availableWidth - CODEPRO_CHAT_MIN_WIDTH) setIsChatCollapsed(false);
+      if (requested <= availableWidth - CODEPRO_CHAT_MIN_WIDTH) setPanelMode('split');
       setCodeProTaskPanelWidth(getCodeProPanelWidth(availableWidth, requested));
     }
   };
   const resetPanelWidth = () => {
     setCodeProTaskPanelWidth(null);
-    setIsChatCollapsed(false);
+    if (isChatCollapsed) setPanelMode('split');
     try {
       window.localStorage.removeItem(CODEPRO_TASK_PANEL_WIDTH_KEY);
     } catch {
@@ -408,10 +414,7 @@ const AppLayoutContent: React.FC<AppLayoutContentProps> = ({ activeSessions }) =
                 <CodeProTaskPanel
                   expanded={isCodeProTaskPanelExpanded}
                   layout={codeProTaskPanelLayout}
-                  onExpandedChange={(expanded) => {
-                    setIsCodeProTaskPanelExpanded(expanded);
-                    setIsChatCollapsed(false);
-                  }}
+                  onExpandedChange={(expanded) => setPanelMode(expanded ? 'split' : undefined)}
                   width={panelWidth}
                   resizing={isPanelResizing}
                   onWidthChange={resizePanel}

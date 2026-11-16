@@ -1,3 +1,4 @@
+import type { IpcMainInvokeEvent } from 'electron';
 import { app, autoUpdater, BrowserWindow, dialog, ipcMain } from 'electron';
 import path from 'node:path';
 import { mkdir, writeFile } from 'node:fs/promises';
@@ -10,6 +11,7 @@ import type { UpdateChannel } from './types';
 import log from '../utils/logger';
 
 export function registerProductUpdates(options: {
+  requestNetworkAccess: (event: IpcMainInvokeEvent) => Promise<boolean>;
   closeForUpdate: () => Promise<void>;
   hasTerminals: () => boolean;
   reserveTerminals: () => () => void;
@@ -116,11 +118,13 @@ export function registerProductUpdates(options: {
       return undefined;
     },
   });
-  ipcMain.handle('check-for-updates', async (_event, channel: UpdateChannel = 'preview') => {
+  ipcMain.handle('check-for-updates', async (event, channel: UpdateChannel = 'preview') => {
+    if (!await options.requestNetworkAccess(event)) return controller.state;
     await controller.check(channel);
     return controller.state;
   });
-  ipcMain.handle('download-update', async () => {
+  ipcMain.handle('download-update', async event => {
+    if (!await options.requestNetworkAccess(event)) return controller.state;
     await controller.download();
     return controller.state;
   });

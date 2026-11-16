@@ -15,7 +15,7 @@ export default function SuspenseLoader({ label, action }: { label?: string; acti
   return (
     <div className="startup-loader">
       <div className="startup-loader__content" role="status" aria-live="polite">
-        <div className="startup-loader__mark" aria-hidden="true">
+        <div className="startup-loader__mark conversation-loading-brand" aria-hidden="true">
           <CodeBuddyMark />
         </div>
         <h1 className="startup-loader__title">{label ?? intl.formatMessage(i18n.loading)}</h1>

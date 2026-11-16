@@ -1,3 +1,4 @@
+import { requireNetworkAccess } from '../utils/networkAccess';
 import { getAcpControlClient } from './acpConnection';
 
 export interface ToolboxSessionState {
@@ -25,6 +26,7 @@ export async function setToolboxSessionMode(
 }
 
 export async function retryToolboxSession(sessionId: string): Promise<void> {
+  await requireNetworkAccess();
   const client = await getAcpControlClient();
   await client.extMethod('_goose/unstable/session/extensions/retry', { sessionId });
 }

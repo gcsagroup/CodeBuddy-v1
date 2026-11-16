@@ -298,6 +298,13 @@ body:is([data-ui-font='system'], [data-ui-font='serif']) .font-sans {
   .app-nav-link {
     @apply flex min-h-9 items-center gap-3 rounded-lg px-3 py-2 text-left text-sm leading-5 text-text-primary transition-colors hover:bg-background-tertiary focus-visible:ring-2 focus-visible:ring-ring;
   }
+  .app-nav-link > svg { transition: transform 180ms ease, color 180ms ease; }
+  .app-nav-link:hover > svg, .app-nav-link:focus-visible > svg { transform: translateY(-1px) scale(1.08); }
+  .app-nav-link[aria-current="page"] > svg { color: var(--color-text-accent, #3b68d9); }
+  @media (prefers-reduced-motion: reduce) {
+    .app-nav-link > svg { transition: none; }
+    .app-nav-link:hover > svg, .app-nav-link:focus-visible > svg { transform: none; }
+  }
   .app-nav-link[aria-current="page"],
   .app-nav-link:has(> [aria-current="page"]) {
     @apply bg-background-tertiary font-semibold;
@@ -1040,4 +1047,28 @@ pre:has(> code.bg-inline-code) {
 
 .mcp-app-container.mcp-enter-inline {
   animation: mcp-enter-inline 180ms cubic-bezier(0.2, 0, 0, 1) both;
+}
+.conversation-loading-spinner {
+  display: inline-block;
+  box-sizing: border-box;
+  width: 16px;
+  height: 16px;
+  flex: none;
+  border: 2px solid #cbd5e1;
+  border-top-color: #334155;
+  border-radius: 50%;
+  animation: conversation-loading-spin 0.85s linear infinite;
+}
+
+.dark .conversation-loading-spinner {
+  border-color: #475569;
+  border-top-color: #e2e8f0;
+}
+
+@keyframes conversation-loading-spin {
+  to { transform: rotate(360deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .conversation-loading-spinner { animation: none; }
 }

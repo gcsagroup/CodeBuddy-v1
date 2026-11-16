@@ -24,7 +24,7 @@ export function ConversationTimeline({
   const intl = useIntl();
   const railRef = useRef<HTMLElement>(null);
   const currentTickRef = useRef<HTMLButtonElement>(null);
-  const [visibility, setVisibility] = useState<{ current?: string; visible: string[] }>({
+  const [visibility, setVisibility] = useState<{ firstVisibleId?: string; visible: string[] }>({
     visible: [],
   });
   const turns = useMemo(() => {
@@ -76,7 +76,7 @@ export function ConversationTimeline({
           previous.visible.length === visible.length &&
           previous.visible.every((id, index) => id === visible[index])
             ? previous
-            : { current: visible[0], visible }
+            : { firstVisibleId: visible[0], visible }
         );
       });
     };
@@ -103,7 +103,7 @@ export function ConversationTimeline({
     const bottom = top + tick.offsetHeight;
     if (top < rail.scrollTop) rail.scrollTop = top;
     else if (bottom > rail.scrollTop + rail.clientHeight) rail.scrollTop = bottom - rail.clientHeight;
-  }, [visibility.current, turns.length]);
+  }, [visibility.firstVisibleId, turns.length]);
 
   if (turns.length < 2) return null;
   return (
@@ -112,14 +112,14 @@ export function ConversationTimeline({
         <Tooltip key={turn.id} delayDuration={180}>
           <TooltipTrigger asChild>
             <button
-              ref={visibility.current === turn.id ? currentTickRef : undefined}
+              ref={visibility.firstVisibleId === turn.id ? currentTickRef : undefined}
               type="button"
               className="conversation-timeline-tick"
               aria-label={intl.formatMessage(labels.turn, {
                 number: index + 1,
                 text: turn.question || intl.formatMessage(labels.attachment),
               })}
-              aria-current={visibility.current === turn.id ? 'location' : undefined}
+              aria-current={visibility.firstVisibleId === turn.id ? 'location' : undefined}
               data-visible={visibility.visible.includes(turn.id) ? 'true' : undefined}
               onClick={() => onNavigate(turn.id)}
             >

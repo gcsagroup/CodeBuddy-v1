@@ -4,6 +4,7 @@ import { IntlProvider } from 'react-intl';
 import ConversationLoading from '../../src/components/ConversationLoading';
 import { applyThemeTokens } from '../../src/theme/theme-tokens';
 import '../../src/styles/main.css';
+import '../../src/styles/startup-loader.css';
 
 const dark = new URLSearchParams(location.search).has('dark');
 document.documentElement.classList.toggle('dark', dark);

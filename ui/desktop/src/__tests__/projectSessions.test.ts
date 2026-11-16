@@ -172,3 +172,12 @@ describe('getProjectLabel', () => {
     expect(getProjectLabel('C:\\Users\\me\\goose')).toBe('goose');
   });
 });
+
+it('keeps explicit sidebar membership separate from execution directory', () => {
+  const movedOut = makeSession({ id: 'out', workingDir: '/project/a', workspaceOrigin: 'selected', sidebarPlacement: 'tasks' });
+  const movedIn = makeSession({ id: 'in', workingDir: '/managed/a', workspaceOrigin: 'default', sidebarPlacement: 'project' });
+  const result = groupNavigationSessions([movedOut, movedIn], '/managed');
+  expect(result.tasks.map(s => s.id)).toEqual(['out']);
+  expect(result.projects[0].sessions.map(s => s.id)).toEqual(['in']);
+  expect(movedOut.workingDir).toBe('/project/a');
+});

@@ -29,9 +29,9 @@ export function applyCodeProRunSnapshot(snapshot: CodeProRunSnapshot): CodeProRu
   const current = projections.get(key);
 
   if (current && normalized.lastSequence < current.lastSequence) {
-    throw new CodeProRunProjectionError(
-      `CodePro run sequence regressed from ${current.lastSequence} to ${normalized.lastSequence}`
-    );
+    // Chat notifications and control refreshes arrive on independent
+    // connections. A late snapshot is obsolete, not an invalid server fact.
+    return current;
   }
   if (current && normalized.lastSequence === current.lastSequence) {
     if (!sameEventProjection(current, normalized)) {

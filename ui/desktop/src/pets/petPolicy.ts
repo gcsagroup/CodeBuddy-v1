@@ -110,6 +110,7 @@ export function selectPetTask(tasks: PetTask[]): PetTask | null {
 export function sortPetTasks(tasks: PetTask[]): PetTask[] {
   const priority = { idle: 0, working: 1, completed: 2, blocked: 3, input: 4 };
   return tasks
-    .filter((t) => t.state !== 'idle')
-    .sort((a, b) => priority[b.state] - priority[a.state]);
+    .filter((t) => t.state !== 'idle' || t.questions?.length)
+    .sort((a, b) => Number(Boolean(b.questions?.length)) - Number(Boolean(a.questions?.length)) ||
+      priority[b.state] - priority[a.state]);
 }

@@ -168,6 +168,8 @@ export const ConfigProvider: React.FC<ConfigProviderProps> = ({ children }) => {
   }, []);
 
   useEffect(() => {
+    let disposed = false;
+    let removeGrantListener: (() => void) | void;
     // Load all configuration data and providers on mount
     (async () => {
       // Load config
@@ -226,22 +228,31 @@ export const ConfigProvider: React.FC<ConfigProviderProps> = ({ children }) => {
         // Fresh installs can reuse the user's existing login. Never replace an
         // existing connection, custom endpoint or explicit disabled preference.
         if (newGitHubConnection && typeof window.electron.githubCliStatus === 'function') {
-          void window.electron
-            .githubCliStatus()
-            .then(async (account) => {
-              if (account.state === 'connected' && account.login) {
-                const result = await connectGitHubMcp(account.login);
-                if (result.success) await refreshExtensions();
-              }
-            })
-            .catch(() => {
-              // Sign-in/retry stays available in the shared account panel.
-            });
+          let checked = false;
+          const connectAfterConsent = async () => {
+            const allowed = await window.electron.getSetting('networkAccessAllowed');
+            if (!allowed || disposed || checked) return;
+            checked = true;
+            removeGrantListener?.();
+            const current = (await getConfiguredExtensions()).extensions.find(e => (e.configKey ?? e.name) === 'github_official');
+            if (!current?.enabled || current.type !== 'streamable_http' || current.uri !== 'https://api.githubcopilot.com/mcp/') return;
+            const account = await window.electron.githubCliStatus();
+            if (!disposed && account.state === 'connected' && account.login) {
+              const result = await connectGitHubMcp(account.login);
+              if (!disposed && result.success) await refreshExtensions();
+            }
+          };
+          const attempt = () => { void connectAfterConsent().catch(() => {}); };
+          if (!disposed) {
+            removeGrantListener = window.electron.on('network-access-granted', attempt);
+            attempt();
+          }
         }
       } catch (error) {
         console.error('Failed to load extensions:', error);
       }
     })();
+    return () => { disposed = true; removeGrantListener?.(); };
   }, [refreshExtensions]);
 
   const contextValue = useMemo(() => {

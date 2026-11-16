@@ -1,8 +1,9 @@
 {
+  "navigationPanel.removeProject": {"defaultMessage": "移除项目"},
+  "navigationPanel.stopBeforeMove": {"defaultMessage": "请先停止当前任务，再切换工作区。"},
   "typography.text": { "defaultMessage": "界面字号" },
   "typography.textHint": { "defaultMessage": "调整聊天正文、输入框和界面文字。" },
   "typography.sample": { "defaultMessage": "你的消息会以这个大小显示。" },
-  "startup.draftHint": { "defaultMessage": "正在连接模型，现在就可以写消息。" },
   "typography.title": { "defaultMessage": "字体与缩放" },
   "typography.zoom": { "defaultMessage": "界面缩放" },
   "typography.zoomHint": { "defaultMessage": "同时调整对话、侧栏和按钮的大小。" },
@@ -66,6 +67,9 @@
   },
   "app.chooseFolder": {
     "defaultMessage": "选择文件夹"
+  },
+  "app.questionNotice": {
+    "defaultMessage": "{title} · 去回复 Agent"
   },
   "app.toastNotifications": {
     "defaultMessage": "消息通知"
@@ -343,8 +347,8 @@
   "chat.notification.taskComplete.body": {
     "defaultMessage": "点击这里让 CodeBuddy 窗口回到前台。"
   },
-  "chat.notification.taskComplete.title": {
-    "defaultMessage": "CodeBuddy 完成任务了。"
+  "chat.notification.executionEnded.title": {
+    "defaultMessage": "CodeBuddy 本轮执行已结束。"
   },
   "chatInput.attachFile": {
     "defaultMessage": "添加附件"
@@ -5563,12 +5567,6 @@
   "navigationPanel.projectName": {
     "defaultMessage": "项目名称"
   },
-  "navigationPanel.renameProject": {
-    "defaultMessage": "重命名项目"
-  },
-  "navigationPanel.resetProjectNameHint": {
-    "defaultMessage": "清空名称可恢复目录名称"
-  },
   "navigationPanel.unpinProject": {
     "defaultMessage": "取消项目置顶"
   },
@@ -7539,6 +7537,9 @@
   },
   "sessionCapabilities.forkUnavailable": {
     "defaultMessage": "此会话不支持复制。请新建任务以独立开展工作。"
+  },
+  "sessionIndicators.awaitingReply": {
+    "defaultMessage": "待回复"
   },
   "sessionIndicators.error": {
     "defaultMessage": "会话发生错误"

@@ -1,6 +1,7 @@
 import GooseLogo from './GooseLogo';
 import { Layers3 } from 'lucide-react';
 import AnimatedIcons from './AnimatedIcons';
+import ConversationSpinner from './ConversationSpinner';
 import { ChatState } from '../types/chatState';
 import { defineMessages, useIntl } from '../i18n';
 import { useEffect, useState } from 'react';
@@ -43,7 +44,7 @@ const i18n = defineMessages({
   compactionWait: { id: 'loadingGoose.compactionWait', defaultMessage: 'Still waiting for the model. Large conversations may take longer; you can stop and retry.' },
   loadingConversation: {
     id: 'loadingGoose.loadingConversation',
-    defaultMessage: 'loading conversation...',
+    defaultMessage: 'Loading conversation…',
   },
   thinking: {
     id: 'loadingGoose.thinking',
@@ -80,15 +81,15 @@ const i18n = defineMessages({
 });
 
 const STATE_ICONS: Record<ChatState, React.ReactNode> = {
-  [ChatState.LoadingConversation]: <AnimatedIcons className="flex-shrink-0" />,
+  [ChatState.LoadingConversation]: <ConversationSpinner />,
   [ChatState.Thinking]: <AnimatedIcons className="flex-shrink-0" />,
-  [ChatState.Streaming]: <AnimatedIcons className="flex-shrink-0" />,
+  [ChatState.Streaming]: <AnimatedIcons className="flex-shrink-0" variant="streaming" />,
   [ChatState.WaitingForUserInput]: (
-    <AnimatedIcons className="flex-shrink-0" />
+    <AnimatedIcons className="flex-shrink-0" variant="question" />
   ),
-  [ChatState.Compacting]: <AnimatedIcons className="flex-shrink-0" />,
+  [ChatState.Compacting]: <AnimatedIcons className="flex-shrink-0" variant="compacting" />,
   [ChatState.Idle]: <GooseLogo size="small" hover={false} />,
-  [ChatState.RestartingAgent]: <AnimatedIcons className="flex-shrink-0" />,
+  [ChatState.RestartingAgent]: <AnimatedIcons className="flex-shrink-0" variant="waiting" />,
 };
 
 const STATE_MESSAGE_KEYS: Record<ChatState, keyof typeof i18n> = {

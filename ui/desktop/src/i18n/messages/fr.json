@@ -275,9 +275,6 @@
   "chat.notification.taskComplete.body": {
     "defaultMessage": "Cliquez ici pour remettre CodeBuddy au premier plan."
   },
-  "chat.notification.taskComplete.title": {
-    "defaultMessage": "CodeBuddy a terminé la tâche."
-  },
   "chatInput.attachFile": {
     "defaultMessage": "Attach file"
   },
@@ -5504,12 +5501,6 @@
   "navigationPanel.projectName": {
     "defaultMessage": "Project name"
   },
-  "navigationPanel.renameProject": {
-    "defaultMessage": "Rename project"
-  },
-  "navigationPanel.resetProjectNameHint": {
-    "defaultMessage": "Clear the name to restore the folder name"
-  },
   "navigationPanel.unpinProject": {
     "defaultMessage": "Unpin project"
   },
@@ -10147,5 +10138,92 @@
   },
   "diagnosticExport.title": {
     "defaultMessage": "Exporter les journaux"
+  },
+  "app.questionNotice": {
+    "defaultMessage": "{title} · Répondre à l’agent"
+  },
+  "chat.notification.executionEnded.title": {
+    "defaultMessage": "CodeBuddy a terminé ce tour d’exécution."
+  },
+  "navigationPanel.removeProject": {
+    "defaultMessage": "Retirer le projet"
+  },
+  "navigationPanel.stopBeforeMove": {
+    "defaultMessage": "Arrêtez la tâche en cours avant de changer son espace de travail."
+  },
+  "projectEditor.add": {
+    "defaultMessage": "Ajouter un dossier"
+  },
+  "projectEditor.edit": {
+    "defaultMessage": "Modifier le projet"
+  },
+  "projectEditor.hint": {
+    "defaultMessage": "Les discussions démarrent dans le dossier principal. La modification des fichiers dépend des droits choisis ici. Le terminal utilise les autorisations de la session."
+  },
+  "projectEditor.linked": {
+    "defaultMessage": "Dossiers supplémentaires"
+  },
+  "projectEditor.main": {
+    "defaultMessage": "Dossier principal"
+  },
+  "projectEditor.reference": {
+    "defaultMessage": "Référence uniquement"
+  },
+  "projectEditor.remove": {
+    "defaultMessage": "Dissocier {name}"
+  },
+  "projectEditor.write": {
+    "defaultMessage": "Autoriser la modification"
+  },
+  "sessionIndicators.awaitingReply": {
+    "defaultMessage": "En attente de réponse"
+  },
+  "typography.default": {
+    "defaultMessage": "Valeur par défaut de CodeBuddy"
+  },
+  "typography.failed": {
+    "defaultMessage": "Impossible d’enregistrer votre préférence d’affichage."
+  },
+  "typography.font": {
+    "defaultMessage": "Police de l’interface"
+  },
+  "typography.less": {
+    "defaultMessage": "Diminuer {setting}"
+  },
+  "typography.more": {
+    "defaultMessage": "Augmenter {setting}"
+  },
+  "typography.reset": {
+    "defaultMessage": "Réinitialiser {setting}"
+  },
+  "typography.sample": {
+    "defaultMessage": "Voici comment vos messages apparaîtront."
+  },
+  "typography.serif": {
+    "defaultMessage": "Avec empattements"
+  },
+  "typography.size": {
+    "defaultMessage": "Taille de la police du code"
+  },
+  "typography.sizeHint": {
+    "defaultMessage": "S’applique aux blocs de code, à l’éditeur de fichiers et aux différences."
+  },
+  "typography.system": {
+    "defaultMessage": "Police du système"
+  },
+  "typography.text": {
+    "defaultMessage": "Taille du texte de l’interface"
+  },
+  "typography.textHint": {
+    "defaultMessage": "Modifie le texte de la discussion, de la zone de saisie et des libellés de l’interface."
+  },
+  "typography.title": {
+    "defaultMessage": "Typographie"
+  },
+  "typography.zoom": {
+    "defaultMessage": "Zoom de la fenêtre"
+  },
+  "typography.zoomHint": {
+    "defaultMessage": "Redimensionne ensemble la discussion, la barre latérale et les commandes."
   }
 }

@@ -82,7 +82,7 @@ export function ProjectEditor({ cwd, name, onClose, onSaveName }: {
       <DialogHeader><DialogTitle>{t(projectEditorMessages.edit)}</DialogTitle>
         <DialogDescription>{t(projectEditorMessages.hint)}</DialogDescription></DialogHeader>
       <form className="grid gap-4" onSubmit={event => { event.preventDefault(); void save(); }}>
-        <label className="grid gap-1 text-sm">{t({ id: 'navigationPanel.projectName', defaultMessage: 'Project name' })}
+        <label className="grid gap-1 text-sm">{intl.formatMessage({ id: 'navigationPanel.projectName', defaultMessage: 'Project name' })}
           <input autoFocus disabled={saving} maxLength={PROJECT_ALIAS_MAX_LENGTH} className="rounded-lg border border-border-primary bg-background-primary px-3 py-2"
             value={draft} onChange={event => setDraft(event.target.value)} /></label>
         <div className="grid gap-1 text-sm"><span>{t(projectEditorMessages.main)}</span>

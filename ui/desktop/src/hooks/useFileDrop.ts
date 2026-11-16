@@ -24,8 +24,6 @@ export function isSupportedVideoFile(file: Pick<File, 'type' | 'name'>): boolean
 }
 
 function waitForMediaEvent(
-  // TypeScript's DOM library provides this type; ESLint's main-process globals do not.
-  // eslint-disable-next-line no-undef
   target: HTMLVideoElement,
   eventName: 'loadedmetadata' | 'seeked',
   timeoutMs = 10_000

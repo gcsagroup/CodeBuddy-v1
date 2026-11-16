@@ -129,6 +129,7 @@ type ElectronAPI = {
   webLinkMenu: (request: WebLinkMenuRequest) => Promise<{ action: 'preview' | null }>;
   platform: string;
   arch: string;
+  requestNetworkAccess: () => Promise<boolean>;
   startupModelConfigured: () => Promise<boolean>;
   reactReady: () => void;
   getConfig: () => Record<string, unknown>;
@@ -260,6 +261,7 @@ const electronAPI: ElectronAPI = {
   webLinkMenu: (request) => ipcRenderer.invoke('web-link-menu', request),
   platform: process.platform,
   arch: process.arch,
+  requestNetworkAccess: () => ipcRenderer.invoke('request-network-access'),
   startupModelConfigured: () => ipcRenderer.invoke('startup-model-configured'),
   reactReady: () => ipcRenderer.send('react-ready'),
   getConfig: () => {

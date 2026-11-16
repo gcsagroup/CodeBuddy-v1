@@ -20,7 +20,7 @@ export function remarkWindowsFileLinks() {
         const before = index !== undefined && parent ? parent.children[index - 1] : undefined;
         const after = index !== undefined && parent ? parent.children[index + 1] : undefined;
         const raw = source.slice(start, end);
-        const bracket = before?.type === 'text' && before.value.match(/\[([^\[\]\n]+)\](<?)$/);
+        const bracket = before?.type === 'text' && before.value.match(/\[([^[\]\n]+)\](<?)$/);
         let path = node.url.replace(/^https?:\/\//i, '');
         if (bracket && before?.type === 'text' && (raw.startsWith('<') || bracket[2])) {
           if (bracket[2]) {

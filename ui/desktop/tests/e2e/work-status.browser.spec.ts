@@ -76,6 +76,8 @@ for (const [locale, labels] of Object.entries({
       await page.getByRole('button', { name: 'reconnect', exact: true }).click();
       await expect(status).toHaveText('连接发生错误；正在重新连接（1/5）');
       await page.getByRole('button', { name: 'waiting', exact: true }).click();
+      await expect(status.locator('svg')).toBeVisible();
+      await expect(status.locator('.activity-dots')).toHaveCount(0);
       await page.clock.install();
       await page.clock.fastForward(206000);
       await expect(page.getByTestId('wait-hint')).toBeVisible();

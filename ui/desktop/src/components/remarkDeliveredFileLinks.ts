@@ -23,7 +23,7 @@ export function remarkDeliveredFileLinks(files: readonly ConversationChangeFile[
       if (node.value !== '<absolute file path>' || index === undefined || !parent) return;
       const before = parent.children[index - 1], after = parent.children[index + 1];
       if (before?.type !== 'text' || after?.type !== 'text') return;
-      const label = /\[([^\[\]\r\n]+)\]\($/.exec(before.value);
+      const label = /\[([^[\]\r\n]+)\]\($/.exec(before.value);
       if (!label) return;
       // Match the entire known destination, including any parentheses in it.
       for (const file of files) {

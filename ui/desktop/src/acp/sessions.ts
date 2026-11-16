@@ -45,12 +45,14 @@ interface GooseSessionInfoMeta {
   lastMessageSnippet?: string;
   workspaceBinding?: 'unbound' | 'root_container' | 'project_container' | 'writable_project';
   rootContainerPath?: string;
+  sidebarPlacement?: 'tasks' | 'project';
   workspaceOrigin?: 'default' | 'selected';
 }
 
 export interface SessionListItem {
   globalConversation?: boolean;
   agentProfile?: Session['agent_profile'];
+  sidebarPlacement?: 'tasks' | 'project';
   workspaceOrigin?: 'default' | 'selected';
   workspaceBinding?: GooseSessionInfoMeta['workspaceBinding'];
   id: string;
@@ -141,6 +143,7 @@ export function sessionInfoToSession(s: SessionInfo, loadMeta: LoadSessionMeta =
     last_message_at: meta.lastMessageAt,
     message_count: meta.messageCount ?? 0,
     extension_data: {
+      ...(meta.sidebarPlacement ? { sidebarPlacement: meta.sidebarPlacement } : {}),
       ...(meta.readonlyHistory === true ? { readonlyHistory: true } : {}),
       ...(meta.workspaceBinding ? { workspaceBinding: meta.workspaceBinding } : {}),
       ...(meta.rootContainerPath ? { rootContainerPath: meta.rootContainerPath } : {}),
@@ -181,6 +184,7 @@ function sessionInfoToListItem(s: SessionInfo): SessionListItem {
     sessionType: meta.sessionType,
     agentProfile: sessionInfoToSession(s).agent_profile,
     workspaceBinding: meta.workspaceBinding,
+    sidebarPlacement: meta.sidebarPlacement,
     workspaceOrigin:
       meta.workspaceOrigin === 'default' || meta.workspaceOrigin === 'selected'
         ? meta.workspaceOrigin
@@ -358,6 +362,7 @@ export interface AcpNewSessionResult {
 
 export interface AcpRecipeOptions {
   extensionSelection?: 'follow' | 'custom';
+  sidebarPlacement?: 'tasks' | 'project';
   workspaceOrigin?: 'default' | 'selected';
   initialPermissionPreset?: Session['goose_mode'];
   recipeId?: string;

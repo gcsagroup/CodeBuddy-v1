@@ -36,7 +36,7 @@ it('checks, downloads only on click and keeps a deferred update ready without an
   const view = render(<UpdateSection />);
   expect(screen.getByRole('combobox')).toHaveValue('preview');
   fireEvent.click(screen.getByRole('button', { name: 'Check for updates' }));
-  expect(window.electron.checkForUpdates).toHaveBeenCalledWith('preview');
+  await waitFor(() => expect(window.electron.checkForUpdates).toHaveBeenCalledWith('preview'));
   fireEvent.click(await screen.findByRole('button', { name: 'Download update' }));
   expect(window.electron.downloadUpdate).toHaveBeenCalledOnce();
   fireEvent.click(await screen.findByRole('button', { name: 'Restart and update' }));
@@ -49,7 +49,7 @@ it('checks, downloads only on click and keeps a deferred update ready without an
 it('allows selecting stable explicitly and renders a recovered download state', async () => {
   render(<UpdateSection />);
   fireEvent.change(screen.getByRole('combobox'), { target: { value: 'stable' } });
-  expect(window.electron.checkForUpdates).toHaveBeenCalledWith('stable');
+  await waitFor(() => expect(window.electron.checkForUpdates).toHaveBeenCalledWith('stable'));
   await waitFor(() => expect(screen.getByText('Fixes')).toBeInTheDocument());
   const { act } = await import('@testing-library/react');
   act(() => callback({ event: 'state', data: { ...idle, phase: 'downloading', percent: 45 } }));

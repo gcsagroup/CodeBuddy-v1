@@ -1,3 +1,4 @@
+import type { IpcRendererEvent } from 'electron';
 import { act, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, expect, it, vi } from 'vitest';
 import { ConfigProvider, useConfig } from './ConfigContext';
@@ -55,6 +56,22 @@ it('connects an existing signed-in account for a fresh install without opening S
   await screen.findByText('ready');
   await waitFor(() => expect(connectGitHubMcp).toHaveBeenCalledExactlyOnceWith('octocat'));
 });
+it('defers the fresh-install account probe until network consent and runs it only once', async () => {
+  let allowed = false;
+  vi.spyOn(window.electron, 'getSetting').mockImplementation(async () => allowed);
+  let granted: (() => void) | undefined;
+  vi.spyOn(window.electron, 'on').mockImplementation((channel, callback) => {
+    if (channel === 'network-access-granted') granted = () => callback({} as IpcRendererEvent);
+  });
+  mount();
+  await screen.findByText('ready');
+  expect(window.electron.githubCliStatus).not.toHaveBeenCalled();
+  allowed = true;
+  await act(async () => { granted!(); granted!(); });
+  expect(window.electron.githubCliStatus).toHaveBeenCalledOnce();
+  expect(connectGitHubMcp).toHaveBeenCalledExactlyOnceWith('octocat');
+});
+
 it('keeps first launch usable without a GitHub login', async () => {
   window.electron.githubCliStatus = vi.fn().mockResolvedValue({ state: 'disconnected' });
   mount();

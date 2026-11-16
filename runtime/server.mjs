@@ -81,6 +81,7 @@ export async function createCompatServer({ dataDir, secret, driver, defaultModel
           "agentInputIds",
           "questions",
           "lastUserStop",
+          "userTurnTerminals",
           "answerQuestion",
           "getGoal",
           "controlGoal",

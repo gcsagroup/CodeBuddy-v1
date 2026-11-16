@@ -44,6 +44,7 @@ import { createMcpPresets, restrictSessionTools } from './mcp-presets.mjs';
 import { installToolDiscovery } from './tool-discovery.mjs';
 import { installSubagentTemplates } from './subagent-templates.mjs';
 import { installSubagentNoticeAdmission } from './subagent-notice-admission.mjs';
+import { userTurnTerminals } from './user-turn-terminals.mjs';
 import { installMainAgentRole } from './main-agent-role.mjs';
 import { validateSubagentLimits } from '../subagent-limits.mjs';
 import { createToolInputPreview } from './tool-input-preview.mjs';
@@ -1757,11 +1758,23 @@ Keep progress updates brief, meaningful, and outcome-based.
     },
     async listSessions() { return (await ctx.sessionController.list({}, new AbortController().signal)).items; },
     async history(sessionId) { return ctx.sessionController.inspect(sessionId); },
-    async lastUserStop(sessionId, sourceId) {
+    async userTurnTerminals(sessionId, { signal } = {}) {
+      signal?.throwIfAborted();
       const live = ctx.agents.get(sessionId)?.session;
-      if (!live && !await ctx.sessionPersistence.stat(sessionId)) return;
-      const observation = live ? undefined : await ctx.sessionQuery.observeSession(sessionId, { projectionMode: 'none' });
+      if (!live && !await ctx.sessionPersistence.stat(sessionId, { signal })) return [];
+      const observation = live ? undefined : await ctx.sessionQuery.observeSession(sessionId, { signal, projectionMode: 'none' });
       try {
+        signal?.throwIfAborted();
+        return userTurnTerminals(live?.log ?? observation.events);
+      } finally { observation?.[Symbol.dispose](); }
+    },
+    async lastUserStop(sessionId, sourceId, { signal } = {}) {
+      signal?.throwIfAborted();
+      const live = ctx.agents.get(sessionId)?.session;
+      if (!live && !await ctx.sessionPersistence.stat(sessionId, { signal })) return;
+      const observation = live ? undefined : await ctx.sessionQuery.observeSession(sessionId, { signal, projectionMode: 'none' });
+      try {
+        signal?.throwIfAborted();
         const log = live?.log ?? observation.events;
         const end = log.findLast(e => e.type === 'turn/start' || e.type === 'turn/end');
         if (end?.type !== 'turn/end' || end.data.reason?.kind !== 'aborted' || end.data.reason.reason?.kind !== 'user') return;

@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {createServer} from 'node:http';
-import {mkdtemp,readFile} from 'node:fs/promises';
+import {mkdtemp,readFile,glob} from 'node:fs/promises';
 import path from 'node:path';
 import os from 'node:os';
 // Match Harness startup before importing the engine for failure injection.
@@ -27,7 +27,7 @@ test('actual summary failures publish safe native reasons and preserve them acro
     if(!body.stream)return res.end(JSON.stringify({choices:[{message:{content:'Isolated test'}}]}));
     requestCount++;
     const summary=JSON.stringify(body.messages.at(-1)).includes('compaction engine');
-    if(summary&&mode==='auth')return res.writeHead(401,{'content-type':'application/json'}).end(JSON.stringify({error:{message:privateText,code:'invalid_api_key'}}));
+    if(summary&&mode==='auth')return res.writeHead(401,{'content-type':'application/json'}).end(JSON.stringify({error:{message:'Authentication rejected; api_key='+privateText,code:'invalid_api_key'}}));
     res.writeHead(200,{'content-type':'text/event-stream'});
     const emit=(delta,finish_reason=null)=>res.write('data: '+JSON.stringify({id:'diagnostic-fixture',choices:[{index:0,delta,finish_reason}]})+'\n\n');
     const content=summary ? mode==='empty'?'':mode==='not_smaller'?'Repeated archive cannot be a smaller checkpoint. '.repeat(3000):'Retain ORION-739. The completed command must not be repeated. Next: verify.' : 'Completed synthetic archive. '.repeat(900);
@@ -77,6 +77,8 @@ test('actual summary failures publish safe native reasons and preserve them acro
   ws.close();await app.close();notifications=[];await connect();
   await rpc('session/load',{sessionId,cwd:root,mcpServers:[]});
   assert.equal(requestCount,sent);assert.deepEqual(lifecycle().filter(d=>d.status==='failed').map(d=>d.diagnostic.code),['AUTH','EMPTY_RESPONSE','MAX_TOKENS','COMPACTION_NOT_SMALLER']);
+  assert.equal(notifications.some(n=>n.params?.update?.status?.data?.terminal_message_id?.startsWith('failed:')),false,
+    'Manual compaction errors keep their lifecycle instead of becoming ordinary-chat failures');
   assert.equal(JSON.stringify(lifecycle()).includes(privateText),false);
   mode='auth';brokenObserver=true;
   const originalFailure=await prompt('/compact').then(()=>null,error=>error);
@@ -87,7 +89,11 @@ test('actual summary failures publish safe native reasons and preserve them acro
   assert.equal(lifecycle().at(-1).status,'completed');assert.equal(lifecycle().at(-1).diagnostic,undefined,'previous model errors must not poison a successful transaction');
   await prompt('Continue without tools.');
   const {data}=await ext('session/log/export',{sessionId});
-  const events=data.split(/\r?\n/).filter(Boolean).map(JSON.parse);
+  assert.equal(JSON.parse(data.split('\n')[0]).type,'log-export');
+  assert.equal(data.includes(privateText),false);
+  const files=[];for await(const file of glob(path.join(dataDir,'harness/sessions/**',sessionId,'session.v4.jsonl').replaceAll('\\','/')))files.push(file);
+  assert.equal(files.length,1);
+  const events=(await readFile(files[0],'utf8')).split(/\r?\n/).filter(Boolean).map(JSON.parse);
   assert.equal(events.filter(e=>e.type==='compaction/start').length,6);
   const ends=events.filter(e=>e.type==='compaction/end');
   assert.equal(ends.length,6);assert.ok(ends.slice(0,5).every(e=>typeof e.data.error==='string'),'native durable error format is unchanged');

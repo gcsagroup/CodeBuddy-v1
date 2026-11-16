@@ -7434,16 +7434,7 @@
     "defaultMessage": "Sesi diduplikasi"
   },
   "sessionActionsHeader.exportLog": {
-    "defaultMessage": "Export logs"
-  },
-  "sessionActionsHeader.exportLogFailed": {
-    "defaultMessage": "Failed to export logs: {error}"
-  },
-  "sessionActionsHeader.exportLogNotice": {
-    "defaultMessage": "Includes conversation content and tool results. Review before sharing."
-  },
-  "sessionActionsHeader.exportLogSaved": {
-    "defaultMessage": "Session log saved"
+    "defaultMessage": "Eksport log"
   },
   "sessionActionsHeader.exportLogWriteFailed": {
     "defaultMessage": "The log file could not be saved."
@@ -10024,5 +10015,137 @@
   },
   "workspaceSubagents.unknownState": {
     "defaultMessage": "Status tidak diketahui · {count}"
+  },
+  "projectBrief.heading": {
+    "defaultMessage": "Ringkasan projek"
+  },
+  "projectBrief.files": {
+    "defaultMessage": "Fail yang diubah ({count})"
+  },
+  "projectBrief.noReply": {
+    "defaultMessage": "Giliran ini tiada jawapan teks akhir."
+  },
+  "projectBrief.loading": {
+    "defaultMessage": "Sedang membaca giliran ini…"
+  },
+  "projectBrief.unavailable": {
+    "defaultMessage": "Giliran projek ini tidak dapat dibaca."
+  },
+  "projectBrief.retry": {
+    "defaultMessage": "Cuba lagi"
+  },
+  "baseChat.mainConversationHeading": {
+    "defaultMessage": "Hai, saya CodeBuddy, pembantu projek anda."
+  },
+  "baseChat.mainConversationHelp": {
+    "defaultMessage": "Saya boleh menyemak kemajuan projek, mencari keperluan terdahulu atau melaraskan kebenaran untuk satu sembang. Saya juga boleh mencipta folder projek, menyerahkan kerja kepada sembang projek dan memberikan ringkasan apabila selesai."
+  },
+  "baseChat.mainConversationExample": {
+    "defaultMessage": "Cuba tanya saya, “Bolehkah anda menyemak kemajuan projek saya?”"
+  },
+  "chatInput.continueTask": {
+    "defaultMessage": "Teruskan tugas"
+  },
+  "codeProHub.clearWorkspace": {
+    "defaultMessage": "Kosongkan pilihan ruang kerja"
+  },
+  "composerStats.cache": {
+    "defaultMessage": "Hit cache"
+  },
+  "composerStats.cacheDetail": {
+    "defaultMessage": "Permintaan model terakhir yang dilaporkan: {cached} token input dalam cache / jumlah {prompt} token input. Penulisan cache tidak dikira sebagai hit."
+  },
+  "composerStats.cacheUnavailable": {
+    "defaultMessage": "Tidak dilaporkan"
+  },
+  "composerStats.cacheUnknown": {
+    "defaultMessage": "Permintaan terkini belum mempunyai data cache yang boleh digunakan. Ketiadaan data tidak bermaksud kadar hit 0%."
+  },
+  "composerStats.previous": {
+    "defaultMessage": "Kelajuan penjanaan terakhir yang diukur"
+  },
+  "composerStats.live": {
+    "defaultMessage": "Kelajuan penjanaan semasa"
+  },
+  "composerStats.liveDetail": {
+    "defaultMessage": "Token output yang diterima setiap saat sepanjang sampel terkini permintaan ini. ≈ menunjukkan anggaran."
+  },
+  "composerStats.speed": {
+    "defaultMessage": "Purata kelajuan penjanaan"
+  },
+  "composerStats.speedDetail": {
+    "defaultMessage": "Purata sesi daripada permintaan model yang selesai. Tidak termasuk masa menunggu token pertama dan pelaksanaan alat; dikemas kini apabila permintaan selesai."
+  },
+  "composerStats.speedUnknown": {
+    "defaultMessage": "Menunggu permintaan selesai yang mempunyai data token dan masa."
+  },
+  "navigationPanel.collapseGroup": {
+    "defaultMessage": "Runtuhkan kumpulan"
+  },
+  "navigationPanel.expandGroup": {
+    "defaultMessage": "Kembangkan kumpulan"
+  },
+  "navigationPanel.newTaskChat": {
+    "defaultMessage": "Perbualan tugas baharu"
+  },
+  "navigationPanel.newWorkspaceChat": {
+    "defaultMessage": "Pilih ruang kerja dan mulakan perbualan"
+  },
+  "navigationPanel.noWorkspace": {
+    "defaultMessage": "Tiada ruang kerja"
+  },
+  "navigationPanel.sectionActions": {
+    "defaultMessage": "Pilihan {section}"
+  },
+  "navigationPanel.unknownTime": {
+    "defaultMessage": "Masa tidak tersedia"
+  },
+  "navigationPanel.updatedAt": {
+    "defaultMessage": "Dikemas kini"
+  },
+  "workspacePanel.browserActionFailed": {
+    "defaultMessage": "{action} gagal"
+  },
+  "workspacePanel.browserControl": {
+    "defaultMessage": "Kawalan pelayar"
+  },
+  "diagnosticExport.cancel": {
+    "defaultMessage": "Batal"
+  },
+  "diagnosticExport.detailed": {
+    "defaultMessage": "Log terperinci"
+  },
+  "diagnosticExport.detailedHint": {
+    "defaultMessage": "Menambah petikan output alat. Semak kandungan dalam pratonton sebelum menyimpan."
+  },
+  "diagnosticExport.failed": {
+    "defaultMessage": "Log tidak dapat disediakan atau disimpan. Cuba lagi."
+  },
+  "diagnosticExport.loading": {
+    "defaultMessage": "Menyediakan log…"
+  },
+  "diagnosticExport.notice": {
+    "defaultMessage": "Simpan log yang dipaparkan. Log setempat asal tidak berubah."
+  },
+  "diagnosticExport.preview": {
+    "defaultMessage": "Pratonton fail"
+  },
+  "diagnosticExport.retry": {
+    "defaultMessage": "Cuba lagi"
+  },
+  "diagnosticExport.save": {
+    "defaultMessage": "Simpan pratonton ini"
+  },
+  "diagnosticExport.saved": {
+    "defaultMessage": "Log disimpan"
+  },
+  "diagnosticExport.standard": {
+    "defaultMessage": "Log standard"
+  },
+  "diagnosticExport.standardHint": {
+    "defaultMessage": "Laluan model, belanjawan, urutan panggilan dan ralat. Tanpa perbualan atau penaakulan."
+  },
+  "diagnosticExport.title": {
+    "defaultMessage": "Eksport log"
   }
 }

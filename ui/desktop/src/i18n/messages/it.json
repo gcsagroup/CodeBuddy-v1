@@ -7434,16 +7434,7 @@
     "defaultMessage": "Sessione duplicata"
   },
   "sessionActionsHeader.exportLog": {
-    "defaultMessage": "Export logs"
-  },
-  "sessionActionsHeader.exportLogFailed": {
-    "defaultMessage": "Failed to export logs: {error}"
-  },
-  "sessionActionsHeader.exportLogNotice": {
-    "defaultMessage": "Includes conversation content and tool results. Review before sharing."
-  },
-  "sessionActionsHeader.exportLogSaved": {
-    "defaultMessage": "Session log saved"
+    "defaultMessage": "Esporta log"
   },
   "sessionActionsHeader.exportLogWriteFailed": {
     "defaultMessage": "The log file could not be saved."
@@ -10024,5 +10015,137 @@
   },
   "workspaceSubagents.unknownState": {
     "defaultMessage": "Stato sconosciuto · {count}"
+  },
+  "projectBrief.heading": {
+    "defaultMessage": "Riepilogo del progetto"
+  },
+  "projectBrief.files": {
+    "defaultMessage": "File modificati ({count})"
+  },
+  "projectBrief.noReply": {
+    "defaultMessage": "Questo turno non contiene una risposta testuale finale."
+  },
+  "projectBrief.loading": {
+    "defaultMessage": "Lettura del turno…"
+  },
+  "projectBrief.unavailable": {
+    "defaultMessage": "Impossibile leggere questo turno del progetto."
+  },
+  "projectBrief.retry": {
+    "defaultMessage": "Riprova"
+  },
+  "baseChat.mainConversationHeading": {
+    "defaultMessage": "Ciao, sono CodeBuddy, il tuo assistente di progetto."
+  },
+  "baseChat.mainConversationHelp": {
+    "defaultMessage": "Posso controllare i progressi di un progetto, trovare un requisito precedente o modificare le autorizzazioni di una singola chat. Posso anche creare una cartella di progetto, affidare il lavoro a una chat del progetto e fornirti un riepilogo al termine."
+  },
+  "baseChat.mainConversationExample": {
+    "defaultMessage": "Prova a chiedermi: «Puoi controllare i progressi del mio progetto?»"
+  },
+  "chatInput.continueTask": {
+    "defaultMessage": "Continua attività"
+  },
+  "codeProHub.clearWorkspace": {
+    "defaultMessage": "Cancella la selezione dello spazio di lavoro"
+  },
+  "composerStats.cache": {
+    "defaultMessage": "Riscontri nella cache"
+  },
+  "composerStats.cacheDetail": {
+    "defaultMessage": "Ultima richiesta al modello segnalata: {cached} token di input nella cache / {prompt} token di input totali. Le scritture nella cache non contano come riscontri."
+  },
+  "composerStats.cacheUnavailable": {
+    "defaultMessage": "Non segnalato"
+  },
+  "composerStats.cacheUnknown": {
+    "defaultMessage": "L’ultima richiesta non dispone ancora di dati utilizzabili sulla cache. I dati mancanti non indicano un tasso di riscontri dello 0%."
+  },
+  "composerStats.previous": {
+    "defaultMessage": "Ultima velocità di generazione misurata"
+  },
+  "composerStats.live": {
+    "defaultMessage": "Velocità di generazione attuale"
+  },
+  "composerStats.liveDetail": {
+    "defaultMessage": "Token di output ricevuti al secondo nell’ultimo campione di questa richiesta. ≈ indica una stima."
+  },
+  "composerStats.speed": {
+    "defaultMessage": "Velocità media di generazione"
+  },
+  "composerStats.speedDetail": {
+    "defaultMessage": "Media della sessione calcolata sulle richieste al modello completate. Esclude l’attesa del primo token e l’esecuzione degli strumenti; si aggiorna al completamento di una richiesta."
+  },
+  "composerStats.speedUnknown": {
+    "defaultMessage": "In attesa di una richiesta completata con dati sui token e sui tempi."
+  },
+  "navigationPanel.collapseGroup": {
+    "defaultMessage": "Comprimi gruppo"
+  },
+  "navigationPanel.expandGroup": {
+    "defaultMessage": "Espandi gruppo"
+  },
+  "navigationPanel.newTaskChat": {
+    "defaultMessage": "Nuova conversazione per attività"
+  },
+  "navigationPanel.newWorkspaceChat": {
+    "defaultMessage": "Scegli uno spazio di lavoro e avvia una conversazione"
+  },
+  "navigationPanel.noWorkspace": {
+    "defaultMessage": "Nessuno spazio di lavoro"
+  },
+  "navigationPanel.sectionActions": {
+    "defaultMessage": "Opzioni di {section}"
+  },
+  "navigationPanel.unknownTime": {
+    "defaultMessage": "Ora non disponibile"
+  },
+  "navigationPanel.updatedAt": {
+    "defaultMessage": "Aggiornato"
+  },
+  "workspacePanel.browserActionFailed": {
+    "defaultMessage": "{action} non riuscita"
+  },
+  "workspacePanel.browserControl": {
+    "defaultMessage": "Controllo del browser"
+  },
+  "diagnosticExport.cancel": {
+    "defaultMessage": "Annulla"
+  },
+  "diagnosticExport.detailed": {
+    "defaultMessage": "Log dettagliato"
+  },
+  "diagnosticExport.detailedHint": {
+    "defaultMessage": "Aggiunge estratti dell’output degli strumenti. Controlla il contenuto nell’anteprima prima di salvare."
+  },
+  "diagnosticExport.failed": {
+    "defaultMessage": "Impossibile preparare o salvare i log. Riprovare."
+  },
+  "diagnosticExport.loading": {
+    "defaultMessage": "Preparazione dei log…"
+  },
+  "diagnosticExport.notice": {
+    "defaultMessage": "Salva il log visualizzato. Il log locale originale rimane invariato."
+  },
+  "diagnosticExport.preview": {
+    "defaultMessage": "Anteprima del file"
+  },
+  "diagnosticExport.retry": {
+    "defaultMessage": "Riprova"
+  },
+  "diagnosticExport.save": {
+    "defaultMessage": "Salva questa anteprima"
+  },
+  "diagnosticExport.saved": {
+    "defaultMessage": "Log salvati"
+  },
+  "diagnosticExport.standard": {
+    "defaultMessage": "Log standard"
+  },
+  "diagnosticExport.standardHint": {
+    "defaultMessage": "Percorsi dei modelli, budget, ordine delle chiamate ed errori. Senza conversazioni o ragionamenti."
+  },
+  "diagnosticExport.title": {
+    "defaultMessage": "Esporta log"
   }
 }

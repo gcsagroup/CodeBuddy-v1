@@ -7434,16 +7434,7 @@
     "defaultMessage": "Sesión duplicada"
   },
   "sessionActionsHeader.exportLog": {
-    "defaultMessage": "Export logs"
-  },
-  "sessionActionsHeader.exportLogFailed": {
-    "defaultMessage": "Failed to export logs: {error}"
-  },
-  "sessionActionsHeader.exportLogNotice": {
-    "defaultMessage": "Includes conversation content and tool results. Review before sharing."
-  },
-  "sessionActionsHeader.exportLogSaved": {
-    "defaultMessage": "Session log saved"
+    "defaultMessage": "Exportar registros"
   },
   "sessionActionsHeader.exportLogWriteFailed": {
     "defaultMessage": "The log file could not be saved."
@@ -10024,5 +10015,137 @@
   },
   "workspaceSubagents.unknownState": {
     "defaultMessage": "Estado desconocido · {count}"
+  },
+  "projectBrief.heading": {
+    "defaultMessage": "Resumen del proyecto"
+  },
+  "projectBrief.files": {
+    "defaultMessage": "Archivos modificados ({count})"
+  },
+  "projectBrief.noReply": {
+    "defaultMessage": "Este turno no tiene una respuesta de texto final."
+  },
+  "projectBrief.loading": {
+    "defaultMessage": "Leyendo este turno…"
+  },
+  "projectBrief.unavailable": {
+    "defaultMessage": "No se pudo leer este turno del proyecto."
+  },
+  "projectBrief.retry": {
+    "defaultMessage": "Reintentar"
+  },
+  "baseChat.mainConversationHeading": {
+    "defaultMessage": "Hola, soy CodeBuddy, tu asistente de proyectos."
+  },
+  "baseChat.mainConversationHelp": {
+    "defaultMessage": "Puedo revisar el progreso de un proyecto, buscar un requisito anterior o ajustar los permisos de un solo chat. También puedo crear una carpeta de proyecto, delegar el trabajo a un chat del proyecto y traerte un resumen al terminar."
+  },
+  "baseChat.mainConversationExample": {
+    "defaultMessage": "Prueba a preguntarme: «¿Puedes revisar el progreso de mi proyecto?»"
+  },
+  "chatInput.continueTask": {
+    "defaultMessage": "Continuar tarea"
+  },
+  "codeProHub.clearWorkspace": {
+    "defaultMessage": "Borrar el espacio de trabajo seleccionado"
+  },
+  "composerStats.cache": {
+    "defaultMessage": "Aciertos de caché"
+  },
+  "composerStats.cacheDetail": {
+    "defaultMessage": "Última solicitud de modelo notificada: {cached} tokens de entrada en caché / {prompt} tokens de entrada totales. Las escrituras en caché no cuentan como aciertos."
+  },
+  "composerStats.cacheUnavailable": {
+    "defaultMessage": "Sin datos"
+  },
+  "composerStats.cacheUnknown": {
+    "defaultMessage": "La última solicitud aún no tiene datos de caché utilizables. La ausencia de datos no significa una tasa de aciertos del 0 %."
+  },
+  "composerStats.previous": {
+    "defaultMessage": "Última velocidad de generación medida"
+  },
+  "composerStats.live": {
+    "defaultMessage": "Velocidad de generación actual"
+  },
+  "composerStats.liveDetail": {
+    "defaultMessage": "Tokens de salida recibidos por segundo durante la última muestra de esta solicitud. ≈ indica una estimación."
+  },
+  "composerStats.speed": {
+    "defaultMessage": "Velocidad de generación media"
+  },
+  "composerStats.speedDetail": {
+    "defaultMessage": "Media de la sesión a partir de solicitudes de modelo completadas. Excluye la espera del primer token y la ejecución de herramientas; se actualiza al terminar cada solicitud."
+  },
+  "composerStats.speedUnknown": {
+    "defaultMessage": "Esperando una solicitud completada con datos de tokens y tiempo."
+  },
+  "navigationPanel.collapseGroup": {
+    "defaultMessage": "Contraer grupo"
+  },
+  "navigationPanel.expandGroup": {
+    "defaultMessage": "Expandir grupo"
+  },
+  "navigationPanel.newTaskChat": {
+    "defaultMessage": "Nueva conversación de tarea"
+  },
+  "navigationPanel.newWorkspaceChat": {
+    "defaultMessage": "Elige un espacio de trabajo e inicia una conversación"
+  },
+  "navigationPanel.noWorkspace": {
+    "defaultMessage": "Sin espacio de trabajo"
+  },
+  "navigationPanel.sectionActions": {
+    "defaultMessage": "Opciones de {section}"
+  },
+  "navigationPanel.unknownTime": {
+    "defaultMessage": "Hora no disponible"
+  },
+  "navigationPanel.updatedAt": {
+    "defaultMessage": "Actualizado"
+  },
+  "workspacePanel.browserActionFailed": {
+    "defaultMessage": "Error en {action}"
+  },
+  "workspacePanel.browserControl": {
+    "defaultMessage": "Control del navegador"
+  },
+  "diagnosticExport.cancel": {
+    "defaultMessage": "Cancelar"
+  },
+  "diagnosticExport.detailed": {
+    "defaultMessage": "Registro detallado"
+  },
+  "diagnosticExport.detailedHint": {
+    "defaultMessage": "Añade fragmentos de salida de herramientas. Revisa el contenido en la vista previa antes de guardar."
+  },
+  "diagnosticExport.failed": {
+    "defaultMessage": "No se pudieron preparar o guardar los registros. Inténtelo de nuevo."
+  },
+  "diagnosticExport.loading": {
+    "defaultMessage": "Preparando registros…"
+  },
+  "diagnosticExport.notice": {
+    "defaultMessage": "Se guardará el registro mostrado. El original local no cambia."
+  },
+  "diagnosticExport.preview": {
+    "defaultMessage": "Vista previa del archivo"
+  },
+  "diagnosticExport.retry": {
+    "defaultMessage": "Reintentar"
+  },
+  "diagnosticExport.save": {
+    "defaultMessage": "Guardar esta vista previa"
+  },
+  "diagnosticExport.saved": {
+    "defaultMessage": "Registros guardados"
+  },
+  "diagnosticExport.standard": {
+    "defaultMessage": "Registro estándar"
+  },
+  "diagnosticExport.standardHint": {
+    "defaultMessage": "Rutas de modelos, límites, orden de llamadas y errores. Sin conversaciones ni razonamiento."
+  },
+  "diagnosticExport.title": {
+    "defaultMessage": "Exportar registros"
   }
 }

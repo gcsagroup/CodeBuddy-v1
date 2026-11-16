@@ -29,12 +29,12 @@ import {
   acpArchiveSession,
   acpDeleteSession,
   acpExportSession,
-  acpExportSessionLog,
   acpForkSession,
   acpRenameSession,
 } from '../acp/sessions';
 import { errorMessage } from '../utils/conversionUtils';
 import { ConfirmationModal } from './ui/ConfirmationModal';
+import { DiagnosticExportDialog } from './DiagnosticExportDialog';
 import { acpChatSessionActions } from '../acp/chatSessionStore';
 import { cancelAcpPermissionRequestsForSession } from '../acp/permissionRequests';
 import { cancelAcpElicitationRequestsForSession } from '../acp/elicitationRequests';
@@ -71,18 +71,6 @@ const i18n = defineMessages({
   exportLogWriteFailed: {
     id: 'sessionActionsHeader.exportLogWriteFailed',
     defaultMessage: 'The log file could not be saved.',
-  },
-  exportLogNotice: {
-    id: 'sessionActionsHeader.exportLogNotice',
-    defaultMessage: 'Includes conversation content and tool results. Review before sharing.',
-  },
-  exportLogSaved: {
-    id: 'sessionActionsHeader.exportLogSaved',
-    defaultMessage: 'Session log saved',
-  },
-  exportLogFailed: {
-    id: 'sessionActionsHeader.exportLogFailed',
-    defaultMessage: 'Failed to export logs: {error}',
   },
   exportLog: { id: 'sessionActionsHeader.exportLog', defaultMessage: 'Export logs' },
   openFolder: { id: 'sessionActionsHeader.openFolder', defaultMessage: 'Open folder' },
@@ -420,8 +408,7 @@ export function SessionActionsContextMenu({
   const [jsonValue, setJsonValue] = useState<unknown>(null);
   const [jsonText, setJsonText] = useState('');
   const [isJsonLoading, setIsJsonLoading] = useState(false);
-  const [isExportingLog, setIsExportingLog] = useState(false);
-  const exportingLog = useRef(false);
+  const [isDiagnosticsOpen, setIsDiagnosticsOpen] = useState(false);
   const [isDuplicating, setIsDuplicating] = useState(false);
   const [isArchiving, setIsArchiving] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<typeof session | null>(null);
@@ -595,36 +582,6 @@ export function SessionActionsContextMenu({
     }
   }, [intl, session]);
 
-  const handleExportLog = useCallback(async () => {
-    if (!session || exportingLog.current) return;
-    exportingLog.current = true;
-    setIsExportingLog(true);
-    try {
-      const destination = await window.electron.showSaveDialog({
-        title: intl.formatMessage(i18n.exportLog),
-        message: intl.formatMessage(i18n.exportLogNotice),
-        defaultDirectory: 'desktop',
-        defaultPath: `session-${session.id.replace(/[^a-zA-Z0-9_-]/g, '_')}.jsonl`,
-        filters: [{ name: 'JSONL', extensions: ['jsonl'] }],
-      });
-      if (destination.canceled || !destination.filePath) return;
-      const data = await acpExportSessionLog(session.id);
-      if (!(await window.electron.writeFile(destination.filePath, data))) {
-        throw new Error(intl.formatMessage(i18n.exportLogWriteFailed));
-      }
-      toast.success(intl.formatMessage(i18n.exportLogSaved));
-    } catch (error) {
-      toast.error(
-        intl.formatMessage(i18n.exportLogFailed, {
-          error: errorMessage(error, 'Unknown error'),
-        })
-      );
-    } finally {
-      exportingLog.current = false;
-      setIsExportingLog(false);
-    }
-  }, [intl, session]);
-
   const handleCopyJson = useCallback(async () => {
     if (!jsonText) return;
     await navigator.clipboard.writeText(jsonText);
@@ -744,16 +701,18 @@ export function SessionActionsContextMenu({
             )}
             {intl.formatMessage(i18n.viewJson)}
           </DropdownMenuItem>
-          <DropdownMenuItem disabled={isExportingLog} onSelect={() => void handleExportLog()}>
-            {isExportingLog ? (
-              <LoaderCircle className="size-4 animate-spin" />
-            ) : (
-              <Download className="size-4" />
-            )}
+          <DropdownMenuItem onSelect={() => setIsDiagnosticsOpen(true)}>
+            <Download className="size-4" />
             {intl.formatMessage(i18n.exportLog)}
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
+      <DiagnosticExportDialog
+        key={session.id}
+        sessionId={session.id}
+        open={isDiagnosticsOpen}
+        onOpenChange={setIsDiagnosticsOpen}
+      />
       <ConfirmationModal
         isOpen={!!deleteTarget}
         title={intl.formatMessage(i18n.deleteTitle)}

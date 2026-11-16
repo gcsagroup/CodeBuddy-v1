@@ -7434,16 +7434,7 @@
     "defaultMessage": "セッションを複製しました"
   },
   "sessionActionsHeader.exportLog": {
-    "defaultMessage": "Export logs"
-  },
-  "sessionActionsHeader.exportLogFailed": {
-    "defaultMessage": "Failed to export logs: {error}"
-  },
-  "sessionActionsHeader.exportLogNotice": {
-    "defaultMessage": "Includes conversation content and tool results. Review before sharing."
-  },
-  "sessionActionsHeader.exportLogSaved": {
-    "defaultMessage": "Session log saved"
+    "defaultMessage": "ログをエクスポート"
   },
   "sessionActionsHeader.exportLogWriteFailed": {
     "defaultMessage": "The log file could not be saved."
@@ -10024,5 +10015,137 @@
   },
   "workspaceSubagents.unknownState": {
     "defaultMessage": "状態不明 · {count}"
+  },
+  "projectBrief.heading": {
+    "defaultMessage": "プロジェクト概要"
+  },
+  "projectBrief.files": {
+    "defaultMessage": "変更したファイル（{count}）"
+  },
+  "projectBrief.noReply": {
+    "defaultMessage": "このターンには最終的なテキスト回答がありません。"
+  },
+  "projectBrief.loading": {
+    "defaultMessage": "このターンを読み込み中…"
+  },
+  "projectBrief.unavailable": {
+    "defaultMessage": "このプロジェクトのターンを読み込めませんでした。"
+  },
+  "projectBrief.retry": {
+    "defaultMessage": "再試行"
+  },
+  "baseChat.mainConversationHeading": {
+    "defaultMessage": "こんにちは。プロジェクトアシスタントの CodeBuddy です。"
+  },
+  "baseChat.mainConversationHelp": {
+    "defaultMessage": "プロジェクトの進捗確認、以前の要件の検索、個別のチャットの権限調整ができます。プロジェクトフォルダーを作成してプロジェクトチャットに作業を引き継ぎ、完了後に概要をお届けすることもできます。"
+  },
+  "baseChat.mainConversationExample": {
+    "defaultMessage": "「プロジェクトの進捗を確認して」と聞いてみてください。"
+  },
+  "chatInput.continueTask": {
+    "defaultMessage": "タスクを続行"
+  },
+  "codeProHub.clearWorkspace": {
+    "defaultMessage": "ワークスペースの選択を解除"
+  },
+  "composerStats.cache": {
+    "defaultMessage": "キャッシュヒット"
+  },
+  "composerStats.cacheDetail": {
+    "defaultMessage": "直近に報告されたモデルリクエスト：キャッシュ済み入力トークン {cached} / 入力トークン合計 {prompt}。キャッシュへの書き込みはヒットに含みません。"
+  },
+  "composerStats.cacheUnavailable": {
+    "defaultMessage": "未報告"
+  },
+  "composerStats.cacheUnknown": {
+    "defaultMessage": "直近のリクエストには利用できるキャッシュ情報がまだありません。データがないことはヒット率 0% を意味しません。"
+  },
+  "composerStats.previous": {
+    "defaultMessage": "最後に測定した生成速度"
+  },
+  "composerStats.live": {
+    "defaultMessage": "現在の生成速度"
+  },
+  "composerStats.liveDetail": {
+    "defaultMessage": "このリクエストの直近の測定区間で、1 秒あたりに受信した出力トークン数。≈ は推定値です。"
+  },
+  "composerStats.speed": {
+    "defaultMessage": "平均生成速度"
+  },
+  "composerStats.speedDetail": {
+    "defaultMessage": "完了したモデルリクエストから算出したセッション平均。最初のトークンの待ち時間とツール実行時間は含まず、リクエスト完了時に更新します。"
+  },
+  "composerStats.speedUnknown": {
+    "defaultMessage": "トークン数と時間情報を含むリクエストの完了を待っています。"
+  },
+  "navigationPanel.collapseGroup": {
+    "defaultMessage": "グループを折りたたむ"
+  },
+  "navigationPanel.expandGroup": {
+    "defaultMessage": "グループを展開"
+  },
+  "navigationPanel.newTaskChat": {
+    "defaultMessage": "新しいタスク会話"
+  },
+  "navigationPanel.newWorkspaceChat": {
+    "defaultMessage": "ワークスペースを選択して会話を開始"
+  },
+  "navigationPanel.noWorkspace": {
+    "defaultMessage": "ワークスペースなし"
+  },
+  "navigationPanel.sectionActions": {
+    "defaultMessage": "{section} のオプション"
+  },
+  "navigationPanel.unknownTime": {
+    "defaultMessage": "時刻を取得できません"
+  },
+  "navigationPanel.updatedAt": {
+    "defaultMessage": "更新日時"
+  },
+  "workspacePanel.browserActionFailed": {
+    "defaultMessage": "{action} に失敗しました"
+  },
+  "workspacePanel.browserControl": {
+    "defaultMessage": "ブラウザー操作"
+  },
+  "diagnosticExport.cancel": {
+    "defaultMessage": "キャンセル"
+  },
+  "diagnosticExport.detailed": {
+    "defaultMessage": "詳細ログ"
+  },
+  "diagnosticExport.detailedHint": {
+    "defaultMessage": "ツール出力の抜粋を追加します。保存前にプレビューで内容を確認できます。"
+  },
+  "diagnosticExport.failed": {
+    "defaultMessage": "ログの準備または保存に失敗しました。再試行してください。"
+  },
+  "diagnosticExport.loading": {
+    "defaultMessage": "ログを準備しています…"
+  },
+  "diagnosticExport.notice": {
+    "defaultMessage": "表示中のログを保存します。ローカルの元のログは変更されません。"
+  },
+  "diagnosticExport.preview": {
+    "defaultMessage": "ファイルのプレビュー"
+  },
+  "diagnosticExport.retry": {
+    "defaultMessage": "再試行"
+  },
+  "diagnosticExport.save": {
+    "defaultMessage": "このプレビューを保存"
+  },
+  "diagnosticExport.saved": {
+    "defaultMessage": "ログを保存しました"
+  },
+  "diagnosticExport.standard": {
+    "defaultMessage": "標準ログ"
+  },
+  "diagnosticExport.standardHint": {
+    "defaultMessage": "モデルルート、予算、呼び出し順序、エラーを含みます。会話や思考の本文は含みません。"
+  },
+  "diagnosticExport.title": {
+    "defaultMessage": "ログをエクスポート"
   }
 }

@@ -175,7 +175,7 @@ describe('SessionActionsContextMenu', () => {
         const journal =
           '{"type":"session","id":"native"}\n{"type":"tool/result","data":{"text":"中文"}}\n';
         if (outcome === 'read-error')
-          vi.mocked(exporter).mockRejectedValue(new Error('No native log'));
+          vi.mocked(exporter).mockRejectedValue(new Error('PRIVATE_CANARY C:/private/key.txt'));
         else vi.mocked(exporter).mockResolvedValue(journal);
         testingRender(
           <SessionActionsContextMenu session={{ id: 'product', name: 'Export chat' }}>
@@ -189,29 +189,39 @@ describe('SessionActionsContextMenu', () => {
             name: kind === 'logs' ? 'Export logs' : 'Export session',
           })
         );
+        if (kind === 'logs') {
+          if (outcome === 'read-error') {
+            expect(await screen.findByRole('alert')).not.toHaveTextContent('PRIVATE_CANARY');
+            expect(write).not.toHaveBeenCalled();
+            return;
+          }
+          await screen.findByRole('textbox', { name: 'File preview' });
+          fireEvent.click(screen.getByRole('button', { name: 'Save this preview' }));
+        }
         await waitFor(() =>
           expect(save).toHaveBeenCalledExactlyOnceWith(
             expect.objectContaining({
               defaultDirectory: 'desktop',
-              defaultPath: kind === 'logs' ? 'session-product.jsonl' : 'session-product.json',
+              defaultPath: kind === 'logs' ? 'session-log.jsonl' : 'session-product.json',
             })
           )
         );
         if (outcome === 'cancelled') {
-          expect(exporter).not.toHaveBeenCalled();
+          if (kind === 'session') expect(exporter).not.toHaveBeenCalled();
           expect(write).not.toHaveBeenCalled();
           expect(toast.error).not.toHaveBeenCalled();
         } else if (outcome === 'saved') {
           await waitFor(() =>
             expect(toast.success).toHaveBeenCalledWith(
-              kind === 'logs' ? 'Session log saved' : 'Session exported successfully'
+              kind === 'logs' ? 'Logs saved' : 'Session exported successfully'
             )
           );
-          expect(exporter).toHaveBeenCalledWith('product');
+          expect(exporter).toHaveBeenCalledWith(...(kind === 'logs' ? ['product', 'standard'] : ['product']));
           expect(write).toHaveBeenCalledWith('/chosen/session.jsonl', journal);
         } else {
           await waitFor(() => expect(toast.error).toHaveBeenCalled());
           expect(toast.success).not.toHaveBeenCalled();
+          if (kind === 'logs') expect(JSON.stringify(vi.mocked(toast.error).mock.calls)).not.toContain('PRIVATE_CANARY');
           if (outcome === 'read-error') expect(write).not.toHaveBeenCalled();
         }
       });

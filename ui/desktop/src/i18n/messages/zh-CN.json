@@ -25,8 +25,6 @@
   "projectEditor.remove": { "defaultMessage": "移除关联 {name}" },
   "projectEditor.hint": { "defaultMessage": "对话默认在主文件夹中工作。文件编辑工具按这里的设置读写附加文件夹，终端沿用会话权限。" },
   "projectBrief.heading": { "defaultMessage": "项目简报" },
-  "projectBrief.task": { "defaultMessage": "本轮任务" },
-  "projectBrief.result": { "defaultMessage": "项目回复摘要" },
   "projectBrief.files": { "defaultMessage": "已修改文件（{count}）" },
   "projectBrief.noReply": { "defaultMessage": "本轮没有留下最终文字回复。" },
   "projectBrief.loading": { "defaultMessage": "正在读取本轮记录…" },
@@ -7494,15 +7492,6 @@
   "sessionActionsHeader.exportLog": {
     "defaultMessage": "导出日志"
   },
-  "sessionActionsHeader.exportLogFailed": {
-    "defaultMessage": "导出日志失败：{error}"
-  },
-  "sessionActionsHeader.exportLogNotice": {
-    "defaultMessage": "包含对话内容和工具结果，分享前请检查。"
-  },
-  "sessionActionsHeader.exportLogSaved": {
-    "defaultMessage": "会话日志已保存"
-  },
   "sessionActionsHeader.exportLogWriteFailed": {
     "defaultMessage": "日志文件保存失败。"
   },
@@ -10096,5 +10085,44 @@
   },
   "navigationPanel.unknownTime": {
     "defaultMessage": "时间未知"
+  },
+  "diagnosticExport.cancel": {
+    "defaultMessage": "取消"
+  },
+  "diagnosticExport.detailed": {
+    "defaultMessage": "详细日志"
+  },
+  "diagnosticExport.detailedHint": {
+    "defaultMessage": "增加工具输出片段，可在预览中检查要导出的内容。"
+  },
+  "diagnosticExport.failed": {
+    "defaultMessage": "无法生成或保存日志，请重试。"
+  },
+  "diagnosticExport.loading": {
+    "defaultMessage": "正在生成日志…"
+  },
+  "diagnosticExport.notice": {
+    "defaultMessage": "保存预览中的这份日志，本机原始日志不变。"
+  },
+  "diagnosticExport.preview": {
+    "defaultMessage": "文件预览"
+  },
+  "diagnosticExport.retry": {
+    "defaultMessage": "重试"
+  },
+  "diagnosticExport.save": {
+    "defaultMessage": "保存这份预览"
+  },
+  "diagnosticExport.saved": {
+    "defaultMessage": "日志已保存"
+  },
+  "diagnosticExport.standard": {
+    "defaultMessage": "标准日志"
+  },
+  "diagnosticExport.standardHint": {
+    "defaultMessage": "保留模型路由、预算、调用顺序和错误信息，不含对话与思考正文。"
+  },
+  "diagnosticExport.title": {
+    "defaultMessage": "导出日志"
   }
 }

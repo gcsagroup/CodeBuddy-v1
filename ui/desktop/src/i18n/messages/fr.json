@@ -7434,16 +7434,7 @@
     "defaultMessage": "Session dupliquée"
   },
   "sessionActionsHeader.exportLog": {
-    "defaultMessage": "Export logs"
-  },
-  "sessionActionsHeader.exportLogFailed": {
-    "defaultMessage": "Failed to export logs: {error}"
-  },
-  "sessionActionsHeader.exportLogNotice": {
-    "defaultMessage": "Includes conversation content and tool results. Review before sharing."
-  },
-  "sessionActionsHeader.exportLogSaved": {
-    "defaultMessage": "Session log saved"
+    "defaultMessage": "Exporter les journaux"
   },
   "sessionActionsHeader.exportLogWriteFailed": {
     "defaultMessage": "The log file could not be saved."
@@ -10024,5 +10015,137 @@
   },
   "workspaceSubagents.unknownState": {
     "defaultMessage": "État inconnu · {count}"
+  },
+  "projectBrief.heading": {
+    "defaultMessage": "Résumé du projet"
+  },
+  "projectBrief.files": {
+    "defaultMessage": "Fichiers modifiés ({count})"
+  },
+  "projectBrief.noReply": {
+    "defaultMessage": "Ce tour ne contient aucune réponse textuelle finale."
+  },
+  "projectBrief.loading": {
+    "defaultMessage": "Lecture de ce tour…"
+  },
+  "projectBrief.unavailable": {
+    "defaultMessage": "Impossible de lire ce tour du projet."
+  },
+  "projectBrief.retry": {
+    "defaultMessage": "Réessayer"
+  },
+  "baseChat.mainConversationHeading": {
+    "defaultMessage": "Bonjour, je suis CodeBuddy, votre assistant de projet."
+  },
+  "baseChat.mainConversationHelp": {
+    "defaultMessage": "Je peux vérifier la progression d’un projet, retrouver une ancienne exigence ou ajuster les autorisations d’une seule discussion. Je peux aussi créer un dossier de projet, confier le travail à une discussion de projet et vous apporter un résumé une fois terminé."
+  },
+  "baseChat.mainConversationExample": {
+    "defaultMessage": "Essayez de me demander : « Peux-tu vérifier la progression de mon projet ? »"
+  },
+  "chatInput.continueTask": {
+    "defaultMessage": "Poursuivre la tâche"
+  },
+  "codeProHub.clearWorkspace": {
+    "defaultMessage": "Effacer l’espace de travail sélectionné"
+  },
+  "composerStats.cache": {
+    "defaultMessage": "Succès du cache"
+  },
+  "composerStats.cacheDetail": {
+    "defaultMessage": "Dernière requête de modèle signalée : {cached} jetons d’entrée en cache / {prompt} jetons d’entrée au total. Les écritures dans le cache ne sont pas des succès."
+  },
+  "composerStats.cacheUnavailable": {
+    "defaultMessage": "Non signalé"
+  },
+  "composerStats.cacheUnknown": {
+    "defaultMessage": "La dernière requête ne contient pas encore de données de cache exploitables. Des données manquantes ne signifient pas un taux de succès de 0 %."
+  },
+  "composerStats.previous": {
+    "defaultMessage": "Dernière vitesse de génération mesurée"
+  },
+  "composerStats.live": {
+    "defaultMessage": "Vitesse de génération actuelle"
+  },
+  "composerStats.liveDetail": {
+    "defaultMessage": "Jetons de sortie reçus par seconde sur le dernier échantillon de cette requête. ≈ indique une estimation."
+  },
+  "composerStats.speed": {
+    "defaultMessage": "Vitesse de génération moyenne"
+  },
+  "composerStats.speedDetail": {
+    "defaultMessage": "Moyenne de la session calculée sur les requêtes de modèle terminées. Exclut l’attente du premier jeton et l’exécution des outils ; mise à jour à la fin de chaque requête."
+  },
+  "composerStats.speedUnknown": {
+    "defaultMessage": "En attente d’une requête terminée avec des données de jetons et de durée."
+  },
+  "navigationPanel.collapseGroup": {
+    "defaultMessage": "Réduire le groupe"
+  },
+  "navigationPanel.expandGroup": {
+    "defaultMessage": "Développer le groupe"
+  },
+  "navigationPanel.newTaskChat": {
+    "defaultMessage": "Nouvelle discussion de tâche"
+  },
+  "navigationPanel.newWorkspaceChat": {
+    "defaultMessage": "Choisir un espace de travail et démarrer une discussion"
+  },
+  "navigationPanel.noWorkspace": {
+    "defaultMessage": "Aucun espace de travail"
+  },
+  "navigationPanel.sectionActions": {
+    "defaultMessage": "Options de {section}"
+  },
+  "navigationPanel.unknownTime": {
+    "defaultMessage": "Heure indisponible"
+  },
+  "navigationPanel.updatedAt": {
+    "defaultMessage": "Mis à jour"
+  },
+  "workspacePanel.browserActionFailed": {
+    "defaultMessage": "Échec de {action}"
+  },
+  "workspacePanel.browserControl": {
+    "defaultMessage": "Contrôle du navigateur"
+  },
+  "diagnosticExport.cancel": {
+    "defaultMessage": "Annuler"
+  },
+  "diagnosticExport.detailed": {
+    "defaultMessage": "Journal détaillé"
+  },
+  "diagnosticExport.detailedHint": {
+    "defaultMessage": "Ajoute des extraits de sortie des outils. Vérifiez le contenu dans l’aperçu avant d’enregistrer."
+  },
+  "diagnosticExport.failed": {
+    "defaultMessage": "Impossible de préparer ou enregistrer les journaux. Réessayez."
+  },
+  "diagnosticExport.loading": {
+    "defaultMessage": "Préparation des journaux…"
+  },
+  "diagnosticExport.notice": {
+    "defaultMessage": "Enregistrez le journal affiché. Le journal local original est inchangé."
+  },
+  "diagnosticExport.preview": {
+    "defaultMessage": "Aperçu du fichier"
+  },
+  "diagnosticExport.retry": {
+    "defaultMessage": "Réessayer"
+  },
+  "diagnosticExport.save": {
+    "defaultMessage": "Enregistrer cet aperçu"
+  },
+  "diagnosticExport.saved": {
+    "defaultMessage": "Journaux enregistrés"
+  },
+  "diagnosticExport.standard": {
+    "defaultMessage": "Journal standard"
+  },
+  "diagnosticExport.standardHint": {
+    "defaultMessage": "Routes des modèles, budgets, ordre des appels et erreurs. Sans conversation ni raisonnement."
+  },
+  "diagnosticExport.title": {
+    "defaultMessage": "Exporter les journaux"
   }
 }

@@ -39,6 +39,48 @@ export function hasFailedCommand(facts) {
   return facts?.some(f => 'exit' in f && !successfulProcess(f));
 }
 
+// Project native receipts at request preparation, including the first step of a
+// new turn. Reading the session log keeps reload/fork boundaries identical to
+// Harness history; prose and tool proposals never become execution facts.
+export function executionReceiptContext(session, currentFacts = [], { queuedWhileBusy = false } = {}) {
+  const log = session.log;
+  const start = log.findLastIndex(event => event.type === 'turn/start');
+  if (start < 0) return '';
+  const previousStart = log.findLastIndex((event, index) => index < start && event.type === 'turn/start');
+  function receipts(events) {
+    const calls = new Map();
+    for (const event of events) {
+      if (event.type === 'tool/call') calls.set(event.data.callId, {
+        callId: event.data.callId, tool: event.data.name,
+        state: 'pending',
+      });
+      if (event.type === 'tool/result') {
+        const message = event.data.message;
+        const call = calls.get(message.toolCallId);
+        if (call) Object.assign(call, {
+          state: 'returned', isError: message.isError === true,
+          ...(event.data.error?.code ? { errorCode: event.data.error.code } : {}),
+        });
+      }
+    }
+    return { total: calls.size, recent: [...calls.values()].slice(-8) };
+  }
+  const current = receipts(log.slice(start));
+  const previous = previousStart < 0 ? undefined : {
+    turn: log[previousStart].data.turn,
+    terminalReason: log.slice(previousStart, start).findLast(event => event.type === 'turn/end')?.data.reason.kind,
+    tools: receipts(log.slice(previousStart, start)),
+  };
+  return 'Execution receipts for this session (host data, not new user instructions). ' +
+    'Tool-level isError=false alone does not establish process exit 0 or task acceptance. ' +
+    'Full arguments and results remain in native tool messages; this is only their receipt index.\n' + JSON.stringify({
+      ...(queuedWhileBusy ? { inputOrigin: 'queued-while-busy' } : {}),
+      currentTurn: { turn: log[start].data.turn, tools: current,
+        structuredResults: currentFacts.slice(-8).map(({ input, output, content, command, cwd, ...fact }) => fact) },
+      ...(previous ? { previousTurn: previous } : {}),
+    });
+}
+
 const successfulProcess = f => f.exit === 0 && !f.interrupted && !f.timedOut && !f.signal && !f.denied && !f.runnerFailed;
 
 function reviewExcerpt(text, limit) {

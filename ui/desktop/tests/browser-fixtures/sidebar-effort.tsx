@@ -20,7 +20,7 @@ const [{ Navigation }, { NavigationProvider }, { ModelThinkingMenu }, providers,
 ]);
 const messages = await loadMessages('zh-CN');
 function Route() { const location = useLocation(); return <output data-testid="route">{JSON.stringify({ path: location.pathname, state: location.state })}</output>; }
-function Fixture() { const location = useLocation(); return <div className="desktop-shell bg-background-primary" style={{ display: 'flex', height: 700 }}>
+function Fixture() { const location = useLocation(); return <div className="desktop-shell bg-background-primary" style={{ display: 'flex', height: new URLSearchParams(window.location.search).has('tall') ? 1100 : 700 }}>
   <div style={{ width: 260 }}><Navigation workspaceMode={getWorkspaceModeFromPath(location.pathname)} /></div>
   <div style={{ padding: 50 }}><Route /><div style={{ marginTop: 200 }}>
     <ModelThinkingMenu provider="fixture" model="model" deferUntilSubmit presentation="slider"

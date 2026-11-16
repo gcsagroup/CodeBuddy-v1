@@ -79,6 +79,7 @@ const i18n = defineMessages({
 });
 
 export interface QueuedMessage {
+  queuedWhileBusy?: true;
   id: string;
   content: string;
   timestamp: number;

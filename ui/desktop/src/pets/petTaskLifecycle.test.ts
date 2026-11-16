@@ -6,6 +6,7 @@ import { acpChatSessionActions as actions } from '../acp/chatSessionStore';
 import type { Session } from '../types/session';
 import type { PetTask } from './petTypes';
 import { requestAcpPermission, resolvePetPermission } from '../acp/permissionRequests';
+import { requestAcpElicitation, getPendingAcpElicitationRequests, cancelAcpElicitationRequest, applyNativeQuestionSnapshot } from '../acp/elicitationRequests';
 
 const signal = vi.fn();
 let sessionId: string;
@@ -47,6 +48,23 @@ describe('ACP pet notification lifecycle', () => {
     Object.assign(window.electron, { desktopPet: vi.fn(), petSignal: signal });
   });
   afterEach(() => actions.deleteSnapshot(sessionId));
+
+  it('tracks answerable questions independently of whether execution is blocked', async () => {
+    const request = { sessionId, message: '', mode: 'form' as const,
+      requestedSchema: { type: 'object' as const, required: ['answer_0'],
+        properties: { answer_0: { type: 'string' as const, title: 'Choose a folder' } } },
+      _meta: { 'codebuddy/question': { nativeSessionId: sessionId, callId: 'q' } } };
+    actions.startPromptAttempt(sessionId, 'attempt', 'user');
+    const result = requestAcpElicitation(request);
+    const [pending] = getPendingAcpElicitationRequests(sessionId);
+    expect(lastTask()).toMatchObject({ state: 'input', questions: [{ id: pending.id, summary: 'Choose a folder' }] });
+    applyNativeQuestionSnapshot(sessionId, { active: [{ state: 'continued', callId: 'q', request }], settled: [] });
+    await expect(result).resolves.toMatchObject({ action: 'cancel' });
+    expect(lastTask().state).not.toBe('input');
+    expect(lastTask().questions?.[0].id).toBe(pending.id);
+    expect(cancelAcpElicitationRequest(sessionId, pending.id)).toBe(true);
+    expect(lastTask().questions).toBeUndefined();
+  });
 
   it('publishes actionable live approvals and removes them after the pet resolves the same RPC', async () => {
     actions.startPromptAttempt(sessionId, 'attempt', 'user');

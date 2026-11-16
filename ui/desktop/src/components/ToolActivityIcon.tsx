@@ -8,7 +8,7 @@ import { cn } from '../utils';
 export function ToolActivityIcon({ name, status }: { name: string; status: ToolCallStatus }) {
   if (name === 'thinking') return <ThinkingIcon active={status === 'loading'} />;
   if (status === 'loading') {
-    return <AnimatedIcons className="shrink-0" cycleInterval={300} />;
+    return <AnimatedIcons className="shrink-0" />;
   }
   const tool = name.split(/__|::/).pop() ?? '';
   // Individual operation failures keep their status text and original detail.

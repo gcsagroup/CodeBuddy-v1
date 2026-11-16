@@ -17,6 +17,8 @@ import type {
 import { getAcpClient } from './acpConnection';
 import { readPreferences, savePreferences } from './preferences';
 
+import { requireNetworkAccess } from '../utils/networkAccess';
+
 export type { CanonicalModelInfoDto, ProviderSecretDto };
 
 function updateRequestToCreate(
@@ -77,6 +79,7 @@ export async function acpListProviderDetails(): Promise<ProviderDetails[]> {
 }
 
 export async function acpRefreshProviderModels(providerId: string): Promise<void> {
+  await requireNetworkAccess();
   const client = await getAcpClient();
   const result = await client.goose.providersInventoryRefresh_unstable({
     providerIds: [providerId],
@@ -129,6 +132,7 @@ export async function acpGetCustomProvider(
 export async function acpCreateCustomProviderFromRequest(
   request: UpdateCustomProviderRequest
 ): Promise<{ provider_name: string }> {
+  await requireNetworkAccess();
   const client = await getAcpClient();
   const response = await client.goose.providersCustomCreate_unstable(
     updateRequestToCreate(request)
@@ -140,6 +144,7 @@ export async function acpDiscoverCustomProviderModels(
   request: UpdateCustomProviderRequest,
   providerId?: string
 ): Promise<string[]> {
+  await requireNetworkAccess();
   const client = await getAcpClient();
   const discoveryRequest: CustomProviderDiscoverModelsRequest_unstable = {
     engine: request.engine,
@@ -159,6 +164,7 @@ export async function acpUpdateCustomProviderFromRequest(
   request: UpdateCustomProviderRequest
 ): Promise<void> {
   const client = await getAcpClient();
+  await requireNetworkAccess();
   await client.goose.providersCustomUpdate_unstable({
     providerId,
     ...updateRequestToCreate(request),

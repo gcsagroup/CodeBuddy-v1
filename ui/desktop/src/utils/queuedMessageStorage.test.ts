@@ -11,6 +11,17 @@ const message = {
 describe('queued message snapshots', () => {
   beforeEach(() => localStorage.clear());
 
+  it('preserves busy-queue provenance on reload while degrading malformed optional provenance', () => {
+    const store = new QueuedMessageStorage(localStorage, 'a');
+    store.read();
+    store.write([{ ...message, queuedWhileBusy: true }]);
+    expect(new QueuedMessageStorage(localStorage, 'a').read()[0].queuedWhileBusy).toBe(true);
+    const snapshot = JSON.parse(localStorage.getItem(store.key)!);
+    snapshot.messages[0].queuedWhileBusy = 'true';
+    localStorage.setItem(store.key, JSON.stringify(snapshot));
+    expect(new QueuedMessageStorage(localStorage, 'a').read()).toEqual([message]);
+  });
+
   it('restores text, image bytes and uncertain submission state in the same session', () => {
     const store = new QueuedMessageStorage(localStorage, 'a');
     store.read();

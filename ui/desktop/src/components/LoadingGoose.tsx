@@ -80,15 +80,15 @@ const i18n = defineMessages({
 });
 
 const STATE_ICONS: Record<ChatState, React.ReactNode> = {
-  [ChatState.LoadingConversation]: <AnimatedIcons className="flex-shrink-0" cycleInterval={600} />,
-  [ChatState.Thinking]: <AnimatedIcons className="flex-shrink-0" cycleInterval={600} />,
-  [ChatState.Streaming]: <AnimatedIcons className="flex-shrink-0" cycleInterval={300} />,
+  [ChatState.LoadingConversation]: <AnimatedIcons className="flex-shrink-0" />,
+  [ChatState.Thinking]: <AnimatedIcons className="flex-shrink-0" />,
+  [ChatState.Streaming]: <AnimatedIcons className="flex-shrink-0" />,
   [ChatState.WaitingForUserInput]: (
-    <AnimatedIcons className="flex-shrink-0" cycleInterval={600} variant="waiting" />
+    <AnimatedIcons className="flex-shrink-0" />
   ),
-  [ChatState.Compacting]: <AnimatedIcons className="flex-shrink-0" cycleInterval={600} />,
+  [ChatState.Compacting]: <AnimatedIcons className="flex-shrink-0" />,
   [ChatState.Idle]: <GooseLogo size="small" hover={false} />,
-  [ChatState.RestartingAgent]: <AnimatedIcons className="flex-shrink-0" cycleInterval={600} />,
+  [ChatState.RestartingAgent]: <AnimatedIcons className="flex-shrink-0" />,
 };
 
 const STATE_MESSAGE_KEYS: Record<ChatState, keyof typeof i18n> = {

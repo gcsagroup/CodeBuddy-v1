@@ -12,6 +12,7 @@ import {
   DropdownMenuTrigger,
 } from '../../ui/dropdown-menu';
 import UpdateSection from './UpdateSection';
+import { TypographySettings } from './TypographySettings';
 
 import { COST_TRACKING_ENABLED, UPDATES_ENABLED } from '../../../updates';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../ui/card';
@@ -317,6 +318,7 @@ export default function AppSettingsSection({ scrollToSection }: AppSettingsSecti
 
   return (
     <div className="@container space-y-4">
+      <TypographySettings />
       <Card className="rounded-lg">
         <CardHeader className="pb-0">
           <CardTitle className="">{intl.formatMessage(i18n.appearanceTitle)}</CardTitle>

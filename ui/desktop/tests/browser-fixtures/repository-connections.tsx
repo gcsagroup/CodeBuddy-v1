@@ -12,6 +12,8 @@ Object.assign(window, {
   appConfig: { get: () => undefined },
   electron: {
     platform: 'win32',
+    getSetting: async () => true,
+    requestNetworkAccess: async () => true,
     logInfo: () => {},
     on: () => () => {},
     githubCliStatus: async () =>

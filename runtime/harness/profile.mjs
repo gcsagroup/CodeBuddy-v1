@@ -41,7 +41,7 @@ export function profileEntries(dataDir, cwd, instructionsHome = dataDir, sharedS
       ? { id: 'sandbox', name: new URL('./windows-sandbox.mjs', import.meta.url).href }
       : entry('sandbox', 'dsh-sandbox-local'),
     entry('sandbox-policy', 'dsh-sandbox-policy', { mode: 'workspace-write', workspaceRoot: cwd }),
-    entry('filesystem', 'dsh-fs-sandbox', { cwd }),
+    { id: 'filesystem', name: new URL('./project-filesystem.mjs', import.meta.url).href, config: { cwd } },
     entry('attachments', 'dsh-attachment-local', { dshHome: dataDir }),
     entry('commands', 'dsh-commands'),
     entry('file-upload', 'dsh-client-file-upload'),

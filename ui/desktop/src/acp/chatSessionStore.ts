@@ -25,7 +25,7 @@ import {
   hasDirectToolOrigin,
   isRecord,
 } from './adapter/shared';
-import type { AcpElicitationRequest } from './elicitationRequests';
+import { getPendingAcpElicitationRequests, type AcpElicitationRequest } from './elicitationRequests';
 import {
   createCancelledToolTurnTerminalMessage,
   isTurnTerminalRecord,
@@ -272,6 +272,14 @@ function createAcpChatSessionStoreInternal(): AcpChatSessionStoreInternal {
     // finishSessionLoad has applied the host's current run and terminal state.
     if (!entry.sessionReplayActive && typeof window !== 'undefined' && typeof window.electron?.desktopPet === 'function') {
       const task = petTaskFromSnapshot(sessionId, snapshot);
+      const questions = getPendingAcpElicitationRequests(sessionId);
+      if (questions.length) task.questions = questions.map(({ id, request }) => {
+        const schema = request.requestedSchema;
+        // Harness places question text in the required field titles, with an empty form message.
+        const titles = (schema.required ?? Object.keys(schema.properties ?? {}))
+          .map(key => schema.properties?.[key]?.title).filter(Boolean);
+        return { id, summary: (request.message.trim() || titles.join(' · ')).slice(0, 240) };
+      });
       if (entry.activePromptAttemptId || task.state === 'working' || task.state === 'input')
         petLiveSessions.add(sessionId);
       if (task.terminalId && !petLiveSessions.has(sessionId)) task.state = 'idle';

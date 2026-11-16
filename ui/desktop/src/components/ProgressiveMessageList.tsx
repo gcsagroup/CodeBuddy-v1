@@ -29,7 +29,7 @@ import ThinkingIcon from './ThinkingIcon';
 import { UserRound } from 'lucide-react';
 import { MainConversationAuthor } from './MainConversationAuthor';
 import { defineMessages, useIntl } from '../i18n';
-import GooseMessage, { codeProTerminalPresentation, hasMissingFinalReply } from './GooseMessage';
+import GooseMessage, { codeProTerminalPresentation, hasMissingFinalReply, hasUnverifiedAcceptance } from './GooseMessage';
 import { resolveToolLoadingStatus } from './ToolCallWithResponse';
 import { parseToolAuditReceipt } from '../acp/adapter/toolAudit';
 import { computerToolOutcome } from './computerToolOutcome';
@@ -1142,6 +1142,7 @@ function ProgressiveMessageListContent({
           terminal &&
           (plainStopReceipt ||
             (codeProTerminalPresentation(terminal)?.summaryStatus === 'completed' &&
+              !hasUnverifiedAcceptance(terminal) &&
               !hasMissingFinalReply(terminal))) &&
           message.content.every((content) => content.type === 'systemNotification')
         )

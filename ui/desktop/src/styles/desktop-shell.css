@@ -30,7 +30,7 @@
   border: 0;
   background: transparent;
   color: var(--shell-ink);
-  font-size: 12px;
+  font-size: 0.75rem;
   padding: 5px 10px;
   border-radius: 5px;
   white-space: nowrap;

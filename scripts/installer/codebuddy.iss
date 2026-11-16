@@ -13,9 +13,11 @@ AppName=CodeBuddy
 AppVersion={#AppVersion}
 AppPublisher=CodeBuddy
 VersionInfoDescription=CodeBuddy 安装程序
-DefaultDirName={localappdata}\Programs\CodeBuddy
+DefaultDirName={autopf}\CodeBuddy
 DefaultGroupName=CodeBuddy
 PrivilegesRequired=lowest
+PrivilegesRequiredOverridesAllowed=commandline
+UsePreviousPrivileges=no
 ArchitecturesAllowed=x64compatible
 ArchitecturesInstallIn64BitMode=x64compatible
 MinVersion=10.0.17763
@@ -27,7 +29,11 @@ DisableReadyPage=yes
 AllowRootDirectory=no
 DirExistsWarning=auto
 OutputDir={#OutputDir}
-OutputBaseFilename=CodeBuddy-Setup
+OutputBaseFilename=CodeBuddy-Install
+#ifdef BundledData
+DiskSpanning=yes
+DiskSliceSize=max
+#endif
 SetupIconFile={#ProductIcon}
 UninstallDisplayIcon={app}\CodeBuddy.exe
 WizardSmallImageFile={#ProductImage}
@@ -52,11 +58,10 @@ DialogFontSize=9
 WelcomeFontName=Microsoft YaHei UI
 
 [Messages]
-SetupWindowTitle=安装 CodeBuddy
+SetupWindowTitle=CodeBuddy 安装
 WizardSelectDir=选择安装位置
-SelectDirDesc=将 CodeBuddy 安装到你的电脑。
-SelectDirLabel3=安装到此文件夹
-SelectDirBrowseLabel=仅为当前账户安装。默认位置无需管理员权限，其他位置需要当前账户可写。
+SelectDirDesc=选择 CodeBuddy 的安装文件夹。
+SelectDirLabel3=安装程序将把 CodeBuddy 安装到以下目录。要安装到其他位置，请点击“浏览”并选择文件夹。点击“安装”开始。
 DiskSpaceGBLabel=所需空间：[gb] GB
 DiskSpaceMBLabel=所需空间：[mb] MB
 ButtonInstall=安装
@@ -86,10 +91,10 @@ Type: files; Name: "{autoprograms}\CodeBuddy.lnk"
 Type: files; Name: "{app}\resources\installed-files.txt"
 
 [Registry]
-Root: HKCU; Subkey: "Software\Classes\codebuddy"; ValueType: string; ValueData: "URL:CodeBuddy Protocol"; BeforeInstall: RecordInstallDetail('正在注册 CodeBuddy 链接协议')
-Root: HKCU; Subkey: "Software\Classes\codebuddy"; ValueType: string; ValueName: "URL Protocol"; ValueData: ""
-Root: HKCU; Subkey: "Software\Classes\codebuddy\DefaultIcon"; ValueType: string; ValueData: """{app}\CodeBuddy.exe"",0"
-Root: HKCU; Subkey: "Software\Classes\codebuddy\shell\open\command"; ValueType: string; ValueData: """{app}\CodeBuddy.exe"" ""%1"""
+Root: HKA; Subkey: "Software\Classes\codebuddy"; ValueType: string; ValueData: "URL:CodeBuddy Protocol"; BeforeInstall: RecordInstallDetail('正在注册 CodeBuddy 链接协议')
+Root: HKA; Subkey: "Software\Classes\codebuddy"; ValueType: string; ValueName: "URL Protocol"; ValueData: ""
+Root: HKA; Subkey: "Software\Classes\codebuddy\DefaultIcon"; ValueType: string; ValueData: """{app}\CodeBuddy.exe"",0"
+Root: HKA; Subkey: "Software\Classes\codebuddy\shell\open\command"; ValueType: string; ValueData: """{app}\CodeBuddy.exe"" ""%1"""
 
 [Run]
 Filename: "{app}\CodeBuddy.exe"; Description: "启动 CodeBuddy"; Flags: nowait postinstall skipifsilent
@@ -152,11 +157,15 @@ end;
 procedure InitializeWizard;
 begin
   InitializeInstallerUI;
+  InitializeLocationSummary;
+  WizardForm.Left := StrToIntDef(ExpandConstant('{param:WIZARDX|}'), WizardForm.Left);
+  WizardForm.Top := StrToIntDef(ExpandConstant('{param:WIZARDY|}'), WizardForm.Top);
 end;
 
 procedure CurPageChanged(CurPageID: Integer);
 begin
   AlignInstallerFooter(CurPageID);
+  if CurPageID = wpSelectDir then WizardForm.NextButton.Caption := SetupMessage(msgButtonInstall);
   if CurPageID = wpFinished then
   begin
     { Keep Inno responsible for [Run], using ordinary checkboxes for display. }
@@ -168,6 +177,15 @@ begin
 end;
 
 #include "install-location.iss"
+
+function CheckSelectedLocation(const Target: String): String;
+begin
+  Result := InstallLocationProblem(Target);
+  if Result <> '' then Exit;
+  if FileExists(AddBackslash(Target) + 'unins000.exe') and
+     (CompareText(RemoveBackslashUnlessRoot(Target), PreviousScopeDirectory) <> 0) then
+    Result := '此文件夹已包含其他安装。请选择单独的目录，或重新打开安装包并选择原来的安装范围。';
+end;
 
 function NextButtonClick(CurPageID: Integer): Boolean;
 var
@@ -185,7 +203,7 @@ begin
   end;
   if CurPageID = wpSelectDir then
   begin
-    Problem := InstallLocationProblem(WizardDirValue);
+    Problem := CheckSelectedLocation(WizardDirValue);
     if Problem <> '' then
     begin
       if not WizardSilent then MsgBox(Problem, mbError, MB_OK);
@@ -195,13 +213,46 @@ begin
   end;
 end;
 
+#ifdef BundledData
+function PreparationTick: Int64;
+  external 'GetTickCount64@kernel32.dll stdcall';
+#endif
 function PrepareToInstall(var NeedsRestart: Boolean): String;
+#ifdef BundledData
+var
+  Waiting: TOutputMarqueeProgressWizardPage;
+  SourceDirectory: String;
+  Started: Int64;
+#endif
 begin
   Result := RunningCodeBuddyMessage;
   if Result <> '' then Exit;
-  Result := InstallLocationProblem(ExpandConstant('{app}'));
+  Result := CheckSelectedLocation(ExpandConstant('{app}'));
   if Result <> '' then Exit;
   Result := ValidateDataDirectory;
+#ifdef BundledData
+  if Result <> '' then Exit;
+  SourceDirectory := AddBackslash(ExpandConstant('{src}'));
+  if FileExists(SourceDirectory + 'CodeBuddy-Install-1.bin') then Exit;
+  { A fast click or a silent update can reach Install while the hidden
+    launcher is still preparing the disk slice. Never read a partial file. }
+  Waiting := CreateOutputMarqueeProgressPage('正在安装 CodeBuddy', '正在准备应用文件…');
+  Waiting.Show;
+  try
+    Started := PreparationTick;
+    while not FileExists(SourceDirectory + 'CodeBuddy-Install-1.bin') do begin
+      if FileExists(SourceDirectory + 'prepare.failed') or (PreparationTick - Started >= 120000) then begin
+        Result := '无法准备应用文件。请检查临时目录的可用空间，然后重试。';
+        Exit;
+      end;
+      Waiting.Animate;
+      Sleep(40);
+    end;
+  finally
+    Waiting.Hide;
+    Waiting.Free;
+  end;
+#endif
 end;
 
 procedure CurInstallProgressChanged(CurProgress, MaxProgress: Integer);
@@ -218,7 +269,7 @@ begin
   if CurUninstallStep = usPostUninstall then FinishUninstallDetails;
   { A later installation may have taken over this protocol; leave it intact. }
   if (CurUninstallStep = usUninstall) and
-     RegQueryStringValue(HKCU, 'Software\Classes\codebuddy\shell\open\command', '', Command) and
+     RegQueryStringValue(HKA, 'Software\Classes\codebuddy\shell\open\command', '', Command) and
      (CompareText(Command, '"' + ExpandConstant('{app}\CodeBuddy.exe') + '" "%1"') = 0) then
-    RegDeleteKeyIncludingSubkeys(HKCU, 'Software\Classes\codebuddy');
+    RegDeleteKeyIncludingSubkeys(HKA, 'Software\Classes\codebuddy');
 end;

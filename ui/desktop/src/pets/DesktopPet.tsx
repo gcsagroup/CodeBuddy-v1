@@ -71,11 +71,12 @@ function TaskCard({ task }: { task: PetTask }) {
         : task.inputRequest?.kind === 'workspace'
           ? t('Confirm workspace', '等待确认工作区', '等待確認工作區')
           : null;
-  const detail = activity
+  const question = task.questions?.[0];
+  const detail = question ? t('Awaiting reply', '待回复', '待回覆') : activity
     ? `${activityLabels[activity.kind]}${activity.toolName ? ` · ${activity.toolName}` : ''}`
     : inputLabel || labels[task.state];
   return (
-    <div className="pet-task-card" data-state={task.state}>
+    <div className="pet-task-card" data-state={question ? 'input' : task.state}>
       <button
         type="button"
         aria-label={`${task.title} · ${detail}`}
@@ -87,7 +88,7 @@ function TaskCard({ task }: { task: PetTask }) {
       >
         <div className="pet-task-heading">
           <span aria-hidden="true" className="pet-task-indicator">
-            {task.state === 'completed' ? '✓' : task.state === 'working' ? '●' : '!'}
+            {question ? '?' : task.state === 'completed' ? '✓' : task.state === 'working' ? '●' : '!'}
           </span>
           <strong>{task.title}</strong>
         </div>
@@ -97,9 +98,9 @@ function TaskCard({ task }: { task: PetTask }) {
             {t('Step', '当前步骤', '目前步驟')} · {activity.stage}
           </div>
         )}
-        {task.inputRequest?.summary && (
-          <div className="pet-task-question" title={task.inputRequest.summary}>
-            {task.inputRequest.summary}
+        {(question?.summary || task.inputRequest?.summary) && (
+          <div className="pet-task-question" title={question?.summary || task.inputRequest?.summary}>
+            {question?.summary || task.inputRequest?.summary}
           </div>
         )}
       </button>
@@ -123,7 +124,7 @@ function TaskCard({ task }: { task: PetTask }) {
             void window.electron.desktopPet({ action: 'open-task', sessionId: task.sessionId })
           }
         >
-          {task.state === 'input'
+          {question ? t('Reply', '去回复', '去回覆') : task.state === 'input'
             ? t('Reply', '去处理', '去處理')
             : t('Follow up', '继续跟进', '繼續跟進')}
           <ArrowUpRight size={12} aria-hidden="true" />
@@ -338,7 +339,7 @@ export default function DesktopPet() {
   const tasks = snapshot.tasks ?? (task ? [task] : []);
   const reducedMotion = snapshot.preferences.reducedMotion || cursor.reducedMotion;
   const stateAnimation: PetAnimation =
-    task?.state === 'input'
+    task?.questions?.length || task?.state === 'input'
       ? 'waiting'
       : task?.state === 'blocked'
         ? settledBlockedTask === blockedTaskKey

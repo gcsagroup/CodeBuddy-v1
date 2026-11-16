@@ -60,6 +60,16 @@ export function shouldSuppressProviderThinking(suppressProviderThinking: boolean
   return suppressProviderThinking;
 }
 
+export function hasUnverifiedAcceptance(terminal: TurnTerminalRecord): boolean {
+  return (
+    terminal.status === 'completed' &&
+    !terminal.report_parse_failed &&
+    (!terminal.report ||
+      terminal.report.classification_counts.unverified > 0 ||
+      terminal.report.verification_summary.length === 0)
+  );
+}
+
 export function hasMissingFinalReply(terminal: TurnTerminalRecord): boolean {
   return (
     terminal.status === 'completed' &&
@@ -99,7 +109,7 @@ export function isRepeatedToolThinking(message: Message, messages: Message[]): b
 export function codeProTerminalPresentation(
   terminal: Pick<TurnTerminalRecord, 'status'> & {
     report?: Pick<TurnTerminalReport, 'outcome'> &
-      Partial<Pick<TurnTerminalReport, 'verification_summary'>>;
+      Partial<Pick<TurnTerminalReport, 'verification_summary' | 'classification_counts'>>;
     report_parse_failed?: true;
   }
 ): CodeProTerminalPresentation | undefined {
@@ -120,7 +130,10 @@ export function codeProTerminalPresentation(
         return { summaryStatus: 'paused', verdict: 'BLOCKED' };
       }
       const allPassed =
-        verification.length > 0 && verification.every((entry) => entry.verdict === 'passed');
+        terminal.report.classification_counts?.unverified !== undefined &&
+        terminal.report.classification_counts.unverified === 0 &&
+        verification.length > 0 &&
+        verification.every((entry) => entry.verdict === 'passed');
       return { summaryStatus: 'completed', verdict: allPassed ? 'PASS' : 'NOT_RUN' };
     }
     case 'skipped':
@@ -702,7 +715,10 @@ export default function GooseMessage({
             if (providerThinkingSuppressed) return null;
             if (groupedProcess) {
               return showGroupedThinking ? (
-                <div key={key} className="codepro-thinking-details my-2 text-sm text-text-secondary">
+                <div
+                  key={key}
+                  className="codepro-thinking-details my-2 text-sm text-text-secondary"
+                >
                   <MarkdownContent
                     content={getThinkingContent({ ...message, content: block.content }) ?? ''}
                     className="!text-text-secondary prose-headings:text-text-secondary prose-strong:text-text-secondary prose-a:text-text-secondary"
@@ -812,7 +828,11 @@ export default function GooseMessage({
                     alwaysVisible
                   />
                 )}
-                <ConversationBranchButton sessionId={sessionId} message={message} messages={messages} />
+                <ConversationBranchButton
+                  sessionId={sessionId}
+                  message={message}
+                  messages={messages}
+                />
                 {displayedUsage && (
                   <MessageUsageStats usage={displayedUsage} compact={compactTools} />
                 )}
@@ -848,7 +868,8 @@ export default function GooseMessage({
         {turnTerminal &&
           !outputLimited &&
           !contextLimited &&
-          !hasDeliveredMedia && hasMissingFinalReply(turnTerminal) && (
+          !hasDeliveredMedia &&
+          hasMissingFinalReply(turnTerminal) && (
             <div role="status" className="mt-2 text-sm text-text-secondary">
               {intl.formatMessage(i18n.missingFinalReply)}
             </div>

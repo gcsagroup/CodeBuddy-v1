@@ -33,7 +33,7 @@ beforeEach(() => {
   hooks.stop.mockResolvedValue(undefined);
   hooks.reserve.mockReturnValue(hooks.release);
   hooks.prepare.mockResolvedValue({ commit: hooks.commit, cancel: hooks.cancel });
-  registerProductUpdates({ closeForUpdate: hooks.stop, hasTerminals: () => true, reserveTerminals: hooks.reserve });
+  registerProductUpdates({ requestNetworkAccess: async () => true, closeForUpdate: hooks.stop, hasTerminals: () => true, reserveTerminals: hooks.reserve });
 });
 afterEach(() => Object.defineProperty(process, 'platform', { value: platform }));
 for (const target of ['win32', 'darwin']) {

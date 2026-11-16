@@ -142,6 +142,13 @@ describe('codeProTerminalPresentation', () => {
           status: 'completed',
           report: {
             outcome: 'completed',
+            classification_counts: {
+              confirmed_bug: 0,
+              test_failure: 0,
+              environment_problem: 0,
+              codepro_incomplete: 0,
+              unverified: 0,
+            },
             verification_summary: verdicts.map((verificationVerdict, index) => ({
               task_id: `test-${index}`,
               verdict: verificationVerdict,
@@ -154,6 +161,33 @@ describe('codeProTerminalPresentation', () => {
       ).toEqual({ summaryStatus, verdict });
     }
   );
+
+  it('does not certify historical passed entries when the host marks this turn unverified', () => {
+    expect(
+      codeProTerminalPresentation({
+        status: 'completed',
+        report: {
+          outcome: 'completed',
+          classification_counts: {
+            confirmed_bug: 0,
+            test_failure: 0,
+            environment_problem: 0,
+            codepro_incomplete: 0,
+            unverified: 1,
+          },
+          verification_summary: [
+            {
+              task_id: 'old',
+              verdict: 'passed',
+              command: 'old test',
+              exit_code: 0,
+              evidence_ref: 'old',
+            },
+          ],
+        },
+      })
+    ).toEqual({ summaryStatus: 'completed', verdict: 'NOT_RUN' });
+  });
 
   it.each([
     { outcome: 'future_outcome' },

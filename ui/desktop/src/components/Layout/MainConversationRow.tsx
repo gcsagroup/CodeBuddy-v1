@@ -7,10 +7,11 @@ import { Button } from '../ui/button';
 import { SessionIndicators } from '../SessionIndicators';
 import type { PetTaskState } from '../../pets/petTypes';
 
-export function MainConversationRow({ onOpen, taskState, active }: {
+export function MainConversationRow({ onOpen, taskState, active, awaitingReply }: {
   onOpen: (sessionId: string) => void;
   taskState?: PetTaskState;
   active?: boolean;
+  awaitingReply?: boolean;
 }) {
   const [confirm, setConfirm] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -35,7 +36,7 @@ export function MainConversationRow({ onOpen, taskState, active }: {
       <button type="button" className="flex min-h-9 min-w-0 flex-1 items-center gap-3 rounded-lg px-3 py-2 text-left focus-visible:ring-2 focus-visible:ring-ring" aria-current={active ? 'page' : undefined} onClick={() => void open()}>
         <MessageCircle size={16} aria-hidden="true" /><span>主对话</span>
       </button>
-      <SessionIndicators isStreaming={taskState === 'working'} hasUnread={taskState === 'completed'} hasError={taskState === 'blocked'} />
+      <SessionIndicators awaitingReply={awaitingReply} isStreaming={taskState === 'working'} hasUnread={taskState === 'completed'} hasError={taskState === 'blocked'} />
       <button type="button" className="mr-1 rounded-md p-2 text-text-secondary opacity-0 pointer-events-none group-hover/main:opacity-100 group-hover/main:pointer-events-auto group-focus-within/main:opacity-100 group-focus-within/main:pointer-events-auto hover:text-text-primary" aria-label="清空主对话历史" title="清空主对话历史" onClick={() => { setError(''); setConfirm(true); }}>
         <Trash2 size={15} aria-hidden="true" />
       </button>

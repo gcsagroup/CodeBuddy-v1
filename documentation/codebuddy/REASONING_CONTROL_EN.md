@@ -8,7 +8,7 @@ Following the separation used by pi-llama-cpp, reasoning allowances are distinct
 
 The integration applies only to Chat Completions services identified as vLLM by their model inventory and advertising `thinking_token_budget` in OpenAPI. Capability discovery shares the connection inventory cache. Moving the effort slider does not generate completions. Failed or unknown capability discovery preserves the existing request dialect.
 
-Reasoning allowances are minimal 256, low 1024, medium 2048 and high 8192 tokens. The pinned native adapter maps xhigh/max budgets to high. Disabled reasoning sends no budget. The selected effort remains unchanged; the budget adds a limit. Native serialization reserves answer space. Reducing total `max_tokens` is not an equivalent mechanism.
+Per-request thinking ceilings are 512 tokens for minimal, 2048 for low, 4096 for medium, 8192 for high, and 16384 for xhigh. Models offering max use the same 16384 ceiling. The UI presents the levels available for each model. Disabling reasoning omits the budget. The native serializer reduces the ceiling to leave room for an answer when output space is limited. GPT and Ollama connections send supported effort levels through their own protocols.
 
 Enforcement belongs to the server. Advertising a field does not prove that the deployed reasoning parser is configured correctly. Token limits are not wall-clock guarantees. Real streaming requests and completed tasks remain necessary acceptance evidence.
 

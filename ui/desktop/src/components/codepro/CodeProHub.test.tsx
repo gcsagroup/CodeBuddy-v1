@@ -154,6 +154,20 @@ describe('CodeProHub', () => {
     vi.mocked(createSession).mockResolvedValue(session);
   });
 
+  it('keeps the first draft and workspace untouched when network consent is cancelled', async () => {
+    vi.mocked(window.electron.requestNetworkAccess).mockResolvedValueOnce(false);
+    const user = userEvent.setup();
+    render(<CodeProHub />, { wrapper: IntlTestWrapper });
+    await screen.findByText('Workspace write');
+    expect(window.electron.requestNetworkAccess).not.toHaveBeenCalled();
+    const send = screen.getByRole('button', { name: 'Submit development goal' });
+    await user.click(send);
+    expect(window.electron.inspectCodeProWorkspace).not.toHaveBeenCalled();
+    expect(screen.getByTestId('draft-message')).toHaveTextContent(submittedInput.msg);
+    await user.click(send);
+    await waitFor(() => expect(startCodeProSession).toHaveBeenCalledOnce());
+  });
+
   it('starts new tasks with the configured native permission preset', async () => {
     const user = userEvent.setup();
     render(<CodeProHub />, { wrapper: IntlTestWrapper });

@@ -434,6 +434,14 @@ export function AppInner() {
 
   const navigate = useNavigate();
   const location = useLocation();
+  useEffect(() => {
+    if (location.pathname !== '/codepro' || new URLSearchParams(location.search).get('startupHome') !== '1') return;
+    let active = true;
+    void window.electron.startupModelConfigured().then(configured => {
+      if (active) navigate(configured ? '/codepro' : '/codepro/configure-providers', { replace: true });
+    }).catch(error => console.error('Failed to determine startup route', error));
+    return () => { active = false; };
+  }, [location.pathname, location.search, navigate]);
   const setView = useNavigation();
   const isSettingsRoute =
     location.pathname === '/settings' || location.pathname === '/codepro/settings';
@@ -451,6 +459,16 @@ export function AppInner() {
       navigate(`${pairPath}?resumeSessionId=${encodeURIComponent(sessionId)}`, { state: null });
     };
     window.electron.on('pet-open-session', openPetSession);
+    const unsubscribeQuestion = window.electron.on('agent-question-notice', (_event, payload) => {
+      const { sessionId, title, questionId } = payload as { sessionId: string; title: string; questionId: string };
+      toast.info(
+        <button type="button" className="text-left font-medium"
+          onClick={() => void window.electron.desktopPet({ action: 'open-task', sessionId })}>
+          {intl.formatMessage({ id: 'app.questionNotice', defaultMessage: '{title} · Reply to agent' }, { title })}
+        </button>,
+        { toastId: JSON.stringify([sessionId, questionId]), position: 'top-center', autoClose: 8000 }
+      );
+    });
     const pausePetSession = (event: IpcRendererEvent, sessionId: unknown) => {
       if (typeof sessionId !== 'string' || !sessionId.trim()) return;
       acpChatSessionController.stop(sessionId);
@@ -496,13 +514,14 @@ export function AppInner() {
     });
     return () => {
       window.electron.off('pet-open-session', openPetSession);
+      unsubscribeQuestion?.();
       window.electron.off('pet-pause-session', pausePetSession);
       window.electron.off('pet-create-session', createPetSession);
       if (unsubscribePetMessages) unsubscribePetMessages();
       else window.electron.off('pet-send-message', sendPetMessage);
       unsubscribePetPermissions?.();
     };
-  }, [location.pathname, navigate]);
+  }, [intl, location.pathname, navigate]);
 
   const [chat, setChat] = useState<ChatType>({
     sessionId: '',

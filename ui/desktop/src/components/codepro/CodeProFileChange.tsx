@@ -198,7 +198,7 @@ export function FileChangeDiff({ change }: { change: FileChangeReceipt }) {
     };
   });
   return (
-    <pre className="overflow-auto whitespace-pre font-mono text-xs leading-5 text-text-primary">
+    <pre className="overflow-auto whitespace-pre font-mono text-text-primary" style={{ fontSize: 'var(--code-font-size, 12px)', lineHeight: 1.65 }}>
       <code className="block min-w-max">
         {lines.map((line, index) => (
           <span

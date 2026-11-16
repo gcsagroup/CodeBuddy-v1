@@ -6,6 +6,7 @@ import { createRotatingLog } from '../../../runtime/rotating-log.cjs';
 
 export async function startHarnessService(options: {
   resourcesPath: string;
+  userData: string;
   home: string;
   workspace: string;
   onUnexpectedExit: () => void;
@@ -31,7 +32,13 @@ export async function startHarnessService(options: {
   const child = spawn(node, [path.join(root, 'runtime', 'desktop-entry.mjs')], {
     windowsHide: true,
     cwd: options.workspace,
-    env: { ...process.env, CODEBUDDY_HOME: options.home, CODEBUDDY_SERVER__SECRET_KEY: secret },
+    env: {
+      ...process.env,
+      NODE_COMPILE_CACHE: process.env.NODE_COMPILE_CACHE || path.join(options.home, 'cache', 'node-compile'),
+      CODEBUDDY_HOME: options.home,
+      CODEBUDDY_USER_DATA_DIR: options.userData,
+      CODEBUDDY_SERVER__SECRET_KEY: secret,
+    },
     stdio: ['ignore', 'pipe', 'pipe', 'ipc'],
   });
   child.stdout?.pipe(output, { end: false });

@@ -12,6 +12,7 @@ type ChatMessage = {
 };
 
 type ChatCompletionRequest = {
+  stream?: boolean;
   messages?: ChatMessage[];
   tools?: Array<{ function?: { name?: string } }>;
 };
@@ -609,6 +610,13 @@ function routeCompletion(
     text.includes('implementation.js');
   const permissionPersistence = scenario === 'permission-persistence';
 
+  if (text.includes('QUESTION_ATTENTION_E2E') && !results) {
+    const tool = findTool(body, 'ask_user_question');
+    if (tool) return { type: 'tool', name: tool, arguments: {
+      questions: [{ id: 'color', question: '验收时选择哪种颜色？' }],
+    } };
+  }
+
   if (text.includes('You are a read-only code reviewer')) return reviewCompletion(body);
 
   // This scenario submits two incidental questions. Keep the real host relation
@@ -1049,6 +1057,17 @@ function streamCompletion(
       const body = JSON.parse(Buffer.concat(chunks).toString('utf8')) as ChatCompletionRequest;
       recordTrace(body);
       const completion = routeCompletion(body, scenario, expectedMemoryMarkers);
+      if (body.stream === false && completion.type === 'text') {
+        writeJson(response, 200, {
+          id: 'chatcmpl-codepro-e2e',
+          object: 'chat.completion',
+          model: MODEL,
+          choices: [
+            { index: 0, message: { role: 'assistant', content: completion.text }, finish_reason: 'stop' },
+          ],
+        });
+        return;
+      }
       if (
         requestText(body).includes('You are a read-only code reviewer') &&
         requestText(body).includes('cancel-review.ts')
@@ -1071,6 +1090,7 @@ export async function startDeterministicOpenAiServer(options?: {
   scenario?: DeterministicScenario;
 }): Promise<{
   baseUrl: string;
+  requestCount(): number;
   routeTrace(): DeterministicRouteTrace[];
   close(): Promise<void>;
 }> {
@@ -1078,11 +1098,13 @@ export async function startDeterministicOpenAiServer(options?: {
   const traces: DeterministicRouteTrace[] = [];
   const expectedMemoryMarkers = new Map<string, string>();
   let requestSequence = 0;
+  let requestCount = 0;
   const recordTrace = (body: ChatCompletionRequest) => {
     requestSequence += 1;
     recordDeterministicRouteTrace(body, requestSequence, traces);
   };
   const server = createServer((request, response) => {
+    requestCount++;
     const url = new URL(request.url ?? '/', 'http://127.0.0.1');
 
     if (request.method === 'GET' && url.pathname === '/v1/models') {
@@ -1125,6 +1147,7 @@ export async function startDeterministicOpenAiServer(options?: {
 
   return {
     baseUrl: `http://127.0.0.1:${address.port}`,
+    requestCount: () => requestCount,
     routeTrace: () => traces.map((trace) => ({ ...trace, markers: { ...trace.markers } })),
     close: () =>
       new Promise<void>((resolve, reject) => {

@@ -16,6 +16,12 @@ import {
   projectGroupLabelClassName,
 } from './NavigationPanel';
 
+const { projectRpc } = vi.hoisted(() => ({ projectRpc: vi.fn().mockResolvedValue({ folders: [], version: '' }) }));
+vi.mock('../../acp/acpConnection', async importOriginal => ({
+  ...(await importOriginal<typeof import('../../acp/acpConnection')>()),
+  getAcpControlClient: async () => ({ extMethod: projectRpc }),
+}));
+
 vi.mock('../../acp/sessions', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../../acp/sessions')>()),
   acpArchiveSession: vi.fn().mockResolvedValue(undefined),
@@ -129,6 +135,12 @@ describe('chat row archive button', () => {
     expect(onClick).not.toHaveBeenCalled();
     fireEvent.click(screen.getByText('Original chat'));
     expect(onClick).toHaveBeenCalledOnce();
+  });
+  it('allows native drag initiation without the outer menu cancelling pointer defaults', () => {
+    const view = render(<div onPointerDown={event => event.preventDefault()}><SessionRow session={session} status={undefined} active onClick={vi.fn()} onRenamed={vi.fn()} /></div>);
+    const row = view.container.querySelector('[data-session-row]')!;
+    expect(row).toHaveAttribute('draggable', 'true');
+    expect(fireEvent.pointerDown(row, { button: 0 })).toBe(true);
   });
   it('keeps the automation clock visible independently of chat activity', () => {
     const base = { session, active: true, hasSchedule: true, onClick: vi.fn(), onRenamed: vi.fn() };
@@ -264,6 +276,21 @@ describe('project group label', () => {
     expect(screen.queryByText('项目分析测试')).not.toBeInTheDocument();
   });
 
+  it('edits linked folders via the project context menu and defaults to reference access', async () => {
+    const group = { path: 'D:/app', label: 'app', sessions: [] } as unknown as Parameters<typeof ProjectSessionGroup>[0]['group'];
+    window.electron.directoryChooser = vi.fn().mockResolvedValue({ canceled: false, filePaths: ['D:/upstream', 'D:/api'] });
+    render(<ProjectSessionGroup group={group} renderSession={() => null} />);
+    fireEvent.contextMenu(screen.getByRole('button', { name: 'app' }));
+    await userEvent.click(screen.getByRole('menuitem', { name: 'Edit project' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Add folder' }));
+    expect(screen.getByRole('combobox', { name: 'D:/upstream' })).toHaveValue('reference');
+    await userEvent.selectOptions(screen.getByRole('combobox', { name: 'D:/api' }), 'write');
+    await userEvent.click(screen.getByRole('button', { name: 'Save' }));
+    expect(projectRpc).toHaveBeenCalledWith('_codebuddy/project-folders/save', { cwd: 'D:/app', version: '',
+      folders: [{ path: 'D:/upstream', access: 'reference' }, { path: 'D:/api', access: 'write' }] });
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+  });
+
   it('renames the project display label without changing its path', async () => {
     const group = {
       path: 'D:\\Code-Agent',
@@ -273,10 +300,10 @@ describe('project group label', () => {
     render(<ProjectSessionGroup group={group} renderSession={() => <div>项目分析测试</div>} />);
 
     await userEvent.click(screen.getByRole('button', { name: 'Project actions' }));
-    await userEvent.click(screen.getByRole('menuitem', { name: 'Rename project' }));
+    await userEvent.click(screen.getByRole('menuitem', { name: 'Edit project' }));
     const input = screen.getByRole('textbox', { name: 'Project name' });
     fireEvent.change(input, { target: { value: '旗舰项目' } });
-    fireEvent.keyDown(input, { key: 'Enter' });
+    await userEvent.click(screen.getByRole('button', { name: 'Save' }));
 
     expect(screen.getByText('旗舰项目')).toBeVisible();
     const folder = screen.getByRole('button', { name: '旗舰项目' });
@@ -298,19 +325,19 @@ describe('project group label', () => {
     );
 
     await userEvent.click(screen.getByRole('button', { name: 'Project actions' }));
-    await userEvent.click(screen.getByRole('menuitem', { name: 'Rename project' }));
+    await userEvent.click(screen.getByRole('menuitem', { name: 'Edit project' }));
     let input = screen.getByRole('textbox', { name: 'Project name' });
     fireEvent.change(input, { target: { value: '旗舰项目' } });
-    fireEvent.keyDown(input, { key: 'Enter' });
+    await userEvent.click(screen.getByRole('button', { name: 'Save' }));
     unmount();
 
     render(<ProjectSessionGroup group={group} renderSession={() => <div>项目分析测试</div>} />);
     expect(screen.getByText('旗舰项目')).toBeVisible();
     await userEvent.click(screen.getByRole('button', { name: 'Project actions' }));
-    await userEvent.click(screen.getByRole('menuitem', { name: 'Rename project' }));
+    await userEvent.click(screen.getByRole('menuitem', { name: 'Edit project' }));
     input = screen.getByRole('textbox', { name: 'Project name' });
     fireEvent.change(input, { target: { value: '   ' } });
-    fireEvent.keyDown(input, { key: 'Enter' });
+    await userEvent.click(screen.getByRole('button', { name: 'Save' }));
 
     expect(screen.getByText('Code-Agent')).toBeVisible();
     expect(window.localStorage.getItem(PROJECT_ALIAS_STORAGE_KEY)).not.toContain('旗舰项目');
@@ -381,4 +408,13 @@ it('collects all project pages before confirming archive and never archives anot
   await userEvent.click(screen.getByRole('button', { name: 'Archive session' }));
   await waitFor(() => expect(acpArchiveSession).toHaveBeenCalledTimes(2));
   expect(vi.mocked(acpArchiveSession).mock.calls.map(args => args[0])).toEqual(['p1', 'p2']);
+});
+
+it('offers project removal in the existing right-click menu', async () => {
+  const group = { path: 'D:/remove-fixture', label: 'remove-fixture', sessions: [], lastActivityAt: '' };
+  const view = render(<ProjectSessionGroup group={group} renderSession={() => null} />);
+  fireEvent.contextMenu(view.container.querySelector('[data-workspace-row]')!);
+  await userEvent.click(await screen.findByRole('menuitem', { name: 'Remove project' }));
+  const entries = JSON.parse(localStorage.getItem('codebuddy.sidebarProjects.v1')!);
+  expect(entries.find((entry: {path: string}) => entry.path === group.path).removed).toBe(true);
 });

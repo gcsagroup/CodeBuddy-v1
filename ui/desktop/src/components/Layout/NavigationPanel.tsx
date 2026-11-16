@@ -1,3 +1,6 @@
+import { acpChatSessionController } from '../../acp/chatSessionController';
+import { setSidebarProjectVisible } from '../../utils/sidebarProjects';
+import { ProjectEditor, projectEditorMessages } from './ProjectEditor';
 import { MainConversationRow } from './MainConversationRow';
 import { getAcpControlClient } from '../../acp/acpConnection';
 import { AgentAvatar } from '../custom-agents/AgentAvatar';
@@ -5,7 +8,7 @@ import { useNativeSchedules } from '../../acp/nativeSchedules';
 import { sessionHasPendingPermission, subscribeAcpPermissionRequests } from '../../acp/permissionRequests';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { Archive, MoreHorizontal, Pin, MessagesSquare, Clock3, ChevronRight, Folder, FolderOpen, Pencil, MessageCirclePlus } from 'lucide-react';
+import { Archive, MoreHorizontal, Pin, MessagesSquare, Clock3, ChevronRight, Folder, FolderOpen, Pencil, MessageCirclePlus, FolderMinus } from 'lucide-react';
 import { toast } from 'react-toastify';
 import { motion, useReducedMotion } from 'framer-motion';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '../ui/collapsible';
@@ -26,7 +29,6 @@ import { cn } from '../../utils';
 import type { ProjectGroup } from '../../utils/projectSessions';
 import {
   getProjectAlias,
-  PROJECT_ALIAS_MAX_LENGTH,
   saveProjectAlias,
 } from '../../utils/projectAliases';
 import { defineMessages, useIntl } from '../../i18n';
@@ -73,18 +75,6 @@ const i18n = defineMessages({
     id: 'navigationPanel.untitledSession',
     defaultMessage: 'Untitled session',
   },
-  renameProject: {
-    id: 'navigationPanel.renameProject',
-    defaultMessage: 'Rename project',
-  },
-  projectName: {
-    id: 'navigationPanel.projectName',
-    defaultMessage: 'Project name',
-  },
-  resetProjectNameHint: {
-    id: 'navigationPanel.resetProjectNameHint',
-    defaultMessage: 'Clear the name to restore the folder name',
-  },
 });
 
 const sidebarCardClass = 'w-80 max-w-[calc(100vw-24px)] max-h-[var(--radix-tooltip-content-available-height)] overflow-y-auto rounded-xl border border-border-primary bg-background-primary p-3 text-text-primary text-left text-wrap shadow-lg animate-none data-[state=closed]:animate-none';
@@ -104,7 +94,7 @@ function SidebarTooltip({ children, onOpen }: { children: React.ReactNode; onOpe
 }
 
 export const projectGroupLabelClassName =
-  'min-h-7 rounded-[10px] px-2 py-0.5 text-sm font-medium text-text-primary transition-colors hover:bg-background-tertiary';
+  'min-h-7 rounded-[10px] px-2 text-sm font-medium text-text-primary transition-colors hover:bg-background-tertiary';
 
 interface NavRowProps {
   item: NavItem;
@@ -127,6 +117,7 @@ const NavRow: React.FC<NavRowProps> = ({ item, active, onClick }) => {
 };
 
 interface SessionRowProps {
+  awaitingReply?: boolean;
   nested?: boolean;
   hasSchedule?: boolean;
   session: SessionListItem;
@@ -138,6 +129,7 @@ interface SessionRowProps {
 }
 
 export const SessionRow: React.FC<SessionRowProps> = ({
+  awaitingReply,
   nested = true,
   hasSchedule = false,
   session,
@@ -202,6 +194,13 @@ export const SessionRow: React.FC<SessionRowProps> = ({
         <TooltipTrigger asChild>
           <div
             data-session-row
+            draggable={!session.globalConversation}
+            // The outer menu cancels pointer defaults; keep native drag initiation.
+            onPointerDown={event => event.stopPropagation()}
+            onDragStart={event => {
+              event.dataTransfer.setData('application/x-codebuddy-session', session.id);
+              event.dataTransfer.effectAllowed = 'move';
+            }}
             onKeyDown={event => {
               // Radix's surrounding menu trigger consumes Enter/Space. Let each
               // nested button receive its native keyboard activation instead.
@@ -265,7 +264,7 @@ export const SessionRow: React.FC<SessionRowProps> = ({
             >
               <Archive className="size-3.5" aria-hidden="true" />
             </button>
-            <SessionIndicators isStreaming={isStreaming} hasUnread={hasUnread} hasError={hasError} />
+            <SessionIndicators awaitingReply={awaitingReply} isStreaming={isStreaming} hasUnread={hasUnread} hasError={hasError} />
           </div>
         </TooltipTrigger>
         <TooltipContent side="right" align="start" sideOffset={8} collisionPadding={12}
@@ -314,9 +313,7 @@ export const ProjectSessionGroup: React.FC<ProjectSessionGroupProps> = ({
   const intl = useIntl();
   const [expanded, setExpanded] = useState(true);
   const [displayName, setDisplayName] = useState(() => getProjectAlias(group.path, group.label));
-  const [draftName, setDraftName] = useState(displayName);
   const [isEditing, setIsEditing] = useState(false);
-  const inputRef = useRef<HTMLInputElement>(null);
   const projectPins = useProjectPins();
   const pinned = projectPins.includes(projectPathIdentity(group.path));
   const [menuOpen, setMenuOpen] = useState(false);
@@ -371,27 +368,8 @@ export const ProjectSessionGroup: React.FC<ProjectSessionGroupProps> = ({
   useEffect(() => {
     const persistedName = getProjectAlias(group.path, group.label);
     setDisplayName(persistedName);
-    setDraftName(persistedName);
     setIsEditing(false);
   }, [group.label, group.path]);
-
-  useEffect(() => {
-    if (!isEditing) return;
-    inputRef.current?.focus();
-    inputRef.current?.select();
-  }, [isEditing]);
-
-  const commitRename = () => {
-    const nextName = saveProjectAlias(group.path, draftName, group.label);
-    setDisplayName(nextName);
-    setDraftName(nextName);
-    setIsEditing(false);
-  };
-
-  const cancelRename = () => {
-    setDraftName(displayName);
-    setIsEditing(false);
-  };
 
   return (
     <Collapsible open={expanded} onOpenChange={setExpanded} className="mb-1.5">
@@ -403,53 +381,31 @@ export const ProjectSessionGroup: React.FC<ProjectSessionGroupProps> = ({
           'group/project-row relative flex w-full items-center gap-1.5'
         )}
       >
-        {isEditing ? (
-          <input
-            ref={inputRef}
-            aria-label={intl.formatMessage(i18n.projectName)}
-            title={intl.formatMessage(i18n.resetProjectNameHint)}
-            value={draftName}
-            maxLength={PROJECT_ALIAS_MAX_LENGTH}
-            onChange={(event) => setDraftName(event.target.value)}
-            onBlur={commitRename}
-            onKeyDown={(event) => {
-              if (event.key === 'Enter') {
-                event.preventDefault();
-                commitRename();
-              } else if (event.key === 'Escape') {
-                event.preventDefault();
-                cancelRename();
-              }
-            }}
-            className="relative min-w-0 flex-1 rounded border border-border-primary bg-background-primary px-1.5 py-0.5 text-[13px] font-medium outline-none focus:ring-1 focus:ring-ring"
-          />
-        ) : (
-          <SidebarTooltip>
-            <TooltipTrigger asChild>
-              <CollapsibleTrigger type="button" aria-label={displayName}
-                className="flex min-h-7 min-w-0 flex-1 items-center gap-2 rounded-md text-left group-hover/project-row:pr-14 group-focus-within/project-row:pr-14 [@media(hover:none)]:pr-14 focus-visible:ring-2 focus-visible:ring-ring">
-                {agent ? <AgentAvatar avatar={avatars[agent.id] ?? agent.avatar} className="size-4 shrink-0" /> :
-                  <Folder className="size-4 shrink-0" aria-hidden="true" />}
-                <ConversationTitle>{displayName}</ConversationTitle>
-              </CollapsibleTrigger>
-            </TooltipTrigger>
-            {!menuOpen && <TooltipContent side="right" align="start" sideOffset={8} collisionPadding={12}
-              arrowClassName="invisible pointer-events-none" className={sidebarCardClass}>
-              <div className="flex items-start gap-2 text-sm font-semibold leading-5">
-                <Folder className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
-                <span className="min-w-0 flex-1 [overflow-wrap:anywhere]">{displayName}</span>
-                {pinned && <Pin className="size-3.5 shrink-0 text-text-secondary" aria-label={intl.formatMessage(i18n.pinned)} />}
-              </div>
-              <div className="mt-2 flex items-center gap-2 text-xs text-text-secondary">
-                <MessagesSquare className="size-4 shrink-0" aria-hidden="true" />
-                {intl.formatMessage(i18n.workspaceChats, { count: group.sessions.length, active: activeCount })}
-              </div>
-              <div className="mt-2 border-t border-border-primary pt-2 text-xs leading-5 text-text-secondary [overflow-wrap:anywhere]">{group.path}</div>
-            </TooltipContent>}
-          </SidebarTooltip>
-        )}
-        {!isEditing && (
-          <div className="absolute right-2 flex items-center gap-1">
+        <SidebarTooltip>
+          <TooltipTrigger asChild>
+            <CollapsibleTrigger type="button" aria-label={displayName}
+              className="flex min-h-7 min-w-0 flex-1 items-center gap-2 rounded-md text-left group-hover/project-row:pr-14 group-focus-within/project-row:pr-14 [@media(hover:none)]:pr-14 focus-visible:ring-2 focus-visible:ring-ring">
+              {agent ? <AgentAvatar avatar={avatars[agent.id] ?? agent.avatar} className="size-4 shrink-0" /> :
+                <Folder className="size-4 shrink-0" aria-hidden="true" />}
+              <ConversationTitle>{displayName}</ConversationTitle>
+            </CollapsibleTrigger>
+          </TooltipTrigger>
+          {!menuOpen && <TooltipContent side="right" align="start" sideOffset={8} collisionPadding={12}
+            arrowClassName="invisible pointer-events-none" className={sidebarCardClass}>
+            <div className="flex items-start gap-2 text-sm font-semibold leading-5">
+              <Folder className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
+              <span className="min-w-0 flex-1 [overflow-wrap:anywhere]">{displayName}</span>
+              {pinned && <Pin className="size-3.5 shrink-0 text-text-secondary" aria-label={intl.formatMessage(i18n.pinned)} />}
+            </div>
+            <div className="mt-2 flex items-center gap-2 text-xs text-text-secondary">
+              <MessagesSquare className="size-4 shrink-0" aria-hidden="true" />
+              {intl.formatMessage(i18n.workspaceChats, { count: group.sessions.length, active: activeCount })}
+            </div>
+            <div className="mt-2 border-t border-border-primary pt-2 text-xs leading-5 text-text-secondary [overflow-wrap:anywhere]">{group.path}</div>
+          </TooltipContent>}
+        </SidebarTooltip>
+
+        <div className="absolute right-2 flex items-center gap-1">
           <DropdownMenu open={menuOpen} onOpenChange={setMenuOpen}>
             <DropdownMenuTrigger asChild>
               <button type="button" aria-label={intl.formatMessage({ id: 'navigationPanel.projectActions', defaultMessage: 'Project actions' })}
@@ -465,8 +421,13 @@ export const ProjectSessionGroup: React.FC<ProjectSessionGroupProps> = ({
               <DropdownMenuItem onSelect={() => {
                 try { setProjectPinned(group.path, !pinned); } catch (error) { toast.error(errorMessage(error)); }
               }}><Pin className="size-4" />{intl.formatMessage(pinned ? i18n.unpinProject : i18n.pinProject)}</DropdownMenuItem>
-              <DropdownMenuItem onSelect={() => { setDraftName(displayName); setIsEditing(true); }}>
-                <Pencil className="size-4" />{intl.formatMessage(i18n.renameProject)}
+              <DropdownMenuItem onSelect={() => setIsEditing(true)}>
+                <Pencil className="size-4" />{intl.formatMessage(projectEditorMessages.edit)}
+              </DropdownMenuItem>
+              <DropdownMenuItem onSelect={() => {
+                try { setSidebarProjectVisible(group.path, false); } catch (error) { toast.error(errorMessage(error)); }
+              }}>
+                <FolderMinus className="size-4" aria-hidden="true" />{intl.formatMessage({ id: 'navigationPanel.removeProject', defaultMessage: 'Remove project' })}
               </DropdownMenuItem>
               <DropdownMenuItem disabled={archiveBusy} onSelect={() => void prepareArchive()}>
                 <Archive className="size-4" />{intl.formatMessage({ id: 'navigationPanel.archiveProjectChats', defaultMessage: 'Archive conversations in project' })}
@@ -482,14 +443,15 @@ export const ProjectSessionGroup: React.FC<ProjectSessionGroupProps> = ({
           >
             <MessageCirclePlus className="size-3.5" aria-hidden="true" />
           </button>
-          </div>
-        )}
+        </div>
       </div>
       <CollapsibleContent className="codepro-disclosure-content">
         <div className="ml-3 pl-2.5 pt-1">
           {group.sessions.map((session) => renderSession(session))}
         </div>
       </CollapsibleContent>
+      {isEditing && <ProjectEditor cwd={group.path} name={displayName} onClose={() => setIsEditing(false)}
+        onSaveName={name => setDisplayName(saveProjectAlias(group.path, name, group.label))} />}
       <Dialog open={archiveIds !== null} onOpenChange={open => { if (!open && !archiveBusy) setArchiveIds(null); }}>
         <DialogContent><DialogHeader>
           <DialogTitle>{intl.formatMessage({ id: 'navigationPanel.archiveProjectChats', defaultMessage: 'Archive conversations in project' })}</DialogTitle>
@@ -526,7 +488,7 @@ export function NavigationChatsSection({
   const more = intl.formatMessage(i18n.sectionActions, { section });
   const actionClass = 'grid size-7 shrink-0 place-items-center rounded-md text-text-secondary hover:bg-background-secondary hover:text-text-primary focus-visible:ring-1 opacity-0 pointer-events-none group-hover/heading:opacity-100 group-hover/heading:pointer-events-auto group-has-[:focus-visible]/heading:opacity-100 data-[state=open]:opacity-100 [@media(hover:none)]:opacity-100 [@media(hover:none)]:pointer-events-auto';
   return (
-    <Collapsible open={expanded} onOpenChange={setExpanded} className="min-h-0 flex flex-col mt-4">
+    <Collapsible open={expanded} onOpenChange={setExpanded} className="min-h-0 shrink-0 flex flex-col mt-4">
       <div className="group/heading flex min-w-0 items-center pl-4 pr-2">
         <CollapsibleTrigger className="flex min-w-0 flex-1 items-center gap-1 py-1 text-xs font-medium text-text-secondary hover:text-text-primary">
           <ChevronRight
@@ -627,6 +589,7 @@ export const Navigation: React.FC<NavigationProps> = ({
     () => new Set<string>(nativeTasks.records.map((task) => task.sessionId)),
     [nativeTasks.records]
   );
+  const [dropTarget, setDropTarget] = useState<string | null>(null);
   const reducedMotion = useReducedMotion();
   const { isNavExpanded } = useNavigationContext();
   const location = useLocation();
@@ -648,7 +611,7 @@ export const Navigation: React.FC<NavigationProps> = ({
     handleSessionClick,
   } = useNavigationSessions();
   const navigate = useNavigate();
-  const openDraft = (workingDir: string) => navigate(withWorkspaceMode('/pair', workspaceMode), { state: { draftOnly: true, workingDir } });
+  const openDraft = (workingDir: string) => { if (workingDir) setSidebarProjectVisible(workingDir, true); navigate(withWorkspaceMode('/pair', workspaceMode), { state: { draftOnly: true, workingDir } }); };
   const chooseWorkspace = async () => {
     try {
       const result = await window.electron.directoryChooser();
@@ -667,7 +630,7 @@ export const Navigation: React.FC<NavigationProps> = ({
   const [sessionStatuses, setSessionStatuses] = useState<Map<string, SessionStatus>>(new Map());
   const [petTasks, setPetTasks] = useState<PetTask[] | null>(null);
   const taskStates = useMemo(() => petTasks && new Map(
-    petTasks.map(task => [task.sessionId, task.state] as const)
+    petTasks.map(task => [task.sessionId, task] as const)
   ), [petTasks]);
   useEffect(() => {
     if (!window.electron?.desktopPet) return;
@@ -730,7 +693,7 @@ export const Navigation: React.FC<NavigationProps> = ({
   }, [isNavExpanded, fetchSessions]);
 
   const streamStateFor = (id: string): StreamState => {
-    const task = taskStates?.get(id);
+    const task = taskStates?.get(id)?.state;
     if (task === 'working') return 'streaming';
     if (task === 'blocked') return 'error';
     if (task === 'completed' || task === 'input') return 'idle';
@@ -740,7 +703,7 @@ export const Navigation: React.FC<NavigationProps> = ({
   const mainTask = petTasks?.find(task => task.globalConversation);
   const mainId = mainTask?.sessionId ?? recentSessions.find(session => session.globalConversation)?.id;
   const mainActive = !!mainId && activeSessionId === mainId;
-  const mainState = taskStates?.get(mainId ?? '') ??
+  const mainState = taskStates?.get(mainId ?? '')?.state ??
     (mainId && sessionStatuses.get(mainId)?.streamState === 'streaming' ? 'working' : undefined);
 
   const renderSession = (session: SessionListItem, nested = true) => {
@@ -755,13 +718,14 @@ export const Navigation: React.FC<NavigationProps> = ({
         active={session.id === activeSessionId}
         status={{
           streamState: streamStateFor(session.id),
-          hasUnreadActivity: taskStates ? task === 'completed' : local?.hasUnreadActivity ?? false,
+          hasUnreadActivity: taskStates ? task?.state === 'completed' : local?.hasUnreadActivity ?? false,
         }}
         onClick={() => {
           clearUnread(session.id);
           handleSessionClick(session.id);
         }}
         onRenamed={fetchSessions}
+        awaitingReply={Boolean(task?.questions?.length)}
         onForked={handleSessionClick}
       />
     );
@@ -792,19 +756,54 @@ export const Navigation: React.FC<NavigationProps> = ({
         ))}
       </div>
 
-      <MainConversationRow onOpen={handleSessionClick} active={mainActive} taskState={mainState} />
-      <div className="sidebar-scrollbar min-h-0 flex-1 overflow-y-auto overflow-x-hidden pb-2">
+      <MainConversationRow onOpen={handleSessionClick} active={mainActive} taskState={mainState} awaitingReply={Boolean(mainTask?.questions?.length)} />
+      <div onDragOver={event => {
+        if (event.dataTransfer.types.includes('application/x-codebuddy-session') &&
+            (event.target as HTMLElement).closest('[data-project-drop], [data-task-drop]')) {
+          event.preventDefault(); event.dataTransfer.dropEffect = 'move';
+          const target = (event.target as HTMLElement).closest<HTMLElement>('[data-project-drop], [data-task-drop]')!;
+          setDropTarget(target.hasAttribute('data-task-drop') ? 'tasks' : target.dataset.projectDrop ?? null);
+        }
+      }} onDragLeave={event => {
+        if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setDropTarget(null);
+      }} onDragEndCapture={() => setDropTarget(null)} onDrop={event => {
+        setDropTarget(null);
+        const target = (event.target as HTMLElement).closest<HTMLElement>('[data-project-drop], [data-task-drop]');
+        const sessionId = event.dataTransfer.getData('application/x-codebuddy-session');
+        if (!target || !sessionId) return;
+        event.preventDefault();
+        void (async () => {
+          try {
+            const source = recentSessions.find(session => session.id === sessionId);
+            const directoryChange = target.hasAttribute('data-project-drop') && source &&
+              projectPathIdentity(source.workingDir) !== projectPathIdentity(target.dataset.projectDrop ?? '');
+            if (directoryChange && ['loading', 'streaming'].includes(streamStateFor(sessionId))) {
+              toast.info(intl.formatMessage({ id: 'navigationPanel.stopBeforeMove', defaultMessage: 'Stop the current task before changing its workspace.' }));
+              return;
+            }
+            const client = await getAcpControlClient();
+            await client.extMethod('_goose/unstable/session/navigation/move', { sessionId,
+              destination: target.hasAttribute('data-task-drop') ? 'tasks' : 'project',
+              workingDir: target.dataset.projectDrop });
+            window.dispatchEvent(new CustomEvent(AppEvents.SESSION_CONVERSATION_CHANGED, { detail: { sessionId } }));
+            if (directoryChange) await acpChatSessionController.restoreSession(sessionId);
+          } catch (error) { toast.error(errorMessage(error)); }
+        })();
+      }} className="sidebar-scrollbar flex min-h-0 flex-1 flex-col overflow-y-auto overflow-x-hidden pb-2">
         {sortedProjects.length > 0 && (
           <NavigationChatsSection title={intl.formatMessage(i18n.workspaces)}
             newChat={{ label: intl.formatMessage(i18n.newWorkspaceChat), open: chooseWorkspace }}
             menuItems={<DropdownMenuItem onSelect={chooseWorkspace}>{intl.formatMessage(i18n.newWorkspaceChat)}</DropdownMenuItem>}>
             {sortedProjects.map((group: ProjectGroup) => (
-              <ProjectSessionGroup key={group.path} group={group}
-                activeCount={group.sessions.filter(s => streamStateFor(s.id) === 'streaming').length} avatars={agentAvatars} renderSession={renderSession} onNewChat={openDraft} />
+              <div key={group.path} data-project-drop={group.path}
+                data-drop-active={dropTarget === group.path || undefined}
+                className={cn('min-h-14 rounded-lg pb-3 transition-colors', dropTarget === group.path && 'bg-background-tertiary ring-1 ring-inset ring-blue-400')}><ProjectSessionGroup group={group}
+                activeCount={group.sessions.filter(s => streamStateFor(s.id) === 'streaming').length} avatars={agentAvatars} renderSession={renderSession} onNewChat={openDraft} /></div>
             ))}
           </NavigationChatsSection>
         )}
-        <NavigationChatsSection newChat={{ label: intl.formatMessage(i18n.newTaskChat), open: () => openDraft('') }}
+        <div data-task-drop data-drop-active={dropTarget === 'tasks' || undefined}
+          className={cn('min-h-32 flex-auto shrink-0 rounded-lg transition-colors', dropTarget === 'tasks' && 'bg-background-tertiary ring-1 ring-inset ring-blue-400')}><NavigationChatsSection newChat={{ label: intl.formatMessage(i18n.newTaskChat), open: () => openDraft('') }}
           menuItems={<DropdownMenuItem onSelect={() => handleNavClick('/sessions')}>
             {intl.formatMessage({ id: 'navigation.itemSessions', defaultMessage: 'History' })}
           </DropdownMenuItem>}>
@@ -815,7 +814,7 @@ export const Navigation: React.FC<NavigationProps> = ({
           ) : (
             recentTaskSessions.map((session) => renderSession(session, false))
           )}
-        </NavigationChatsSection>
+        </NavigationChatsSection></div>
 
       </div>
 

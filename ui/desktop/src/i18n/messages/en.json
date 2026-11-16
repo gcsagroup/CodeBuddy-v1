@@ -1,4 +1,18 @@
 {
+  "navigationPanel.removeProject": {"defaultMessage": "Remove project"},
+  "navigationPanel.stopBeforeMove": {"defaultMessage": "Stop the current task before changing its workspace."},
+  "typography.text": { "defaultMessage": "Interface text size" },
+  "typography.textHint": { "defaultMessage": "Change chat text, the message box and interface labels." },
+  "typography.sample": { "defaultMessage": "Your messages will look like this." },
+  "startup.draftHint": { "defaultMessage": "Connecting to your model. You can write your message now." },
+  "projectEditor.edit": { "defaultMessage": "Edit project" },
+  "projectEditor.main": { "defaultMessage": "Primary folder" },
+  "projectEditor.linked": { "defaultMessage": "Additional folders" },
+  "projectEditor.add": { "defaultMessage": "Add folder" },
+  "projectEditor.reference": { "defaultMessage": "Reference only" },
+  "projectEditor.write": { "defaultMessage": "Allow editing" },
+  "projectEditor.remove": { "defaultMessage": "Unlink {name}" },
+  "projectEditor.hint": { "defaultMessage": "Chats start in the primary folder. File editing follows the access selected here. The terminal uses session permissions." },
   "projectBrief.heading": { "defaultMessage": "Project brief" },
   "projectBrief.task": { "defaultMessage": "Assignment" },
   "projectBrief.result": { "defaultMessage": "Project reply" },
@@ -15,6 +29,9 @@
   },
   "app.chooseFolder": {
     "defaultMessage": "Choose folder"
+  },
+  "app.questionNotice": {
+    "defaultMessage": "{title} · Reply to agent"
   },
   "app.toastNotifications": {
     "defaultMessage": "Toast notifications"
@@ -292,8 +309,8 @@
   "chat.notification.taskComplete.body": {
     "defaultMessage": "Click here to bring CodeBuddy back into focus."
   },
-  "chat.notification.taskComplete.title": {
-    "defaultMessage": "CodeBuddy finished the task."
+  "chat.notification.executionEnded.title": {
+    "defaultMessage": "CodeBuddy finished this execution turn."
   },
   "chatInput.attachFile": {
     "defaultMessage": "Attach file"
@@ -7517,6 +7534,9 @@
   "sessionCapabilities.forkUnavailable": {
     "defaultMessage": "Copying is unavailable for this session. Start a new task to work independently."
   },
+  "sessionIndicators.awaitingReply": {
+    "defaultMessage": "Awaiting reply"
+  },
   "sessionIndicators.error": {
     "defaultMessage": "Session encountered an error"
   },
@@ -9508,6 +9528,45 @@
   },
   "toolbox.usage": {
     "defaultMessage": "{count,plural,one{Used successfully # time} other{Used successfully # times}}"
+  },
+  "typography.default": {
+    "defaultMessage": "CodeBuddy default"
+  },
+  "typography.failed": {
+    "defaultMessage": "Could not save your display preference."
+  },
+  "typography.font": {
+    "defaultMessage": "Interface font"
+  },
+  "typography.less": {
+    "defaultMessage": "Decrease {setting}"
+  },
+  "typography.more": {
+    "defaultMessage": "Increase {setting}"
+  },
+  "typography.reset": {
+    "defaultMessage": "Reset {setting}"
+  },
+  "typography.serif": {
+    "defaultMessage": "Serif"
+  },
+  "typography.size": {
+    "defaultMessage": "Code font size"
+  },
+  "typography.sizeHint": {
+    "defaultMessage": "Applies to code blocks, the file editor, and diffs."
+  },
+  "typography.system": {
+    "defaultMessage": "System font"
+  },
+  "typography.title": {
+    "defaultMessage": "Typography"
+  },
+  "typography.zoom": {
+    "defaultMessage": "Window zoom"
+  },
+  "typography.zoomHint": {
+    "defaultMessage": "Scale chat, the sidebar, and controls together."
   },
   "userMessage.cancel": {
     "defaultMessage": "Cancel"

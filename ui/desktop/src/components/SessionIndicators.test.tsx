@@ -22,6 +22,7 @@ describe('SessionIndicators', () => {
       </IntlTestWrapper>
     );
     expect(screen.getByLabelText('Streaming')).toHaveAttribute('title', 'Streaming');
+    expect(view.container.querySelector('.animate-spin')).toBeInTheDocument();
 
     view.rerender(
       <IntlTestWrapper>

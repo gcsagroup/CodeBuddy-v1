@@ -84,6 +84,24 @@ describe('CodePro run commands', () => {
     expect(getCodeProRunProjection('session-1', 'run-1')?.lastSequence).toBe(8);
   });
 
+  it('keeps a newer notification when an older reconnect refresh resolves later', async () => {
+    let resolveRefresh!: (value: { snapshot: CodeProRunSnapshot }) => void;
+    const client = {
+      codeproRunGet_unstable: vi.fn().mockReturnValue(
+        new Promise((resolve) => {
+          resolveRefresh = resolve;
+        })
+      ),
+    };
+    const commands = createCodeProRunCommands(async () => ({ goose: client as never }));
+    const pending = commands.refresh('session-1', 'run-1');
+    await Promise.resolve();
+    const current = applyCodeProRunSnapshot(snapshot(8, 'completed'));
+    resolveRefresh({ snapshot: snapshot(6, 'running') });
+    await expect(pending).resolves.toBe(current);
+    expect(getCodeProRunProjection('session-1', 'run-1')).toBe(current);
+  });
+
   it('abandons a hung control request and lets the next poll use a fresh connection', async () => {
     vi.useFakeTimers();
     const hungClient = {

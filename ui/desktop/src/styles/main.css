@@ -21,6 +21,25 @@
 
 @theme {
   --breakpoint-md: 930px;
+  --animate-spin: spin 1.35s linear infinite;
+}
+
+/* Small loaders keep their existing accessible labels and button geometry. */
+.notification-spinner, .lucide-loader-circle.animate-spin, .lucide-loader.animate-spin,
+div.animate-spin.rounded-full, span.animate-spin.rounded-full {
+  background: currentColor;
+  border: 0;
+  mask: radial-gradient(circle, #000 50%, transparent 65%) left center / 30% 38% no-repeat,
+    radial-gradient(circle, #000 50%, transparent 65%) center / 30% 38% no-repeat,
+    radial-gradient(circle, #000 50%, transparent 65%) right center / 30% 38% no-repeat;
+  animation: loading-breathe 1.45s ease-in-out infinite alternate;
+}
+@keyframes loading-breathe {
+  from { opacity: .55; }
+  to { opacity: 1; }
+}
+[data-slot='skeleton'] {
+  animation: loading-breathe 1.7s ease-in-out infinite alternate;
 }
 
 /* ═══════════════════════════════════════════════════════════
@@ -261,6 +280,17 @@
 }
 
 /* Shared by navigation, settings and desktop pages, including portalled UI. */
+body[data-ui-font='system'] {
+  --font-sans: system-ui, 'Microsoft YaHei UI', 'PingFang SC', sans-serif;
+}
+body[data-ui-font='serif'] {
+  --font-sans: Georgia, 'Songti SC', 'SimSun', serif;
+}
+body:is([data-ui-font='system'], [data-ui-font='serif']),
+body:is([data-ui-font='system'], [data-ui-font='serif']) .font-sans {
+  font-family: var(--font-sans);
+}
+
 @layer base {
   :where(svg.lucide[stroke-width="2"]) { stroke-width: 1.75; }
 }

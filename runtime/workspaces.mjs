@@ -10,10 +10,11 @@ import {
   writeFile,
 } from "node:fs/promises";
 import path from "node:path";
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 
 const LEASE_PREFIX = "_goose/unstable/workspace/lease/";
 const SOURCE_PREFIX = "_goose/unstable/sources/";
+const FOLDER_PREFIX = "_codebuddy/project-folders/";
 const CONFIRMABLE_STATES = new Set([
   "missing",
   "empty-directory",
@@ -83,6 +84,11 @@ function sameSnapshot(left, right) {
   );
 }
 
+function insideDirectory(root, target) {
+  const relative = path.relative(root, target);
+  return relative === '' || (relative !== '..' && !relative.startsWith('..' + path.sep) && !path.isAbsolute(relative));
+}
+
 function publicLease(lease) {
   return {
     leaseId: lease.id,
@@ -114,6 +120,7 @@ export class WorkspaceService {
   }
 
   handles(method, params = {}) {
+    if ([FOLDER_PREFIX + 'get', FOLDER_PREFIX + 'save'].includes(method)) return true;
     if (method === SOURCE_PREFIX + "import") {
       try {
         return JSON.parse(params.data)?.type === "project";
@@ -131,6 +138,8 @@ export class WorkspaceService {
   }
 
   async request(method, params, connection) {
+    if (method === FOLDER_PREFIX + 'get') return this.projectFolders(params.cwd);
+    if (method === FOLDER_PREFIX + 'save') return this.saveProjectFolders(params);
     if (method === LEASE_PREFIX + "acquire")
       return this.acquire(params, connection);
     if (method === LEASE_PREFIX + "release")
@@ -140,6 +149,61 @@ export class WorkspaceService {
     if (this.handles(method, params))
       return this.projectRequest(method.slice(SOURCE_PREFIX.length), params);
     throw invalid("Unsupported workspace method");
+  }
+
+  folderConfigPath(cwd) {
+    const key = createHash('sha256').update(workspaceIdentity(path.resolve(cwd))).digest('hex');
+    return path.join(this.projectDirectory, 'linked-folders', key + '.json');
+  }
+
+  async readFolderConfig(cwd) {
+    if (!this.projectDirectory || !cwd || !path.isAbsolute(cwd)) return null;
+    try { return JSON.parse(await readFile(this.folderConfigPath(cwd), 'utf8')); }
+    catch (error) { if (error.code === 'ENOENT') return null; throw error; }
+  }
+
+  async projectFolders(cwd) {
+    const config = await this.readFolderConfig(cwd);
+    return { version: config?.version ?? '', folders: (config?.folders ?? []).map(({ path, access }) => ({ path, access })) };
+  }
+
+  saveProjectFolders({ cwd, folders, version }) {
+    return this.serial(async () => {
+      const main = await directorySnapshot(absoluteDirectory(cwd));
+      const current = await this.readFolderConfig(cwd);
+      if ((current?.version ?? '') !== version) throw invalid('Project settings changed. Reopen the editor.');
+      if (!Array.isArray(folders)) throw invalid('Expected a list of folders');
+      const roots = [main.canonical];
+      const entries = [];
+      for (const item of folders) {
+        if (!['reference', 'write'].includes(item?.access)) throw invalid('Invalid folder access');
+        const snapshot = await directorySnapshot(absoluteDirectory(item.path));
+        if (roots.some(root => insideDirectory(root, snapshot.canonical) || insideDirectory(snapshot.canonical, root)))
+          throw invalid('Choose separate folders. These project folders overlap.');
+        roots.push(snapshot.canonical);
+        entries.push({ path: snapshot.canonical, access: item.access, snapshot });
+      }
+      const file = this.folderConfigPath(cwd);
+      await mkdir(path.dirname(file), { recursive: true });
+      const next = { version: randomUUID(), main, folders: entries };
+      const temporary = file + '.' + next.version + '.tmp';
+      try {
+        await writeFile(temporary, JSON.stringify(next), { flag: 'wx', mode: 0o600 });
+        await rename(temporary, file);
+      } finally { await unlink(temporary).catch(error => { if (error.code !== 'ENOENT') throw error; }); }
+      return this.projectFolders(cwd);
+    });
+  }
+
+  async linkedWriteAccess(cwd, target) {
+    const config = await this.readFolderConfig(cwd);
+    const entry = config?.folders.find(item => insideDirectory(item.path, target.targetKey) || insideDirectory(item.path, target.displayPath));
+    if (!entry) return undefined;
+    if (entry.access !== 'write' || !insideDirectory(entry.path, target.targetKey)) return false;
+    // A directory replaced or redirected since selection must be reselected.
+    if (!sameSnapshot(config.main, await directorySnapshot(cwd)) ||
+        !sameSnapshot(entry.snapshot, await directorySnapshot(entry.path))) return false;
+    return entry.path;
   }
 
   async discard(lease) {
@@ -248,6 +312,16 @@ export class WorkspaceService {
       this.pending.delete(lease.id);
       this.sessions.set(sessionId, lease);
       return publicLease(lease);
+    });
+  }
+
+  changeSessionDirectory(sessionId, cwd, operation) {
+    return this.serial(async () => {
+      const snapshot = await directorySnapshot(absoluteDirectory(cwd));
+      const result = await operation();
+      // Only a successful native rebind replaces the previous workspace lease.
+      this.sessions.set(sessionId, { id: randomUUID(), snapshot, created: false, expectedEmpty: false });
+      return result;
     });
   }
 

@@ -1,6 +1,7 @@
 import type { ImageData, MessageMetadata } from '../types/message';
 
 export interface StoredQueuedMessage {
+  queuedWhileBusy?: true;
   id: string;
   content: string;
   timestamp: number;
@@ -75,14 +76,18 @@ export class QueuedMessageStorage {
     }
     this.previous = raw;
     this.loaded = true;
-    return parsed.messages.map(({ presentation, ...message }) =>
-      typeof presentation?.afterMessageId === 'string' &&
+    return parsed.messages.map(({ presentation, queuedWhileBusy, ...message }) => {
+      const restored = {
+        ...message,
+        ...(queuedWhileBusy === true ? { queuedWhileBusy: true as const } : {}),
+      };
+      return typeof presentation?.afterMessageId === 'string' &&
       presentation.afterMessageId.length > 0 &&
       presentation.afterMessageId.length <= 2048 &&
       presentation.afterMessageId !== message.id
-        ? { ...message, presentation: { afterMessageId: presentation.afterMessageId } }
-        : message
-    );
+        ? { ...restored, presentation: { afterMessageId: presentation.afterMessageId } }
+        : restored;
+    });
   }
 
   write(messages: StoredQueuedMessage[]): void {

@@ -1,4 +1,31 @@
 {
+  "navigationPanel.removeProject": {"defaultMessage": "移除專案"},
+  "navigationPanel.stopBeforeMove": {"defaultMessage": "請先停止目前任務，再切換工作區。"},
+  "typography.text": { "defaultMessage": "介面字級" },
+  "typography.textHint": { "defaultMessage": "調整聊天內文、輸入框與介面文字。" },
+  "typography.sample": { "defaultMessage": "你的訊息會以這個大小顯示。" },
+  "startup.draftHint": { "defaultMessage": "正在連線到模型，現在就可以撰寫訊息。" },
+  "typography.title": { "defaultMessage": "字體與縮放" },
+  "typography.zoom": { "defaultMessage": "介面縮放" },
+  "typography.zoomHint": { "defaultMessage": "同時調整對話、側欄和按鈕的大小。" },
+  "typography.size": { "defaultMessage": "程式碼字級" },
+  "typography.sizeHint": { "defaultMessage": "用於程式碼區塊、檔案編輯器和差異比較。" },
+  "typography.font": { "defaultMessage": "介面字體" },
+  "typography.default": { "defaultMessage": "CodeBuddy 預設" },
+  "typography.system": { "defaultMessage": "系統字體" },
+  "typography.serif": { "defaultMessage": "襯線字體" },
+  "typography.less": { "defaultMessage": "減小{setting}" },
+  "typography.more": { "defaultMessage": "增大{setting}" },
+  "typography.reset": { "defaultMessage": "重設{setting}" },
+  "typography.failed": { "defaultMessage": "顯示設定儲存失敗，請再試一次。" },
+  "projectEditor.edit": { "defaultMessage": "編輯專案" },
+  "projectEditor.main": { "defaultMessage": "主資料夾" },
+  "projectEditor.linked": { "defaultMessage": "附加資料夾" },
+  "projectEditor.add": { "defaultMessage": "新增資料夾" },
+  "projectEditor.reference": { "defaultMessage": "僅供參考" },
+  "projectEditor.write": { "defaultMessage": "允許修改" },
+  "projectEditor.remove": { "defaultMessage": "移除關聯 {name}" },
+  "projectEditor.hint": { "defaultMessage": "對話預設在主資料夾中工作。檔案編輯工具依這裡的設定讀寫附加資料夾，終端機沿用對話權限。" },
   "projectBrief.heading": { "defaultMessage": "專案簡報" },
   "projectBrief.task": { "defaultMessage": "本輪任務" },
   "projectBrief.result": { "defaultMessage": "專案回覆摘要" },
@@ -43,6 +70,9 @@
   },
   "app.chooseFolder": {
     "defaultMessage": "Choose folder"
+  },
+  "app.questionNotice": {
+    "defaultMessage": "{title} · 去回覆 Agent"
   },
   "app.toastNotifications": {
     "defaultMessage": "Toast notifications"
@@ -320,8 +350,8 @@
   "chat.notification.taskComplete.body": {
     "defaultMessage": "按一下這裡讓 CodeBuddy 重新回到焦點。"
   },
-  "chat.notification.taskComplete.title": {
-    "defaultMessage": "CodeBuddy 已完成工作。"
+  "chat.notification.executionEnded.title": {
+    "defaultMessage": "CodeBuddy 本輪執行已結束。"
   },
   "chatInput.attachFile": {
     "defaultMessage": "Attach file"
@@ -7474,6 +7504,9 @@
   },
   "sessionCapabilities.forkUnavailable": {
     "defaultMessage": "此對話不支援複製。請新增任務以獨立進行工作。"
+  },
+  "sessionIndicators.awaitingReply": {
+    "defaultMessage": "待回覆"
   },
   "sessionIndicators.error": {
     "defaultMessage": "工作階段發生錯誤"

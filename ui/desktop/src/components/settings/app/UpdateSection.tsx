@@ -79,7 +79,8 @@ export default function UpdateSection() {
       setLocalError(intl.formatMessage(messages.failed));
     }
   };
-  const check = (channel = state.channel) => {
+  const check = async (channel = state.channel) => {
+    if (!await window.electron.requestNetworkAccess()) return;
     setChecked(true);
     void run(() => window.electron.checkForUpdates(channel));
   };

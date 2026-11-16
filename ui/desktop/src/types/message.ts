@@ -222,6 +222,7 @@ export type MessageUsage = {
 };
 
 export type MessageMetadata = {
+  queuedWhileBusy?: true;
   desktopGeneration?: string;
   goalRequest?: GoalRequest;
   planMode?: boolean;
@@ -311,6 +312,7 @@ export interface ImageData {
 }
 
 export interface UserInput {
+  queuedWhileBusy?: true;
   desktopGeneration?: string;
   msg: string;
   images: ImageData[];

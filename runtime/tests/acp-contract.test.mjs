@@ -374,6 +374,23 @@ test('production ACP carries draft progress without storing a call or replaying 
   assert.doesNotMatch(JSON.stringify(updates(client, sessionId)), /draft-only|tool_input/);
 });
 
+test('queued input origin reaches Harness without rewriting content or marking later direct input', async t => {
+  const seen = [];
+  const driver = controlledDriver(async (_id, content, options) => {
+    seen.push({ content, queuedWhileBusy: options.queuedWhileBusy });
+    await options.onEvent({ type: 'text_delta', text: 'Observed' });
+    return { stopReason: 'end_turn' };
+  });
+  const { client, dataDir } = await setup(t, driver);
+  await configure(client);
+  const sessionId = await newSession(client, dataDir);
+  const prompt = [{ type: 'text', text: 'Additional work after the prior result' }];
+  await client.request('session/prompt', { sessionId, prompt, _meta: { 'codebuddy/input-origin': 'queued-while-busy' } });
+  await client.request('session/prompt', { sessionId, prompt });
+  assert.deepEqual(seen.map(item => item.queuedWhileBusy), [true, false]);
+  assert.deepEqual(seen.map(item => item.content), [prompt, prompt]);
+});
+
 test("driver deltas become stable message/thought/tool updates and replay as history", async (t) => {
   const { client, dataDir } = await setup(t);
   await configure(client);
@@ -957,6 +974,8 @@ test("shutdown cancels an active prompt and flushes its partial transcript befor
     })
     .catch(() => null);
   await began;
+  const activity = await fetch(`${fixture.baseUrl}/status`, { headers: { "X-Secret-Key": secret } });
+  assert.equal((await activity.json()).hasActiveTasks, true);
   const reopened = await fixture.restart();
   await pending;
   await reopened.request("session/load", {

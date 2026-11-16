@@ -7,6 +7,7 @@
       content="default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'; img-src 'self' data: https: codebuddy-media:; connect-src 'self' http://127.0.0.1:* https: ws: wss:; object-src 'none'; font-src 'self' data: https:; media-src 'self' mediastream: codebuddy-media:; form-action 'none'; base-uri 'self'; manifest-src 'self'; worker-src 'self' blob:; frame-src 'self' https: http:;"
     />
     <title>CodeBuddy</title>
+    <link rel="stylesheet" href="./src/styles/startup-loader.css" />
     <link rel="icon" type="image/png" href="/src/images/favicon.png" />
     <script>
       // Initialize theme before any content loads
@@ -58,6 +59,7 @@
 
         // Run immediately
         initializeTheme();
+        if (!location.hash.startsWith('#/codepro')) document.documentElement.classList.add('no-first-paint');
 
         // Retry after DOM is ready if initial attempt failed
         if (document.readyState === 'loading') {
@@ -69,7 +71,7 @@
     </script>
   </head>
   <body>
-    <div id="root"></div>
+    <div id="root"><div class="startup-loader first-paint" role="status"><div class="startup-loader__content"><div class="startup-loader__mark"><img src="./src/images/mark@2x.png" alt="" /></div></div></div></div>
     <script type="module" src="./src/renderer.tsx"></script>
   </body>
 </html>

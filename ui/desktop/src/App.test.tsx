@@ -179,6 +179,7 @@ const mockSearchParams = new URLSearchParams();
 const mockSetSearchParams = vi.fn();
 let mockLocationState: Record<string, unknown> | null = null;
 let mockLocationPath = '/codepro';
+let mockLocationSearch = '';
 
 // Mock react-router-dom to avoid HashRouter issues in tests
 vi.mock('react-router-dom', () => ({
@@ -190,7 +191,7 @@ vi.mock('react-router-dom', () => ({
   useLocation: () => ({
     state: mockLocationState,
     pathname: mockLocationPath,
-    search: '',
+    search: mockLocationSearch,
     hash: '',
   }),
   useSearchParams: () => [mockSearchParams, mockSetSearchParams],
@@ -208,6 +209,7 @@ const mockElectron = {
   on: vi.fn(),
   off: vi.fn(),
   reactReady: vi.fn(),
+  startupModelConfigured: vi.fn(),
   getAllowedExtensions: vi.fn().mockResolvedValue([]),
   platform: 'darwin',
   getIsFullScreen: vi.fn().mockResolvedValue(false),
@@ -259,6 +261,7 @@ describe('App Component - Brand New State', () => {
     mockSetSearchParams.mockClear();
     mockLocationState = null;
     mockLocationPath = '/codepro';
+    mockLocationSearch = '';
     mockAppConfig.get.mockImplementation((key: string): string | null => {
       if (key === 'GOOSE_WORKING_DIR') return '/test/dir';
       return null;
@@ -276,6 +279,30 @@ describe('App Component - Brand New State', () => {
 
   afterEach(() => {
     vi.clearAllMocks();
+  });
+
+  it('mounts the window before model readiness and opens setup for an unconfigured first launch', async () => {
+    mockLocationSearch = '?startupHome=1';
+    let resolve!: (configured: boolean) => void;
+    mockElectron.startupModelConfigured.mockReturnValue(new Promise<boolean>(done => { resolve = done; }));
+    render(<AppInner />, { wrapper: AppInnerTestWrapper });
+    await waitFor(() => expect(mockElectron.reactReady).toHaveBeenCalled());
+    expect(mockNavigate).not.toHaveBeenCalled();
+    resolve(false);
+    await waitFor(() => expect(mockNavigate).toHaveBeenCalledWith('/codepro/configure-providers', { replace: true }));
+  });
+
+  it('does not replace a later navigation when startup resolves', async () => {
+    mockLocationSearch = '?startupHome=1';
+    let resolve!: (configured: boolean) => void;
+    mockElectron.startupModelConfigured.mockReturnValue(new Promise<boolean>(done => { resolve = done; }));
+    const view = render(<AppInner />, { wrapper: AppInnerTestWrapper });
+    mockLocationPath = '/codepro/settings';
+    mockLocationSearch = '';
+    view.rerender(<AppInner />);
+    resolve(false);
+    await Promise.resolve();
+    expect(mockNavigate).not.toHaveBeenCalledWith('/codepro/configure-providers', expect.anything());
   });
 
   it('should stay on the canonical CodePro entry when app is brand new', async () => {

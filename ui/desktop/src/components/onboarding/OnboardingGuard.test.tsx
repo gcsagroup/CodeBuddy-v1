@@ -67,6 +67,18 @@ describe('manual model onboarding', () => {
     expect(configure).toHaveBeenCalledOnce();
   });
 
+  it('keeps the provider status and settings visible until the real check resolves', async () => {
+    let finish!: (providers: ProviderDetails[]) => void;
+    vi.mocked(list).mockReturnValue(new Promise(resolve => { finish = resolve; }));
+    render(guard());
+    expect(screen.getByRole('heading', { name: 'Loading providers...' })).toBeVisible();
+    expect(screen.queryByText('chat')).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Open model settings' }));
+    expect(configure).toHaveBeenCalledOnce();
+    await act(async () => finish([connection]));
+    expect(screen.getByText('chat')).toBeVisible();
+  });
+
   it('allows a saved connection without choosing a global default model first', async () => {
     vi.mocked(list).mockResolvedValue([connection]);
     render(guard());

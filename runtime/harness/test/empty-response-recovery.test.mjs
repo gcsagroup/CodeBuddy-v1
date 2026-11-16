@@ -16,9 +16,12 @@ test('native retry owns recovery, exhaustion, cancellation and later turns for e
     let raw = ''; for await (const chunk of req) raw += chunk;
     const request = JSON.parse(raw);
     if (replyToNoActionReview(request, res)) return;
-    const prompt = JSON.stringify(request.messages.findLast(message => message.role === 'user' && JSON.stringify(message.content).includes('empty_fixture_'))?.content);
-    const marker = /empty_fixture_(recover|exhaust|cancel|length|normal|parent|child)/.exec(prompt)?.[1];
-    assert.ok(marker);
+    // Match the fixture input, not a quoted tool argument in receipt context.
+    const fixtureInput = request.messages.filter(message => message.role === 'user').flatMap(message =>
+      typeof message.content === 'string' ? [message.content] : (message.content ?? []).map(part => part.text ?? '')
+    ).findLast(text => /(?:^|\n)empty_fixture_(recover|exhaust|cancel|length|normal|parent|child)/.test(text));
+    const marker = /empty_fixture_(recover|exhaust|cancel|length|normal|parent|child)/.exec(fixtureInput)?.[1];
+    assert.ok(marker, 'Expected a fixture input outside quoted receipt data');
     const count = (counts.get(marker) ?? 0) + 1; counts.set(marker, count);
     if (marker === 'length') lengthRequests.push(request);
     res.writeHead(200, { 'content-type': 'text/event-stream' });

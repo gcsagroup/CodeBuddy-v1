@@ -52,7 +52,7 @@ describe('LoadingGoose', () => {
       );
       act(() => vi.advanceTimersByTime(3000));
       const status = screen.getByRole('status');
-      expect(status.querySelector('span[aria-hidden="true"]')).toHaveTextContent('已用 3 秒');
+      expect(screen.getByText('正在读取文件 · 已用 3 秒')).toHaveAttribute('aria-hidden', 'true');
       expect(status.querySelector('.sr-only')).toHaveTextContent('正在读取文件');
       expect(status.querySelector('.sr-only')).not.toHaveTextContent('秒');
       view.unmount();

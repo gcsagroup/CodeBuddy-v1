@@ -1,3 +1,5 @@
+import { defaultTypography, type Typography } from './typography';
+
 export interface ExternalBackendConfig {
   enabled: boolean;
   url: string;
@@ -34,7 +36,8 @@ export interface CodeEditorPreference {
   kind: 'vscode' | 'sublime' | 'notepad++' | 'generic';
 }
 
-export interface Settings {
+export interface Settings extends Typography {
+  networkAccessAllowed?: boolean;
   // Written only after an explicit editor choice in the main process.
   defaultCodeEditor: CodeEditorPreference | null;
   // Desktop app settings
@@ -75,6 +78,7 @@ export const defaultKeyboardShortcuts: DefaultKeyboardShortcuts = {
 };
 
 export const defaultSettings: Settings = {
+  ...defaultTypography,
   defaultCodeEditor: null,
   // Desktop app settings
   showMenuBarIcon: true,

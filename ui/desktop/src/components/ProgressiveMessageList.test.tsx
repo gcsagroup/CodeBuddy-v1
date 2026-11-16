@@ -683,6 +683,18 @@ describe('work / answer presentation boundary', () => {
     ).toBeVisible();
   });
 
+  it('keeps the completed answer without the acceptance reminder in the real list', () => {
+    const receipt = terminalMessage('not_available', { askUser: true });
+    receipt.content = receipt.content.map(content => content.type === 'systemNotification' && isTurnTerminalRecord(content.data)
+      ? { ...content, data: { ...content.data, status: 'completed', tool_action_count: 0,
+        report: { ...content.data.report!, outcome: 'completed', recovery_action: 'none', verification_summary: [],
+          classification_counts: { confirmed_bug: 0, test_failure: 0, environment_problem: 0, codepro_incomplete: 0, unverified: 1 } } } }
+      : content);
+    render(show([sourceUserMessage, { ...message(1), content: [{ type: 'text', text: 'All tests passed.' }] }, receipt], false), { wrapper: IntlTestWrapper });
+    expect(screen.queryByTestId('acceptance-unverified')).not.toBeInTheDocument();
+    expect(screen.getByText('All tests passed.')).toBeVisible();
+  });
+
   it.each(
     (['cancelled', 'failed', 'interrupted'] as const).flatMap((status) =>
       [false, true].map((withTools) => ({ status, withTools }))

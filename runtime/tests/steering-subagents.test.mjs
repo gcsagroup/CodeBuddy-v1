@@ -94,7 +94,7 @@ async function fixture(t) {
 
 test('native steering keeps parent and child work alive, relays at a step boundary, then admits the next turn', { timeout: 20000 }, async t => {
   const f = await fixture(t);
-  await f.driver.steer(f.sessionId, 'REMINDER_AT_NEXT_STEP');
+  await f.driver.steer(f.sessionId, 'REMINDER_AT_NEXT_STEP', { queuedWhileBusy: true });
   assert.equal(f.parentPending.res.destroyed, false, 'steering must not abort the current parent model request');
   assert.equal(f.childPending.res.destroyed, false, 'steering must not abort the child model request');
   const queued = await f.driver.history(f.sessionId);
@@ -114,6 +114,9 @@ test('native steering keeps parent and child work alive, relays at a step bounda
   assert.ok(child.events.some(event => event.type === 'tool/result' && JSON.stringify(event.data).includes('original child work preserved')));
   assert.ok(child.events.some(event => event.type === 'user/message' && JSON.stringify(event.data).includes('RELAY_TO_CHILD')));
   const parent = await f.driver.history(f.sessionId);
+  assert.ok(parent.events.some(event => event.type === 'system/message' &&
+    JSON.stringify(event.data).includes('\\"inputOrigin\\":\\"queued-while-busy\\"')),
+    'accepted queued steering exposes its origin in the next native request');
   assert.ok(parent.events.filter(event => event.type === 'turn/end').every(event => event.data.reason.kind === 'completed'));
   const turnsBefore = parent.events.filter(event => event.type === 'turn/start').length;
   assert.equal((await f.driver.prompt(f.sessionId, 'Next task.')).stopReason, 'end_turn');

@@ -41,6 +41,7 @@ export interface PetTask {
   title: string;
   state: PetTaskState;
   terminalId?: string;
+  questions?: { id: string; summary: string }[];
   inputRequest?: { kind: 'question' | 'permission' | 'workspace'; summary?: string;
     permission?: { requestId: string; token: string; choices: Array<{ action: import('../types/permissions').Permission; label: string }>; details: string } };
   activity?: {

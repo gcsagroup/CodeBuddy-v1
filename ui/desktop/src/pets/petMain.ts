@@ -41,6 +41,7 @@ export async function registerDesktopPet(options: {
   rendererUrl: string;
   builtinDirectory: string;
   onWorkingChange?: (working: boolean) => void;
+  onQuestion?: (owner: BrowserWindow, task: PetTask, questionId: string) => void;
   openChat: (options: {
     query?: string;
     dir?: string;
@@ -84,15 +85,17 @@ export async function registerDesktopPet(options: {
     for (const tasks of tasksByWindow.values()) {
       for (const task of tasks.values()) {
         // A second window can replay this chat as idle while its original window is live.
-        if (task.state === 'idle') continue;
+        if (task.state === 'idle' && !task.questions?.length) continue;
         const previous = latest.get(task.sessionId);
-        if (!previous || taskUpdates.get(task)! > taskUpdates.get(previous)!)
+        if (!previous || (task.questions?.length && !previous.questions?.length) ||
+          (Boolean(task.questions?.length) === Boolean(previous.questions?.length) &&
+            taskUpdates.get(task)! > taskUpdates.get(previous)!))
           latest.set(task.sessionId, task);
       }
     }
     return sortPetTasks(
       [...latest.values()].map((t) =>
-        t.terminalId && readTerminals.get(t.sessionId) === t.terminalId
+        !t.questions?.length && t.terminalId && readTerminals.get(t.sessionId) === t.terminalId
           ? { ...t, state: 'idle' as const }
           : t
       )
@@ -609,9 +612,13 @@ export async function registerDesktopPet(options: {
         broadcast();
       });
     }
+    const knownQuestions = task.questions?.length ? new Set([...tasksByWindow.values()]
+      .flatMap(entries => entries.get(task.sessionId)?.questions?.map(q => q.id) ?? [])) : undefined;
     taskUpdates.set(task, ++taskSequence);
     tasks.set(task.sessionId, task);
     broadcast();
+    const added = task.questions?.find(question => !knownQuestions?.has(question.id));
+    if (added) options.onQuestion?.(window, task, added.id);
   });
   ipcMain.on('pet-read', (event, input: { sessionId: string; terminalId: string }) => {
     if (

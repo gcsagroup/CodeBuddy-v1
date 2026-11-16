@@ -37,7 +37,7 @@ import { hostToolExtensionName } from '../tool-policy.mjs';
 import { forkWorkingDirectory } from './working-directory.mjs';
 import { observeModelTransport } from './transport-observation.mjs';
 import { installModelResponseValidation } from './model-response-validation.mjs';
-import { commandEvidence, hasFailedCommand } from './command-evidence.mjs';
+import { commandEvidence, executionReceiptContext, hasFailedCommand } from './command-evidence.mjs';
 import { projectScriptCall, projectScriptInvocation, selectNamedScript } from './project-script.mjs';
 import { installOutputRecovery, isOutputLimitFailure, OUTPUT_RECOVERY_LIMIT } from './output-recovery.mjs';
 import { createMcpPresets, restrictSessionTools } from './mcp-presets.mjs';
@@ -67,7 +67,7 @@ function nativeProviderRoute(provider, model) {
 }
 
 /** Boot the official Harness Host and expose the existing CodeBuddy transport seam. */
-export async function createHarnessDriver({ dataDir, cwd = process.cwd(), instructionsHome, sharedSkillDir, managedWorkspaceRoot } = {}) {
+export async function createHarnessDriver({ dataDir, cwd = process.cwd(), instructionsHome, sharedSkillDir, managedWorkspaceRoot, projectFolders } = {}) {
   if (!dataDir) throw new TypeError('Harness dataDir is required for old/new data isolation');
   await ensureGitEnvironment();
   // The public entry establishes the alpha2 contracts before loading this driver.
@@ -110,6 +110,7 @@ export async function createHarnessDriver({ dataDir, cwd = process.cwd(), instru
   let skillRefresh = Promise.resolve();
   let selection = { provider: 'codebuddy-unconfigured', model: 'unconfigured' };
   const ctx = await boot('codebuddy-harness', configPath, [], host => {
+    if (projectFolders) host.provide('codebuddyProjectFolders', projectFolders);
     // Both phases precede the transport observer. A stalled phase must be
     // identifiable even if the first model request is never constructed.
     async function tracePreparation(phase, agent, next) {
@@ -504,6 +505,12 @@ Keep progress updates brief, meaningful, and outcome-based.
         JSON.stringify((run.commandFacts ?? []).slice(-8).map(({ output, ...fact }) => fact));
     },
   });
+  // Dynamic system sections replace the current prompt. Runtime contexts are
+  // journaled snapshots; a receipt index there would accumulate every step.
+  ctx.systemPrompt.section({ name: 'codebuddy:execution-receipts', order: 133, interpolate: false,
+    text: ({ agent }) => agent ? executionReceiptContext(agent.session, runs.get(agent.id)?.commandFacts,
+      { queuedWhileBusy: runs.get(agent.id)?.queuedWhileBusy === true }) : '',
+  });
   const outputRecovery = installOutputRecovery(ctx, {
     budgetSource: route => outputSources.get(route) ?? 'fallback',
     publish: event => emit(runFor(ctx.agents.get(event.sessionId)), event),
@@ -596,6 +603,13 @@ Keep progress updates brief, meaningful, and outcome-based.
     return {
       ...(sessionApproval ? { sessionApproval } : {}),
       delegated: exec.agent.id !== active.sessionId,
+      ...(active.supplementReceived && !isReadOnlyCall(exec) ? {
+        supplementReview: { receipts: (active.commandFacts ?? []).slice(-8).map(
+          ({ input, output, content, ...fact }) => ({ ...fact,
+            ...(typeof fact.command === 'string' && fact.command.length > 4096
+              ? { command: fact.command.slice(0, 4096) + '…', commandTruncated: true } : {}),
+          })) },
+      } : {}),
       id: exec.callId, name: exec.name, arguments: exec.arguments, readOnly: isReadOnlyCall(exec),
       nativeCapability: Boolean(definition && nativeDefinitions.has(definition)),
       delegationControl: Boolean(definition && delegationDefinitions.has(definition)),
@@ -646,6 +660,12 @@ Keep progress updates brief, meaningful, and outcome-based.
       if (!['allow', 'ask', 'deny', 'cancel'].includes(gate?.kind) ||
         (gate.kind === 'deny' && (typeof gate.reason !== 'string' || !gate.reason)))
         return { kind: 'deny', reason: 'The tool policy returned an invalid decision.' };
+      // A new native user input may change the work without invalidating prior
+      // effects. Review each subsequent proposal; never infer shell equivalence
+      // or reuse a session grant to authorize that proposal.
+      if (call.supplementReview && gate.kind === 'allow') gate = {
+        kind: 'ask', reason: 'Supplemental input was received. Review this exact operation and prior receipts before allowing it once.',
+      };
       if (exec.signal.aborted || active.cancelRequested) return { kind: 'cancel' };
       // Direct UI requests have no model turn. Their existing explicit user
       // confirmation is separate from Agent approval, whose audit requires a turn.
@@ -826,17 +846,20 @@ Keep progress updates brief, meaningful, and outcome-based.
     if (event.type === 'turn/start')
       scriptLookups.set(agent, { run });
     if (session.id === run.sessionId && event.type === 'turn/start') {
+      if (run.queuedWhileBusy && session.log.filter(e => e.type === 'turn/start').length > 1)
+        run.supplementReceived = true;
       run.commandFacts = [];
       run.toolCalls = 0;
       run.admittedUserMessages = [];
     }
     if (session.id === run.sessionId && event.type === 'user/message' && event.data.source?.kind === 'user') {
       // Admission events own the current request. Compacted surface messages
-      // and synthetic notices must not disable its completion review.
+      // and synthetic notices must not hide its direct-user attribution.
       const messages = run.admittedUserMessages ??= [];
       const existing = messages.findIndex(message => message.id === event.data.id);
       if (existing < 0) messages.push(event.data);
       else messages[existing] = event.data;
+      if (messages.length > 1) run.supplementReceived = true;
     }
     if (event.type === 'tool/call') {
       let args = event.data.arguments;
@@ -1470,7 +1493,7 @@ Keep progress updates brief, meaningful, and outcome-based.
       creation = work.catch(() => {});
       return work;
     },
-    async prompt(sessionId, content, { onEvent, onPermission, onToolPolicy, onToolStart, onDesktopTool, desktopMetadata, onUserQuestions, signal, requestId = randomUUID(), resumeGoal, createGoal, planMode, nativeObservationToken } = {}) {
+    async prompt(sessionId, content, { onEvent, onPermission, onToolPolicy, onToolStart, onDesktopTool, desktopMetadata, onUserQuestions, signal, requestId = randomUUID(), resumeGoal, createGoal, planMode, nativeObservationToken, queuedWhileBusy = false } = {}) {
       const adopted = nativeObservationToken && runs.get(sessionId)?.nativeToken === nativeObservationToken ? runs.get(sessionId) : null;
       if (runs.has(sessionId) && !adopted) throw new Error(`Session ${sessionId} already has an active prompt`);
       if (!sessionScopes.has(sessionId)) throw new Error('Configure the session before prompting');
@@ -1479,7 +1502,7 @@ Keep progress updates brief, meaningful, and outcome-based.
       // Attach rejection observation before admission can synchronously fail.
       completion.promise.catch(() => {});
       const run = adopted ?? { ...completion, events: Promise.resolve(), steps: 0, sessionId, requestId };
-      Object.assign(run, { onEvent, onPermission, onToolPolicy, onToolStart, onDesktopTool, desktopMetadata, onUserQuestions, steers: new Set(), acceptingInput: true });
+      Object.assign(run, { onEvent, onPermission, onToolPolicy, onToolStart, onDesktopTool, desktopMetadata, onUserQuestions, queuedWhileBusy: queuedWhileBusy === true, supplementReceived: false, steers: new Set(), acceptingInput: true });
       runs.set(sessionId, run);
       const cancel = () => { try { driver.cancel(sessionId); } catch { /* Admission may not have opened a turn yet. */ } };
       signal?.addEventListener('abort', cancel, { once: true });
@@ -1592,7 +1615,7 @@ Keep progress updates brief, meaningful, and outcome-based.
         return status ? { serverName: state.serverName, status, ...(status === 'error' ? { error: [...scopeChainOf(agent), ctx.root].map(key => mcpPlugin.mcpConnectionError(key, state.serverName)).find(Boolean) ?? 'MCP connection is unavailable or reconnecting.' } : {}) } : structuredClone(state);
       });
     },
-    async steer(sessionId, content, { signal = new AbortController().signal, requestId = randomUUID() } = {}) {
+    async steer(sessionId, content, { signal = new AbortController().signal, requestId = randomUUID(), queuedWhileBusy = false } = {}) {
       const run = runs.get(sessionId);
       if (!run || !run.acceptingInput || run.cancelRequested) throw Object.assign(
         new Error('Steering requires an active prompt; use prompt for an idle session'),
@@ -1600,7 +1623,11 @@ Keep progress updates brief, meaningful, and outcome-based.
       );
       const admission = ctx.sessionController.prompt({ sessionId, requestId, mode: 'steer', content: typeof content === 'string' ? [{ type: 'text', text: content }] : content, clientTimeZone: 'Asia/Shanghai' }, signal);
       run.steers.add(admission);
-      try { return await admission; } finally { run.steers.delete(admission); }
+      try {
+        const result = await admission;
+        if (queuedWhileBusy === true) run.queuedWhileBusy = true;
+        return result;
+      } finally { run.steers.delete(admission); }
     },
     async listTools(sessionId, extensionName) {
       const agent = sessionId ? await resolveAgent(sessionId) : undefined;

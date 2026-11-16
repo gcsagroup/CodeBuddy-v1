@@ -86,6 +86,7 @@ function setup(
   canSubmitQueuedMessageWhileLoading = false,
   pauseQueueOnStop = false,
   pendingProps: {
+    automaticSteeringAllowed?: boolean;
     initialValue?: string;
     messages?: Message[];
     onPendingMessageChange?: (sessionId: string, message: Message | undefined) => void;
@@ -590,10 +591,76 @@ describe('ChatInput queue delivery', () => {
     const initial = setup(submit);
     await queue('Observe then complete independent work');
     expect(new QueuedMessageStorage(localStorage, 'queue-test').read()[0].desktopGeneration).toBe('before');
+    expect(new QueuedMessageStorage(localStorage, 'queue-test').read()[0].queuedWhileBusy).toBe(true);
     updateDesktopOwnership({ paused: true, revision: 'escape', generation: 'escape', pauseReason: 'escape', owner: null, queue: [] });
     initial.changeState(ChatState.Idle);
     await waitFor(() => expect(submit).toHaveBeenCalledOnce());
-    expect(submit.mock.calls[0][0]).toMatchObject({ msg: 'Observe then complete independent work', desktopGeneration: 'before' });
+    expect(submit.mock.calls[0][0]).toMatchObject({ msg: 'Observe then complete independent work', desktopGeneration: 'before', queuedWhileBusy: true });
+    updateDesktopOwnership({ paused: false, revision: null, generation: '', owner: null, queue: [] });
+  });
+  it.each([true, false])('delivers a supplement to a running tool through native steering; accepted=%s', async accepted => {
+    updateDesktopOwnership({ paused: false, revision: null, generation: '', owner: null, queue: [] });
+    const submit = vi.fn();
+    const steer = vi.fn(async (_input: UserInput) => accepted);
+    const running: Message = {
+      id: 'running-assistant', role: 'assistant', created: 1,
+      metadata: { userVisible: true, agentVisible: true },
+      content: [{ type: 'toolRequest', id: 'running-tool', toolCall: { name: 'pwsh', arguments: {} }, metadata: { status: 'in_progress' } }],
+    };
+    const view = setup(submit, steer, false, false, { messages: [running], automaticSteeringAllowed: true });
+    view.changeBlocked(true); // A real prompt is active; only ordinary delivery is blocked.
+    fireEvent.change(screen.getByTestId('chat-input'), { target: { value: 'Add a file after this tool' } });
+    fireEvent.keyDown(screen.getByTestId('chat-input'), { key: 'Enter' });
+    await waitFor(() => expect(steer).toHaveBeenCalledOnce());
+    expect(steer.mock.calls[0][0]).toMatchObject({ msg: 'Add a file after this tool', queuedWhileBusy: true });
+    await waitFor(() => expect(new QueuedMessageStorage(localStorage, 'queue-test').read()).toHaveLength(accepted ? 0 : 1));
+    view.changeState(ChatState.Idle);
+    await act(async () => {});
+    expect(submit).not.toHaveBeenCalled();
+    expect(steer).toHaveBeenCalledOnce();
+  });
+  it('does not mistake a discovery tool response for new human input when the next pending tool shares its assistant message', async () => {
+    updateDesktopOwnership({ paused: false, revision: null, generation: '', owner: null, queue: [] });
+    const steer = vi.fn(async () => true), submit = vi.fn();
+    const original: Message = { id: 'original', role: 'user', created: 1, metadata: { userVisible: true, agentVisible: true }, content: [{ type: 'text', text: 'Run the command' }] };
+    const tools: Message = { id: 'tool-batch', role: 'assistant', created: 2, metadata: { userVisible: true, agentVisible: true }, content: [
+      { type: 'toolRequest', id: 'discover', toolCall: { name: 'search_mcp_tools', arguments: {} }, metadata: { status: 'completed' } },
+      { type: 'toolRequest', id: 'execute', toolCall: { name: 'pwsh', arguments: {} }, metadata: { status: 'in_progress' } },
+    ] };
+    const discovery: Message = { id: 'tool-reply', role: 'user', created: 3, metadata: { userVisible: true, agentVisible: true }, content: [
+      { type: 'toolResponse', id: 'discover', toolResult: { status: 'success' } },
+    ] };
+    const view = setup(submit, steer, false, false, { messages: [original, tools, discovery], automaticSteeringAllowed: true });
+    view.changeBlocked(true);
+    await queue('After that command, add one file');
+    await waitFor(() => expect(steer).toHaveBeenCalledOnce());
+    expect(submit).not.toHaveBeenCalled();
+  });
+  it.each(['historical', 'returned', 'paused', 'stale', 'cancelled'] as const)('does not automatically steer through a %s tool boundary', async boundary => {
+    updateDesktopOwnership({ paused: boundary === 'paused', revision: null, generation: 'current', owner: null, queue: [] });
+    const submit = vi.fn(async (_input: UserInput, lifecycle?: MessageSubmissionLifecycle) => lifecycle?.onAccepted());
+    const steer = vi.fn(async () => true);
+    const tool: Message = { id: 'tool-message', role: 'assistant', created: 1,
+      metadata: { userVisible: true, agentVisible: true },
+      content: [{ type: 'toolRequest', id: 'old-tool', toolCall: { name: 'pwsh', arguments: {} }, metadata: { status: 'in_progress' } }] };
+    const currentUser: Message = { id: 'current-user', role: 'user', created: 2,
+      metadata: { userVisible: true, agentVisible: true }, content: [{ type: 'text', text: 'Current work' }] };
+    const messages = boundary === 'historical' ? [tool, currentUser] : [currentUser, tool];
+    if (boundary === 'returned') tool.content.push({ type: 'toolResponse', id: 'old-tool', toolResult: { status: 'success' } });
+    if (boundary === 'stale') {
+      const storage = new QueuedMessageStorage(localStorage, 'queue-test'); storage.read();
+      storage.write([{ id: 'stale', content: 'Kept input', images: [], timestamp: 1, queuedWhileBusy: true, desktopGeneration: 'old' }]);
+    }
+    const view = setup(submit, steer, false, false, { messages, automaticSteeringAllowed: boundary !== 'cancelled' });
+    view.changeBlocked(true);
+    if (boundary !== 'stale') await queue('Kept input');
+    const saved = screen.queryByRole('button', { name: 'Expand saved drafts' });
+    if (saved) fireEvent.click(saved);
+    await screen.findByText('Kept input');
+    await act(async () => {});
+    expect(steer).not.toHaveBeenCalled();
+    expect(submit).not.toHaveBeenCalled();
+    view.unmount();
     updateDesktopOwnership({ paused: false, revision: null, generation: '', owner: null, queue: [] });
   });
   it('snapshots all waiting messages for Send now, waits for an idle turn when steering is unavailable, then resumes later ordinary input', async () => {

@@ -55,7 +55,7 @@ import { DroppedFile, useFileDrop } from '../hooks/useFileDrop';
 import { Recipe } from '../recipe';
 import { MessageQueue, QueuedMessage } from './MessageQueue';
 import { getDesktopOwnership } from '../desktopOwnership';
-import { createUserMessage, type Message } from '../types/message';
+import { createUserMessage, getToolRequests, getToolResponses, isConversationTurnStart, isToolCallInProgress, type Message } from '../types/message';
 import { getInitialWorkingDir } from '../utils/workingDir';
 import { trackFileAttached, trackVoiceDictation } from '../utils/analytics';
 import { getNavigationShortcutText } from '../utils/keyboardShortcuts';
@@ -223,6 +223,7 @@ const i18n = defineMessages({
 });
 
 interface ChatInputProps {
+  submissionDisabled?: boolean;
   onOpenPermissions?: () => void;
   modelToolbarSlot?: React.ReactNode;
   placeholder?: string;
@@ -233,6 +234,7 @@ interface ChatInputProps {
   onStop?: () => void;
   onContinue?: () => void;
   onSteerQueuedMessage?: (input: UserInput) => Promise<boolean>;
+  automaticSteeringAllowed?: boolean;
   onPendingMessageChange?: (sessionId: string, message: Message | undefined) => void;
   pauseQueueOnStop?: boolean;
   queueProcessingBlocked?: boolean;
@@ -289,6 +291,7 @@ export function shouldShowWorkingDirectorySwitcher(canChangeWorkingDirectory: bo
 }
 
 export default function ChatInput({
+  submissionDisabled = false,
   onOpenPermissions,
   modelToolbarSlot,
   placeholder,
@@ -299,6 +302,7 @@ export default function ChatInput({
   onStop,
   onContinue,
   onSteerQueuedMessage,
+  automaticSteeringAllowed = false,
   onPendingMessageChange,
   pauseQueueOnStop = false,
   queueProcessingBlocked = false,
@@ -687,6 +691,7 @@ export default function ChatInput({
       };
       try {
         const input: UserInput = {
+          ...(message.queuedWhileBusy ? { queuedWhileBusy: true } : {}),
           msg: message.content,
           images: message.images,
           messageId: message.id,
@@ -756,13 +761,39 @@ export default function ChatInput({
 
   useEffect(() => {
     if (queuedMessages !== queuedMessagesRef.current || queueStorageFailedRef.current) return;
-    if (isLoading || queueProcessingBlocked || sendNowInFlightMessageIds.size > 0) return;
+    if (sendNowInFlightMessageIds.size > 0) return;
     const pendingId = pendingSendMessageIdRef.current;
     const message = pendingId
       ? queuedMessages.find((item) => item.id === pendingId)
       : queuedMessages[0];
     if (!message || editingMessageIdRef.current === message.id) return;
     if (queuePausedRef.current && !pendingId) return;
+    if (isLoading) {
+      if (!automaticSteeringAllowed || cancellationRequestedForQueueRef.current ||
+          !message.queuedWhileBusy || !onSteerQueuedMessage || pendingId ||
+          (chatState !== ChatState.Thinking && chatState !== ChatState.Streaming)) return;
+      const desktop = getDesktopOwnership();
+      if (desktop.paused || (message.desktopGeneration ?? '') !== (desktop.generation ?? '')) return;
+      let latestUser = -1;
+      for (let index = messages.length - 1; index >= 0; index -= 1) {
+        const item = messages[index];
+        if (isConversationTurnStart(item) && item.metadata.agentVisible && !item.metadata.pendingDelivery) {
+          latestUser = index;
+          break;
+        }
+      }
+      const currentMessages = messages.slice(Math.max(0, latestUser));
+      const returnedIds = new Set(currentMessages.flatMap(getToolResponses).map(response => response.id));
+      const toolRunning = currentMessages.flatMap(getToolRequests).some(request =>
+        !returnedIds.has(request.id) && isToolCallInProgress(request, true, []));
+      if (!toolRunning) return;
+      // Admit supplemental input at the native next-step boundary while the
+      // current tool is running. Deferring it until turn/end loses that task
+      // boundary and invites the model to reconstruct completed operations.
+      void submitQueuedMessage(message, false, true, 'steer');
+      return;
+    }
+    if (queueProcessingBlocked) return;
     const keepPaused = Boolean(pendingId && pendingSendPauseRemainingRef.current);
     if (pendingId && !keepPaused) queuePausedRef.current = false;
     void submitQueuedMessage(message, keepPaused);
@@ -773,6 +804,10 @@ export default function ChatInput({
     pendingSendMessageId,
     sendNowInFlightMessageIds,
     submitQueuedMessage,
+    onSteerQueuedMessage,
+    automaticSteeringAllowed,
+    chatState,
+    messages,
   ]);
   const [mentionPopover, setMentionPopover] = useState<{
     isOpen: boolean;
@@ -1479,6 +1514,7 @@ export default function ChatInput({
     if (isCurrentDraftSubmitted) return false;
     if ((!isLoading && !queueProcessingBlocked) || !hasSubmittableContent) return false;
     const newMessage: QueuedMessage = {
+      queuedWhileBusy: true,
       id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
       content: appendDroppedFilePaths(draftText.trim()),
       timestamp: Date.now(),
@@ -1517,6 +1553,7 @@ export default function ChatInput({
 
   const performSubmit = useCallback(
     async (text?: string, preserveDraft = false) => {
+      if (submissionDisabled) return;
       // Control commands must remain usable while the ordinary prompt awaits completion.
       const commandText =
         text ?? (composerMode ? `/${composerMode} ${displayValue.trim()}` : displayValue.trim());
@@ -1704,7 +1741,7 @@ export default function ChatInput({
       }
     },
     [
-      composerMode,
+      submissionDisabled, composerMode,
       isFilePickerOpen,
       onOpenPermissions,
       sessionId,
@@ -1727,6 +1764,7 @@ export default function ChatInput({
   );
 
   const handleKeyDown = (evt: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (submissionDisabled && evt.key === 'Enter' && !evt.shiftKey && !evt.altKey && !isComposing && !evt.nativeEvent.isComposing) { evt.preventDefault(); return; }
     if (evt.key === 'Enter' && (isComposing || evt.nativeEvent.isComposing)) return;
     if (mentionPopover.isOpen && mentionPopoverRef.current) {
       if (evt.key === 'ArrowDown') {
@@ -1802,6 +1840,7 @@ export default function ChatInput({
 
   const onFormSubmit = (e: React.FormEvent | React.MouseEvent) => {
     e.preventDefault();
+    if (submissionDisabled) return;
     if (
       composerMode ||
       parseComposerCommand(displayValue) ||
@@ -2005,7 +2044,7 @@ export default function ChatInput({
   const continueAction = chatState === ChatState.Idle && !draftText.trim() &&
     !pastedImages.length && !allDroppedFiles.length && !isRecording && !isTranscribing
     ? onContinue : undefined;
-  const primaryActionDisabled = !continueAction && (
+  const primaryActionDisabled = submissionDisabled || !continueAction && (
     isCurrentDraftSubmitted ||
     !hasSubmittableContent ||
     isAnyImageLoading ||

@@ -1,4 +1,5 @@
-import GooseLogo from './components/GooseLogo';
+import type { ReactNode } from 'react';
+import { CodeBuddyMark } from './components/CodeBuddyMark';
 import { defineMessages, useIntl } from './i18n';
 import './styles/startup-loader.css';
 
@@ -9,19 +10,16 @@ const i18n = defineMessages({
   },
 });
 
-export default function SuspenseLoader() {
+export default function SuspenseLoader({ label, action }: { label?: string; action?: ReactNode } = {}) {
   const intl = useIntl();
   return (
     <div className="startup-loader">
       <div className="startup-loader__content" role="status" aria-live="polite">
         <div className="startup-loader__mark" aria-hidden="true">
-          <GooseLogo hover={false} />
+          <CodeBuddyMark />
         </div>
-        <h1 className="startup-loader__title">CodeBuddy</h1>
-        <p className="startup-loader__label">{intl.formatMessage(i18n.loading)}</p>
-        <div className="startup-loader__activity" aria-hidden="true">
-          <span />
-        </div>
+        <h1 className="startup-loader__title">{label ?? intl.formatMessage(i18n.loading)}</h1>
+        {action}
       </div>
     </div>
   );

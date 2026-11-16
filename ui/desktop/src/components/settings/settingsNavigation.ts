@@ -31,6 +31,7 @@ export const settingsNavigationItems: SettingsNavigationItem[] = [
       'notification',
       'update',
       'theme',
+      'zoom', 'font', 'typography', '字号', '字號', '字体', '字體', '缩放', '縮放',
       '应用',
       '外观',
       '语言',

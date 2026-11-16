@@ -35,6 +35,14 @@ import { clampMaxTokensToContext as clampRequestFitTokens, adjustMaxTokensForThi
     replace('\t\tif (entry.maxTokens !== void 0) configuredMaxTokens.set(entry.id, entry.maxTokens);',
       '\t\tconst requestMaxTokens = entry.requestMaxTokens ?? entry.maxTokens;\n\t\tif (requestMaxTokens !== void 0) configuredMaxTokens.set(entry.id, requestMaxTokens);');
     replace('apiKeyEnv: z.string().role("credential-ref"),', 'vllmCount: z.boolean(),\n\tapiKeyEnv: z.string().role("credential-ref"),');
+    // Pi folds xhigh/max into its high budget slot. Supply the upper ceiling
+    // for this request only, before both token counting and final serialization.
+    replace('\thigh: z.number()\n});\n/**\n* One `chat_template_kwargs`',
+      '\thigh: z.number(),\n\txhigh: z.number().step(1).min(1)\n});\n/**\n* One `chat_template_kwargs`');
+    replace('{ thinkingBudgets: profile.thinkingBudgets }', `{ thinkingBudgets:
+      profile.thinkingBudgets.xhigh !== undefined && (reasoning === "xhigh" || reasoning === "max")
+        ? { ...profile.thinkingBudgets, high: profile.thinkingBudgets.xhigh }
+        : profile.thinkingBudgets }`);
     // Schemas otherwise alias the caller's mutable declarations after fitting.
     replace('\t\tparameters: tool.parameters\n', '\t\tparameters: structuredClone(tool.parameters)\n');
 

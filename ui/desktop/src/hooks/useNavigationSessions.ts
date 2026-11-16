@@ -14,6 +14,7 @@ import {
 import { groupNavigationSessions } from '../utils/projectSessions';
 import { createNavigationHandler, withWorkspaceMode } from '../utils/navigationUtils';
 
+import { rememberSidebarProjects, retainSidebarProjects, useSidebarProjects } from '../utils/sidebarProjects';
 import { useSessionPins } from '../utils/sessionPins';
 
 const MAX_RECENT_SESSIONS = 25;
@@ -55,6 +56,7 @@ export function sessionToListItem(s: Session): SessionListItem {
     hasRecipe: !!s.recipe,
     sessionType: s.session_type,
     workspaceBinding: s.extension_data.workspaceBinding as SessionListItem['workspaceBinding'],
+    sidebarPlacement: s.extension_data.sidebarPlacement as SessionListItem['sidebarPlacement'],
     workspaceOrigin:
       s.extension_data.workspaceOrigin === 'default' ||
       s.extension_data.workspaceOrigin === 'selected'
@@ -79,11 +81,19 @@ export function useNavigationSessions() {
     return item && !item.archivedAt && sessionTypeMatchesWorkspace(item.sessionType, sessionWorkspaceMode) ? [item] : [];
   });
   const defaultRoot = window.appConfig?.get('CODEBUDDY_WORKSPACE_ROOT');
-  const { tasks: recentTaskSessions, projects: recentSessionsByProject } = useMemo(
+  const { tasks, projects } = useMemo(
     () =>
       groupNavigationSessions([...recentSessions, ...pinnedSessions.filter(s => !recentSessions.some(item => item.id === s.id))], typeof defaultRoot === 'string' ? defaultRoot : '', pinnedIds),
     [recentSessions, defaultRoot, pinnedIds, pinnedItems]
   );
+  const sidebarProjects = useSidebarProjects();
+  useEffect(() => {
+    try { rememberSidebarProjects(projects.map(project => project.path)); }
+    catch { console.warn('Unable to save sidebar projects'); }
+  }, [projects]);
+  const retained = useMemo(() => retainSidebarProjects(projects, sidebarProjects), [projects, sidebarProjects]);
+  const recentSessionsByProject = retained.projects;
+  const recentTaskSessions = [...tasks, ...retained.hiddenSessions];
   const lastSessionIdRef = useRef<string | null>(null);
 
   const activeSessionId = searchParams.get('resumeSessionId') ?? undefined;
@@ -125,6 +135,12 @@ export function useNavigationSessions() {
       console.error('Failed to fetch sessions:', error);
     }
   }, [sessionWorkspaceMode]);
+
+  useEffect(() => {
+    const refresh = () => { void fetchSessions(); };
+    window.addEventListener(AppEvents.SESSION_CONVERSATION_CHANGED, refresh);
+    return () => window.removeEventListener(AppEvents.SESSION_CONVERSATION_CHANGED, refresh);
+  }, [fetchSessions]);
 
   useEffect(() => {
     if (!activeSessionId) return;

@@ -41,9 +41,13 @@ export async function acpPromptSession(
   turnRetry?: CodeProTurnRetryMetadata,
   checkpointContext?: CodeProCheckpointContext
 ): Promise<PromptResponse> {
+  if (!await window.electron.requestNetworkAccess()) return { stopReason: 'cancelled' };
   const client = await getAcpClient();
   const meta = {
     'codebuddy/client-locale': currentLocale,
+    ...(message.metadata.queuedWhileBusy === true && !turnRetry
+      ? { 'codebuddy/input-origin': 'queued-while-busy' }
+      : {}),
     ...(message.metadata.desktopGeneration !== undefined
       ? { 'codebuddy/desktop-generation': message.metadata.desktopGeneration }
       : {}),
@@ -81,6 +85,9 @@ export async function acpSteerSession(
     sessionId,
     expectedRunId,
     prompt: messageToAcpPromptContent(message) as unknown as SteerSessionRequest_unstable['prompt'],
+    ...(message.metadata.queuedWhileBusy === true
+      ? { _meta: { 'codebuddy/input-origin': 'queued-while-busy' } }
+      : {}),
   });
 }
 

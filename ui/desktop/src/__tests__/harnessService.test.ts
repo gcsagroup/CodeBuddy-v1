@@ -56,6 +56,7 @@ describe('packaged Harness service', () => {
       child,
       options: {
         resourcesPath: root,
+        userData: path.join(root, 'desktop'),
         home: path.join(root, 'data'),
         workspace: path.join(root, 'workspace'),
         onUnexpectedExit: vi.fn(),

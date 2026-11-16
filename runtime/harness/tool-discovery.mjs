@@ -173,6 +173,8 @@ export function installToolDiscovery(ctx, agent, modelEndpoint = () => undefined
       if (section.name === 'tool:goal') return ['create_goal', 'get_goal', 'update_goal'].some(n => active.has(n));
       // Shell tools can create a background job before a job control is loaded.
       if (section.name === 'tool:jobs') return ['pwsh', 'bash', 'job_kill', 'job_list', 'job_output'].some(n => active.has(n));
+      if (section.name === 'codebuddy:subagent-reuse') return [...active].some(name =>
+        name === 'subagent' || name.startsWith('subagent_') || ['list_agents', 'send_message', 'interrupt_agent'].includes(name));
       if (section.name.startsWith('tool:') && deferred(section.name.slice(5))) return active.has(section.name.slice(5));
       return true;
     });

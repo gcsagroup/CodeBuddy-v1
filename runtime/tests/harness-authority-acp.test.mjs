@@ -437,7 +437,9 @@ test('ordinary Harness answer completes without an extra CodeBuddy task tool or 
   assert.deepEqual(context.tasks, []);
   const terminal = f.notices.map(n => n.params.update?.status?.data).find(d => d?.terminal_message_id);
   assert.equal(terminal.status, 'completed');
-  assert.equal(terminal.report, undefined, 'ordinary answers do not manufacture project verification cards');
+  assert.equal(terminal.report.classification_counts.unverified, 1,
+    'native end-turn does not certify even a zero-tool answer');
+  assert.deepEqual(terminal.report.verification_summary, []);
 });
 
 test('final native response observation stays separate from progress, child messages and completion authority', async t => {

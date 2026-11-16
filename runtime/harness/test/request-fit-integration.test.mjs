@@ -1128,8 +1128,10 @@ test('summary full-fit selection sends one complete-cap HTTP and preserves the o
   assert.equal(summaries(history).length, 1);
   const restored = new Session(history.meta.id, history.events, history.meta, 'snapshot', history.inheritedEventCount);
   const shadowedIds = summary.data.shadowedSeqs.map(seq => restored.deriveEventMessage(restored.eventAt(seq))?.id).filter(Boolean);
-  const systemId = history.events.find(event => event.type === 'system/message').data.message.id;
-  const selectedInputIds = summaryFits.at(-1).messageIds.filter(id => id !== systemId);
+  const activeSystem = history.events.findLast(event => event.type === 'system/message' && event.seq < summary.seq);
+  const [preparedSystemId, ...selectedInputIds] = summaryFits.at(-1).messageIds;
+  assert.ok(activeSystem, 'a system prompt precedes the checkpoint');
+  assert.equal(preparedSystemId, activeSystem.data.message.id, 'the summary uses the system prompt active at the checkpoint');
   assert.deepEqual(shadowedIds, selectedInputIds, 'the checkpoint shadows exactly the final prepared summary input');
   const tail = history.events.find(event => event.type === 'assistant/message' && event.data.message.content.some(block => block.text === WARM_HISTORY));
   assert.ok(!summary.data.shadowedSeqs.includes(tail.seq));

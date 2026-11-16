@@ -132,7 +132,7 @@ test('native capabilities and guidance are loaded on demand without removing the
  let hook,search;
  const ctx={tools:{schemas:()=>catalog,get:()=>search,register(t){search=t;}},systemPrompt:{section(){}},on(_n,h){hook=h;}};
  installToolDiscovery(ctx,{session:{requestHeader:()=>undefined}});
- const assembly=()=>({tools:catalog,sections:['tool:read','tool:pwsh','tool:edit','tool:goal','tool:subagent','tool:jobs','tool:web_fetch','tool:load_workspace_dependencies','sandbox'].map(name=>({name,text:name}))});
+ const assembly=()=>({tools:catalog,sections:['tool:read','tool:pwsh','tool:edit','tool:goal','tool:subagent','codebuddy:subagent-reuse','tool:jobs','tool:web_fetch','tool:load_workspace_dependencies','sandbox'].map(name=>({name,text:name}))});
  const initial=await hook({}, {}, async()=>assembly());
  assert.deepEqual(initial.tools.map(t=>t.name),['read','edit','skill']);
  assert.deepEqual(initial.sections.map(s=>s.name),['tool:read','tool:edit','sandbox']);

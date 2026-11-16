@@ -1,5 +1,8 @@
 import assert from "node:assert/strict";
 import http from "node:http";
+import { mkdtemp, writeFile, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import path from 'node:path';
 import test from "node:test";
 import {
   discover,
@@ -45,6 +48,28 @@ async function endpoint(t, handler) {
   t.after(() => new Promise((resolve) => server.close(resolve)));
   return { url: `http://127.0.0.1:${server.address().port}`, requests };
 }
+
+test('desktop metadata and discovery stay local until this profile grants access', async t => {
+  const directory = await mkdtemp(path.join(tmpdir(), 'network-consent-'));
+  const previous = process.env.CODEBUDDY_USER_DATA_DIR;
+  process.env.CODEBUDDY_USER_DATA_DIR = directory;
+  t.after(async () => {
+    if (previous === undefined) delete process.env.CODEBUDDY_USER_DATA_DIR;
+    else process.env.CODEBUDDY_USER_DATA_DIR = previous;
+    await rm(directory, { recursive: true, force: true });
+  });
+  const { url, requests } = await endpoint(t);
+  const provider = input(url, { id: 'custom_local', requiresAuth: false });
+  for (const contents of [undefined, '{', '{"networkAccessAllowed":false}']) {
+    if (contents) await writeFile(path.join(directory, 'settings.json'), contents);
+    await resolvedInventory(provider);
+    await assert.rejects(discover(provider, provider), /permission/i);
+    assert.equal(requests.length, 0);
+  }
+  await writeFile(path.join(directory, 'settings.json'), '{"networkAccessAllowed":true}');
+  await resolvedInventory(provider);
+  assert.ok(requests.length > 0);
+});
 
 function memoryStore() {
   let state = { providers: [] };

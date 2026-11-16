@@ -1,3 +1,4 @@
+import { desktopNetworkAllowed } from './desktop-network-consent.mjs';
 import { SessionDeletionCleanup } from './session-deletion-cleanup.mjs';
 import { createSessionConnection } from './session-connection.mjs';
 import { MAIN_CONVERSATION, ensureMainConversation, workspaceMemoryTool } from './main-conversation.mjs';
@@ -100,7 +101,7 @@ import {
 const prefix = "_goose/unstable/";
 const sessionInfoFields = ['id', 'cwd', 'title', 'updatedAt', 'createdAt', 'messageCount',
   'providerId', 'modelId', 'type', 'agentProfile', 'agentSelection', 'workspaceBinding', 'projectId', 'scheduleId',
-  'readonlyHistory', 'userSetName', 'archivedAt', 'workspaceOrigin', 'managementRequestId', 'globalConversation'];
+  'readonlyHistory', 'userSetName', 'archivedAt', 'sidebarPlacement', 'workspaceOrigin', 'managementRequestId', 'globalConversation'];
 
 function imageDisplayBlock(item) {
   if (item?.type !== "image") return item;
@@ -313,6 +314,8 @@ function* replayTextChunks(updates) {
   }
   if (head) yield assembled();
 }
+
+const NAVIGATION_WORKSPACE_MOVE = Symbol('navigation-workspace-move');
 
 export class Compat {
   constructor(store, driver) {
@@ -834,6 +837,7 @@ export class Compat {
         workspaceBinding: s.workspaceBinding,
         globalConversation: s.globalConversation === true,
         agentProfile: (() => { const profile = sessionAgentSelection(s).profile; return profile ? { id: profile.id, name: profile.name, avatar: profile.avatar, revision: profile.revision } : undefined; })(),
+        sidebarPlacement: s.sidebarPlacement,
         workspaceOrigin: s.workspaceOrigin ?? (s.projectId && s.managementRequestId ? 'selected' : undefined),
         projectId: s.projectId,
         activeRunId: this.runs.latestId(s.id, state),
@@ -1247,7 +1251,7 @@ export class Compat {
       if (policy.permission !== 'ask_before') return true;
     }
     const toolGrant = this.toolGrant(tool), businessGrant = this.businessGrant(tool);
-    const reusable = Boolean(toolGrant && !safety.requiresApproval && currentPolicy().permission !== 'ask_before');
+    const reusable = Boolean(toolGrant && !tool.supplementReview && !safety.requiresApproval && currentPolicy().permission !== 'ask_before');
     if (reusable && (toolGrant?.allowed || businessGrant?.allowed)) return true;
     const businessPresentation = reusable && businessGrant && !directToolCall
       ? businessPresentationForClient(approval.business.presentation, this.businessApprovalClients?.get(connection)) : undefined;
@@ -1294,6 +1298,10 @@ export class Compat {
                     {
                       type: "content",
                       content: { type: "text", text: [
+                        ...(tool.supplementReview ? [
+                          '补充指令后的操作需逐次确认。请核对精确参数和已有回执，拒绝重复操作或允许本次新增操作。 / Review each operation after supplemental input; previous effects are not rolled back.',
+                          JSON.stringify({ previousReceipts: tool.supplementReview.receipts }),
+                        ] : []),
                         ...(safety.requiresApproval ? [safety.explanation] : []),
                         ...(approval?.group === 'web_read' ? [reusable
                           ? '允许本会话匿名读取公开网页；不包括登录、提交、携带凭据或访问内网。'
@@ -1353,6 +1361,7 @@ export class Compat {
     }
   }
   async testExtension(p) {
+    if (p.extension?.type === 'mcp' && !desktopNetworkAllowed()) throw invalid('Network access requires permission.');
     if (p.extension?.name === "git")
       return {
         tools: gitTools(p.workingDir ?? this.store.directory).map(
@@ -1392,6 +1401,7 @@ export class Compat {
       : tested;
   }
   async ensureSession(s, { unpublished = false } = {}) {
+    if (!desktopNetworkAllowed()) throw invalid('Network access requires permission.');
     const pending = this.initializing.get(s.id);
     if (pending) return pending;
     const work = (async () => {
@@ -1425,6 +1435,7 @@ export class Compat {
     }
   }
   async prepareStartup() {
+    if (!desktopNetworkAllowed()) return;
     const state = this.store.read(['defaults', 'providers', 'config']);
     const provider = state.providers.find(p => p.id === state.defaults?.providerId);
     if (!provider || this.closing) return;
@@ -2404,12 +2415,35 @@ export class Compat {
         try { return await connectGithubMcp(this, p.login); }
         finally { this.githubMcpConnecting = false; }
       }
+      case "session/navigation/move": {
+        const session = this.session(p.sessionId);
+        if (session.globalConversation || session.readonlyHistory || session.archivedAt)
+          throw invalid("This conversation cannot be moved");
+        if (p.destination !== 'tasks' && p.destination !== 'project')
+          throw invalid("Invalid sidebar destination");
+        if (p.destination === 'project') {
+          if (typeof p.workingDir !== 'string' || !path.isAbsolute(p.workingDir))
+            throw invalid("Choose an existing absolute workspace directory");
+          if (workspaceIdentity(session.cwd) !== workspaceIdentity(p.workingDir))
+          await this.request('_goose/unstable/session/working-dir/update', {
+            sessionId: p.sessionId, workingDir: p.workingDir, [NAVIGATION_WORKSPACE_MOVE]: true,
+          }, connection);
+        }
+        await this.store.updateSession(p.sessionId, row => {
+          row.sidebarPlacement = p.destination;
+        });
+        connection?.notify("session/update", {
+          sessionId: p.sessionId,
+          update: { sessionUpdate: "session_info_update", updatedAt: this.session(p.sessionId).updatedAt },
+        });
+        return {};
+      }
       case "session/working-dir/update": {
         const s = this.session(p.sessionId);
         if (s.globalConversation) throw invalid("The main conversation is not a project workspace");
         if (s.agentProfile || await workspaceAgent(this.store, p.workingDir)) throw invalid("Start a new conversation in the agent workspace");
         if (s.readonlyHistory) throw invalid("Imported history is read-only");
-        if (s.type === "code_pro")
+        if (s.type === "code_pro" && !p[NAVIGATION_WORKSPACE_MOVE])
           throw invalid(
             "CodePro workspaces remain bound to their task; start a new task for another project",
           );
@@ -2423,7 +2457,10 @@ export class Compat {
           !this.driver.forkWorkingDirectory
         )
           throw unsupported("session workspace change");
-        return this.mutateSession(s.id, () =>
+        const confirmedWorkspace = operation => s.type === 'code_pro'
+          ? this.workspaces.changeSessionDirectory(s.id, p.workingDir, operation)
+          : operation();
+        return this.mutateSession(s.id, () => confirmedWorkspace(() =>
           this.driver.withConversationLock(s.id, async () => {
             if (this.active.has(s.id))
               throw invalid(
@@ -2482,7 +2519,7 @@ export class Compat {
               },
             });
             return {};
-          }),
+          })),
         );
       }
       case "session/extensions/add":
@@ -2728,6 +2765,7 @@ export class Compat {
         await this.driver.steer(s.id, prepared.content, {
           requestId: messageId,
           signal: active.controller.signal,
+          queuedWhileBusy: p._meta?.['codebuddy/input-origin'] === 'queued-while-busy',
         });
         await this.desktop.preparePrompt(s.id, { activeInput: true, token: active.desktopControlToken });
         const created = Math.floor(Date.now() / 1000);
@@ -2822,7 +2860,7 @@ export class Compat {
           providerId: p.providerId,
           // Explicit picker loading uses the normal provider request budget;
           // the shorter advisory metadata probe must not truncate a valid list.
-          models: await discover(provider, provider),
+          models: desktopNetworkAllowed() ? await discover(provider, provider) : provider.models,
         };
       }
       case "providers/custom/discover-models":
@@ -2976,6 +3014,7 @@ export class Compat {
     }
   }
   async prompt(p, connection, nativeObservationToken) {
+    if (!desktopNetworkAllowed()) throw invalid('Network access requires permission.');
     if (this.closing) throw invalid('Runtime is shutting down');
     const receivedAtMs = Date.now();
     const s = this.session(p.sessionId);
@@ -3521,6 +3560,7 @@ export class Compat {
         trace('native_prompt_dispatched');
         result = await this.driver.prompt(s.id, prepared.content, {
           ...callbacks, ...(nativeObservationToken ? { nativeObservationToken } : {}),
+          queuedWhileBusy: p._meta?.['codebuddy/input-origin'] === 'queued-while-busy',
         });
         trace('native_prompt_settled');
         // Native execution has ended. This durable presentation annotation can
@@ -3580,6 +3620,7 @@ export class Compat {
           // Legacy verification receipts remain historical evidence; they cannot
           // certify work performed by a subsequent native Harness attempt.
           const acceptanceUnverified = uncertainEffects > 0 ||
+            context.completionKind === "harness_turn" ||
             context.completionKind === "harness_goal" ||
             context.receipts.some((r) => r.kind === "write" || r.kind === "command");
           const limitations = completed ? [] : [context.lastReason ?? "Task requires continuation"];
@@ -3665,10 +3706,6 @@ export class Compat {
               recovery_action: completed ? "none" : "ask_user",
             },
           };
-          if (completed && context.completionKind === "harness_turn" &&
-              context.receipts.length === 0 && context.tasks.length === 0 &&
-              context.nativeWorkers.length === 0 && uncertainEffects === 0)
-            delete data.report;
           const update = {
             sessionUpdate: "status_message",
             status: {

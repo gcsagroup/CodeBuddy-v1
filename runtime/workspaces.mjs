@@ -317,6 +317,16 @@ export class WorkspaceService {
     });
   }
 
+  changeSessionDirectory(sessionId, cwd, operation) {
+    return this.serial(async () => {
+      const snapshot = await directorySnapshot(absoluteDirectory(cwd));
+      const result = await operation();
+      // Only a successful native rebind replaces the previous workspace lease.
+      this.sessions.set(sessionId, { id: randomUUID(), snapshot, created: false, expectedEmpty: false });
+      return result;
+    });
+  }
+
   validateSession(sessionId, cwd, { initialContents = false } = {}) {
     return this.serial(async () => {
       const lease = this.sessions.get(sessionId);

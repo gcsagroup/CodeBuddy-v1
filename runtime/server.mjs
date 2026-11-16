@@ -55,7 +55,7 @@ export async function createCompatServer({ dataDir, secret, driver, defaultModel
           }),
         ));
       // Boot the official Host while the desktop is opening, not on Send.
-      // No session, model generation or MCP action is started by this warmup.
+      // Model metadata and remote MCP prewarming check desktop consent separately.
       warmup = () => {
         const started = performance.now();
         void get().then(() => console.info('[Harness host ready]', JSON.stringify({ elapsedMs: Math.round(performance.now() - started) })))
@@ -264,10 +264,15 @@ export async function createCompatServer({ dataDir, secret, driver, defaultModel
         if (
           msg &&
           typeof msg === "object" &&
-          !msg.method &&
-          pending.has(msg.id)
+          !Array.isArray(msg) &&
+          msg.jsonrpc === "2.0" &&
+          !Object.hasOwn(msg, 'method') &&
+          Object.hasOwn(msg, 'id') &&
+          (Object.hasOwn(msg, 'result') || Object.hasOwn(msg, 'error'))
         ) {
-          pending.get(msg.id)(
+          // Cancellation may settle the wait before the client's reply arrives.
+          // Responses never become new requests or receive another response.
+          pending.get(msg.id)?.(
             msg.error ? Error(msg.error.message) : null,
             msg.result,
           );

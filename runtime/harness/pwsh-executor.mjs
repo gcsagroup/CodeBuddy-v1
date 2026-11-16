@@ -33,6 +33,12 @@ export default class CodeBuddyPwshExecutor extends SandboxPwshExecutor {
   }
 
   spawnSpec(...args) {
-    return { ...super.spawnSpec(...args), [shellOutput]: true };
+    const spec = super.spawnSpec(...args);
+    // Windows Python pipes otherwise use the locale code page. Some GBK
+    // sequences are also valid UTF-8, so guessing after decoding loses text.
+    // Preserve an explicitly configured interpreter encoding.
+    return { ...spec, env: { ...spec.env,
+      PYTHONIOENCODING: spec.env?.PYTHONIOENCODING ?? process.env.PYTHONIOENCODING ?? 'utf-8',
+    }, [shellOutput]: true };
   }
 }

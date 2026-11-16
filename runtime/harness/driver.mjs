@@ -37,7 +37,7 @@ import { hostToolExtensionName } from '../tool-policy.mjs';
 import { forkWorkingDirectory } from './working-directory.mjs';
 import { observeModelTransport } from './transport-observation.mjs';
 import { installModelResponseValidation } from './model-response-validation.mjs';
-import { commandEvidence, hasFailedCommand, recordCommandOutcome, commandReminder } from './command-evidence.mjs';
+import { commandEvidence, executionReceiptContext, hasFailedCommand, recordCommandOutcome, commandReminder } from './command-evidence.mjs';
 import { projectScriptCall, projectScriptInvocation, selectNamedScript } from './project-script.mjs';
 import { installOutputRecovery, isOutputLimitFailure, OUTPUT_RECOVERY_LIMIT } from './output-recovery.mjs';
 import { createMcpPresets, restrictSessionTools } from './mcp-presets.mjs';
@@ -163,27 +163,20 @@ export async function createHarnessDriver({ dataDir, cwd = process.cwd(), instru
   ctx.systemPrompt.section({ name: 'codebuddy:behavior', order: 1, text: CODEBUDDY_BEHAVIOR, interpolate: false });
   ctx.systemPrompt.section({
     name: 'codebuddy:named-file', order: 2, interpolate: false,
-    text: 'When asked to run a specific project file, use the exact filename in the current project unless the user explicitly selects another location. Do not inspect parent or sibling projects, guess a renamed file, or create a replacement. If missing, immediately tell the user which file was not found. If ambiguous, ask which relative path. Report the actual executed path and outcome from the tool receipt.' +
-      (process.platform === 'win32' ? " For a named project PowerShell script, immediately call pwsh with Invoke-CodeBuddyProjectScript -LiteralPath '<exact relative path>'. It searches this project and executes the exact match. A run-and-report request is fulfilled by this single tool receipt. Only if the human requested additional work after execution, add -ContinueTask. Use -ArgumentList for literal arguments." : ''),
+    text: 'Run the exact named file in this project unless the user specifies another location. Never search sibling/parent projects, guess or create a substitute. Report missing files promptly; ask for a relative path if ambiguous. Report executed path and outcome from the receipt.' +
+      (process.platform === 'win32' ? " For named project PowerShell scripts, call pwsh immediately with Invoke-CodeBuddyProjectScript -LiteralPath '<exact relative path>'. Its receipt fulfills run-and-report. Add -ContinueTask only for requested follow-up work; use -ArgumentList for literal arguments." : ''),
   });
   ctx.systemPrompt.section({
     name: 'codebuddy:conversation-language', order: 102, interpolate: false,
-    text: "Use the human user's requested language for replies and progress updates; otherwise match the human user's language. Write delegation prompts and follow-up messages to subagents in that same language, and explicitly ask them to report in it, so the user can read their conversations. As a subagent, use the language requested by your parent for explanations, progress and reports. Do not switch language merely because tool output, source material or another agent uses a different language. Preserve original code, identifiers, quotations and tool output; do not translate or rewrite raw tool results.",
+    text: "Reply and report progress in the language requested by the user (or match theirs). Write delegation prompts and follow-up messages in that language and ask children to report in it. As a child, follow the parent’s requested language. Preserve original code, identifiers, quotes and tool output; their language does not change the reply language.",
   });
   ctx.systemPrompt.section({
     name: 'codebuddy:action-guidance', order: 103, interpolate: false,
-    text: 'Use reasoning to choose a coherent next step that can be checked. When the available evidence supports a safe step within the task scope, take it and use the result to guide what follows, rather than resolving every downstream uncertainty first. Preserve necessary planning and verification. Revisit decisions when new evidence or a concrete contradiction changes the approach.',
+    text: 'Plan and verify. Take the next safe, checkable in-scope step when supported by evidence; revise when results or contradictions warrant.',
   });
   ctx.systemPrompt.section({
     name: 'codebuddy:progress-updates', order: 104, interpolate: false,
-    text: `<progress_updates>
-Keep progress updates brief, meaningful, and outcome-based.
-
-- Before lengthy operations, briefly explain what you're about to do and why.
-- During execution, proactively report meaningful progress, major findings, completed milestones, or blockers.
-- Avoid routine status narration and repetitive updates.
-- Prioritize actual results over descriptions of activity.
-</progress_updates>`,
+    text: 'Briefly explain lengthy operations beforehand. Report meaningful findings, milestones or blockers as they occur; skip repetitive narration.',
   });
   ctx.on('system-prompt/assemble', async (_assembly, { agent, signal }, next) => {
     const lookup = agent && scriptLookups.get(agent);
@@ -505,8 +498,14 @@ Keep progress updates brief, meaningful, and outcome-based.
   ctx.systemPrompt.context({ name: 'codebuddy:command-outcomes', order: 131, required: true, interpolate: false,
     text: ({ agent }) => {
       const run = runs.get(agent?.id);
-      return commandReminder(run?.commandFacts);
+      return commandReminder(run?.pendingCommandFailures);
     },
+  });
+  // Dynamic system sections replace the current prompt. Runtime contexts are
+  // journaled snapshots; a receipt index there would accumulate every step.
+  ctx.systemPrompt.section({ name: 'codebuddy:execution-receipts', order: 133, interpolate: false,
+    text: ({ agent }) => agent ? executionReceiptContext(agent.session, runs.get(agent.id)?.recentReceipts,
+      { queuedWhileBusy: runs.get(agent.id)?.queuedWhileBusy === true }) : '',
   });
   const outputRecovery = installOutputRecovery(ctx, {
     budgetSource: route => outputSources.get(route) ?? 'fallback',
@@ -600,6 +599,13 @@ Keep progress updates brief, meaningful, and outcome-based.
     return {
       ...(sessionApproval ? { sessionApproval } : {}),
       delegated: exec.agent.id !== active.sessionId,
+      ...(active.supplementReceived && !isReadOnlyCall(exec) ? {
+        supplementReview: { receipts: (active.recentReceipts ?? []).map(
+          ({ input, output, content, ...fact }) => ({ ...fact,
+            ...(typeof fact.command === 'string' && fact.command.length > 4096
+              ? { command: fact.command.slice(0, 4096) + '…', commandTruncated: true } : {}),
+          })) },
+      } : {}),
       id: exec.callId, name: exec.name, arguments: exec.arguments, readOnly: isReadOnlyCall(exec),
       nativeCapability: Boolean(definition && nativeDefinitions.has(definition)),
       delegationControl: Boolean(definition && delegationDefinitions.has(definition)),
@@ -650,6 +656,12 @@ Keep progress updates brief, meaningful, and outcome-based.
       if (!['allow', 'ask', 'deny', 'cancel'].includes(gate?.kind) ||
         (gate.kind === 'deny' && (typeof gate.reason !== 'string' || !gate.reason)))
         return { kind: 'deny', reason: 'The tool policy returned an invalid decision.' };
+      // A new native user input may change the work without invalidating prior
+      // effects. Review each subsequent proposal; never infer shell equivalence
+      // or reuse a session grant to authorize that proposal.
+      if (call.supplementReview && gate.kind === 'allow') gate = {
+        kind: 'ask', reason: 'Supplemental input was received. Review this exact operation and prior receipts before allowing it once.',
+      };
       if (exec.signal.aborted || active.cancelRequested) return { kind: 'cancel' };
       // Direct UI requests have no model turn. Their existing explicit user
       // confirmation is separate from Agent approval, whose audit requires a turn.
@@ -715,7 +727,12 @@ Keep progress updates brief, meaningful, and outcome-based.
     let executionFailed;
     if (run && !directCalls.has(exec.callId)) {
       const fact = commandEvidence(exec, result, { native: nativeDefinitions.has(ctx.tools.get(exec.name, exec.agent)) });
-      if (fact) recordCommandOutcome(run.commandFacts ??= new Map(), fact);
+      if (fact) {
+        const receipts = run.recentReceipts ??= [];
+        receipts.push(fact);
+        if (receipts.length > 8) receipts.shift();
+        recordCommandOutcome(run.pendingCommandFailures ??= new Map(), fact);
+      }
       if (fact && 'exit' in fact) executionFailed = hasFailedCommand([fact]);
     }
     const stoppedApproval = approvalCalls.get(`${exec.agent.id}\0${exec.callId}`)?.desktopOutcome === 'stopped';
@@ -830,17 +847,21 @@ Keep progress updates brief, meaningful, and outcome-based.
     if (event.type === 'turn/start')
       scriptLookups.set(agent, { run });
     if (session.id === run.sessionId && event.type === 'turn/start') {
-      run.commandFacts = new Map();
+      if (run.queuedWhileBusy && session.log.filter(e => e.type === 'turn/start').length > 1)
+        run.supplementReceived = true;
+      run.recentReceipts = [];
+      run.pendingCommandFailures = new Map();
       run.toolCalls = 0;
       run.admittedUserMessages = [];
     }
     if (session.id === run.sessionId && event.type === 'user/message' && event.data.source?.kind === 'user') {
       // Admission events own the current request. Compacted surface messages
-      // and synthetic notices must not disable its completion review.
+      // and synthetic notices must not hide its direct-user attribution.
       const messages = run.admittedUserMessages ??= [];
       const existing = messages.findIndex(message => message.id === event.data.id);
       if (existing < 0) messages.push(event.data);
       else messages[existing] = event.data;
+      if (messages.length > 1) run.supplementReceived = true;
     }
     if (event.type === 'tool/call') {
       let args = event.data.arguments;
@@ -1498,7 +1519,7 @@ Keep progress updates brief, meaningful, and outcome-based.
       creation = work.catch(() => {});
       return work;
     },
-    async prompt(sessionId, content, { onEvent, onPermission, onToolPolicy, onToolStart, onDesktopTool, desktopMetadata, onUserQuestions, signal, requestId = randomUUID(), resumeGoal, createGoal, planMode, nativeObservationToken } = {}) {
+    async prompt(sessionId, content, { onEvent, onPermission, onToolPolicy, onToolStart, onDesktopTool, desktopMetadata, onUserQuestions, signal, requestId = randomUUID(), resumeGoal, createGoal, planMode, nativeObservationToken, queuedWhileBusy = false } = {}) {
       const adopted = nativeObservationToken && runs.get(sessionId)?.nativeToken === nativeObservationToken ? runs.get(sessionId) : null;
       if (runs.has(sessionId) && !adopted) throw new Error(`Session ${sessionId} already has an active prompt`);
       if (!sessionScopes.has(sessionId)) throw new Error('Configure the session before prompting');
@@ -1507,7 +1528,7 @@ Keep progress updates brief, meaningful, and outcome-based.
       // Attach rejection observation before admission can synchronously fail.
       completion.promise.catch(() => {});
       const run = adopted ?? { ...completion, events: Promise.resolve(), steps: 0, sessionId, requestId };
-      Object.assign(run, { onEvent, onPermission, onToolPolicy, onToolStart, onDesktopTool, desktopMetadata, onUserQuestions, steers: new Set(), acceptingInput: true });
+      Object.assign(run, { onEvent, onPermission, onToolPolicy, onToolStart, onDesktopTool, desktopMetadata, onUserQuestions, queuedWhileBusy: queuedWhileBusy === true, supplementReceived: false, steers: new Set(), acceptingInput: true });
       runs.set(sessionId, run);
       const cancel = () => { try { driver.cancel(sessionId); } catch { /* Admission may not have opened a turn yet. */ } };
       signal?.addEventListener('abort', cancel, { once: true });
@@ -1620,7 +1641,7 @@ Keep progress updates brief, meaningful, and outcome-based.
         return status ? { serverName: state.serverName, status, ...(status === 'error' ? { error: [...scopeChainOf(agent), ctx.root].map(key => mcpPlugin.mcpConnectionError(key, state.serverName)).find(Boolean) ?? 'MCP connection is unavailable or reconnecting.' } : {}) } : structuredClone(state);
       });
     },
-    async steer(sessionId, content, { signal = new AbortController().signal, requestId = randomUUID() } = {}) {
+    async steer(sessionId, content, { signal = new AbortController().signal, requestId = randomUUID(), queuedWhileBusy = false } = {}) {
       const run = runs.get(sessionId);
       if (!run || !run.acceptingInput || run.cancelRequested) throw Object.assign(
         new Error('Steering requires an active prompt; use prompt for an idle session'),
@@ -1628,7 +1649,11 @@ Keep progress updates brief, meaningful, and outcome-based.
       );
       const admission = ctx.sessionController.prompt({ sessionId, requestId, mode: 'steer', content: typeof content === 'string' ? [{ type: 'text', text: content }] : content, clientTimeZone: 'Asia/Shanghai' }, signal);
       run.steers.add(admission);
-      try { return await admission; } finally { run.steers.delete(admission); }
+      try {
+        const result = await admission;
+        if (queuedWhileBusy === true) run.queuedWhileBusy = true;
+        return result;
+      } finally { run.steers.delete(admission); }
     },
     async listTools(sessionId, extensionName) {
       const agent = sessionId ? await resolveAgent(sessionId) : undefined;

@@ -1,3 +1,4 @@
+import { desktopNetworkAllowed } from "./desktop-network-consent.mjs";
 import { randomUUID, createHash } from "node:crypto";
 import { protectSecret, revealSecret } from "./secrets.mjs";
 import { DEFAULT_CONTEXT_WINDOW } from "./model-defaults.mjs";
@@ -264,6 +265,7 @@ async function requestJson(
   url,
   { headers, method = "GET", payload, models = false, timeoutMs = REQUEST_TIMEOUT_MS },
 ) {
+  if (!desktopNetworkAllowed()) throw providerError('network_permission_required', 'Network access requires permission.');
   let response;
   try {
     response = await fetch(url, {
@@ -389,7 +391,7 @@ export async function discover(input, stored, { timeoutMs, authPending, refreshM
 }
 
 async function resolveContext(provider, model, authPending, retryAfterRefresh = true) {
-  if (!model) return undefined;
+  if (!model || !desktopNetworkAllowed()) return undefined;
   const catalogProviderId = providerCatalog(provider);
   const key = listingKey(provider);
   let cached = cachedModels(provider);

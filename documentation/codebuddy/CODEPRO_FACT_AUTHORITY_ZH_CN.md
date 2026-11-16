@@ -1,3 +1,12 @@
+<!-- 2026-11-16 已批准：对话 sidebarPlacement 由 Compat 唯一写入，导航只消费；归属与 cwd 分离。目录切换沿用原有 Harness owner 和运行中拒绝规则。详见 docs/conversation-drag-drop.zh-CN.md。 -->
+## 2026-11-16 已批准：补充后的逐次工具确认与验收事实
+
+Harness 原生用户输入事件持有补充已进入当前轮的事实；适配层仅在该事件或带队列来源的后续原生轮中启用逐次工具确认。非只读提案仍由 Harness 的执行前审批执行，Compat 复用现有审批卡展示精确参数与有界原生回执，只允许本次批准，不复用会话许可。已执行的操作不回滚；禁止审批、取消及未知答复均不授予执行。普通新轮恢复既有权限。此规则默认用于交互会话的补充输入，不重写历史或引入第二执行器。
+
+Harness 的结束事实不等于项目验收。Compat 保留现有终态报告中的未验证分类，包括零工具轮；聊天保留模型回复原文，不额外显示未验收提醒，也不根据模型文字、成功进程或历史验证自动标记当前任务 PASS。没有新增验收模型、外部脚本门禁或自动宣告验收成功的接口。Windows 原生 PowerShell 执行器为 Python 管道缺省声明 UTF-8，保留显式编码覆盖；原始回执仍由 Harness 持有。
+
+繁體：補充後的非唯讀提案逐次批准，原生結束不代表獨立驗收；後端保留未驗收記錄。聊天顯示模型原文，不另行提示或自動標記 PASS。English: Supplemental side effects require per-call approval. Native turn completion does not certify acceptance; the backend retains the unverified record. Chat displays the model’s reply without an extra reminder or an automatic PASS label. Python pipes default to explicit UTF-8.
+
 ## 项目附加文件夹
 
 WorkspaceService 按主工作目录保存桌面用户选择的附加目录、目录身份、访问方式及配置版本。侧栏编辑项目和会话提示消费同一份配置。Harness 文件工具在每次写入时查询当前关联，允许修改的附加目录仍受会话只读模式限制。终端继续使用会话沙箱策略。解除关联只更新配置。

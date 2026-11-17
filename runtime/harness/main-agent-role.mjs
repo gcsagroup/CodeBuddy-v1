@@ -13,9 +13,11 @@ export function installMainAgentRole(ctx, agent, capabilities, source, events = 
   let committed = source.baseline(), candidate, invalid;
   let releaseMask, maskSignature;
   const offered = [];
+  let hasCustomRoleHistory = Boolean(committed);
   for (const event of events) {
     if (event.type !== 'user/message' || event.data.source?.kind !== 'user' || !event.data.source.rpcId) continue;
     committed = source.input(event.data.source.rpcId);
+    hasCustomRoleHistory ||= Boolean(committed);
   }
   const current = () => {
     if (invalid) throw invalid;
@@ -89,7 +91,7 @@ export function installMainAgentRole(ctx, agent, capabilities, source, events = 
     text: () => {
       const profile = current();
       return profile ? `Current main agent: ${JSON.stringify(profile.name)} (${identity(profile)}). Earlier roles in this conversation are historical. Subagents keep their own responsibilities.`
-        : 'The current main agent is the default CodeBuddy assistant. Earlier custom-agent identities and workflows are historical; retain the user task, project instructions and confirmed results.';
+        : hasCustomRoleHistory ? 'Current agent: CodeBuddy (default). Earlier custom roles are historical; retain user instructions and confirmed facts.' : '';
     },
   });
   ctx.systemPrompt.section({
@@ -113,6 +115,7 @@ export function installMainAgentRole(ctx, agent, capabilities, source, events = 
   ctx.on('session/event', (session, event) => {
     if (session !== agent.session || event.type !== 'user/message' || event.data.source?.kind !== 'user' || !event.data.source.rpcId) return;
     committed = source.input(event.data.source.rpcId);
+    hasCustomRoleHistory ||= Boolean(committed);
     candidate = undefined;
     invalid = undefined;
     offered.length = 0;

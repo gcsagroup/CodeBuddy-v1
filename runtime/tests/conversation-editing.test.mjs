@@ -80,8 +80,9 @@ async function fixture(t) {
 
 test('auxiliary title inference uses the conversation route and both sides without exposing tools', async t => {
   const f = await fixture(t), id = await f.create();
-  await f.turn(id, 'USER_FIRST_TITLE', 10);
-  assert.equal(await f.driver.generateTitle(id, { user: 'USER_FIRST_TITLE', assistant: 'ASSISTANT_TITLE_CONTEXT' }), 'FIXTURE_ANSWER');
+  const user = 'USER_FIRST_TITLE spanning multiple modules';
+  await f.turn(id, user, 10);
+  assert.equal(await f.driver.generateTitle(id, { user, assistant: 'ASSISTANT_TITLE_CONTEXT' }), 'FIXTURE_ANSWER');
   const request = f.requests.at(-1);
   assert.match(JSON.stringify(request.messages), /USER_FIRST_TITLE/);
   assert.match(JSON.stringify(request.messages), /ASSISTANT_TITLE_CONTEXT/);
@@ -90,12 +91,13 @@ test('auxiliary title inference uses the conversation route and both sides witho
 
 test('tool-only output and unavailable auxiliary inference use the native first-request title', async t => {
   const f = await fixture(t), id = await f.create();
-  const user = '帮我生成一张关于小猫的图片';
+  const user = '帮我生成一张关于小猫的图片，保存到项目的素材目录';
   await f.turn(id, user, 10);
   const count = f.requests.length;
-  assert.equal(await f.driver.generateTitle(id, { user, assistant: '' }), user);
+  const fallback = await f.driver.generateTitle(id, { user, assistant: '' });
+  assert.ok(fallback && user.startsWith(fallback));
   assert.equal(f.requests.length, count);
-  assert.equal(await f.driver.generateTitle(id, { user, assistant: 'TITLE_PROVIDER_UNAVAILABLE' }), user);
+  assert.equal(await f.driver.generateTitle(id, { user, assistant: 'TITLE_PROVIDER_UNAVAILABLE' }), fallback);
   assert.ok(f.requests.length > count);
 });
 

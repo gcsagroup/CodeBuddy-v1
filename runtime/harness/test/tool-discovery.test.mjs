@@ -2,13 +2,110 @@ import { replyToNoActionReview } from './review-fixture.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import http from 'node:http';
-import {mkdtemp, mkdir, readFile} from 'node:fs/promises';
+import {mkdtemp, mkdir, readFile, symlink, writeFile} from 'node:fs/promises';
 import {tmpdir} from 'node:os';
 import path from 'node:path';
 import {createHarnessDriver} from '../index.mjs';
 
 // Load native SDK consumers after the same serialized bootstrap as the driver.
 const {installToolDiscovery, projectOptionalValues} = await import('../tool-discovery.mjs');
+
+test('interactive discovery loads only scoped tools for this turn and defers only the automatic skill catalog', async () => {
+  const hooks = new Map();
+  const catalog = ['read', 'write', 'edit', 'skill', 'pwsh'].map(name => ({ name, description: 'usable with pwsh', parameters: { type: 'object' } }));
+  const agent = { id: 'main', session: { log: [], requestHeader: () => undefined } };
+  let search;
+  installToolDiscovery({
+    tools: { schemas: () => catalog, register: tool => { search = tool; }, get: () => search },
+    systemPrompt: { section() {} }, on: (name, handler) => hooks.set(name, handler),
+  }, agent, undefined, name => name !== 'edit', true);
+  const assemble = async () => hooks.get('system-prompt/assemble')({}, {}, async () => ({
+    tools: [...catalog, search], sections: [{ name: 'codebuddy:session-instructions', text: 'Always follow the project rules.' }],
+  }));
+  const messages = ['user', 'skill-invocation', 'skill-catalog'].map(kind => ({ source: { kind } }));
+  const step = async () => (await hooks.get('agent/pre-step')({ agent }, async () => ({ messages }))).messages;
+  assert.deepEqual((await assemble()).tools.map(t => t.name), ['search_mcp_tools']);
+  const shell = await search.execute({ query: 'pwsh' });
+  assert.deepEqual(shell.tools.map(tool => tool.name), ['pwsh']);
+  assert.deepEqual((await assemble()).tools.map(t => t.name), ['pwsh', 'search_mcp_tools']);
+  hooks.get('session/event')(agent.session, { type: 'turn/end' });
+  assert.equal((await assemble()).sections[0].text, 'Always follow the project rules.');
+  assert.deepEqual(await step(), messages.slice(0, 2));
+  const found = await search.execute({ names: ['read', 'skill', 'edit'] });
+  assert.deepEqual(found.missingNames, ['edit']);
+  assert.deepEqual(JSON.parse(search.output.render({}, found)[0].text).tools, ['read', 'skill']);
+  assert.deepEqual((await assemble()).tools.map(t => t.name), ['read', 'skill', 'search_mcp_tools']);
+  assert.deepEqual(await step(), messages);
+  hooks.get('session/event')(agent.session, { type: 'turn/end' });
+  assert.deepEqual((await assemble()).tools.map(t => t.name), ['search_mcp_tools']);
+  const group = await search.execute({ query: '@code' });
+  assert.deepEqual((await search.execute({ query: '@code file shell' })).tools, group.tools);
+  const available = process.platform === 'win32' ? ['read', 'pwsh'] : ['read'];
+  assert.deepEqual(group.tools.map(tool => tool.name), available);
+  assert.ok(group.missingNames.includes('edit'));
+  const shown = JSON.parse(search.output.render({}, group)[0].text);
+  assert.deepEqual(shown.missingNames, group.missingNames);
+  assert.equal(shown.pendingServers, undefined);
+  assert.deepEqual((await assemble()).tools.map(t => t.name), [...available, 'search_mcp_tools']);
+  assert.deepEqual((await search.execute({ names: ['write'] })).tools.map(t => t.name), ['write']);
+});
+
+test('a named local file offers scoped coding tools without executing or exposing other capabilities', async () => {
+  const root = await mkdtemp(path.join(tmpdir(), 'discovery-path-'));
+  await writeFile(path.join(root, 'entry.ts'), 'export {}');
+  const hooks = new Map(), agent = {id:'owner', session:{log:[], requestHeader(){}}};
+  const catalog = ['read','edit','write','bash','pwsh'].map(name => ({name}));
+  let search;
+  installToolDiscovery({systemPrompt:{section(){}},
+    tools:{schemas:()=>catalog,register:t=>{search=t},get:()=>search}, on:(n,h)=>hooks.set(n,h)},
+    agent, undefined, n=>n!=='write', true, ()=>root);
+  const claim=text=>hooks.get('agent/inbox/claimed')({agent,message:{source:{kind:'user'},content:[{type:'text',text}]}});
+  const shown=async()=>(await hooks.get('system-prompt/assemble')({}, {}, async()=>({tools:[...catalog,search]}))).tools.map(t=>t.name);
+  await claim('Does missing.ts exist?');
+  assert.deepEqual(await shown(), ['search_mcp_tools']);
+  await mkdir(path.join(root,'nested'));
+  await writeFile(path.join(root,'nested','item.ts'),'export {}');
+  const external=await mkdtemp(path.join(tmpdir(),'discovery-external-'));
+  await writeFile(path.join(external,'entry.ts'),'export {}');
+  await symlink(external,path.join(root,'linked'),process.platform==='win32'?'junction':'dir');
+  await claim('https://host/entry.ts ../entry.ts /nested/item.ts C:\\remote\\entry.ts \\\\host\\entry.ts linked/entry.ts');
+  assert.deepEqual(await shown(), ['search_mcp_tools'],'external references and links cannot advertise a project file by basename');
+  await claim('Explain entry.ts without changing it.');
+  const offered = ['read','edit',process.platform==='win32'?'pwsh':'bash','search_mcp_tools'];
+  assert.deepEqual(await shown(), offered);
+  hooks.get('tools/result')({agent,name:'read'},{isError:true});
+  assert.deepEqual(await shown(), offered);
+  hooks.get('tools/result')({agent,name:'read'},{isError:false});
+  assert.deepEqual(await shown(), ['read','edit',process.platform==='win32'?'pwsh':'bash','search_mcp_tools']);
+  hooks.get('session/event')(agent.session,{type:'turn/end'});
+  assert.deepEqual(await shown(), ['search_mcp_tools']);
+});
+
+test('first provider request can inspect a supplied workspace filename without a discovery round trip', {timeout:30000}, async t => {
+  let names;
+  const server = http.createServer(async(req,res)=>{
+    let raw='';for await(const chunk of req) raw+=chunk;
+    const request=JSON.parse(raw);if(replyToNoActionReview(request,res))return;
+    names ??= request.tools?.map(t=>t.function.name);
+    res.writeHead(200,{'content-type':'text/event-stream'});
+    res.end('data: '+JSON.stringify({id:'entry',object:'chat.completion.chunk',created:1,model:'fixture',
+      choices:[{index:0,delta:{role:'assistant',content:'ok'},finish_reason:'stop'}]})+'\n\ndata: [DONE]\n\n');
+  });
+  await new Promise(r=>server.listen(0,'127.0.0.1',r));
+  const root=await mkdtemp(path.join(tmpdir(),'codebuddy-read-first-'));
+  await writeFile(path.join(root,'entry.ts'),'export {}');
+  await mkdir(path.join(root,'package'));
+  await writeFile(path.join(root,'package','api.ts'),'export {}');
+  const driver=await createHarnessDriver({dataDir:path.join(root,'state'),cwd:root});
+  t.after(async()=>{await driver.close();server.closeAllConnections();await new Promise(r=>server.close(r));});
+  const session=await driver.createSession({cwd:root,provider:{id:'fixture',baseUrl:`http://127.0.0.1:${server.address().port}/v1`,contextWindow:65536},
+    model:'fixture',options:{mainAgentRole:{baseline:()=>null,input:()=>null}}});
+  await driver.prompt(session.sessionId,'Compare 1.0.0 to 2.0.0, 3.3.1, 4.3.1 and 5.0.0 in package/api.ts',{onPermission:()=>true});
+  assert.deepEqual(names?.sort(), ['read','edit',process.platform==='win32'?'pwsh':'bash','search_mcp_tools'].sort());
+  names = undefined;
+  await driver.prompt(session.sessionId,'Hello',{onPermission:()=>true});
+  assert.deepEqual(names,['search_mcp_tools']);
+});
 
 test('a failed undiscovered native call exposes its schema without replaying or granting execution', {timeout:60000}, async t => {
  const shell=process.platform==='win32'?'pwsh':'bash', requests=[];

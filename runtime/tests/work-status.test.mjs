@@ -39,7 +39,11 @@ test('model generation clock survives fragments and clears when tools actually s
   t.mock.timers.tick(190_000);
   assert.equal(send({ type: 'model_diagnostic', phase: 'first_reasoning' }).model_request_started_at, 100_000);
   assert.equal(send({ type: 'tool_call', id: 'run' }).model_request_started_at, undefined);
-  assert.equal(send({ type: 'model_diagnostic', phase: 'start' }).model_request_started_at, 290_000);
+  send({ type: 'model_diagnostic', sessionId: 'child', phase: 'start' });
+  send({ type: 'model_diagnostic', phase: 'start', purpose: 'compaction' });
+  const second = send({ type: 'model_diagnostic', phase: 'start' });
+  assert.equal(second.model_request_started_at, 290_000);
+  assert.equal(second.model_request_number, 2);
   assert.equal(send({ type: 'model_diagnostic', phase: 'end' }).model_request_started_at, undefined);
 });
 

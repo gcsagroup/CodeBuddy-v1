@@ -4,13 +4,65 @@ import { createServer } from 'node:http';
 import { mkdtemp, writeFile, readFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { executionReceiptContext } from '../harness/command-evidence.mjs';
+import { executionReceiptContext, processReceiptText } from '../harness/command-evidence.mjs';
 import { createHarnessDriver } from '../harness/index.mjs';
+import { replyToNoActionReview } from '../harness/test/review-fixture.mjs';
 
 const turn = (n, type = 'turn/start') => ({ type, data: { turn: n, ...(type === 'turn/end' ? { reason: { kind: 'completed' } } : {}) } });
 const call = (id, args) => ({ type: 'tool/call', data: { callId: id, name: 'pwsh', arguments: JSON.stringify(args) } });
 const result = (id, isError = false) => ({ type: 'tool/result', data: { message: { toolCallId: id, isError, content: [{ type: 'text', text: isError ? 'aborted' : 'observed output' }] } } });
 const facts = text => JSON.parse(text.slice(text.indexOf('\n') + 1));
+
+test('compact receipts distinguish unfinished processes and preserve the previous turn across current actions', () => {
+  assert.equal(processReceiptText({ kind: 'background', exitCode: 0 }), undefined);
+  assert.equal(processReceiptText({ kind: 'foreground', exitCode: null, timedOut: true, signal: 'SIGTERM' }),
+    'Process receipt: {"exit":null,"timedOut":true,"signal":"SIGTERM"}');
+  const first = [turn(1), call('a', {}), result('a')];
+  const compact = log => executionReceiptContext({ log }, [], { boundaryOnly: true });
+  assert.equal(compact(first), '');
+  const second = [...first, turn(1, 'turn/end'), turn(2)];
+  const boundary = compact(second);
+  assert.equal(facts(boundary).previousTurn.tools.recent[0].callId, 'a');
+  assert.equal(compact([...second, call('b', {}), result('b')]), boundary);
+  assert.equal(facts(executionReceiptContext({ log: second }, [], { boundaryOnly: true, queuedWhileBusy: true })).inputOrigin, 'queued-while-busy');
+});
+
+test('interactive shell outputs carry real exit codes without rewriting the request prefix', { timeout: 60000 }, async t => {
+  const root = await mkdtemp(join(tmpdir(), 'codebuddy-inline-receipt-'));
+  await writeFile(join(root, 'entry.txt'), 'fixture');
+  const requests = [];
+  const shell = process.platform === 'win32' ? 'pwsh' : 'bash';
+  const server = createServer(async (req, res) => {
+    let raw = ''; for await (const chunk of req) raw += chunk;
+    const request = JSON.parse(raw);
+    if (replyToNoActionReview(request, res)) return;
+    requests.push(request);
+    const i = requests.length;
+    const command = i === 1 ? 'echo FAKE_SUCCEEDED; exit 7' : 'echo VERIFIED';
+    const delta = i > 2 ? { content: 'Observed both commands.' } : { tool_calls: [{ index: 0, id: 'cmd-' + i,
+      type: 'function', function: { name: shell, arguments: JSON.stringify({ command, description: 'Check fixture' }) } }] };
+    res.writeHead(200, { 'content-type': 'text/event-stream' });
+    const emit = (delta, finish_reason) => res.write('data: ' + JSON.stringify({ id: 'inline-receipts', model: request.model, choices: [{ index: 0, delta, finish_reason }] }) + '\n\n');
+    emit(delta, null); emit({}, i > 2 ? 'stop' : 'tool_calls'); res.end('data: [DONE]\n\n');
+  });
+  await new Promise(r => server.listen(0, '127.0.0.1', r));
+  const driver = await createHarnessDriver({ dataDir: join(root, 'state'), cwd: root });
+  t.after(async () => { await driver.close(); server.closeAllConnections(); await new Promise(r => server.close(r)); });
+  const { sessionId } = await driver.createSession({ cwd: root, provider: { id: 'fixture',
+    baseUrl: 'http://127.0.0.1:' + server.address().port + '/v1', contextWindow: 65536 }, model: 'fixture',
+    options: { mainAgentRole: { baseline: () => null, input: () => null } } });
+  await driver.prompt(sessionId, 'Run the checks for entry.txt.', { onPermission: () => true });
+  assert.equal(requests.length, 3);
+  const system = request => request.messages.filter(m => m.role === 'system');
+  for (const request of requests.slice(1)) assert.deepEqual(system(request), system(requests[0]));
+  const results = requests.at(-1).messages.filter(m => m.role === 'tool');
+  assert.equal(results.length, 2);
+  const rendered = results.map(m => typeof m.content === 'string' ? m.content : m.content.map(c => c.text).join('\n'));
+  assert.match(rendered[0], /FAKE_SUCCEEDED/);
+  assert.match(rendered[0], /Process receipt: \{"exit":7\}/);
+  assert.match(rendered[1], /Process receipt: \{"exit":0\}/);
+  assert.ok(!rendered[1].includes('FAKE_SUCCEEDED'));
+});
 
 test('receipt context scopes current work, preserves prior returns, and never promotes proposals or prose', () => {
   const log = [turn(1), call('old', { command: 'increment-once' }), result('old'), turn(1, 'turn/end'), turn(2),
@@ -81,6 +133,9 @@ test('native requests see empty current receipts before work and real receipts a
     const texts = request.messages.flatMap(m => typeof m.content === 'string' ? [m.content] : (m.content ?? []).filter(c => c.type === 'text').map(c => c.text));
     const text = texts.findLast(text => text.includes('Execution receipts for this session'));
     assert(text, 'receipt context reached the real native request');
+    const staticGuidance = text.indexOf('Use the read tool');
+    assert(staticGuidance >= 0 && staticGuidance < text.indexOf('Execution receipts for this session'),
+      'unchanged filesystem guidance remains in the reusable prefix before changing receipts');
     assert.equal(texts.filter(text => text.includes('Execution receipts for this session')).length, 1,
       'each request has one current receipt index, not a history of receipt snapshots');
     assert(request.messages.some(message => message.role === 'system' &&

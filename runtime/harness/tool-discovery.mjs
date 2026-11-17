@@ -1,4 +1,6 @@
 import { getMcpToolMetadata, mcpServerStates, pendingMcpServers, waitForMcpServers } from './mcp-bridge.mjs';
+import { lstat } from 'node:fs/promises';
+import { join } from 'node:path';
 
 // Optional adapter capabilities share Harness's registry and logged assembly.
 // The canonical registry, authorization, execution and inventory stay unchanged.
@@ -64,7 +66,46 @@ export function projectOptionalValues(schema, optional = false, root = schema, r
     if (result[key]) result[key] = projectOptionalValues(result[key], false, root, references);
   return result;
 }
-export function installToolDiscovery(ctx, agent, modelEndpoint = () => undefined, applicable = () => true) {
+function mentionedProjectFiles(texts) {
+  const candidates = new Set();
+  // Match a whole path-shaped token so a URL, parent path or absolute path
+  // cannot fall back to an unrelated in-project basename.
+  let remaining = 8192;
+  for (const text of texts) {
+    const sample = text.slice(0, remaining);
+    remaining -= sample.length;
+    for (const [token] of sample.matchAll(/[A-Za-z0-9_.~%:@/\\-]+/g)) {
+      const name = token.replace(/^@/, '').replaceAll('\\', '/').replace(/^\.\//, '').replace(/\.$/, '');
+      if (!name || name.length > 255) continue;
+      const parts = name.split('/');
+      if (parts.length > 8 || parts.some(p => !/^[\w.-]+$/.test(p) || p === '.' || p === '..' ||
+        /^(?:con|prn|aux|nul|com\d|lpt\d)(?:\.|$)/i.test(p))) continue;
+      if (/^[\w.-]+\.[\w-]+$/.test(parts.at(-1))) candidates.add(name);
+    }
+    if (!remaining) break;
+  }
+  // Dotted versions are frequently mentioned before the actual files. Prefer
+  // explicit project paths and filename extensions without excluding numeric files.
+  const priority = name => name.includes('/') ? 0 : /\.[a-z_][\w-]*$/i.test(name) ? 1 : 2;
+  return [...candidates].sort((a, b) => priority(a) - priority(b)).slice(0, 12);
+}
+
+async function projectFileExists(root, name) {
+  const parts = name.split('/');
+  let current = root;
+  for (const [i, part] of parts.entries()) {
+    current = join(current, part);
+    let stat;
+    try { stat = await lstat(current); } catch { return false; }
+    // Never follow a symlink or junction to probe outside the workspace.
+    if (i === parts.length - 1) return stat.isFile();
+    if (!stat.isDirectory() || stat.isSymbolicLink()) return false;
+  }
+  return false;
+}
+
+export function installToolDiscovery(ctx, agent, modelEndpoint = () => undefined, applicable = () => true, compact = false, workingDirectory) {
+  const discoverable = compact ? name => name !== 'search_mcp_tools' && name !== 'exit_plan_mode' : deferred;
   const project = tool => {
     const endpoint = modelEndpoint();
     if (!endpoint || new URL(endpoint).hostname !== 'ollama.com') return tool;
@@ -74,18 +115,50 @@ export function installToolDiscovery(ctx, agent, modelEndpoint = () => undefined
   // Older headers contained the whole catalog. Only restore headers written
   // by discovery, otherwise reopening an old conversation reloads every tool.
   const selected = new Set(previous.some(tool => tool.name === 'search_mcp_tools')
-    ? previous.filter(tool => deferred(tool.name)).slice(-16).map(tool => tool.name) : []);
+    ? previous.filter(tool => discoverable(tool.name)).slice(-16).map(tool => tool.name) : []);
+  let namedFiles = [], fileProbe;
+  const codeTools = ['read', 'edit', process.platform === 'win32' ? 'pwsh' : 'bash'];
+  if (compact) {
+    const boundary = agent.session.log.findLast(event => event.type === 'turn/start' || event.type === 'turn/end');
+    if (boundary?.type !== 'turn/start') selected.clear();
+    ctx.on('session/event', (session, event) => {
+      if (session === agent.session && event.type === 'turn/end') {
+        selected.clear();
+        computerSkillLoaded = false;
+        namedFiles = [];
+        fileProbe = undefined;
+      }
+    });
+    // Until the skill loader is selected, the native catalog stays unpublished.
+    // Direct user-invoked skills and ordinary user/project messages pass through.
+    ctx.on('agent/pre-step', async ({ agent: owner }, next) => {
+      const decision = await next();
+      if (owner.id !== agent.id || decision.kind === 'reject' || selected.has('skill')) return decision;
+      return { ...decision, messages: decision.messages.filter(message => message.source?.kind !== 'skill-catalog') };
+    }, { prepend: true });
+  }
   function select(name) {
     selected.delete(name);
     selected.add(name);
     if (selected.size > 16) selected.delete(selected.values().next().value);
   }
-  const available = () => ctx.tools.schemas(agent).filter(tool => deferred(tool.name) && applicable(tool.name));
+  const available = () => ctx.tools.schemas(agent).filter(tool => discoverable(tool.name) && applicable(tool.name));
   // A filename mention makes the existing shell schema discoverable on the
   // first step. It never selects an action or grants a tool permission.
-  if (process.platform === 'win32') ctx.on('agent/inbox/claimed', ({agent: owner, message}) => {
-    if (owner.id === agent.id && message.source?.kind === 'user' &&
-        message.content.some(block => block.type === 'text' && /\.ps1\b/i.test(block.text))) select('pwsh');
+  ctx.on('agent/inbox/claimed', ({agent: owner, message}) => {
+    if (owner.id !== agent.id || message.source?.kind !== 'user') return;
+    const texts = message.content.filter(block => block.type === 'text').map(block => block.text);
+    if (process.platform === 'win32' && texts.some(text => /\.ps1\b/i.test(text))) select('pwsh');
+    if (!compact || !workingDirectory) return;
+    // A mention offers tools; it never selects an action or authorizes access.
+    const candidates = mentionedProjectFiles(texts);
+    if (candidates.length && applicable('read') && !selected.size) {
+      const cwd = workingDirectory();
+      // Inbox notifications are synchronous; only request assembly awaits the probe.
+      fileProbe = Promise.all([fileProbe, ...candidates.map(async name =>
+        await projectFileExists(cwd, name) ? name : undefined)])
+        .then(hits => [...new Set(hits.flat().filter(Boolean))].slice(0, 4));
+    }
   });
   let computerSkillLoaded = false;
   // A successful, model-selected skill load reveals its bounded tool surface
@@ -120,26 +193,46 @@ export function installToolDiscovery(ctx, agent, modelEndpoint = () => undefined
   if (!available().length && !pendingMcpServers(agent).length) return;
   ctx.tools.register({
     name: 'search_mcp_tools',
-    description: 'Find and load tools by keywords or exact names. Includes file edits, shell, skills, memory, goals, jobs, subagents, Git, desktop, browser and web. Empty query lists a page. Loaded tools keep their original permissions and execute through CodeBuddy.',
-    parameters: { type: 'object', properties: {
+    description: compact ? 'Use visible tools directly. {"query":"@code"} loads missing file and shell tools. For a finished website, load browser_control to offer optional testing. Use keywords or names for other tools; load skill for Office, desktop, media or named skills. Chat directly.' : 'Find and load tools by keywords or exact names. Includes file edits, shell, skills, memory, goals, jobs, subagents, Git, desktop, browser and web. Empty query lists a page. Loaded tools keep their original permissions and execute through CodeBuddy.',
+    parameters: { type: 'object', properties: compact ? {
+      query: { type: 'string' },
+      names: { type: 'array', items: { type: 'string' }, maxItems: 5 },
+      servers: { type: 'array', items: { type: 'string' }, maxItems: 5, description: 'Wait for these MCP servers.' },
+      offset: { type: 'integer', minimum: 0 },
+    } : {
       query: { type: 'string', description: 'Short search keywords; empty lists tools.' },
       names: { type: 'array', items: { type: 'string' }, maxItems: 5, description: 'Exact tool names to load.' },
       servers: { type: 'array', items: { type: 'string' }, maxItems: 5, description: 'Exact pending MCP server names to wait for before searching. Other connections do not block this search.' },
       offset: { type: 'integer', minimum: 0, description: 'Page offset, default 0.' },
     }, additionalProperties: false },
-    output: { schema: { type: 'object', additionalProperties: true }, render: (_args, value) => [{ type: 'text', text: JSON.stringify(value) }] },
+    output: { schema: { type: 'object', additionalProperties: true }, render: (_args, value) => {
+      if (!compact) return [{ type: 'text', text: JSON.stringify(value) }];
+      const { tools, ...metadata } = value;
+      const result = { tools: tools.map(tool => tool.name) };
+      for (const [key, item] of Object.entries(metadata)) {
+        if (Array.isArray(item) && !item.length) continue;
+        if (key === 'totalMatches' && item === tools.length) continue;
+        result[key] = item;
+      }
+      return [{ type: 'text', text: JSON.stringify(result) }];
+    } },
     async execute({ query = '', names = [], servers = [], offset = 0 }, exec) {
       const pending = pendingMcpServers(agent);
       const requested = pending.filter(server => servers.includes(server) || names.some(name => name.startsWith(`mcp__${server}__`)));
       await waitForMcpServers(agent, requested, exec?.signal);
       const terms = query.toLowerCase().split(/\s+/).filter(Boolean);
       const tools = available();
+      const exact = tools.filter(tool => terms.includes(tool.name.toLowerCase()));
+      const namedQuery = terms.length > 0 && new Set(terms).size === exact.length;
       const scored = tools.map(tool => ({ tool, score: terms.reduce((n, term) => n + (tool.name.toLowerCase().includes(term) ? 3 : 0) + (tool.description?.toLowerCase().includes(term) ? 1 : 0), 0) }));
-      const matches = names.length ? tools.filter(tool => names.includes(tool.name))
+      const codeGroup = compact && terms.includes('@code');
+      const requestedNames = !names.length && codeGroup ? codeTools : names;
+      const matches = requestedNames.length ? tools.filter(tool => requestedNames.includes(tool.name))
+        : namedQuery ? exact
         : scored.filter(item => !terms.length || item.score > 0).sort((a, b) => b.score - a.score || a.tool.name.localeCompare(b.tool.name)).map(item => item.tool);
       const page = matches.slice(offset, offset + 5);
       for (const tool of page) select(tool.name);
-      return { pendingServers: pendingMcpServers(agent), serverStatuses: mcpServerStates(agent).filter(server => servers.includes(server.serverName) || names.some(name => name.startsWith(`mcp__${server.serverName}__`))), tools: page.map(project), totalMatches: matches.length, ...(offset + page.length < matches.length ? { nextOffset: offset + page.length } : {}), missingNames: names.filter(name => !tools.some(tool => tool.name === name)),
+      return { pendingServers: pendingMcpServers(agent), serverStatuses: mcpServerStates(agent).filter(server => servers.includes(server.serverName) || names.some(name => name.startsWith(`mcp__${server.serverName}__`))), tools: page.map(project), totalMatches: matches.length, ...(offset + page.length < matches.length ? { nextOffset: offset + page.length } : {}), missingNames: requestedNames.filter(name => !tools.some(tool => tool.name === name)),
         ...(!matches.length ? { availableNativeTools: tools.filter(tool => optionalNative.has(tool.name)).map(tool => tool.name),
           guidance: pendingMcpServers(agent).length ? 'Some selected MCP servers are still connecting. Use servers with an exact pending server name to wait, then search. Pending is not missing or disabled.' : 'No match in this session. Choose an available tool; repeating the same search cannot install or enable one.' } : {}) };
     },
@@ -148,6 +241,7 @@ export function installToolDiscovery(ctx, agent, modelEndpoint = () => undefined
     text: () => {
       const count = available().length;
       const pending = pendingMcpServers(agent);
+      if (compact) return pending.length ? 'Pending MCP: ' + pending.join(', ') : '';
       return (pending.length ? `Selected MCP servers connecting in the background: ${JSON.stringify(pending)}. Their tools are not missing or disabled. To use one, call search_mcp_tools with servers containing its exact name; this waits for its actual catalog. ` : '') + (count ? `${count} tools are available through search_mcp_tools. Call tools already present in the current tool schemas directly; search only for missing schemas. Native names: ${available().filter(t => optionalNative.has(t.name)).map(t => t.name).join(', ')}. Search other capabilities by keywords; use English names/keywords for discovery.${available().some(t => t.name.startsWith('mcp__qwen_computer__')) ? ' Desktop GUI work: consult the computer-use skill before acting. Use the desktop MCP for input and fresh screenshots for verification. If focus, permission or visual observation fails, report that blocker; do not substitute shell UI scripts or treat shell exit status as delivery evidence.' : ''}` : '');
     },
   });
@@ -162,12 +256,24 @@ export function installToolDiscovery(ctx, agent, modelEndpoint = () => undefined
   });
   ctx.on('system-prompt/assemble', async (_assembly, _context, next) => {
     const assembly = await next();
-    const tools = assembly.tools.filter(tool => applicable(tool.name) && (!deferred(tool.name) || deliveryTools.has(tool.name) || selected.has(tool.name)));
+    const probe = fileProbe;
+    if (probe) {
+      const hit = await probe;
+      if (probe === fileProbe) { namedFiles = hit; fileProbe = undefined; }
+    }
+    const hasNamedFiles = namedFiles.length > 0 && assembly.tools.some(tool => tool.name === 'read' && applicable('read'));
+    const tools = assembly.tools.filter(tool => applicable(tool.name) && (!discoverable(tool.name) || (!compact && deliveryTools.has(tool.name)) || selected.has(tool.name) || (hasNamedFiles && codeTools.includes(tool.name))));
     const servers = new Set(tools.filter(tool => tool.name.startsWith('mcp__')).map(tool => getMcpToolMetadata(ctx, agent, tool.name)?.extensionName).filter(Boolean));
     // Server guidance is separate from schemas upstream. Keep it with loaded
     // server tools, without mutating shared connection scopes or their registry.
     const active = new Set(tools.map(t => t.name));
     const sections = assembly.sections?.filter(section => {
+      if (compact) {
+        if (section.name === 'codebuddy:install-guidance') return active.has('install_mcp_extension') || active.has('install_skill');
+        if (section.name === 'codebuddy:schedule-controls') return tools.some(tool => tool.name.startsWith('schedule_'));
+        if (section.name === 'codebuddy:named-file') return active.has('pwsh') || active.has('bash');
+        if (['codebuddy:action-guidance', 'codebuddy:progress-updates', 'codebuddy:behavior'].includes(section.name)) return hasNamedFiles || selected.size > 0;
+      }
       if (section.name.startsWith('mcp:')) return servers.has(section.name.slice(4));
       if (section.name === 'mcp-resource-servers') return [...active].some(n => n.endsWith('mcp_resources') || n === 'read_mcp_resource' || n === 'list_mcp_resource_templates');
       if (section.name === 'tool:goal') return ['create_goal', 'get_goal', 'update_goal'].some(n => active.has(n));
@@ -175,10 +281,21 @@ export function installToolDiscovery(ctx, agent, modelEndpoint = () => undefined
       if (section.name === 'tool:jobs') return ['pwsh', 'bash', 'job_kill', 'job_list', 'job_output'].some(n => active.has(n));
       if (section.name === 'codebuddy:subagent-reuse') return [...active].some(name =>
         name === 'subagent' || name.startsWith('subagent_') || ['list_agents', 'send_message', 'interrupt_agent'].includes(name));
-      if (section.name.startsWith('tool:') && deferred(section.name.slice(5))) return active.has(section.name.slice(5));
+      if (section.name.startsWith('tool:') && discoverable(section.name.slice(5))) return active.has(section.name.slice(5));
       return true;
     });
-    return { ...assembly, ...(sections ? { sections } : {}), tools: tools.map(project) };
-  });
+    if (compact && !selected.size && !hasNamedFiles && sections) {
+      for (const [index, section] of sections.entries()) {
+        if (section.name === 'codebuddy:conversation-language') sections[index] = { ...section, text: 'Use the user’s requested language, otherwise match theirs.' };
+      }
+    }
+    const contexts = compact && !selected.size && !hasNamedFiles ? assembly.contexts?.filter(context =>
+      !['working-directory:current', 'sandbox:policy', 'approval:policy'].includes(context.name)) : assembly.contexts;
+    return { ...assembly, ...(contexts ? { contexts } : {}), ...(sections ? { sections } : {}), tools: tools.map(tool => {
+      if (hasNamedFiles && tool.name === 'search_mcp_tools')
+        return project({ ...tool, description: 'User-mentioned files present in the working directory: ' + JSON.stringify(namedFiles) + '. Read the needed files together using their relative paths. Use visible tools directly; search only for missing capabilities.' });
+      return project(tool);
+    }) };
+  }, compact ? { prepend: true } : {});
   return ctx.tools.get('search_mcp_tools', agent);
 }

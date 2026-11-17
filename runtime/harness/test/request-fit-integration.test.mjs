@@ -26,7 +26,7 @@ function reply(res, content, { finish = 'stop', output = 20, tool, usage = { pro
   res.end('data: [DONE]\n\n');
 }
 
-async function fixture(t, handler, { contextWindow = 65536, maxTokens = 256, useDefaultBudget = false, protocol = 'openai-completions', retryPolicy, tools, outputTokenCapacity, requestMaxTokens, count } = {}) {
+async function fixture(t, handler, { contextWindow = 65536, maxTokens = 256, useDefaultBudget = false, defaultPressure = false, protocol = 'openai-completions', retryPolicy, tools, outputTokenCapacity, requestMaxTokens, count } = {}) {
   const root = await mkdtemp(join(tmpdir(), 'harness-request-fit-'));
   const requests = [];
   const f = { requests, root };
@@ -48,7 +48,7 @@ async function fixture(t, handler, { contextWindow = 65536, maxTokens = 256, use
   await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
   const provider = { id: 'fixture', ...(count ? { countBackend: 'vllm' } : {}), baseUrl: `http://127.0.0.1:${server.address().port}/v1`, apiKey: 'fixture-only', contextWindow, protocol, ...(outputTokenCapacity ? { outputTokenCapacity } : {}), ...(requestMaxTokens === undefined ? {} : { requestMaxTokens }), ...(retryPolicy ? { retryPolicy } : {}) };
   f.provider = provider;
-  const options = { ...useDefaultBudget ? {} : { maxTokens }, autoCompactThreshold: 0.99, ...(tools ? { tools } : {}) };
+  const options = { ...useDefaultBudget ? {} : { maxTokens }, ...(defaultPressure ? {} : { autoCompactThreshold: 0.99 }), ...(tools ? { tools } : {}) };
   f.options = options;
   const open = async () => {
     f.driver = await createHarnessDriver({ dataDir: join(root, 'state'), cwd: root });
@@ -808,6 +808,74 @@ async function warm(f) {
   const result = await f.driver.prompt(f.sessionId, 'Record the fixture facts for the next turn.');
   assert.equal(result.stopReason, 'end_turn');
 }
+
+test('large-window pressure honors the native threshold and preserves history at ten percent', {timeout: 45000}, async t => {
+  for (const custom of [false, true]) {
+    let normal = 0;
+    const marker = 'LONG_WORKSPACE_HISTORY_';
+    const f = await fixture(t, (request, res) => {
+      if (request.summary) return reply(res, 'Checkpoint: keep the project test command.');
+      if (++normal <= 4) {
+        const prompt = 500 + (normal - 1) * 23000;
+        return reply(res, (normal === 1 ? marker : 'RECENT_WORKSPACE_NOTES_').repeat(4000),
+          { usage: { prompt_tokens: prompt, completion_tokens: 23000, total_tokens: prompt + 23000 } });
+      }
+      reply(res, FINAL);
+    }, { contextWindow: 1048576, useDefaultBudget: true, defaultPressure: !custom });
+    for (let turn = 0; turn < 4; turn++) await warm(f);
+    await f.driver.prompt(f.sessionId, 'Continue using the project history.');
+    const next = f.requests.filter(r => !r.summary).at(-1);
+    assert.equal(f.requests.some(r => r.summary), false);
+    assert.ok(JSON.stringify(next.body.messages).includes(marker));
+    const usage = await f.driver.contextUsage(f.sessionId);
+    assert.equal(usage.pressureThreshold, Math.floor(1048576 * (custom ? 0.99 : 0.8)));
+    f.options.autoCompact = false;
+    await f.configure();
+    assert.equal((await f.driver.contextUsage(f.sessionId)).pressureThreshold, undefined);
+  }
+});
+
+test('a disconnected summary cools down across prompts and manual retry can recover', { timeout: 30000 }, async t => {
+  let online = false;
+  const f = await fixture(t, (request, res) => {
+    if (request.summary && !online) return res.destroy();
+    reply(res, request.summary ? 'Retain the completed receipt.' : WARM_HISTORY);
+  }, { retryPolicy: { mode: 'normal', maxRetries: 0 } });
+  await warm(f);
+  f.options.autoCompactThreshold = 0.05;
+  f.options.compactionFallbacks = [{
+    source: { provider: f.provider, model: 'fixture' },
+    fallbacks: [{ fallback: { provider: { ...f.provider, id: 'backup' }, model: 'backup' } }],
+  }];
+  await f.configure();
+  const summariesSent = () => f.requests.filter(r => r.summary).length;
+  await f.driver.prompt(f.sessionId, 'Continue stage one.');
+  const first = summariesSent();
+  assert.deepEqual(f.requests.filter(r => r.summary).map(r => r.body.model), ['fixture', 'backup']);
+  await f.driver.prompt(f.sessionId, 'Continue stage two.');
+  assert.equal(summariesSent(), first);
+  online = true;
+  await f.driver.compact(f.sessionId);
+  assert.equal(summaries(await f.driver.history(f.sessionId)).length, 1);
+});
+
+test('pressure after a model switch uses the destination window and summary route', { timeout: 30000 }, async t => {
+  for (const expanding of [true, false]) {
+    const f = await fixture(t, (request, res) => reply(res, request.summary ? 'Keep the prior stage.' :
+      'Recorded fixture facts with a completed receipt. '.repeat(4100),
+      { usage: { prompt_tokens: 500, completion_tokens: 55000, total_tokens: 55500 } }),
+      { contextWindow: expanding ? 65536 : 1048576, defaultPressure: true, useDefaultBudget: true });
+    await warm(f);
+    const provider = { ...f.provider, id: 'destination', contextWindow: expanding ? 1048576 : 65536 };
+    await f.driver.createSession({ sessionId: f.sessionId, cwd: f.root, provider, model: 'destination', options: f.options });
+    const start = f.requests.length;
+    await f.driver.prompt(f.sessionId, 'Continue with the selected model.');
+    const requests = f.requests.slice(start);
+    assert.ok(requests.length && requests.every(r => r.body.model === 'destination'));
+    assert.equal(requests.some(r => r.summary), !expanding);
+    assert.equal(requests.at(-1).summary, false);
+  }
+});
 
 async function observeFits(t) {
   const { PiAiAdapter } = await import('@deepseek-ai/dsh-llm-pi-ai');

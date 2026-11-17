@@ -17,15 +17,20 @@ function applyTitle(saved, original, title) {
   }
 }
 
-export async function nameFirstTurn(host, original, users, updates, signal) {
+export function proposeFirstTurnTitle(host, original, users, updates, signal, early = false) {
   if (!needsTitle(original) || original.messageCount > 0 || signal.aborted) return;
   const user = users.filter(update => !update._meta?.goose?.scheduled && update.content?.type === 'text')
     .map(update => update.content.text).join('\n').trim().slice(0, 6000);
   if (!user) return;
   const assistant = updates.filter(update => update.sessionUpdate === 'agent_message_chunk' && update.content?.type === 'text')
     .map(update => update.content.text).join('').trim().slice(0, 6000);
+  if (early && !assistant) return;
+  return host.driver.generateTitle(original.id, { user, assistant }, signal).catch(() => undefined);
+}
+
+export async function nameFirstTurn(host, original, users, updates, signal, proposal) {
   try {
-    const title = await host.driver.generateTitle(original.id, { user, assistant });
+    const title = await (proposal ?? proposeFirstTurnTitle(host, original, users, updates, signal));
     if (signal.aborted || !title || isPlaceholderTitle(title)) return;
     await host.store.updateSession(original.id, saved => {
       if (!signal.aborted) applyTitle(saved, original, title);

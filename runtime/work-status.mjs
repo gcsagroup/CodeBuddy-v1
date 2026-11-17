@@ -100,6 +100,7 @@ export function workStatusUpdates({ sessionId, sourceMessageId, runId, signal, o
   let previous;
   let lastToolInputAt = 0;
   let modelRequestStartedAt;
+  let requestNumber = 0;
   let consecutiveToolFailures = 0;
   let responseRetries = 0;
   const observationFor = (id, failure) => {
@@ -120,7 +121,10 @@ export function workStatusUpdates({ sessionId, sourceMessageId, runId, signal, o
       } else if (activeRequests.has(event.sessionId) && activeRequests.get(event.sessionId) !== event.requestId) return [];
     }
     if (event.sessionId === sessionId) {
-      if (event.type === 'model_diagnostic' && event.phase === 'start') modelRequestStartedAt = Date.now();
+      if (event.type === 'model_diagnostic' && event.phase === 'start') {
+        modelRequestStartedAt = Date.now();
+        requestNumber++;
+      }
       if (event.type === 'tool_call' || event.type === 'assistant_end' ||
           event.type === 'model_diagnostic' && event.phase === 'end') modelRequestStartedAt = undefined;
       if (event.type === 'tool_result' && !event.internalControl) {
@@ -227,7 +231,7 @@ export function workStatusUpdates({ sessionId, sourceMessageId, runId, signal, o
     // One worker's recovery cannot clear another worker's active backoff.
     if (type === 'progress' && retryMessages.size) message = [...retryMessages.values()].at(-1);
     const toolIds = [...activeTools];
-    const key = `${phase}:${children.size}:${modelRequestPhase ?? ''}:${message}:${JSON.stringify(toolInput)}:${JSON.stringify(toolIds)}:${modelRequestStartedAt}:${consecutiveToolFailures}:${responseRetries}`;
+    const key = `${requestNumber}:${phase}:${children.size}:${modelRequestPhase ?? ''}:${message}:${JSON.stringify(toolInput)}:${JSON.stringify(toolIds)}:${modelRequestStartedAt}:${consecutiveToolFailures}:${responseRetries}`;
     const now = Date.now();
     // A real fragment can arrive without changing a complete field or size.
     // Preserve that reception fact, bounded to 1 Hz; never synthesize a timer.
@@ -238,6 +242,7 @@ export function workStatusUpdates({ sessionId, sourceMessageId, runId, signal, o
       schema_version: 1, event: 'execution_activity', source_user_message_id: sourceMessageId,
       run_id: typeof runId === 'function' ? runId() : runId, phase, child_count: children.size,
       active_tool_call_ids: toolIds,
+      ...(requestNumber ? { model_request_number: requestNumber } : {}),
       response_retries: responseRetries, consecutive_tool_failures: consecutiveToolFailures,
       ...(phase === 'model' && modelRequestStartedAt !== undefined ? { model_request_started_at: modelRequestStartedAt } : {}),
       ...(phase === 'model' && modelRequestPhase ? { model_request_phase: modelRequestPhase } : {}),

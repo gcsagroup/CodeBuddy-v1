@@ -37,7 +37,7 @@ Responses 啟用輸出上限時最少需要 16 token（[官方約束](https://de
 - systemPrompt、maxTokens、temperature、thinkingEffort 進入真實模型請求；思考檔位須 provider 宣告。
 - 自訂連線依模型清單的 `owned_by` 選擇預覽介面：vLLM 使用 `/v1/chat/completions/render`，SGLang 使用 `/v1/tokenize`，保留 API 基礎路徑及連線驗證。預覽僅渲染實際聊天範本，不生成回答；僅顯示會改變範本的檔位，合併等效檔位並保留服務預設值。結果重用既有能力快取，重新整理模型清單後再次驗證。舊服務缺少預覽、呼叫失敗或參數被忽略時不推斷強度，模型詳情顯示「尚未確認可用檔位」；不依通用參數列舉或模型名稱判定支援情況。依據：[vLLM reasoning controls](https://docs.vllm.ai/en/stable/features/reasoning_outputs/)、[SGLang tokenization](https://github.com/sgl-project/sglang/blob/main/python/sglang/srt/entrypoints/openai/serving_tokenize.py)。
 - maxTurns 限制本次 prompt 主／子 Agent 的官方步驟；到達後返回 max_turns，歷史保留，不標記業務完成。
-- autoCompactThreshold（0 到 1）、autoCompact 使用官方 token-meter／compaction-basic；`compact(sessionId,{signal})` 手動壓縮，原事件證據保留。
+- autoCompactThreshold（0 到 1）、autoCompact 使用官方 token-meter／compaction-basic；`compact(sessionId,{signal})` 手動壓縮，原事件證據保留。 未指定門檻時使用模型視窗的 80%，並為輸出保留空間。
 - 壓縮相容層為同一路由補齊目前對話的思考檔位，避免摘要請求切換聊天範本而失去前綴快取；明確指定的摘要檔位、獨立摘要模型或已變更的會話設定不覆蓋。摘要維持官方原有指令與所選區間的完整輸入，摘要輸出預算預設上限為 32,768 token，額外預留空間維持 1,024 token，容納思考和完整檢查點；並非要求輸出更多文字。鎖版選區修復保留最新 `source.kind=user` 的原始事件，後續產生的 runtime-context／skill-catalog 不會取代它。遵守原有 tail 預算，在使用者事件兩側選擇工具配對完整、估價較大的連續區間，優先非單檢查點區間；長任務仍能壓縮後續工具歷史，不複製或重排使用者輸入。只有舊檢查點可選時保留超限恢復和手動壓縮能力，一般壓力路徑仍略過它。後半區摘要可能無法重用完整前綴快取。截斷拒絕、取消及檢查點交易仍歸官方引擎；摘要本身不是任意任務無損的保證。升級 Harness 後複查此相容層。
 - tools 為 `[{name,description,inputSchema,execute}]`。execute 接收 `(args,{sessionId,signal,callId})` 並返回 JSON 物件，仍經官方 registry、校驗和核准。
 - mcpServers 使用官方 stdio／streamable-http 設定；工具名為 mcp__server__tool。獨立服務並行連線，保留各項 ready／error 狀態及設定順序；失敗連線釋放，其他能力仍可用，重配重試。`extensionStatus(sessionId)` 返回狀態；`testExtension(server)` 臨時連線、發現、釋放，失敗直接報錯。連線、工具發現、同步呼叫及每次 Tasks 請求預設 300 秒，明確設定的 `toolCallTimeoutMs` 優先。擴充設定 `timeout` 單位為秒，測試與正式工作階段共用轉換，儲存後透過既有重設機制套用。版本協商可能有多個請求，因此這不是全部服務的總啟動期限。
@@ -46,6 +46,10 @@ Responses 啟用輸出上限時最少需要 16 token（[官方約束](https://de
 - 通用原生 `subagent` 接收 `{description,prompt,cwd?}`，預設繼承主 Agent 實際請求使用的 provider、model 和 reasoning effort；不註冊 `subagent_<role>` 或開放子模型選擇。建立、並行、深度和結果回傳由 Harness 管理，子 Agent 的讀寫和命令仍經原核准入口。
 
 onEvent 支援 Promise 並依序等待；前工具回執處理後才進入下一核准或宿主 execute。事件帶 sessionId，子 Agent 內容需獨立投影。tool_result.structuredContent／error 為官方回執；shell 前台結果含 exitCode、aborted、timedOut，background 句柄不等於驗證完成。attemptId 與持久 messageId 不同。
+
+在主對話中，前景命令的結束狀態隨對應的原生工具結果傳給模型，取自命令執行器，不從標準輸出推斷。系統提示保留上一輪的邊界，無須重送本輪不斷增長的工具清單。尚未解決的失敗以回執編號和狀態提醒，命令內容留在對應的工具訊息中。執行指引要求先跑使用者指定的專案檢查，再依結果核對具體缺口。
+
+使用者點名專案內確實存在的相對路徑（含子目錄）時，首輪請求就能提供權限允許的檔案與終端工具。探測數量有上限，只查檔案中繼資料、不跟隨連結；提到路徑不代表授權或執行工具。
 
 每項工具要求 onPermission 明確返回 true，子 Agent 經官方即時歸屬繼承核准。檔案另受工作區策略限制；原生 shell 不宣稱核心沙箱。取消停止活躍子 Agent 與所屬 jobs，返回實際狀態；running／stopping 仍待確認。Jobs 為程序內任務，重啟後依持久會話核對、續作，不復活原 OS 程序。
 

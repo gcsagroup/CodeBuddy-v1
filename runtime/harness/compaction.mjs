@@ -11,10 +11,20 @@ export function takeCompactionFailureDiagnostic(session, compactionId) {
   return entry?.compactionId === compactionId ? entry.diagnostic : undefined;
 }
 
+const pressureSpecs = new WeakMap();
+export function clearPressureSpec(session) { pressureSpecs.delete(session); }
+
+export function pressureThresholdFor(session, contextWindow) {
+  const spec = pressureSpecs.get(session);
+  const route = session.requestHeader()?.config;
+  return spec && spec.contextWindow === contextWindow && sameTarget(spec.target, route)
+    ? spec.thresholdTokens : undefined;
+}
+
 class UnchangedCheckpoint extends Error {}
-const summaryRoute = (agent, config) => {
-  const route = agent.session.requestHeader()?.config ?? agent.options;
-  return JSON.stringify([route, config]);
+const summaryRoute = (agent, config, target) => {
+  const route = target ?? agent.session.requestHeader()?.config ?? agent.options;
+  return JSON.stringify([route?.provider, route?.model, config]);
 };
 export const SUMMARY_RETRY_POLICY = Object.freeze({ maxAutomaticRetries: 2, delayMs: 30_000, minGrowthTokens: 8192 });
 function rememberSummaryFailure(engine, agent, error) {
@@ -22,14 +32,16 @@ function rememberSummaryFailure(engine, agent, error) {
   let tokens;
   try { tokens = engine.ctx.tokenMeter?.measure(agent.session).totalTokens; }
   catch { /* Recovery diagnostics must not replace the original summary failure. */ }
-  engine.summaryFailures.set(agent, { route: summaryRoute(agent, engine.config), error,
+  engine.summaryFailures.set(agent, { route: summaryRoute(agent, engine.config, engine.pressureAttempts?.get(agent)?.target), error,
     tokens, retryAt: performance.now() + SUMMARY_RETRY_POLICY.delayMs });
-  engine.ctx.logger?.warn('compaction summary backoff: ' + JSON.stringify({ code: fallbackFailure(error, checkpointFailureCodes)?.code,
+  engine.ctx.logger?.warn('compaction summary backoff: ' + JSON.stringify({ code: fallbackFailure(error, backoffCodes)?.code,
     delayMs: SUMMARY_RETRY_POLICY.delayMs, minGrowthTokens: SUMMARY_RETRY_POLICY.minGrowthTokens,
     maxAutomaticRetries: SUMMARY_RETRY_POLICY.maxAutomaticRetries }));
 }
 const checkpointFailureCodes = new Set(['MAX_TOKENS', 'OUTPUT_TRUNCATED', 'OUTPUT_LENGTH_STOP', 'OUTPUT_LIMIT_REACHED',
   'EMPTY_RESPONSE', 'COMPACTION_EMPTY_SUMMARY', 'COMPACTION_NOT_SMALLER']);
+const connectionFailureCodes = new Set(['TRANSPORT', 'TIMEOUT', 'SERVER']);
+const backoffCodes = new Set([...checkpointFailureCodes, ...connectionFailureCodes]);
 const fallbackCodes = new Set([...checkpointFailureCodes, 'COMPACTION_OUTPUT_BUDGET_EXHAUSTED', 'CONTEXT_WINDOW_EXCEEDED',
   'TRANSPORT', 'TIMEOUT', 'SERVER', 'RATE_LIMIT', 'QUOTA', 'AUTH', 'INVALID_CREDENTIAL', 'INVALID_REQUEST',
   'NO_ADAPTER', 'MODEL_NOT_FOUND', 'UNSUPPORTED_CONTENT', 'UNSUPPORTED_OPTION', 'INVALID_OUTPUT_BUDGET', 'PI_AI_ERROR']);
@@ -79,7 +91,7 @@ async function activateFallback(engine, agent, target, error, signal, failedTarg
     return fallback;
   }
   if (preparationError) {
-    if (fallbackFailure(error, checkpointFailureCodes)) rememberSummaryFailure(engine, agent, error);
+    if (fallbackFailure(error, backoffCodes)) rememberSummaryFailure(engine, agent, error);
     throw preparationError;
   }
 }
@@ -182,7 +194,8 @@ export default class CompactionEngine extends BasicCompactionEngine {
     // Native idle and an explicit manual request reset that allowance.
     ctx.on('agent/status', ({ agent, status }) => {
       if (status === 'idle') {
-        this.summaryFailures.delete(agent);
+        if (!fallbackFailure(this.summaryFailures.get(agent)?.error, connectionFailureCodes))
+          this.summaryFailures.delete(agent);
         this.summaryRetryCounts.delete(agent);
         this.fallbackTargets.delete(agent);
       }
@@ -267,9 +280,14 @@ export default class CompactionEngine extends BasicCompactionEngine {
     };
   }
 
+  pressureTarget(agent) { return this.pressureAttempts.get(agent)?.target; }
+
+  recordPressureSpec(agent, spec) { pressureSpecs.set(agent.session, spec); }
+
   async compactIfNeeded(agent, trigger, signal) {
     signal?.throwIfAborted();
-    const route = summaryRoute(agent, this.config);
+    const target = trigger === 'pressure' ? idleTarget(this.ctx, agent) : agent.session.requestHeader()?.config;
+    const route = summaryRoute(agent, this.config, target);
     const failed = this.summaryFailures.get(agent);
     if (failed) {
       const retries = this.summaryRetryCounts.get(agent) ?? 0;
@@ -287,7 +305,7 @@ export default class CompactionEngine extends BasicCompactionEngine {
       this.ctx.logger?.info('compaction summary recovery: ' + JSON.stringify({ attempt: retries + 1,
         maxAutomaticRetries: SUMMARY_RETRY_POLICY.maxAutomaticRetries, reason: changed ? 'configuration_changed' : 'history_growth_after_backoff' }));
     }
-    const attempt = trigger === 'pressure' ? { result: null } : undefined;
+    const attempt = trigger === 'pressure' ? { result: null, target } : undefined;
     if (attempt) this.pressureAttempts.set(agent, attempt);
     try {
       for (;;) {
@@ -295,7 +313,7 @@ export default class CompactionEngine extends BasicCompactionEngine {
         catch (error) {
           if (error instanceof UnchangedCheckpoint) return attempt?.result ?? null;
           signal?.throwIfAborted();
-          const target = agent.session.requestHeader()?.config ?? agent.options;
+          const target = attempt?.target ?? agent.session.requestHeader()?.config ?? agent.options;
           if (!await activateFallback(this, agent, target, error, signal)) throw error;
         }
       }
@@ -321,7 +339,7 @@ export default class CompactionEngine extends BasicCompactionEngine {
       if (attempt) attempt.result = result;
       return result;
     } catch (error) {
-      if (fallbackFailure(error, checkpointFailureCodes) && !signal?.aborted) rememberSummaryFailure(this, agent, error);
+      if (fallbackFailure(error, backoffCodes) && !signal?.aborted) rememberSummaryFailure(this, agent, error);
       throw error;
     }
   }
@@ -336,9 +354,9 @@ export default class CompactionEngine extends BasicCompactionEngine {
         message?.role === 'user' && message.source?.kind === 'compact-checkpoint')
       throw new UnchangedCheckpoint();
     const operation = agent.session.log.findLast(event => event.type === 'compaction/start' || event.type === 'compaction/end');
-    let target = agent.session.requestHeader()?.config ?? agent.options;
-    // Native maintenance owns the null-turn marker. Only its idle summary may
-    // consume the Controller's pending selection; active turns keep their route.
+    let target = this.pressureAttempts?.get(agent)?.target ?? agent.session.requestHeader()?.config ?? agent.options;
+    // Manual maintenance owns the null-turn marker. Pressure checks already
+    // captured the next request route before starting their transaction.
     // Bind fit continuations to the same target even if the next selection changes.
     if (operation?.type === 'compaction/start' && operation.data.turn === null) {
       let selected = this.manualTargets.get(operation);
@@ -408,7 +426,7 @@ export default class CompactionEngine extends BasicCompactionEngine {
         }
       }
     } catch (error) {
-      if (fallbackFailure(error, checkpointFailureCodes)) rememberSummaryFailure(this, agent, error);
+      if (fallbackFailure(error, backoffCodes)) rememberSummaryFailure(this, agent, error);
       throw error;
     }
   }

@@ -41,3 +41,17 @@ test('large commands, writes and many failures have a bounded reminder without l
   recordCommandOutcome(pending, receipt('resolved-hidden-item', full + 99, 0));
   assert.equal(pending.size, 99);
 });
+
+test('interactive reminders point to exact unresolved process results without repeating shell source', () => {
+  const pending = new Map(), compact = () => commandReminder(pending, { referencesOnly: true });
+  recordCommandOutcome(pending, receipt('failed-check', 'private failing command', 7));
+  recordCommandOutcome(pending, receipt('other-check', 'another private command', 2));
+  recordCommandOutcome(pending, receipt('other-directory', 'private failing command', 0, '/elsewhere'));
+  assert.doesNotMatch(compact(), /private|D:\/fixture/);
+  const entries = () => JSON.parse(compact().slice(compact().indexOf('{'))).receipts;
+  assert.deepEqual(entries().map(f=>[f.id,f.exit]), [['failed-check',7],['other-check',2]]);
+  recordCommandOutcome(pending, receipt('resolved', 'private failing command', 0));
+  assert.deepEqual(entries().map(f=>f.id), ['other-check']);
+  recordCommandOutcome(pending, receipt('resolved-too', 'another private command', 0));
+  assert.equal(compact(), '');
+});

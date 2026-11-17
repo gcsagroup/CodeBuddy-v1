@@ -2,6 +2,14 @@
 // to the original module URL; native service and error identities stay intact.
 const replacements = [
   [
+    'async compactIfNeeded(agent, trigger, signal) {\n\t\tconst target = routedTarget(agent.session);',
+    'async compactIfNeeded(agent, trigger, signal) {\n\t\tconst pressureTarget = trigger === "pressure" ? this.pressureTarget?.(agent) : undefined;\n\t\tconst target = pressureTarget ?? routedTarget(agent.session);',
+  ],
+  [
+    'const spec = resolveCompactSpec(policy, info.context.contextWindow, reservedCompletionTokens(agent, info.defaultMaxTokens));',
+    'const reserve = pressureTarget ? pressureTarget.maxTokens ?? agent.options.maxTokens ?? info.defaultMaxTokens ?? 0 : reservedCompletionTokens(agent, info.defaultMaxTokens);\n\t\tconst spec = resolveCompactSpec(policy, info.context.contextWindow, reserve);\n\t\tthis.recordPressureSpec?.(agent, spec);',
+  ],
+  [
     '\t\t\ttry {\n\t\t\t\tsession.append("compaction/end", {',
     '\t\t\ttry {\n\t\t\t\ttry { dependencies.onFailure?.(error, session, compactionId); } catch { /* Optional diagnostics cannot change the transaction outcome. */ }\n\t\t\t\tsession.append("compaction/end", {',
   ],

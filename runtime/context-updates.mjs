@@ -77,6 +77,7 @@ export function contextUpdates({ sessionId, runId, signal } = {}) {
       }, { sessionUpdate: 'status_message', status: { type: 'progress', message: '', data: {
         schema_version: 1, event: 'context_meter', used: event.used, contextLimit: event.contextLimit,
         source: event.source, contextSource: event.contextSource,
+        pressureThreshold: event.pressureThreshold,
         ...(event.sessionStats ? { sessionStats: event.sessionStats } : {}),
         ...(event.liveSpeed ? { liveSpeed: event.liveSpeed } : {}),
       } } }];

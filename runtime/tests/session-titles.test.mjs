@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { nameFirstTurn, restoreMissingTitles } from '../session-titles.mjs';
+import { nameFirstTurn, proposeFirstTurnTitle, restoreMissingTitles } from '../session-titles.mjs';
 
 const original = { id: 'chat', title: '新对话', messageCount: 0 };
 const users = [{ sessionUpdate: 'user_message_chunk', content: { type: 'text', text: '帮我生成一张关于小猫的图片' } }];
@@ -36,6 +36,17 @@ test('manual rename, cancellation and native fork during naming win the race', a
     await nameFirstTurn(host, original, users, reply, controller.signal);
     assert.equal(saved.title, change === 'rename' ? '我的小猫' : '新对话');
   }
+});
+
+test('overlap naming with tool activity once and publish only at settlement', async () => {
+  const { saved, host, calls } = fixture();
+  assert.equal(proposeFirstTurnTitle(host, original, users, [], signal, true), undefined);
+  const proposed = proposeFirstTurnTitle(host, original, users, reply, signal, true);
+  await proposed;
+  assert.equal(saved.title, '新对话');
+  await nameFirstTurn(host, original, users, reply, signal, proposed);
+  assert.equal(saved.title, '小猫图片');
+  assert.equal(calls.length, 1);
 });
 
 test('restart repairs only unclaimed placeholders and keeps order, including a missing native cache entry', async () => {

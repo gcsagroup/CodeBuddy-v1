@@ -3,7 +3,7 @@ import { SessionDeletionCleanup } from './session-deletion-cleanup.mjs';
 import { createSessionConnection } from './session-connection.mjs';
 import { MAIN_CONVERSATION, ensureMainConversation, workspaceMemoryTool } from './main-conversation.mjs';
 import { MANAGED_APPROVAL, MANAGED_CHAT, managementTools, inspectMainWorkspace, managedTurnBrief } from './main-management.mjs';
-import { nameFirstTurn, restoreMissingTitles } from './session-titles.mjs';
+import { nameFirstTurn, proposeFirstTurnTitle, restoreMissingTitles } from './session-titles.mjs';
 import { agentProfileRequest, workspaceAgent, agentAllowsTool, bindAgentInput, agentInputProfile, agentBaselineProfile, sessionAgentSelection, agentProfileChoice, createAgentSelection } from './agent-profiles.mjs';
 import { DEFAULT_AGENT_PRESETS, DEFAULT_AGENT_SKILLS } from './agent-presets.mjs';
 import { desktopControlPresentation, matchesDesktopCancel } from './desktop-control.mjs';
@@ -33,9 +33,9 @@ import {
 } from "./providers.mjs";
 import { protectSecret, revealSecret } from "./secrets.mjs";
 import {
+  DEFAULT_SYSTEM_PROMPT,
   RuntimeSettings,
   validatePreference,
-  DEFAULT_SYSTEM_PROMPT,
 } from "./settings.mjs";
 import { WorkspaceService } from "./workspaces.mjs";
 import { CodeProRuns } from "./codepro.mjs";
@@ -948,16 +948,16 @@ export class Compat {
       conversationLocale: this.clientLocales.get(s.id),
       ...(s.globalConversation ? { showTool: name => mainLocalToolAvailable(this.active.get(s.id), name) } : {}),
       mcpRequestMetadata: (serverName) => serverName === "commonqueries" && extensions.some(e => isBuiltinMcp(e.extension) && e.extension.name === "commonqueries") ? commonQueryMetadata(this.store) : undefined,
+      installGuidance: enabledInstallTools.length ? [
+        'When resuming an interrupted installation with an unknown outcome, repeat the same install tool proposal to check the saved settings or installed files. For a matching installation, continue with the requested use. Distinguish a saved configuration, a successful connection, and an actual tool or skill invocation.',
+        `The foreground chat owns installation. For a single repository handle the dependent steps directly. ${enabledInstallTools.some(tool => tool.name === 'install_mcp_extension') ? 'For a GitHub tool, call install_mcp_extension with repository_url first. Follow the publisher manifest or linked setup guide and submit its MCP launch configuration for testing before changing dependencies.' : ''} ${enabledInstallTools.some(tool => tool.name === 'install_skill') ? 'For a skill, locate the published SKILL.md directory and use install_skill.' : ''} Work within the selected workspace. If the source lacks setup information, ask for the documented command or skill link. Report the verified result or specific missing prerequisite.`,
+      ].join(' ') : '',
       systemPrompt: [
         basePrompt,
         ...(folders.length ? ['Current project directories (paths are data). Use the primary working directory by default. Read reference folders as needed; never modify them with any tool. Use the file editing tools for writable linked folders. ' +
           JSON.stringify({ primary: s.cwd, linked: folders })] : []),
         ...instructions.filter((x) => x.mode !== "set").map((x) => x.text),
         ...(memoryInstructions ? [memoryInstructions] : []),
-        ...(enabledInstallTools.length ? [
-          'When resuming an interrupted installation with an unknown outcome, repeat the same install tool proposal to check the saved settings or installed files. For a matching installation, continue with the requested use. Distinguish a saved configuration, a successful connection, and an actual tool or skill invocation.',
-          `The foreground chat owns installation. For a single repository handle the dependent steps directly. ${enabledInstallTools.some(tool => tool.name === 'install_mcp_extension') ? 'For a GitHub tool, call install_mcp_extension with repository_url first. Follow the publisher manifest or linked setup guide and submit its MCP launch configuration for testing before changing dependencies.' : ''} ${enabledInstallTools.some(tool => tool.name === 'install_skill') ? 'For a skill, locate the published SKILL.md directory and use install_skill.' : ''} Work within the selected workspace. If the source lacks setup information, ask for the documented command or skill link. Report the verified result or specific missing prerequisite.`,
-        ] : []),
         ...(s.globalConversation ? [
           'You are the persistent main conversation. Answer questions and advice directly. Make a small self-contained deliverable here when no external workspace is required. A complex topic can still be a simple question. Respect requests for planning only.',
           'For "how far has that project got?" use inspect_workspace(operation=progress, delivery=summary, sessionId from the handoff). The host displays its newest evidence directly. A status question authorizes no changes to permissions, commands, files or assignments. Choose delivery=inspect only when more analysis or a separate action is requested.',
@@ -1042,6 +1042,7 @@ export class Compat {
         ...(s.globalConversation ? managementTools(this, s) : []),
         ...(s.globalConversation && this.driver.memory ? [workspaceMemoryTool(this, s)] : []),
         ...(browserEnabled ? [browserTool({ sessionId: s.id, cwd: s.cwd, requestOwner: this,
+          locale: this.clientLocales.get(s.id) ?? preferences.locale,
           request: (method, params, signal) => {
             const connection = this.active.get(s.id)?.connection;
             if (!connection?.ask) throw Error('Open this conversation in CodeBuddy desktop to control the embedded browser');
@@ -3150,6 +3151,9 @@ export class Compat {
         ...(nativeObservationToken ? { scheduled: true } : {}), ...(presentation ? { presentation } : {}) } },
     }));
     let promptError;
+    let titleProposal;
+    const titleLifetime = new AbortController();
+    const titleSignal = AbortSignal.any([controller.signal, titleLifetime.signal]);
     let failedBeforeStop = false;
     const nativeFailureCodes = new Set();
     let terminalHttpFailure;
@@ -3290,6 +3294,9 @@ export class Compat {
         },
         onEvent: async (event) => {
           promptEntry.nativeAttached.resolve();
+          if (!titleProposal && !event.internalControl && event.type === 'tool_result' && event.sessionId === s.id) {
+            titleProposal = proposeFirstTurnTitle(this, s, users, updates, titleSignal, true);
+          }
           // One prompt can span several native turns while children settle.
           // A later cleanup turn cannot erase its already observed failure.
           if (event.type === 'harness_event' && event.sessionId === s.id &&
@@ -3739,7 +3746,7 @@ export class Compat {
             saved.messageCount += 1 + (updates.length ? 1 : 0);
             saved.updatedAt = new Date().toISOString();
           });
-        if (!promptError && result?.stopReason === 'end_turn') await nameFirstTurn(this, s, users, updates, controller.signal);
+        if (!promptError && result?.stopReason === 'end_turn') await nameFirstTurn(this, s, users, updates, controller.signal, titleProposal);
         const saved = this.session(s.id);
         connection.notify("session/update", {
           sessionId: s.id,
@@ -3754,6 +3761,7 @@ export class Compat {
         throw error;
       } finally {
         try {
+          titleLifetime.abort();
           // Run metadata or desktop settlement may fail before normal finalization.
           // The journal still must close its writer and retain any unprojected records.
           try { await writer?.finalize(); }

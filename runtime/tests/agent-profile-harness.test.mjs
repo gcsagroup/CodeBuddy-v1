@@ -76,7 +76,11 @@ test('actual main identity stays out of child requests while shared policy and c
       assert.match(JSON.stringify(body.messages), /MAIN_PERSONA_SENTINEL/);
       assert.ok(!JSON.stringify(body.messages).includes('You are CodeBuddy, an AI software engineering assistant'));
     }
-    assert.ok(JSON.stringify(body.messages).includes(CODEBUDDY_BEHAVIOR));
+    if (!child && body.tools?.length === 1 && body.tools[0].function.name === 'search_mcp_tools') {
+      assert.ok(!JSON.stringify(body.messages).includes(CODEBUDDY_BEHAVIOR));
+    } else {
+      assert.ok(JSON.stringify(body.messages).includes(CODEBUDDY_BEHAVIOR));
+    }
     assert.ok(!body.tools?.some(tool => ['write', 'pwsh', 'bash', 'skill'].includes(tool.function.name)));
   }
   assert.ok(requests.length >= 3);

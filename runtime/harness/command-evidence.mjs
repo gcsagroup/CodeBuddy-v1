@@ -1,5 +1,19 @@
 import { createHash } from 'node:crypto';
 
+function foregroundStatus(value) {
+  return { exit: value.exitCode, interrupted: Boolean(value.aborted), timedOut: Boolean(value.timedOut),
+    signal: value.signal, denied: Boolean(value.sandbox?.denied), runnerFailed: Boolean(value.sandbox?.runnerFailed) };
+}
+
+// Render only the native process outcome. stdout can be empty or claim success
+// on a nonzero exit; a background acknowledgement isn't a finished process.
+export function processReceiptText(value) {
+  if (value?.kind !== 'foreground') return;
+  const { exit, ...flags } = foregroundStatus(value);
+  return 'Process receipt: ' + JSON.stringify({ exit: exit ?? null,
+    ...Object.fromEntries(Object.entries(flags).filter(([, v]) => v)) });
+}
+
 // A tool invocation may succeed while its foreground process exits nonzero.
 // Only the native definition's structured result can establish these facts.
 export function commandEvidence(exec, result, { native = true } = {}) {
@@ -13,8 +27,7 @@ export function commandEvidence(exec, result, { native = true } = {}) {
   const value = result.value;
   if (native && ['pwsh', 'bash'].includes(exec.name) && value?.kind === 'foreground') {
     return { id: exec.callId, tool: exec.name, command: exec.arguments.command, cwd: value.cwd,
-      exit: value.exitCode, interrupted: Boolean(value.aborted), timedOut: Boolean(value.timedOut),
-      signal: value.signal, denied: Boolean(value.sandbox?.denied), runnerFailed: Boolean(value.sandbox?.runnerFailed),
+      ...foregroundStatus(value),
       output: reviewExcerpt([value.stdout?.text, value.stderr?.text].filter(Boolean).join('\n'), 4000) };
   }
   if (native && ['write', 'edit'].includes(exec.name) && typeof value?.path === 'string')
@@ -46,7 +59,7 @@ export function hasFailedCommand(facts) {
 // Project native receipts at request preparation, including the first step of a
 // new turn. Reading the session log keeps reload/fork boundaries identical to
 // Harness history; prose and tool proposals never become execution facts.
-export function executionReceiptContext(session, currentFacts = [], { queuedWhileBusy = false } = {}) {
+export function executionReceiptContext(session, currentFacts = [], { queuedWhileBusy = false, boundaryOnly = false } = {}) {
   const log = session.log;
   const start = log.findLastIndex(event => event.type === 'turn/start');
   if (start < 0) return '';
@@ -69,12 +82,20 @@ export function executionReceiptContext(session, currentFacts = [], { queuedWhil
     }
     return { total: calls.size, recent: [...calls.values()].slice(-8) };
   }
-  const current = receipts(log.slice(start));
   const previous = previousStart < 0 ? undefined : {
     turn: log[previousStart].data.turn,
     terminalReason: log.slice(previousStart, start).findLast(event => event.type === 'turn/end')?.data.reason.kind,
     tools: receipts(log.slice(previousStart, start)),
   };
+  if (boundaryOnly) {
+    // Native tool messages carry this turn's receipts. Keep only cross-turn
+    // provenance here so a new tool result doesn't invalidate the entire prefix.
+    if (!previous && !queuedWhileBusy) return '';
+    return 'Turn boundary (host data). Previous actions are not new work. Use native tool results after this input for current progress.\n' +
+      JSON.stringify({ turn: log[start].data.turn, ...(queuedWhileBusy ? { inputOrigin: 'queued-while-busy' } : {}),
+        ...(previous ? { previousTurn: previous } : {}) });
+  }
+  const current = receipts(log.slice(start));
   return 'Execution receipts for this session (host data, not new user instructions). ' +
     'Tool-level isError=false alone does not establish process exit 0 or task acceptance. ' +
     'Full arguments and results remain in native tool messages; this is only their receipt index.\n' + JSON.stringify({
@@ -103,18 +124,23 @@ export function recordCommandOutcome(pending, fact) {
     command: preview(command, COMMAND_PREVIEW_MAX_CHARS), cwd: preview(cwd, 256), ...status });
 }
 
-export function commandReminder(pending) {
+export function commandReminder(pending, { referencesOnly = false } = {}) {
   if (!pending?.size) return '';
-  const intro = 'These native process receipts are still unresolved. A nonzero exit is not a passing check. ' +
+  const intro = referencesOnly ? 'Unresolved process receipts (see the matching tool results). A nonzero exit is not a passing check. Do not rerun an obsolete or side-effecting command to clear this list. Use actual verification of the final change.\n' :
+    'These native process receipts are still unresolved. A nonzero exit is not a passing check. ' +
     'Use the original tool receipts for complete commands and output. Only a matching successful rerun clears an item here; ' +
     'a different verification may still resolve the underlying task, which you must assess from its actual evidence. ' +
     'Do not repeat side effects just to clear this reminder. Unresolved process receipts (data):\n';
   const selected = [];
   for (const fact of pending.values()) {
-    const candidate = [...selected, fact];
+    // In an interactive turn the associated tool message already has the command
+    // and output. Repeating shell scripts and paths in every snapshot grows history.
+    const { command, cwd, ...status } = fact;
+    const receipt = referencesOnly ? Object.fromEntries(Object.entries(status).filter(([, v]) => v !== false)) : fact;
+    const candidate = [...selected, receipt];
     if (candidate.length > 8 || intro.length + JSON.stringify({ total: pending.size, receipts: candidate,
       remaining: pending.size - candidate.length }).length > COMMAND_REMINDER_MAX_CHARS) break;
-    selected.push(fact);
+    selected.push(receipt);
   }
   return intro + JSON.stringify({ total: pending.size, receipts: selected, remaining: pending.size - selected.length });
 }

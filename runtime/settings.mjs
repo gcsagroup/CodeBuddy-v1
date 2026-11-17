@@ -10,7 +10,7 @@ import { listAvailableBuiltins } from './builtin-extensions.mjs';
 
 const permissionLevels = new Set(['always_allow', 'ask_before', 'never_allow']);
 const roles = new Set(['main', 'planner', 'coder', 'tester', 'reviewer']);
-export const DEFAULT_SYSTEM_PROMPT = 'You are CodeBuddy, a software engineering assistant. Work in the selected workspace. Inspect existing code, keep changes scoped to the user request, and verify your work using the actual project tools. Report observed results separately from unverified work.';
+export const DEFAULT_SYSTEM_PROMPT = 'Inspect the project before changes. Verify outcomes with tools.';
 const promptTemplates = [{ name: 'system', description: 'Harness agent instructions', defaultContent: DEFAULT_SYSTEM_PROMPT }];
 const configKey = e => extensionConfigKey(requireString(extensionName(e), 'extension name'));
 

@@ -9,7 +9,7 @@ const { TokenMeter } = await import('../harness/node_modules/@deepseek-ai/dsh-to
 const snapshot = (session, text, source = { kind: 'runtime-context', form: 'snapshot', sections: [{ name: 'policy', text }] }) =>
   session.append('user/message', createUserMessage({ content: [{ type: 'text', text }], source }), { surfaceOp: 'append' });
 
-function failingSummaryFixture() {
+function failingSummaryFixture(code = 'COMPACTION_EMPTY_SUMMARY') {
   const session = Session.create('summary-recovery'), prices = new Map();
   session.append('request/header', { reason: 'initial', header: { config: { provider: 'fixture', model: 'fixture', maxTokens: 256 } } });
   session.append('system/message', { message: createSystemMessage('Keep policy.') }, { surfaceOp: 'append' });
@@ -41,7 +41,7 @@ function failingSummaryFixture() {
   const engine = new CompactionEngine(ctx, { auto: false, maxTokens: 256, headroomTokens: 0,
     thresholdRatio: 0.5, retainTokens: 0, compactionRetries: 0 });
   let calls = 0;
-  engine.summarize = async () => { calls++; throw Object.assign(new Error('synthetic empty summary'), { code: 'COMPACTION_EMPTY_SUMMARY' }); };
+  engine.summarize = async () => { calls++; throw Object.assign(new Error('Synthetic summary failure'), { code }); };
   return { engine, agent, addEvidence, logs, handlers, calls: () => calls,
     attempt: (signal = new AbortController().signal) => engine.compactIfNeeded(agent, 'pressure', signal) };
 }
@@ -70,6 +70,20 @@ test('summary retries require both history growth and cooldown and stop at the p
   f.handlers.get('agent/status')({ agent: f.agent, status: 'idle' });
   await assert.rejects(f.attempt(), { code: 'COMPACTION_EMPTY_SUMMARY' });
   assert.equal(f.calls(), 4, 'native idle admits a fresh user turn');
+});
+
+test('timed out summaries stop at the automatic retry cap', async t => {
+  let now = 0;
+  t.mock.method(performance, 'now', () => now);
+  const f = failingSummaryFixture('TIMEOUT');
+  for (let attempt = 0; attempt <= SUMMARY_RETRY_POLICY.maxAutomaticRetries; attempt++) {
+    await assert.rejects(f.attempt(), { code: 'TIMEOUT' });
+    f.addEvidence(SUMMARY_RETRY_POLICY.minGrowthTokens);
+    assert.equal(await f.attempt(), null);
+    now += SUMMARY_RETRY_POLICY.delayMs;
+  }
+  assert.equal(await f.attempt(), null);
+  assert.equal(f.calls(), 1 + SUMMARY_RETRY_POLICY.maxAutomaticRetries);
 });
 
 test('configuration repair and explicit manual compaction can recover, while cancellation never consumes an attempt', async () => {

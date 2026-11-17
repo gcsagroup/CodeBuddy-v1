@@ -5229,7 +5229,7 @@
     "defaultMessage": "自定义模型连接"
   },
   "modelsAndRuntime.customConnectionsDescription": {
-    "defaultMessage": "连接本机、局域网或自建端点。日常设置不展示内置厂商目录。"
+    "defaultMessage": "管理本机、局域网和自建服务的模型连接。"
   },
   "modelsAndRuntime.generation": {
     "defaultMessage": "图片与视频生成"
@@ -5256,7 +5256,7 @@
     "defaultMessage": "图像理解"
   },
   "modelsAndRuntime.visionDescription": {
-    "defaultMessage": "优先使用主模型，必要时使用备用识图模型。"
+    "defaultMessage": "选择负责识别图片和截图的模型。"
   },
   "modelsBottomBar.empty": {
     "defaultMessage": "暂无已配置模型"

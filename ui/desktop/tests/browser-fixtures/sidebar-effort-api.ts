@@ -19,13 +19,23 @@ if (new URLSearchParams(window.location.search).has('longFolders')) {
 }
 const request = (method: string, input: unknown) => (window as any).fixtureRequest(method, input);
 const client = {
-  listSessions: async () => ({ sessions: records.filter((s: any) => !s.archived) }),
+  listSessions: async ({ _meta }: { _meta?: { query?: string } } = {}) => {
+    const query = _meta?.query?.toLocaleLowerCase() ?? '';
+    return { sessions: records.filter((s: typeof records[number] & { archived?: boolean }) =>
+      !s.archived && s.title.toLocaleLowerCase().includes(query)
+    ) };
+  },
   goose: {
     sessionInfo_unstable: async ({ sessionId }: any) => ({ session: records.find(s => s.id === sessionId) }),
     sessionArchive_unstable: async ({ sessionId }: any) => { await request('archive', { sessionId }); const record: any = records.find(s => s.id === sessionId); record.archived = true; },
     providersConfigSave_unstable: (input: unknown) => request('config-save', input),
   },
-  extMethod: async (method: string, input: unknown) => method === '_codebuddy/agents/list' ? { profiles: [] } : method === '_goose/unstable/session/navigation/move' ? request('navigation-move', input) : { records: [] },
+  extMethod: async (method: string, input: unknown) =>
+    method === '_goose/unstable/native-schedules/catalog' && new URLSearchParams(location.search).get('listPage') === 'schedule'
+      ? { records: [{ id: 'schedule-fixture', kind: 'every', everySeconds: 60,
+          title: '定期检查项目', prompt: '检查项目进度', sessionId: 'a-new', status: 'active',
+          scheduledAt: '2030-01-01T00:00:00Z' }] }
+      : method === '_codebuddy/agents/list' ? { profiles: [] } : method === '_goose/unstable/session/navigation/move' ? request('navigation-move', input) : { records: [] },
 };
 export async function getAcpClient() { return client; }
 export async function getAcpControlClient() { return client; }

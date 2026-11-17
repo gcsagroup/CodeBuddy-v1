@@ -28,4 +28,14 @@ function Fixture() { const location = useLocation(); return <div className="desk
     <button onClick={() => void providers.applyThinkingDraft('fixture', 'model')}>发送测试任务</button>
   </div></div>
 </div>; }
-createRoot(document.getElementById('root')!).render(<IntlProvider locale="zh-CN" messages={messages}><MemoryRouter initialEntries={[new URLSearchParams(window.location.search).get('entry') || '/']}><CodeProRouteGuard><NavigationProvider><Fixture /></NavigationProvider></CodeProRouteGuard></MemoryRouter></IntlProvider>);
+const listPage = new URLSearchParams(location.search).get('listPage');
+const listContent = listPage === 'history'
+  ? await import('../../src/components/sessions/SessionListView').then(({default: SessionListView}) => (
+      <SessionListView workspaceMode="unified" onSelectSession={() => {}} />
+    ))
+  : listPage === 'schedule'
+    ? await import('../../src/components/schedule/NativeSchedulesView').then(({default: SchedulesView}) => (
+        <SchedulesView onClose={() => {}} />
+      ))
+    : null;
+createRoot(document.getElementById('root')!).render(<IntlProvider locale="zh-CN" messages={messages}><MemoryRouter initialEntries={[new URLSearchParams(window.location.search).get('entry') || '/']}><CodeProRouteGuard><NavigationProvider>{listContent ? <div className="h-dvh">{listContent}</div> : <Fixture />}</NavigationProvider></CodeProRouteGuard></MemoryRouter></IntlProvider>);

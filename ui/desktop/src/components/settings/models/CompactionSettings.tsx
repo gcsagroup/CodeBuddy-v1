@@ -1,3 +1,4 @@
+import { SearchableSelect } from '../../ui/SearchableSelect';
 import { useEffect, useId, useMemo, useState } from 'react';
 import { acpReadConfig, acpUpsertConfig } from '../../../acp/config';
 import type { ProviderDetails } from '../../../types/providers';
@@ -142,22 +143,22 @@ export default function CompactionSettings({
   };
   return (
     <section
-      className="space-y-3 rounded-lg border p-4"
+      className="runtime-sheet space-y-4"
       aria-busy={busy || (!ready && status !== 'load-error')}
     >
-      <h3 className="font-medium">{intl.formatMessage(messages.title)}</h3>
+      <h3 className="runtime-title">{intl.formatMessage(messages.title)}</h3>
       <p className="text-sm text-text-muted">{intl.formatMessage(messages.description)}</p>
       <div className="space-y-1">
         <label htmlFor={fieldId} className="block text-sm text-text-primary">
           {intl.formatMessage(messages.model)}
         </label>
-        <select
+        <SearchableSelect
           id={fieldId}
           value={choice}
           disabled={!ready || busy}
           className="h-10 w-full min-w-0 rounded-md border border-border-primary bg-background-primary px-3 text-sm text-text-primary"
-          onChange={(event) => {
-            setChoice(event.target.value);
+          onValueChange={(nextValue) => {
+            setChoice(nextValue);
             setStatus(null);
           }}
         >
@@ -176,7 +177,7 @@ export default function CompactionSettings({
               ))}
             </optgroup>
           ))}
-        </select>
+        </SearchableSelect>
       </div>
       {!available && (
         <p role="alert" className="text-sm text-text-secondary">
@@ -189,10 +190,14 @@ export default function CompactionSettings({
       {legacy && (
         <p className="text-sm text-text-secondary">{intl.formatMessage(messages.legacy)}</p>
       )}
-      <p className="text-sm text-text-muted">{intl.formatMessage(messages.last)}</p>
-      <Button disabled={!ready || !available || busy} onClick={() => void save()}>
-        {intl.formatMessage(messages.save)}
-      </Button>
+      <p className="rounded-lg bg-background-secondary px-3 py-2 text-xs leading-relaxed text-text-secondary">
+        {intl.formatMessage(messages.last)}
+      </p>
+      <div className="runtime-actions">
+        <Button disabled={!ready || !available || busy} onClick={() => void save()}>
+          {intl.formatMessage(messages.save)}
+        </Button>
+      </div>
       {!ready && status !== 'load-error' && (
         <p role="status" className="text-sm text-text-muted">
           {intl.formatMessage(messages.loading)}

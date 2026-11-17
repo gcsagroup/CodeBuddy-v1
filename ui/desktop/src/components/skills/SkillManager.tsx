@@ -1,3 +1,4 @@
+import { SearchableSelect } from '../ui/SearchableSelect';
 import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from 'react';
 import {
   AlertCircle,
@@ -916,11 +917,11 @@ export default function SkillManager({
                   </label>
                   <label className="block text-sm">
                     {intl.formatMessage(i18n.destination)}
-                    <select
+                    <SearchableSelect
                       className="mt-1 h-9 w-full rounded-md border border-border-primary bg-background-primary px-3 text-sm"
                       value={editor.destinationIndex}
-                      onChange={(event) =>
-                        setEditor({ ...editor, destinationIndex: Number(event.target.value) })
+                      onValueChange={(nextValue) =>
+                        setEditor({ ...editor, destinationIndex: Number(nextValue) })
                       }
                     >
                       {roots.map((root, index) => (
@@ -928,7 +929,7 @@ export default function SkillManager({
                           {root.displayPath}
                         </option>
                       ))}
-                    </select>
+                    </SearchableSelect>
                   </label>
                 </>
               )}

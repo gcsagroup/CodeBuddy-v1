@@ -1,3 +1,5 @@
+import { WorkspacePageTitle } from '../Layout/WorkspacePageTitle';
+import { SearchableSelect } from '../ui/SearchableSelect';
 import { buttonVariants } from '../ui/button';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { FolderOpen, Images, MessageSquare, RefreshCw } from 'lucide-react';
@@ -242,70 +244,73 @@ export function MediaLibrary() {
   const card = (asset: Asset) => <AssetCard key={asset.id} asset={asset} editing={editing} onEnter={() => { setEditing(true); setSelected(new Set([asset.id])); }} selected={selected.has(asset.id)} disabled={loading || deleting || Boolean(confirmation) || selecting} onSelect={() => toggle(asset.id)} />;
   return (
     <main className="flex h-full min-h-0 flex-col bg-background-primary text-text-primary">
-      <header className="space-y-4 border-b border-border-primary px-6 py-5">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <h1 className="flex items-center gap-2 app-page-heading"><Images className="size-5" />{t('Media Library', '素材库', '素材庫')}</h1>
-            <p className="mt-1 text-sm text-text-secondary">{t('Generated images and videos from all project conversations', '所有项目对话中生成的图片与视频', '所有專案對話中產生的圖片與影片')}</p>
+      <header className="border-b border-border-primary px-4 pt-6 pb-4 sm:px-8">
+        <div className="mx-auto max-w-6xl space-y-4">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <WorkspacePageTitle icon={Images} description={t('Generated images and videos from all project conversations', '所有项目对话中生成的图片与视频', '所有專案對話中產生的圖片與影片')}>
+              {t('Media Library', '素材库', '素材庫')}
+            </WorkspacePageTitle>
+            <div className="flex min-w-0 flex-wrap items-center gap-2 text-xs text-text-secondary">
+            <p className="rounded-md bg-background-secondary px-2.5 py-1.5" data-testid="library-summary">{page && (page.libraryCount === undefined || page.libraryBytes === undefined) ? t('Restart the app to update media statistics.', '请重启应用以更新素材统计。', '請重新啟動應用程式以更新素材統計。') : <>{page?.libraryCount ?? '—'} {t('items', '项素材', '項素材')} · {formatBytes(page?.libraryBytes)}</>}</p>
+              <button className="inline-flex shrink-0 items-center gap-1 rounded-md border border-border-primary px-2 py-1 text-sm leading-5 hover:bg-background-secondary disabled:opacity-50" disabled={loading || selecting || deleting || Boolean(confirmation)} onClick={() => void load()}>
+                <RefreshCw className="size-3.5" aria-hidden="true" />{t('Refresh', '刷新', '重新整理')}
+              </button>
+            </div>
           </div>
-          <div className="ml-auto flex items-center gap-3 text-sm text-text-secondary">
-          <p className="text-right" data-testid="library-summary">{page && (page.libraryCount === undefined || page.libraryBytes === undefined) ? t('Restart the app to update media statistics.', '请重启应用以更新素材统计。', '請重新啟動應用程式以更新素材統計。') : <>{page?.libraryCount ?? '—'} {t('items', '项素材', '項素材')} · {formatBytes(page?.libraryBytes)}</>}</p>
-            <button className="inline-flex shrink-0 items-center gap-1 rounded-md border border-border-primary px-2 py-1 text-sm leading-5 hover:bg-background-secondary disabled:opacity-50" disabled={loading || selecting || deleting || Boolean(confirmation)} onClick={() => void load()}>
-              <RefreshCw className="size-3.5" aria-hidden="true" />{t('Refresh', '刷新', '重新整理')}
-            </button>
-          </div>
+          <fieldset disabled={selecting || deleting || Boolean(confirmation)} className="flex min-w-0 flex-wrap gap-2 rounded-lg bg-background-secondary p-2">
+            <input className="min-w-0 flex-[1_1_12rem] rounded-lg border border-border-primary bg-background-primary px-3 py-2 text-sm"
+              aria-label={t('Search media', '搜索素材', '搜尋素材')} placeholder={t('Search prompt, project or conversation', '搜索描述、项目或对话', '搜尋描述、專案或對話')}
+              value={search} onChange={event => setSearch(event.target.value)} />
+            <select className={buttonClass + ' bg-background-primary'} aria-label={t('Media type', '素材类型', '素材類型')} value={kind} onChange={event => setKind(event.target.value)}>
+              <option value="all">{t('All types', '全部类型', '全部類型')}</option>
+              <option value="image">{t('Images', '图片', '圖片')}</option>
+              <option value="video">{t('Videos', '视频', '影片')}</option>
+            </select>
+            <SearchableSelect className={buttonClass + ' max-w-72 bg-background-primary'} aria-label={t('Project', '项目', '專案')} value={project} onValueChange={(nextValue) => setProject(nextValue)}>
+              <option value="">{t('All projects', '全部项目', '全部專案')}</option>
+              {[...new Set([...(page?.projects ?? []), ...(project ? [project] : [])])].map(root => <option key={root} value={root}>{projectName(root)}</option>)}
+            </SearchableSelect>
+            <select className={buttonClass + ' bg-background-primary'} aria-label={t('View', '视图', '檢視')} value={view} onChange={event => setView(event.target.value)}>
+              <option value="time">{t('Timeline', '按时间排列', '依時間排列')}</option>
+              <option value="workspace">{t('By workspace', '按工作区分类', '依工作區分類')}</option>
+            </select>
+          </fieldset>
+          {editing && <div className="flex flex-wrap items-center gap-3 text-sm">
+            <button className={buttonClass} disabled={loading || selecting || deleting || Boolean(confirmation) || !page?.items.length} onClick={() => void selectAll()}>{t('Select all', '全选', '全選')}</button>
+            <button className={buttonClass} disabled={!selected.size || loading || selecting || deleting || Boolean(confirmation)} onClick={() => { setDeleteError(''); setConfirmation([...new Map([...selectionAssets, ...(page?.items ?? [])].map(item => [item.id, item])).values()].filter(item => selected.has(item.id))); }}>{t('Delete selected', '删除选中', '刪除選取')} ({selected.size})</button>
+            <button className={buttonClass} disabled={selecting || deleting || Boolean(confirmation)} onClick={() => { setEditing(false); setSelected(new Set()); setSelectionAssets([]); }}>{t('Clear selection', '取消选择', '取消選取')}</button>
+          </div>}
         </div>
-        <fieldset disabled={selecting || deleting || Boolean(confirmation)} className="flex flex-wrap gap-3">
-          <input className="min-w-48 flex-1 rounded-lg border border-border-primary bg-background-primary px-3 py-2 text-sm"
-            aria-label={t('Search media', '搜索素材', '搜尋素材')} placeholder={t('Search prompt, project or conversation', '搜索描述、项目或对话', '搜尋描述、專案或對話')}
-            value={search} onChange={event => setSearch(event.target.value)} />
-          <select className={buttonClass + ' bg-background-primary'} aria-label={t('Media type', '素材类型', '素材類型')} value={kind} onChange={event => setKind(event.target.value)}>
-            <option value="all">{t('All types', '全部类型', '全部類型')}</option>
-            <option value="image">{t('Images', '图片', '圖片')}</option>
-            <option value="video">{t('Videos', '视频', '影片')}</option>
-          </select>
-          <select className={buttonClass + ' max-w-72 bg-background-primary'} aria-label={t('Project', '项目', '專案')} value={project} onChange={event => setProject(event.target.value)}>
-            <option value="">{t('All projects', '全部项目', '全部專案')}</option>
-            {[...new Set([...(page?.projects ?? []), ...(project ? [project] : [])])].map(root => <option key={root} value={root}>{projectName(root)}</option>)}
-          </select>
-          <select className={buttonClass + ' bg-background-primary'} aria-label={t('View', '视图', '檢視')} value={view} onChange={event => setView(event.target.value)}>
-            <option value="time">{t('Timeline', '按时间排列', '依時間排列')}</option>
-            <option value="workspace">{t('By workspace', '按工作区分类', '依工作區分類')}</option>
-          </select>
-        </fieldset>
-        {editing && <div className="flex flex-wrap items-center gap-3 text-sm">
-          <button className={buttonClass} disabled={loading || selecting || deleting || Boolean(confirmation) || !page?.items.length} onClick={() => void selectAll()}>{t('Select all', '全选', '全選')}</button>
-          <button className={buttonClass} disabled={!selected.size || loading || selecting || deleting || Boolean(confirmation)} onClick={() => { setDeleteError(''); setConfirmation([...new Map([...selectionAssets, ...(page?.items ?? [])].map(item => [item.id, item])).values()].filter(item => selected.has(item.id))); }}>{t('Delete selected', '删除选中', '刪除選取')} ({selected.size})</button>
-          <button className={buttonClass} disabled={selecting || deleting || Boolean(confirmation)} onClick={() => { setEditing(false); setSelected(new Set()); setSelectionAssets([]); }}>{t('Clear selection', '取消选择', '取消選取')}</button>
-        </div>}
       </header>
-      <div className="min-h-0 flex-1 overflow-auto p-6" aria-busy={loading}>
-        {deleteNotice && <p role="status" className="mb-4 break-words text-sm">{deleteNotice}</p>}
-        {deleteError && !confirmation && <p role="alert">{deleteError}</p>}
-        {failed && <p role="alert" className="mb-4 text-sm">{t('Could not load media. Please refresh to retry.', '素材加载失败，请刷新重试。', '素材載入失敗，請重新整理重試。')}</p>}
-        {Boolean(page?.unreadableRecords) && <p role="status" className="mb-4 text-sm text-text-secondary">{t('Some generation records could not be read.', '部分生成记录无法读取，已展示其余素材。', '部分產生記錄無法讀取，已顯示其餘素材。')}</p>}
-        {!loading && !failed && page?.items.length === 0 && <p role="status" className="py-12 text-center text-text-secondary">{t('No matching media. Generate an image or video in a conversation to see it here.', '暂无匹配素材。在对话中生成图片或视频后，可在这里查看。', '暫無符合的素材。在對話中產生圖片或影片後，可在這裡查看。')}</p>}
-        {view === 'time' ? <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">{page?.items.map(card)}</div> :
-          [...new Set(page?.items.map(item => item.root))].map(root => {
-            const stats = page?.projectStats?.find(entry => entry.root === root);
-            const groupIds = completeGroups.get(root) ?? [...new Map([...selectionAssets, ...(page?.items ?? [])].filter(item => item.root === root).map(item => [item.id, item])).keys()];
-            const chosen = groupIds.filter(id => selected.has(id)).length;
-            const complete = completeGroups.has(root) || groupIds.length === stats?.count;
-            const checked = complete && groupIds.length > 0 && chosen === groupIds.length;
-            return <section key={root} className="mb-8" aria-label={projectName(root)}>
-              <div className="mb-3 flex items-center gap-2">
-                {editing && <button type="button" className="flex size-6 shrink-0 items-center justify-center rounded border border-border-primary text-lg leading-none hover:bg-background-secondary disabled:opacity-50" aria-label={(checked ? t('Deselect workspace ', '取消选择工作区 ', '取消選取工作區 ') : t('Select workspace ', '选择工作区 ', '選取工作區 ')) + projectName(root)} aria-pressed={checked} disabled={selecting || loading || deleting || Boolean(confirmation)} onClick={() => {
-                  if (checked) { const ids = new Set(groupIds); setSelected(previous => new Set([...previous].filter(id => !ids.has(id)))); }
-                  else void selectAll(root);
-                }}>{checked ? '−' : '+'}</button>}
-                <h2 className="min-w-0 break-words text-base font-semibold" title={root}>{projectName(root)}</h2>
-                <span className="ml-auto whitespace-nowrap text-sm text-text-secondary">{formatBytes(stats?.sizeBytes)}</span>
-              </div>
-              <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">{page?.items.filter(item => item.root === root).map(card)}</div>
-            </section>;
-          })}
-        {loading && <p role="status" className="py-6 text-center text-sm">{t('Loading…', '加载中…', '載入中…')}</p>}
-        {page?.nextCursor && <div className="pt-6 text-center"><button className={buttonClass} disabled={loading} onClick={() => void load(page.nextCursor!)}>{t('Load more', '加载更多', '載入更多')}</button></div>}
+      <div className="min-h-0 flex-1 overflow-auto px-4 py-5 sm:px-8" aria-busy={loading}>
+        <div className="mx-auto max-w-6xl">
+          {deleteNotice && <p role="status" className="mb-4 break-words text-sm">{deleteNotice}</p>}
+          {deleteError && !confirmation && <p role="alert">{deleteError}</p>}
+          {failed && <p role="alert" className="mb-4 text-sm">{t('Could not load media. Please refresh to retry.', '素材加载失败，请刷新重试。', '素材載入失敗，請重新整理重試。')}</p>}
+          {Boolean(page?.unreadableRecords) && <p role="status" className="mb-4 text-sm text-text-secondary">{t('Some generation records could not be read.', '部分生成记录无法读取，已展示其余素材。', '部分產生記錄無法讀取，已顯示其餘素材。')}</p>}
+          {!loading && !failed && page?.items.length === 0 && <p role="status" className="py-12 text-center text-text-secondary">{t('No matching media. Generate an image or video in a conversation to see it here.', '暂无匹配素材。在对话中生成图片或视频后，可在这里查看。', '暫無符合的素材。在對話中產生圖片或影片後，可在這裡查看。')}</p>}
+          {view === 'time' ? <div className="grid grid-cols-[repeat(auto-fill,minmax(min(100%,18rem),1fr))] gap-4">{page?.items.map(card)}</div> :
+            [...new Set(page?.items.map(item => item.root))].map(root => {
+              const stats = page?.projectStats?.find(entry => entry.root === root);
+              const groupIds = completeGroups.get(root) ?? [...new Map([...selectionAssets, ...(page?.items ?? [])].filter(item => item.root === root).map(item => [item.id, item])).keys()];
+              const chosen = groupIds.filter(id => selected.has(id)).length;
+              const complete = completeGroups.has(root) || groupIds.length === stats?.count;
+              const checked = complete && groupIds.length > 0 && chosen === groupIds.length;
+              return <section key={root} className="mb-8" aria-label={projectName(root)}>
+                <div className="mb-3 flex items-center gap-2">
+                  {editing && <button type="button" className="flex size-6 shrink-0 items-center justify-center rounded border border-border-primary text-lg leading-none hover:bg-background-secondary disabled:opacity-50" aria-label={(checked ? t('Deselect workspace ', '取消选择工作区 ', '取消選取工作區 ') : t('Select workspace ', '选择工作区 ', '選取工作區 ')) + projectName(root)} aria-pressed={checked} disabled={selecting || loading || deleting || Boolean(confirmation)} onClick={() => {
+                    if (checked) { const ids = new Set(groupIds); setSelected(previous => new Set([...previous].filter(id => !ids.has(id)))); }
+                    else void selectAll(root);
+                  }}>{checked ? '−' : '+'}</button>}
+                  <h2 className="min-w-0 break-words text-base font-semibold" title={root}>{projectName(root)}</h2>
+                  <span className="ml-auto whitespace-nowrap text-sm text-text-secondary">{formatBytes(stats?.sizeBytes)}</span>
+                </div>
+                <div className="grid grid-cols-[repeat(auto-fill,minmax(min(100%,18rem),1fr))] gap-4">{page?.items.filter(item => item.root === root).map(card)}</div>
+              </section>;
+            })}
+          {loading && <p role="status" className="py-6 text-center text-sm">{t('Loading…', '加载中…', '載入中…')}</p>}
+          {page?.nextCursor && <div className="pt-6 text-center"><button className={buttonClass} disabled={loading} onClick={() => void load(page.nextCursor!)}>{t('Load more', '加载更多', '載入更多')}</button></div>}
+        </div>
       </div>
       {confirmation && <dialog ref={dialog} aria-labelledby="delete-media-title" onCancel={event => { event.preventDefault(); if (!deleting) setConfirmation(undefined); }} className="m-auto max-h-[90vh] w-full max-w-lg overflow-auto rounded-xl bg-background-primary p-0 text-text-primary backdrop:bg-black/50">
         <div className="w-full max-w-lg rounded-xl border border-border-primary bg-background-primary p-6 shadow-xl">

@@ -1,3 +1,4 @@
+import { SearchableSelect } from '../../ui/SearchableSelect';
 import { useEffect, useState } from 'react';
 import {
   button,
@@ -100,13 +101,13 @@ export default function MediaServiceTest({ service }: { service: Service }) {
     <div className="grid gap-3 text-sm">
       <label>
         {t('Test model', '测试模型', '測試模型')}
-        <select
+        <SearchableSelect
           className={field}
           disabled={locked}
           value={modelId}
-          onChange={(e) => {
-            setModelId(e.target.value);
-            setMode(service.models.find((m) => m.id === e.target.value)!.modes[0]);
+          onValueChange={(nextValue) => {
+            setModelId(nextValue);
+            setMode(service.models.find((m) => m.id === nextValue)!.modes[0]);
           }}
         >
           {service.models.map((m) => (
@@ -114,7 +115,7 @@ export default function MediaServiceTest({ service }: { service: Service }) {
               {m.label}
             </option>
           ))}
-        </select>
+        </SearchableSelect>
       </label>
       <label>
         {t('Task', '任务类型', '任務類型')}

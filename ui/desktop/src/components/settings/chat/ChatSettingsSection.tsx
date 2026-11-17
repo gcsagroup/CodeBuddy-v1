@@ -27,6 +27,7 @@ export default function ChatSettingsSection() {
 
   return (
     <SettingsMenu
+      layout="cards"
       items={[
         {
           id: 'instructions',
@@ -34,13 +35,7 @@ export default function ChatSettingsSection() {
           title: intl.formatMessage(i18n.instructions),
           description: intl.formatMessage(i18n.instructionsDescription),
           icon: <FileText className="h-5 w-5" />,
-          content: (
-            <Card className="pb-2 rounded-lg">
-              <CardContent className="px-2">
-                <GlobalInstructionsSection />
-              </CardContent>
-            </Card>
-          ),
+          content: <GlobalInstructionsSection />,
         },
         {
           id: 'display',
@@ -48,14 +43,14 @@ export default function ChatSettingsSection() {
           description: intl.formatMessage(i18n.responseStylesDescription),
           icon: <ListTree className="h-5 w-5" />,
           content: (
-            <Card className="pb-2 rounded-lg">
-              <CardHeader className="pb-0">
-                <CardTitle className="">{intl.formatMessage(i18n.responseStylesTitle)}</CardTitle>
+            <Card className="border-border-primary shadow-none">
+              <CardHeader className="border-b border-border-primary">
+                <CardTitle className="font-semibold">{intl.formatMessage(i18n.responseStylesTitle)}</CardTitle>
                 <CardDescription>
                   {intl.formatMessage(i18n.responseStylesDescription)}
                 </CardDescription>
               </CardHeader>
-              <CardContent className="px-2">
+              <CardContent>
                 <ResponseStylesSection />
               </CardContent>
             </Card>

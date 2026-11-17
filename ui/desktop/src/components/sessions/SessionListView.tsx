@@ -1,3 +1,5 @@
+import { WorkspacePageTitle } from '../Layout/WorkspacePageTitle';
+import { SearchableSelect } from '../ui/SearchableSelect';
 import { AppEvents } from '../../constants/events';
 import { canForkSession, sessionCapabilityMessages } from '../../utils/sessionCapabilities';
 import React, { useEffect, useState, useRef, useCallback, useMemo, startTransition } from 'react';
@@ -1224,19 +1226,18 @@ const SessionListView: React.FC<SessionListViewProps> = React.memo(
       <>
         <MainPanelLayout>
           <div className="mx-auto flex w-full max-w-6xl flex-1 flex-col min-h-0">
-            <div className="bg-background-primary px-4 pb-5 pt-8 sm:px-8">
+            <div className="bg-background-primary px-4 pb-4 pt-6 sm:px-8">
               <div className="flex flex-col page-transition">
-                <div className="mb-2 flex flex-wrap items-center justify-between gap-3">
-                  <h1 className="app-page-heading flex items-center gap-2">
-                    <History className="size-5" aria-hidden="true" />
+                <div className="mb-4 flex flex-wrap items-start justify-between gap-3 border-b border-border-primary pb-4">
+                  <WorkspacePageTitle icon={History} description={intl.formatMessage(i18n.description)}>
                     {workspaceMode === 'unified'
                       ? null
                       : workspaceMode === 'codepro'
                         ? 'CodePro '
                         : 'Code '}
                     {intl.formatMessage(i18n.chatHistory)}
-                  </h1>
-                  <div className="flex items-center gap-2">
+                  </WorkspacePageTitle>
+                  <div className="flex flex-wrap items-center gap-2">
                     {nostrEnabled && (
                       <Button
                         onClick={() => setShowImportLinkModal(true)}
@@ -1259,14 +1260,11 @@ const SessionListView: React.FC<SessionListViewProps> = React.memo(
                     </Button>
                   </div>
                 </div>
-                <p className="text-sm text-text-secondary mb-4">
-                  {intl.formatMessage(i18n.description)}
-                </p>
-                <div className="mb-4 flex items-start gap-2 rounded-lg bg-background-secondary px-3 py-2.5 text-sm text-text-secondary">
+                <div className="mb-3 flex items-start gap-2 rounded-lg bg-background-secondary px-3 py-2 text-xs leading-relaxed text-text-secondary">
                   <Archive className="mt-0.5 size-4 shrink-0" />
                   <p>{intl.formatMessage(i18n.archiveNotice)}</p>
                 </div>
-                <label className="mb-4 flex items-center gap-2 rounded-lg border border-border-primary px-3 py-2 text-text-secondary focus-within:ring-1 focus-within:ring-border-active">
+                <label className="mb-3 flex items-center gap-2 rounded-lg border border-border-primary px-3 py-2 text-text-secondary focus-within:ring-1 focus-within:ring-border-active">
                   <Search className="size-4 shrink-0" />
                   <input
                     ref={searchInputRef}
@@ -1282,7 +1280,7 @@ const SessionListView: React.FC<SessionListViewProps> = React.memo(
                   <div
                     role="tablist"
                     aria-label={intl.formatMessage(i18n.historyView)}
-                    className="mr-auto flex max-w-full items-center gap-1 rounded-lg bg-background-secondary p-1"
+                    className="mr-auto flex max-w-full flex-wrap items-center gap-1 rounded-lg bg-background-secondary p-1"
                   >
                     {(['active', 'archived', 'all'] as const).map((view) => (
                       <button
@@ -1329,10 +1327,10 @@ const SessionListView: React.FC<SessionListViewProps> = React.memo(
                       </button>
                     ))}
                   </div>
-                  <select
+                  <SearchableSelect
                     aria-label={intl.formatMessage(i18n.projectFilter)}
                     value={projectFilter}
-                    onChange={(event) => setProjectFilter(event.target.value)}
+                    onValueChange={(nextValue) => setProjectFilter(nextValue)}
                     className="max-w-80 rounded-md border border-border-primary bg-background-primary px-3 py-2 text-sm text-text-primary"
                   >
                     <option value="all">{intl.formatMessage(i18n.allProjects)}</option>
@@ -1341,7 +1339,7 @@ const SessionListView: React.FC<SessionListViewProps> = React.memo(
                         {workingDir || intl.formatMessage(i18n.noProject)}
                       </option>
                     ))}
-                  </select>
+                  </SearchableSelect>
                   <select
                     aria-label={intl.formatMessage(i18n.dateFilter)}
                     value={dateFilter}

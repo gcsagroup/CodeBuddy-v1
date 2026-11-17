@@ -1,0 +1,138 @@
+[data-settings-page] {
+  container-type: inline-size;
+  --settings-edge: var(--color-border-primary);
+  --settings-soft: var(--color-background-secondary);
+}
+[data-settings-page]:not([data-settings-page='models']) [data-slot='card'] {
+  border-radius: 14px;
+  border-color: var(--settings-edge);
+  box-shadow: none;
+  gap: 18px;
+}
+[data-settings-page]:not([data-settings-page='models']) [data-slot='card-header'] {
+  padding: 6px 22px 0;
+  gap: 6px;
+}
+[data-settings-page]:not([data-settings-page='models']) [data-slot='card-title'] {
+  font-size: 16px;
+  line-height: 1.5;
+  letter-spacing: -0.015em;
+}
+[data-settings-page]:not([data-settings-page='models']) [data-slot='card-content'] {
+  padding-inline: 22px;
+}
+[data-settings-page] [data-slot='card-description'] {
+  font-size: 13px;
+  line-height: 1.7;
+}
+[data-settings-page] :is(input:not([type='checkbox']):not([type='radio']), select, textarea) {
+  border-radius: 8px;
+}
+[data-settings-page] :is(input, textarea, select):focus-visible {
+  outline: 2px solid var(--color-text-info);
+  outline-offset: 2px;
+}
+[data-settings-page] [role='switch'] {
+  flex-shrink: 0;
+}
+[data-settings-page] [data-detail] > button:first-of-type {
+  min-height: 32px;
+  border-radius: 8px;
+}
+.settings-entry-grid {
+  gap: 20px;
+}
+.settings-entry-grid > button {
+  position: relative;
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 18px;
+  min-height: 164px;
+  padding: 22px;
+  border: none;
+  color: white;
+  background: linear-gradient(120deg, #203c4a, #285661);
+}
+.settings-entry-grid > button:nth-child(2n) {
+  background: linear-gradient(120deg, #2b2948, #535a78);
+}
+.settings-entry-grid > button > span:first-child {
+  width: 36px;
+  height: 36px;
+  color: white;
+  border: 1px solid #ffffff30;
+  background: #ffffff12;
+}
+.settings-entry-grid > button > span:nth-child(2) {
+  grid-row: 2;
+  grid-column: 1 / -1;
+}
+.settings-entry-grid > button > span:nth-child(2) > span {
+  color: white;
+}
+.settings-entry-grid > button > span:nth-child(2) > span:first-child {
+  font-size: 17px;
+}
+.settings-entry-grid > button > svg {
+  grid-row: 1;
+  grid-column: 2;
+  color: white;
+  align-self: center;
+}
+.settings-entry-grid > button:hover {
+  box-shadow: 0 4px 14px #17293e25;
+  filter: brightness(1.08);
+}
+[data-settings-page='app'] > div > .grid > [data-slot='card'] {
+  background: linear-gradient(125deg, var(--settings-soft), var(--color-background-primary));
+}
+[data-settings-page='app'] [data-slot='card-content'] > .flex,
+[data-settings-page='keyboard'] [data-slot='card-content'] > .flex {
+  gap: 20px;
+  padding-block: 16px;
+}
+[data-settings-page='keyboard'] kbd {
+  border-radius: 6px;
+  border: 1px solid var(--settings-edge);
+  box-shadow: 0 2px 0 var(--settings-edge);
+  padding: 4px 8px;
+  background: var(--settings-soft);
+}
+[data-settings-page='memory'] [data-slot='card-header'],
+[data-settings-page='auth'] [data-slot='card-header'],
+[data-settings-page='security'] [data-slot='card-header'],
+[data-settings-page='chat'] [data-slot='card-header'] {
+  padding-block: 20px;
+  background: linear-gradient(120deg, var(--settings-soft), transparent);
+  border-radius: 14px 14px 0 0;
+}
+[data-settings-page='memory'] [data-slot='card-content'] > div {
+  padding: 22px 0;
+}
+[data-settings-page='memory'] [data-slot='card-content'] svg {
+  color: var(--color-text-info);
+}
+[data-settings-page='pets'] section > .rounded-2xl {
+  background: linear-gradient(135deg, var(--settings-soft), var(--color-background-primary));
+  border-radius: 14px;
+}
+[data-settings-page='pets'] article {
+  padding: 18px;
+  border-radius: 14px;
+  border-color: var(--settings-edge);
+}
+[data-settings-page='pets'] select {
+  min-height: 34px;
+  padding-inline: 10px;
+}
+@container (max-width: 34rem) {
+  [data-settings-page='app'] [data-slot='card-content'] > .flex,
+  [data-settings-page='keyboard'] [data-slot='card-content'] > .flex {
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+  [data-settings-page]:not([data-settings-page='models']) [data-slot='card-header'],
+  [data-settings-page]:not([data-settings-page='models']) [data-slot='card-content'] {
+    padding-inline: 16px;
+  }
+}

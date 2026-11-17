@@ -1,3 +1,4 @@
+import { SearchableSelect } from '../../ui/SearchableSelect';
 import { useEffect, useState } from 'react';
 import {
   Boxes,
@@ -93,16 +94,21 @@ export default function ImageGenerationSettings() {
             : (service?.name ?? '');
   return (
     <section className="space-y-5 text-text-primary">
-      <p className="text-sm text-text-secondary">
-        {t(
-          'Choose the services used by image and video requests in chat. Your chat model is selected separately.',
-          '在这里选择对话中生图和生成视频的服务。聊天继续使用你在对话中选择的模型。',
-          '在此選擇對話中生圖和生成影片的服務。聊天繼續使用你在對話中選擇的模型。'
-        )}
-      </p>
+      <header className="space-y-1">
+        <h3 className="runtime-title">
+          {t('Image and video generation', '图片与视频生成', '圖片與影片生成')}
+        </h3>
+        <p className="text-sm leading-relaxed text-text-secondary">
+          {t(
+            'Choose the services used by image and video requests in chat. Your chat model is selected separately.',
+            '在这里选择对话中生图和生成视频的服务。聊天继续使用你在对话中选择的模型。',
+            '在此選擇對話中生圖和生成影片的服務。聊天繼續使用你在對話中選擇的模型。'
+          )}
+        </p>
+      </header>
       {state && (
         <>
-          <div className="grid gap-3 sm:grid-cols-2">
+          <div className="grid gap-3 @min-[36rem]:grid-cols-2">
             {(['image', 'video'] as Kind[]).map((kind) => {
               const label =
                 kind === 'image'
@@ -110,33 +116,28 @@ export default function ImageGenerationSettings() {
                   : t('Default video model', '默认视频模型', '預設影片模型');
               const selected = state.defaults[kind];
               return (
-                <div key={kind} className="overflow-hidden rounded-xl border border-border-subtle">
-                  <div
-                    aria-hidden="true"
-                    className={
-                      'flex h-14 overflow-hidden ' + (kind === 'video' ? 'gap-1 bg-black py-1' : '')
-                    }
-                  >
-                    {Array.from({ length: kind === 'video' ? 3 : 1 }, (_, i) => (
-                      <img
-                        key={i}
-                        src={landscape}
-                        alt=""
-                        className="h-full min-w-0 flex-1 object-cover object-center"
-                      />
-                    ))}
+                <div key={kind} className="min-w-0 rounded-xl border border-border-subtle">
+                  <div aria-hidden="true" className={'h-16 overflow-hidden rounded-t-xl'}>
+                    <img
+                      src={landscape}
+                      alt=""
+                      className={
+                        'h-full w-full object-cover ' +
+                        (kind === 'video' ? 'object-bottom' : 'object-top')
+                      }
+                    />
                   </div>
                   <label className="block space-y-2 p-3 text-sm font-medium">
                     <span className="flex items-center gap-2">
                       {kind === 'image' ? <ImageIcon size={16} /> : <Film size={16} />} {label}
                     </span>
-                    <select
+                    <SearchableSelect
                       className={field}
                       aria-label={label}
                       disabled={busy || !selected}
                       value={JSON.stringify(selected)}
-                      onChange={(e) =>
-                        void mutate('default', { kind, ...JSON.parse(e.target.value) })
+                      onValueChange={(nextValue) =>
+                        void mutate('default', { kind, ...JSON.parse(nextValue) })
                       }
                     >
                       {!selected && (
@@ -160,7 +161,7 @@ export default function ImageGenerationSettings() {
                             </option>
                           ))
                       )}
-                    </select>
+                    </SearchableSelect>
                   </label>
                 </div>
               );
@@ -185,6 +186,15 @@ export default function ImageGenerationSettings() {
             </button>
           </div>
           <div className="divide-y divide-border-subtle rounded-xl border border-border-subtle">
+            {state.services.length === 0 && (
+              <p className="rounded-xl bg-background-secondary px-4 py-4 text-sm text-text-secondary">
+                {t(
+                  'Add a service to choose a default image or video model.',
+                  '添加生成服务后，就可以选择默认的图片或视频模型。',
+                  '新增生成服務後，即可選擇預設的圖片或影片模型。'
+                )}
+              </p>
+            )}
             {state.services.map((s) => {
               const Icon = icons[s.custom ? 'custom' : s.type];
               return (

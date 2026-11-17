@@ -1,5 +1,6 @@
 import { defineMessages, useIntl } from '../../../i18n';
 import { Check } from '../../icons';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../ui/card';
 import { Button } from '../../ui/button';
 import { InstructionFileEditor } from '../instructions/InstructionFileEditor';
 
@@ -40,38 +41,37 @@ export const GlobalInstructionsSection = () => {
   const homeDirectory = window.appConfig.get('CODEBUDDY_HOME');
 
   return (
-    <div className="px-2 py-2">
-      <div className="mb-4">
-        <h3 className="text-text-primary">{intl.formatMessage(i18n.title)}</h3>
-        <p className="text-xs text-text-secondary mt-[2px]">
-          {intl.formatMessage(i18n.description)}
-        </p>
-      </div>
-
-      {typeof homeDirectory === 'string' && homeDirectory.trim() ? (
-        <InstructionFileEditor
-          directory={homeDirectory}
-          placeholder={intl.formatMessage(i18n.placeholder)}
-          textareaClassName="min-h-44 max-h-96"
-          renderActions={({ isSaving, saveFile, saveSuccess }) => (
-            <div className="mt-3 flex items-center justify-end gap-3">
-              {saveSuccess && (
-                <span className="mr-auto flex items-center gap-1 text-sm text-green-600">
-                  <Check className="h-4 w-4" />
-                  {intl.formatMessage(i18n.savedSuccessfully)}
-                </span>
-              )}
-              <Button onClick={() => void saveFile()} disabled={isSaving}>
-                {isSaving ? intl.formatMessage(i18n.saving) : intl.formatMessage(i18n.save)}
-              </Button>
-            </div>
-          )}
-        />
-      ) : (
-        <p role="alert" className="text-sm text-red-600">
-          {intl.formatMessage(i18n.unavailable)}
-        </p>
-      )}
-    </div>
+    <Card className="border-border-primary shadow-none">
+      <CardHeader className="border-b border-border-primary">
+        <CardTitle className="font-semibold">{intl.formatMessage(i18n.title)}</CardTitle>
+        <CardDescription>{intl.formatMessage(i18n.description)}</CardDescription>
+      </CardHeader>
+      <CardContent>
+        {typeof homeDirectory === 'string' && homeDirectory.trim() ? (
+          <InstructionFileEditor
+            directory={homeDirectory}
+            placeholder={intl.formatMessage(i18n.placeholder)}
+            textareaClassName="min-h-56 max-h-[55vh] font-mono leading-relaxed"
+            renderActions={({ isSaving, saveFile, saveSuccess }) => (
+              <div className="mt-3 flex flex-wrap items-center justify-end gap-3 border-t border-border-primary pt-3">
+                {saveSuccess && (
+                  <span role="status" className="mr-auto flex items-center gap-1 text-sm text-green-700 dark:text-green-300">
+                    <Check className="h-4 w-4" />
+                    {intl.formatMessage(i18n.savedSuccessfully)}
+                  </span>
+                )}
+                <Button onClick={() => void saveFile()} disabled={isSaving}>
+                  {isSaving ? intl.formatMessage(i18n.saving) : intl.formatMessage(i18n.save)}
+                </Button>
+              </div>
+            )}
+          />
+        ) : (
+          <p role="alert" className="rounded-lg border border-border-primary bg-background-secondary p-3 text-sm text-red-700 dark:text-red-300">
+            {intl.formatMessage(i18n.unavailable)}
+          </p>
+        )}
+      </CardContent>
+    </Card>
   );
 };

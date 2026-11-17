@@ -73,10 +73,10 @@ const FileInfo = ({ filePath, found }: { filePath: string; found: boolean }) => 
   const intl = useIntl();
 
   return (
-    <div className="text-sm font-medium mb-2">
+    <div className="mb-2 break-all text-xs leading-relaxed text-text-secondary">
       {found ? (
-        <div className="text-green-600">
-          <Check className="w-4 h-4 inline-block" />{' '}
+        <div className="text-text-secondary">
+          <Check className="inline-block size-3.5" aria-hidden="true" />{' '}
           {intl.formatMessage(i18n.fileFound, { filePath })}
         </div>
       ) : (

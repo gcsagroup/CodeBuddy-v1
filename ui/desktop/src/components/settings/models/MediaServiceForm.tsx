@@ -1,3 +1,4 @@
+import { SearchableChoiceList } from '../../ui/SearchableChoiceList';
 import { useState, type FormEvent } from 'react';
 import {
   button,
@@ -258,29 +259,31 @@ export default function MediaServiceForm({ choice, existing, state, onSaved, onB
                 {t('Read server workflows', '读取服务端工作流', '讀取服務端工作流')}
               </button>
             )}
-            {available.map((m) => (
-              <label key={m.id} className="flex items-center gap-2">
-                <input
-                  type="checkbox"
-                  checked={selected.includes(m.id)}
-                  disabled={official && defaultModelIds.has(m.id)}
-                  onChange={(e) =>
-                    setSelected((s) =>
-                      e.target.checked ? [...s, m.id] : s.filter((v) => v !== m.id)
-                    )
-                  }
-                />
-                <span>
-                  {m.label}
-                  <small className="ml-2 text-text-secondary">
-                    {m.modes.map((x) => modes[x]).join(' / ')}
-                    {m.retiring && ' · ' + t('Retiring', '即将下线', '即將下線')}
-                    {official && defaultModelIds.has(m.id) &&
-                      ' · ' + t('Current default', '当前默认', '目前預設')}
-                  </small>
-                </span>
-              </label>
-            ))}
+            <SearchableChoiceList items={available} searchText={(m) => m.label + ' ' + m.id}>
+              {(visible) => visible.map((m) => (
+                <label key={m.id} className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    checked={selected.includes(m.id)}
+                    disabled={official && defaultModelIds.has(m.id)}
+                    onChange={(e) =>
+                      setSelected((s) =>
+                        e.target.checked ? [...s, m.id] : s.filter((v) => v !== m.id)
+                      )
+                    }
+                  />
+                  <span>
+                    {m.label}
+                    <small className="ml-2 text-text-secondary">
+                      {m.modes.map((x) => modes[x]).join(' / ')}
+                      {m.retiring && ' · ' + t('Retiring', '即将下线', '即將下線')}
+                      {official && defaultModelIds.has(m.id) &&
+                        ' · ' + t('Current default', '当前默认', '目前預設')}
+                    </small>
+                  </span>
+                </label>
+              ))}
+            </SearchableChoiceList>
           </div>
         )}
         {message && (

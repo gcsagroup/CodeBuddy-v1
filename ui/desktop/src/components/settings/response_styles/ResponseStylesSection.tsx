@@ -46,7 +46,7 @@ export const ResponseStylesSection = () => {
   };
 
   return (
-    <div className="space-y-1">
+    <div className="space-y-2">
       {all_response_styles.map((style) => (
         <ResponseStyleSelectionItem
           key={style.key}

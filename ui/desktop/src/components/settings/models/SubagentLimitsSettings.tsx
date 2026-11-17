@@ -77,10 +77,7 @@ export default function SubagentLimitsSettings({
       ? { maxDepth: Number(depth), maxActiveSubagents: Number(parallel) }
       : null;
   return (
-    <section
-      className="space-y-3 border-t border-border-subtle pt-4"
-      aria-label={intl.formatMessage(messages.title)}
-    >
+    <section className="subagent-limits space-y-3" aria-label={intl.formatMessage(messages.title)}>
       <h3 className="text-sm font-medium">{intl.formatMessage(messages.title)}</h3>
       <fieldset disabled={!saved || saving} className="grid gap-3 sm:grid-cols-2">
         {(

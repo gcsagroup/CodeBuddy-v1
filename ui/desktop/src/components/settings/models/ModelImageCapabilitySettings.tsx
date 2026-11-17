@@ -1,3 +1,4 @@
+import { SearchableSelect } from '../../ui/SearchableSelect';
 import { useEffect, useState } from 'react';
 import { acpListProviderModels } from '../../../acp/providers';
 import {
@@ -42,6 +43,7 @@ const messages = defineMessages({
       'Could not load or save image capability. Your selection is kept; retry when the connection is available.',
   },
   retry: { id: 'modelImageCapability.retry', defaultMessage: 'Retry loading models' },
+  cached: { id: 'modelsBottomBar.cachedList', defaultMessage: 'Showing the last saved list.' },
 });
 
 export default function ModelImageCapabilitySettings({
@@ -59,16 +61,27 @@ export default function ModelImageCapabilitySettings({
   const [saving, setSaving] = useState(false);
   const [status, setStatus] = useState<'saved' | 'error' | null>(null);
   const [loadAttempt, setLoadAttempt] = useState(0);
+  const [usingSavedList, setUsingSavedList] = useState(false);
+  const selectedProvider = providers.find((provider) => provider.name === providerId);
 
   useEffect(() => {
     let cancelled = false;
     if (!providerId) return;
     setLoading(true);
     setStatus(null);
-    void Promise.all([acpListProviderModels(providerId), readModelCapabilityOverrides()])
+    setUsingSavedList(false);
+    const inventoryRequest = acpListProviderModels(providerId)
+      .then((items) => ({ ids: items.map((item) => item.id), cached: false }))
+      .catch((error) => {
+        const ids = selectedProvider?.metadata.known_models?.map((item) => item.name) ?? [];
+        if (!ids.length) throw error;
+        return { ids, cached: true };
+      });
+    void Promise.all([inventoryRequest, readModelCapabilityOverrides()])
       .then(([inventory, saved]) => {
         if (cancelled) return;
-        setModels(inventory.map((model) => model.id));
+        setModels(inventory.ids);
+        setUsingSavedList(inventory.cached);
         setConfig(saved);
       })
       .catch(() => {
@@ -80,7 +93,7 @@ export default function ModelImageCapabilitySettings({
     return () => {
       cancelled = true;
     };
-  }, [providerId, loadAttempt]);
+  }, [providerId, loadAttempt, selectedProvider]);
 
   const save = async () => {
     setSaving(true);
@@ -118,13 +131,13 @@ export default function ModelImageCapabilitySettings({
         <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
           <label className="space-y-1 text-sm text-text-secondary">
             <span className="block">{intl.formatMessage(messages.provider)}</span>
-            <select
+            <SearchableSelect
               aria-label={intl.formatMessage(messages.provider)}
               className={`${selectClass} w-full`}
               value={providerId}
               disabled={saving}
-              onChange={(event) => {
-                setProviderId(event.target.value);
+              onValueChange={(nextValue) => {
+                setProviderId(nextValue);
                 setModelId('');
                 setModels([]);
                 setConfig(null);
@@ -137,17 +150,17 @@ export default function ModelImageCapabilitySettings({
                   {provider.metadata.display_name || provider.name}
                 </option>
               ))}
-            </select>
+            </SearchableSelect>
           </label>
           <label className="space-y-1 text-sm text-text-secondary">
             <span className="block">{intl.formatMessage(messages.model)}</span>
-            <select
+            <SearchableSelect
               aria-label={intl.formatMessage(messages.model)}
               className={`${selectClass} w-full`}
               value={modelId}
               disabled={saving || loading || !config}
-              onChange={(event) => {
-                const id = event.target.value;
+              onValueChange={(nextValue) => {
+                const id = nextValue;
                 setModelId(id);
                 setOverride(
                   config?.overrides.find(
@@ -163,7 +176,7 @@ export default function ModelImageCapabilitySettings({
                   {model}
                 </option>
               ))}
-            </select>
+            </SearchableSelect>
           </label>
           <label className="space-y-1 text-sm text-text-secondary">
             <span className="block">{intl.formatMessage(messages.capability)}</span>
@@ -190,7 +203,8 @@ export default function ModelImageCapabilitySettings({
         >
           {intl.formatMessage(messages.save)}
         </Button>
-        {status === 'error' && !config && (
+        {usingSavedList && <p className="text-sm">{intl.formatMessage(messages.cached)}</p>}
+        {((status === 'error' && !config) || usingSavedList) && (
           <Button
             variant="outline"
             disabled={loading}

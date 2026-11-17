@@ -1,3 +1,4 @@
+import { SearchableSelect } from '../ui/SearchableSelect';
 import type { GitHubWorkflowDispatchWorkflow } from '@aaif/goose-sdk';
 import { AlertTriangle, LoaderCircle, Play } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
@@ -323,10 +324,10 @@ export function GitHubWorkflowDispatchPanel({
         <div className="grid gap-3">
           <label className="grid gap-1 text-xs font-medium text-text-primary">
             {intl.formatMessage(i18n.workflow)}
-            <select
+            <SearchableSelect
               value={workflow.id}
               disabled={isBusy || retryBlocked}
-              onChange={(event) => selectWorkflow(Number(event.target.value))}
+              onValueChange={(nextValue) => selectWorkflow(Number(nextValue))}
               className="min-h-9 rounded-md border border-border-primary bg-background-default px-2"
             >
               {catalog.workflows.map((item) => (
@@ -334,7 +335,7 @@ export function GitHubWorkflowDispatchPanel({
                   {item.name}
                 </option>
               ))}
-            </select>
+            </SearchableSelect>
           </label>
           {workflow.inputs.map((input) => (
             <DispatchInputControl
@@ -404,14 +405,14 @@ function DispatchInputControl({
         {label} <span className="font-normal text-text-secondary">({suffix})</span>
       </span>
       {input.inputType === 'choice' ? (
-        <select {...shared} aria-label={label}>
+        <SearchableSelect className={shared.className} value={value} disabled={disabled} onValueChange={onChange} aria-label={label}>
           <option value="">{intl.formatMessage(i18n.selectValue)}</option>
           {(input.options ?? []).map((option) => (
             <option key={option} value={option}>
               {option}
             </option>
           ))}
-        </select>
+        </SearchableSelect>
       ) : input.inputType === 'boolean' ? (
         <select {...shared} aria-label={label}>
           <option value="">{intl.formatMessage(i18n.selectValue)}</option>

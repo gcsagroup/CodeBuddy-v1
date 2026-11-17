@@ -1,3 +1,4 @@
+import { SearchableSelect, SHORT_LIST_LIMIT } from '../../../../../ui/SearchableSelect';
 import React, { useEffect, useRef, useState } from 'react';
 import { Input } from '../../../../../ui/input';
 import { Switch } from '../../../../../ui/switch';
@@ -1018,7 +1019,7 @@ export default function CustomProviderForm({
                 }
               }
             }}
-            isSearchable={false}
+            isSearchable={compactSetup && COMPACT_PROVIDER_PRESETS.length > SHORT_LIST_LIMIT}
           />
           {validationErrors.providerType && (
             <p id="provider-select-error" className="text-red-500 text-sm mt-1">
@@ -1208,12 +1209,12 @@ export default function CustomProviderForm({
               <label htmlFor="discovered-models" className="mb-2 block text-sm font-medium">
                 {intl.formatMessage(i18n.discoveredModels)}
               </label>
-              <select
+              <SearchableSelect
                 id="discovered-models"
                 className="h-10 w-full rounded-md border border-border-primary bg-background-primary px-3 text-sm"
                 value={selectedModel}
-                onChange={(event) => {
-                  setSelectedModel(event.target.value);
+                onValueChange={(nextValue) => {
+                  setSelectedModel(nextValue);
                   setSubmitError(null);
                 }}
               >
@@ -1222,7 +1223,7 @@ export default function CustomProviderForm({
                     {modelId}
                   </option>
                 ))}
-              </select>
+              </SearchableSelect>
             </div>
           )}
           {discoveryStatus === 'failed' && (

@@ -35,7 +35,10 @@ const i18n = defineMessages({
     defaultMessage: 'Notifications are managed by your OS - {link}',
   },
   configGuide: { id: 'settings.notifications.configGuide', defaultMessage: 'Configuration guide' },
-  openSettings: { id: 'settings.notifications.openSettings', defaultMessage: 'Open system settings' },
+  openSettings: {
+    id: 'settings.notifications.openSettings',
+    defaultMessage: 'Open system settings',
+  },
   taskNotifications: {
     id: 'settings.notifications.task.title',
     defaultMessage: 'Task completion notifications',
@@ -110,7 +113,8 @@ const i18n = defineMessages({
   },
   notificationsLinuxInstructions: {
     id: 'settings.notifications.modal.linuxInstructions',
-    defaultMessage: 'Open Notifications in your desktop settings and allow notifications for CodeBuddy.',
+    defaultMessage:
+      'Open Notifications in your desktop settings and allow notifications for CodeBuddy.',
   },
   notificationsMacInstructions: {
     id: 'settings.notifications.modal.macInstructions',
@@ -318,6 +322,43 @@ export default function AppSettingsSection({ scrollToSection }: AppSettingsSecti
 
   return (
     <div className="@container space-y-4">
+      <div className="grid gap-4 @min-[40rem]:grid-cols-2">
+        <Card className="rounded-lg">
+          <CardHeader className="pb-0">
+            <CardTitle className="mb-1">{intl.formatMessage(i18n.themeTitle)}</CardTitle>
+            <CardDescription>{intl.formatMessage(i18n.themeDesc)}</CardDescription>
+          </CardHeader>
+          <CardContent className="mt-auto px-4">
+            <ThemeSelector className="[&>div]:flex-wrap" hideTitle horizontal />
+          </CardContent>
+        </Card>
+
+        <Card className="rounded-lg">
+          <CardHeader className="pb-0">
+            <CardTitle className="mb-1">{intl.formatMessage(i18n.languageTitle)}</CardTitle>
+            <CardDescription>{intl.formatMessage(i18n.languageDesc)}</CardDescription>
+          </CardHeader>
+          <CardContent className="mt-auto px-4">
+            <DropdownMenu>
+              <DropdownMenuTrigger className="flex w-full max-w-[260px] items-center justify-between gap-2 rounded-md border border-border-primary bg-background-primary px-3 py-2 text-sm text-text-primary transition-colors hover:border-border-primary">
+                <span className="truncate">
+                  {intl.formatMessage(i18n[selectedLanguage.message])}
+                </span>
+                <ChevronDown className="h-4 w-4 shrink-0" />
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start" className="w-[260px]">
+                <DropdownMenuRadioGroup value={language} onValueChange={handleLanguageChange}>
+                  {LANGUAGE_OPTIONS.map((option) => (
+                    <DropdownMenuRadioItem key={option.value} value={option.value}>
+                      {intl.formatMessage(i18n[option.message])}
+                    </DropdownMenuRadioItem>
+                  ))}
+                </DropdownMenuRadioGroup>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </CardContent>
+        </Card>
+      </div>
       <TypographySettings />
       <Card className="rounded-lg">
         <CardHeader className="pb-0">
@@ -458,43 +499,6 @@ export default function AppSettingsSection({ scrollToSection }: AppSettingsSecti
         </CardContent>
       </Card>
 
-      <div className="grid gap-4 @min-[40rem]:grid-cols-2">
-        <Card className="rounded-lg">
-          <CardHeader className="pb-0">
-            <CardTitle className="mb-1">{intl.formatMessage(i18n.themeTitle)}</CardTitle>
-            <CardDescription>{intl.formatMessage(i18n.themeDesc)}</CardDescription>
-          </CardHeader>
-          <CardContent className="mt-auto px-4">
-            <ThemeSelector className="[&>div]:flex-wrap" hideTitle horizontal />
-          </CardContent>
-        </Card>
-
-        <Card className="rounded-lg">
-          <CardHeader className="pb-0">
-            <CardTitle className="mb-1">{intl.formatMessage(i18n.languageTitle)}</CardTitle>
-            <CardDescription>{intl.formatMessage(i18n.languageDesc)}</CardDescription>
-          </CardHeader>
-          <CardContent className="mt-auto px-4">
-            <DropdownMenu>
-              <DropdownMenuTrigger className="flex w-full max-w-[260px] items-center justify-between gap-2 rounded-md border border-border-primary bg-background-primary px-3 py-2 text-sm text-text-primary transition-colors hover:border-border-primary">
-                <span className="truncate">
-                  {intl.formatMessage(i18n[selectedLanguage.message])}
-                </span>
-                <ChevronDown className="h-4 w-4 shrink-0" />
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="start" className="w-[260px]">
-                <DropdownMenuRadioGroup value={language} onValueChange={handleLanguageChange}>
-                  {LANGUAGE_OPTIONS.map((option) => (
-                    <DropdownMenuRadioItem key={option.value} value={option.value}>
-                      {intl.formatMessage(i18n[option.message])}
-                    </DropdownMenuRadioItem>
-                  ))}
-                </DropdownMenuRadioGroup>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </CardContent>
-        </Card>
-      </div>
       <TelemetrySettings />
       <CommonQuerySettings />
 

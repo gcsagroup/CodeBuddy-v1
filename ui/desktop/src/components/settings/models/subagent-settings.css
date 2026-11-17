@@ -1,0 +1,131 @@
+.subagent-settings {
+  container-type: inline-size;
+}
+.subagent-settings .subagent-header {
+  padding-top: 6px;
+  padding-bottom: 20px;
+  border-bottom: 1px solid var(--color-border-primary);
+}
+.subagent-settings [data-slot='card-description'] {
+  max-width: 42rem;
+  line-height: 1.7;
+}
+.subagent-custom,
+.subagent-defaults {
+  display: grid;
+  gap: 14px;
+  padding-bottom: 12px;
+}
+.subagent-avatar {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  flex-shrink: 0;
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--color-text-info) 9%, transparent);
+  color: var(--color-text-info);
+}
+.subagent-avatar svg {
+  width: 20px;
+  height: 20px;
+}
+.subagent-empty {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  border: 1px dashed var(--color-border-primary);
+  border-radius: 12px;
+  padding: 24px;
+  background: var(--color-background-secondary);
+  color: var(--color-text-secondary);
+  font-size: 13px;
+  line-height: 1.7;
+}
+.subagent-template-list:empty {
+  display: none;
+}
+.subagent-template-list {
+  display: grid;
+  gap: 8px;
+}
+.subagent-template-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 10px;
+  border: 1px solid var(--color-border-primary);
+  border-radius: 12px;
+}
+.subagent-role {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  gap: 14px;
+  padding: 18px 16px;
+  text-align: left;
+  border: 1px solid var(--color-border-primary);
+  border-radius: 12px;
+  transition:
+    background 120ms,
+    border-color 120ms;
+}
+.subagent-role:hover {
+  background: var(--color-background-secondary);
+  border-color: var(--color-text-info);
+}
+.subagent-role:focus-visible,
+.subagent-settings input:focus-visible,
+.subagent-settings textarea:focus-visible {
+  outline: 2px solid var(--color-text-info);
+  outline-offset: 3px;
+}
+.subagent-model-summary {
+  max-width: 28%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 12px;
+  color: var(--color-text-secondary);
+}
+.subagent-settings .subagent-limits {
+  padding: 20px;
+  border-radius: 12px;
+  background: var(--color-background-secondary);
+}
+.subagent-limits p {
+  line-height: 1.8;
+  max-width: 48rem;
+}
+.subagent-editor {
+  display: grid;
+  gap: 24px;
+}
+.subagent-identity {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 20px;
+}
+.subagent-editor label {
+  font-weight: 600;
+}
+.subagent-editor textarea {
+  margin-top: 8px;
+  padding: 14px;
+  line-height: 1.8;
+  border-radius: 10px;
+}
+@container (max-width: 34rem) {
+  .subagent-identity,
+  .subagent-limits fieldset {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .subagent-role {
+    flex-wrap: wrap;
+  }
+  .subagent-model-summary {
+    max-width: calc(100% - 54px);
+    margin-left: 54px;
+    order: 1;
+  }
+}

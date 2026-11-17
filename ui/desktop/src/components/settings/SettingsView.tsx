@@ -1,3 +1,4 @@
+import './settings-layout.css';
 import PetSettings from '../../pets/PetSettings';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
@@ -241,6 +242,7 @@ export default function SettingsView({
     >
       <DialogContent
         data-testid="settings-dialog"
+        data-settings-center
         aria-describedby={undefined}
         onEscapeKeyDown={(event) => {
           if (navigationOpen && compactNavButton.current?.offsetWidth) {
@@ -335,14 +337,12 @@ export default function SettingsView({
 
           <main className="flex min-h-0 min-w-0 flex-1 flex-col">
             <header className="max-sm:sr-only shrink-0 border-b border-border-primary px-7 py-5 pr-14">
-              <h2 className="app-page-heading">
-                {intl.formatMessage(pageMessages[activePage])}
-              </h2>
+              <h2 className="app-page-heading">{intl.formatMessage(pageMessages[activePage])}</h2>
             </header>
             <div ref={contentRef} className="min-h-0 flex-1 overflow-auto overscroll-contain">
               <div className="mx-auto w-full max-w-4xl px-4 py-5 sm:px-7 sm:py-6 [&_[data-slot=card-title]]:font-semibold [&_[data-slot=card-description]]:mt-1 [&_[data-slot=card-description]]:leading-relaxed">
-                {activeContent}
-                <div hidden={activePage !== 'models'}>
+                <div data-settings-page={activePage}>{activeContent}</div>
+                <div data-settings-page="models" hidden={activePage !== 'models'}>
                   {(activePage === 'models' || visitedEditors.includes('models')) && (
                     <ModelsAndRuntimeSettings
                       setView={leaveSettings}
@@ -351,7 +351,7 @@ export default function SettingsView({
                     />
                   )}
                 </div>
-                <div hidden={activePage !== 'chat'}>
+                <div data-settings-page="chat" hidden={activePage !== 'chat'}>
                   {(activePage === 'chat' || visitedEditors.includes('chat')) && (
                     <ChatSettingsSection />
                   )}

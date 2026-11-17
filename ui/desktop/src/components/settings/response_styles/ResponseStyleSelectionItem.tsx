@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useId } from 'react';
 import { defineMessages, useIntl } from '../../../i18n';
 import type { MessageDescriptor } from 'react-intl';
 
@@ -56,52 +56,35 @@ export function ResponseStyleSelectionItem({
   handleStyleChange,
 }: ResponseStyleSelectionItemProps) {
   const intl = useIntl();
-  const [checked, setChecked] = useState(currentStyle === style.key);
-
-  useEffect(() => {
-    setChecked(currentStyle === style.key);
-  }, [currentStyle, style.key]);
+  const descriptionId = useId();
+  const label = intl.formatMessage(style.label);
 
   return (
-    <div className={`group text-sm ${disabled ? 'opacity-50' : 'hover:cursor-pointer'}`}>
-      <div
-        className={`flex items-center justify-between text-text-primary py-2 px-2 ${checked ? 'bg-background-secondary' : 'bg-background-primary hover:bg-background-secondary'} rounded-lg transition-all`}
-        aria-disabled={disabled}
-        onClick={() => {
-          if (!disabled) void handleStyleChange(style.key);
-        }}
-      >
-        <div className="flex">
-          <div>
-            <h3 className="text-text-primary">{intl.formatMessage(style.label)}</h3>
-            {showDescription && (
-              <p className="text-xs text-text-secondary mt-[2px]">
-                {intl.formatMessage(style.description)}
-              </p>
-            )}
-          </div>
-        </div>
-
-        <div className="relative flex items-center gap-2">
-          <input
-            type="radio"
-            name="responseStyles"
-            value={style.key}
-            aria-label={intl.formatMessage(style.label)}
-            checked={checked}
-            disabled={disabled}
-            onClick={(event) => event.stopPropagation()}
-            onChange={() => void handleStyleChange(style.key)}
-            className="peer sr-only"
-          />
-          <div
-            className="h-4 w-4 rounded-full border border-border-primary
-                  peer-checked:border-[6px] peer-checked:border-black dark:peer-checked:border-white
-                  peer-checked:bg-white dark:peer-checked:bg-black
-                  transition-all duration-200 ease-in-out group-hover:border-border-primary"
-          ></div>
-        </div>
-      </div>
-    </div>
+    <label className="group relative block cursor-pointer has-disabled:cursor-default has-disabled:opacity-60">
+      <input
+        type="radio"
+        name="responseStyles"
+        value={style.key}
+        aria-label={label}
+        aria-describedby={showDescription ? descriptionId : undefined}
+        checked={currentStyle === style.key}
+        disabled={disabled}
+        onChange={() => void handleStyleChange(style.key)}
+        className="peer sr-only"
+      />
+      <span className="flex items-start gap-3 rounded-lg border border-border-primary px-3 py-3 text-sm transition-colors group-hover:bg-background-secondary peer-checked:border-border-info peer-checked:bg-background-secondary peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-border-info">
+        <span className="mt-0.5 grid size-4 shrink-0 place-items-center rounded-full border border-border-primary" aria-hidden="true">
+          {currentStyle === style.key && <span className="size-2 rounded-full bg-text-info" />}
+        </span>
+        <span className="min-w-0">
+          <span className="block font-medium text-text-primary">{label}</span>
+          {showDescription && (
+            <span id={descriptionId} className="mt-1 block text-xs leading-relaxed text-text-secondary">
+              {intl.formatMessage(style.description)}
+            </span>
+          )}
+        </span>
+      </span>
+    </label>
   );
 }

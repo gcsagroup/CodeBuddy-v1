@@ -5229,7 +5229,7 @@
     "defaultMessage": "自訂模型連線"
   },
   "modelsAndRuntime.customConnectionsDescription": {
-    "defaultMessage": "連接本機、區域網路或自建端點。日常設定不顯示內建廠商目錄。"
+    "defaultMessage": "管理本機、區域網路和自架服務的模型連線。"
   },
   "modelsAndRuntime.generation": {
     "defaultMessage": "圖片與影片生成"
@@ -5256,7 +5256,7 @@
     "defaultMessage": "圖像理解"
   },
   "modelsAndRuntime.visionDescription": {
-    "defaultMessage": "優先使用主模型，必要時使用備用識圖模型。"
+    "defaultMessage": "選擇負責辨識圖片與截圖的模型。"
   },
   "modelsBottomBar.empty": {
     "defaultMessage": "暫無已設定模型"

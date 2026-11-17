@@ -1,7 +1,10 @@
 import React from 'react';
 import ReactSelect from 'react-select';
 
-export const Select = (props: React.ComponentProps<typeof ReactSelect>) => {
+export const Select = ({
+  controlClassName,
+  ...props
+}: React.ComponentProps<typeof ReactSelect> & { controlClassName?: string }) => {
   return (
     <ReactSelect
       {...props}
@@ -13,6 +16,7 @@ export const Select = (props: React.ComponentProps<typeof ReactSelect>) => {
         container: () => 'w-full cursor-pointer relative',
         indicatorSeparator: () => 'h-0',
         control: ({ isFocused }) =>
+          controlClassName ??
           `border ${isFocused ? 'border-border-primary' : 'border-border-primary'} focus:border-border-primary hover:border-border-primary rounded-md w-full px-4 py-2 text-sm text-text-secondary hover:cursor-pointer`,
         menu: () =>
           'mt-1 bg-background-primary border border-border-primary rounded-md text-text-secondary shadow-lg select__menu z-[9999] absolute',
@@ -34,8 +38,8 @@ export const Select = (props: React.ComponentProps<typeof ReactSelect>) => {
         },
       }}
       menuShouldBlockScroll={false}
-      menuShouldScrollIntoView={false}
-      tabSelectsValue={true}
+      menuShouldScrollIntoView={props.menuShouldScrollIntoView ?? false}
+      tabSelectsValue={props.tabSelectsValue ?? true}
       openMenuOnFocus={false}
       styles={{
         menu: (base) => ({
@@ -45,7 +49,7 @@ export const Select = (props: React.ComponentProps<typeof ReactSelect>) => {
         }),
         menuList: (base) => ({
           ...base,
-          maxHeight: '240px',
+          maxHeight: props.maxMenuHeight ? base.maxHeight : '240px',
           overflowY: 'auto',
           pointerEvents: 'auto',
         }),

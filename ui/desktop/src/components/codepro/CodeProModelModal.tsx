@@ -1,3 +1,5 @@
+import { SearchableChoiceList } from '../ui/SearchableChoiceList';
+import { SearchableSelect } from '../ui/SearchableSelect';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import distributionModel from '../../../../../runtime/default-model.json';
 import { AlertTriangle, Bot } from 'lucide-react';
@@ -854,16 +856,16 @@ export function CodeProModelModal({
                   {advancedRoutingEnabled ? (
                     <>
                       <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-                        <select
+                        <SearchableSelect
                           disabled={saving}
                           aria-label={intl.formatMessage(i18n.providerLabel, { role: role.label })}
                           value={selection.provider}
-                          onChange={(event) => {
-                            if (event.target.value === CONFIGURE_PROVIDER_VALUE) {
+                          onValueChange={(nextValue) => {
+                            if (nextValue === CONFIGURE_PROVIDER_VALUE) {
                               onConfigureProvider?.();
                               return;
                             }
-                            updateSelection(role.role, { provider: event.target.value, model: '' });
+                            updateSelection(role.role, { provider: nextValue, model: '' });
                           }}
                           className="h-10 rounded-md border border-border-primary bg-background-primary px-3 text-sm text-text-primary"
                         >
@@ -890,15 +892,15 @@ export function CodeProModelModal({
                           <option value={CONFIGURE_PROVIDER_VALUE}>
                             {intl.formatMessage(i18n.useAnotherProvider)}
                           </option>
-                        </select>
-                        <select
+                        </SearchableSelect>
+                        <SearchableSelect
                           aria-label={intl.formatMessage(i18n.modelLabel, { role: role.label })}
                           disabled={saving}
                           value={selection.model}
-                          onChange={(event) =>
+                          onValueChange={(nextValue) =>
                             updateSelection(role.role, {
                               provider: effectiveProvider,
-                              model: event.target.value,
+                              model: nextValue,
                             })
                           }
                           className="h-10 rounded-md border border-border-primary bg-background-primary px-3 text-sm text-text-primary"
@@ -909,7 +911,7 @@ export function CodeProModelModal({
                               {model.name || model.id}
                             </option>
                           ))}
-                        </select>
+                        </SearchableSelect>
                       </div>
                       <p className="mt-2 text-xs text-text-secondary">
                         {intl.formatMessage(i18n.actualModel, {
@@ -964,55 +966,57 @@ export function CodeProModelModal({
                     <legend className="px-1 text-sm text-text-secondary">
                       {intl.formatMessage(i18n.visionModelLabel)}
                     </legend>
-                    {providers.map((provider) => {
-                      const models = visionModels.filter(
-                        (model) => model.providerId === provider.name
-                      );
-                      if (!models.length) return null;
-                      return (
-                        <div
-                          key={provider.name}
-                          role="group"
-                          aria-label={provider.metadata.display_name || provider.name}
-                          className="space-y-1"
-                        >
-                          <p className="text-xs font-semibold text-text-secondary">
-                            {provider.metadata.display_name || provider.name}
-                          </p>
-                          {models.map((model) => (
-                            <label
-                              key={model.key}
-                              className="flex cursor-pointer items-start gap-3 rounded-md px-1 py-2 hover:bg-background-secondary"
-                            >
-                              <input
-                                type="radio"
-                                name="auxiliary-image-model"
-                                aria-label={model.name || model.id}
-                                checked={selectedVisionKey === model.key}
-                                onChange={() => {
-                                  setVisionRoute({
-                                    enabled: true,
-                                    mode: 'auto',
-                                    providerId: model.providerId,
-                                    modelId: model.id,
-                                  });
-                                  setOperationError('');
-                                }}
-                                className="mt-1 shrink-0 accent-black dark:accent-white"
-                              />
-                              <span className="min-w-0 text-sm text-text-primary">
-                                <span className="block break-words">{model.name || model.id}</span>
-                                {model.name && model.name !== model.id && (
-                                  <span className="block break-words text-xs text-text-secondary">
-                                    {model.id}
-                                  </span>
-                                )}
-                              </span>
-                            </label>
-                          ))}
-                        </div>
-                      );
-                    })}
+                    <SearchableChoiceList items={visionModels} searchText={(m) => [m.name, m.id, m.providerLabel].join(' ')}>
+                      {(visible) => providers.map((provider) => {
+                        const models = visible.filter(
+                          (model) => model.providerId === provider.name
+                        );
+                        if (!models.length) return null;
+                        return (
+                          <div
+                            key={provider.name}
+                            role="group"
+                            aria-label={provider.metadata.display_name || provider.name}
+                            className="space-y-1"
+                          >
+                            <p className="text-xs font-semibold text-text-secondary">
+                              {provider.metadata.display_name || provider.name}
+                            </p>
+                            {models.map((model) => (
+                              <label
+                                key={model.key}
+                                className="flex cursor-pointer items-start gap-3 rounded-md px-1 py-2 hover:bg-background-secondary"
+                              >
+                                <input
+                                  type="radio"
+                                  name="auxiliary-image-model"
+                                  aria-label={model.name || model.id}
+                                  checked={selectedVisionKey === model.key}
+                                  onChange={() => {
+                                    setVisionRoute({
+                                      enabled: true,
+                                      mode: 'auto',
+                                      providerId: model.providerId,
+                                      modelId: model.id,
+                                    });
+                                    setOperationError('');
+                                  }}
+                                  className="mt-1 shrink-0 accent-black dark:accent-white"
+                                />
+                                <span className="min-w-0 text-sm text-text-primary">
+                                  <span className="block break-words">{model.name || model.id}</span>
+                                  {model.name && model.name !== model.id && (
+                                    <span className="block break-words text-xs text-text-secondary">
+                                      {model.id}
+                                    </span>
+                                  )}
+                                </span>
+                              </label>
+                            ))}
+                          </div>
+                        );
+                      })}
+                    </SearchableChoiceList>
                     {visionModels.length === 0 && (
                       <p role="status" className="text-sm text-text-secondary">
                         {intl.formatMessage(
@@ -1113,17 +1117,17 @@ export function CodeProModelModal({
                 </div>
                 {advancedRoutingEnabled || visionOnly ? (
                   <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-                    <select
+                    <SearchableSelect
                       aria-label={intl.formatMessage(i18n.providerLabel, {
                         role: intl.formatMessage(i18n.visionAgent),
                       })}
                       value={visionRoute.providerId ?? ''}
-                      onChange={(event) => {
-                        if (event.target.value === CONFIGURE_PROVIDER_VALUE) {
+                      onValueChange={(nextValue) => {
+                        if (nextValue === CONFIGURE_PROVIDER_VALUE) {
                           onConfigureProvider?.();
                           return;
                         }
-                        if (!event.target.value) {
+                        if (!nextValue) {
                           setVisionRoute({ enabled: false, mode: 'disabled' });
                           return;
                         }
@@ -1131,7 +1135,7 @@ export function CodeProModelModal({
                           ...visionRoute,
                           enabled: true,
                           mode: 'auto',
-                          providerId: event.target.value,
+                          providerId: nextValue,
                           modelId: undefined,
                         });
                       }}
@@ -1159,17 +1163,17 @@ export function CodeProModelModal({
                       <option value={CONFIGURE_PROVIDER_VALUE}>
                         {intl.formatMessage(i18n.useAnotherProvider)}
                       </option>
-                    </select>
-                    <select
+                    </SearchableSelect>
+                    <SearchableSelect
                       aria-label={intl.formatMessage(i18n.visionModelLabel)}
                       value={visionRoute.providerId ? (visionRoute.modelId ?? '') : ''}
                       disabled={!visionRoute.providerId || visionChecking}
-                      onChange={(event) => {
+                      onValueChange={(nextValue) => {
                         if (!visionRoute.providerId) return;
                         setVisionRoute({
                           ...visionRoute,
                           providerId: visionRoute.providerId,
-                          modelId: event.target.value || undefined,
+                          modelId: nextValue || undefined,
                         });
                       }}
                       className="h-10 rounded-md border border-border-primary bg-background-primary px-3 text-sm text-text-primary disabled:opacity-100"
@@ -1203,7 +1207,7 @@ export function CodeProModelModal({
                               {model.name || model.id}
                             </option>
                           ))}
-                    </select>
+                    </SearchableSelect>
                     <p className="text-xs text-text-secondary sm:col-span-2">
                       {intl.formatMessage(i18n.visionSupportedOnly)}
                     </p>

@@ -1,3 +1,4 @@
+import { SearchableSelect, SHORT_LIST_LIMIT } from '../../ui/SearchableSelect';
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { ChevronDown, Mic } from 'lucide-react';
 import { Button } from '../../ui/button';
@@ -201,27 +202,42 @@ export const MicrophoneSelector = ({
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <DropdownMenu>
-            <DropdownMenuTrigger className="flex items-center gap-2 px-3 py-1.5 text-sm border border-border-primary rounded-md hover:border-border-primary transition-colors text-text-primary bg-background-primary max-w-[220px]">
-              <span className="truncate">{selectedLabel()}</span>
-              <ChevronDown className="w-4 h-4 shrink-0" />
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-max min-w-[250px] max-w-[350px]">
-              <DropdownMenuRadioGroup
-                value={selectedDeviceId ?? 'system_default'}
-                onValueChange={(v) => onDeviceChange(v === 'system_default' ? null : v)}
+          {devices.length + 1 > SHORT_LIST_LIMIT ? (
+            <div className="w-52">
+              <SearchableSelect
+                aria-label={intl.formatMessage(i18n.microphone)}
+                value={devices.some((device) => device.deviceId === selectedDeviceId) ? selectedDeviceId! : 'system_default'}
+                onValueChange={(id) => onDeviceChange(id === 'system_default' ? null : id)}
               >
-                <DropdownMenuRadioItem value="system_default">
-                  {intl.formatMessage(i18n.systemDefault)}
-                </DropdownMenuRadioItem>
-                {devices.map((device, i) => (
-                  <DropdownMenuRadioItem key={device.deviceId} value={device.deviceId}>
-                    <span className="truncate">{getDeviceLabel(device, i)}</span>
-                  </DropdownMenuRadioItem>
+                <option value="system_default">{intl.formatMessage(i18n.systemDefault)}</option>
+                {devices.map((device, index) => (
+                  <option key={device.deviceId} value={device.deviceId}>{getDeviceLabel(device, index)}</option>
                 ))}
-              </DropdownMenuRadioGroup>
-            </DropdownMenuContent>
-          </DropdownMenu>
+              </SearchableSelect>
+            </div>
+          ) : (
+            <DropdownMenu>
+              <DropdownMenuTrigger className="flex items-center gap-2 px-3 py-1.5 text-sm border border-border-primary rounded-md hover:border-border-primary transition-colors text-text-primary bg-background-primary max-w-[220px]">
+                <span className="truncate">{selectedLabel()}</span>
+                <ChevronDown className="w-4 h-4 shrink-0" />
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-max min-w-[250px] max-w-[350px]">
+                <DropdownMenuRadioGroup
+                  value={selectedDeviceId ?? 'system_default'}
+                  onValueChange={(v) => onDeviceChange(v === 'system_default' ? null : v)}
+                >
+                  <DropdownMenuRadioItem value="system_default">
+                    {intl.formatMessage(i18n.systemDefault)}
+                  </DropdownMenuRadioItem>
+                  {devices.map((device, i) => (
+                    <DropdownMenuRadioItem key={device.deviceId} value={device.deviceId}>
+                      <span className="truncate">{getDeviceLabel(device, i)}</span>
+                    </DropdownMenuRadioItem>
+                  ))}
+                </DropdownMenuRadioGroup>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )}
           <Button
             variant="outline"
             size="sm"

@@ -5250,7 +5250,7 @@
     "defaultMessage": "Custom model connections"
   },
   "modelsAndRuntime.customConnectionsDescription": {
-    "defaultMessage": "Connect a local, LAN, or self-hosted endpoint. Built-in vendor catalogues stay out of everyday settings."
+    "defaultMessage": "Manage local, LAN and self-hosted model connections."
   },
   "modelsAndRuntime.generation": {
     "defaultMessage": "Image and video generation"
@@ -5277,7 +5277,7 @@
     "defaultMessage": "Image understanding"
   },
   "modelsAndRuntime.visionDescription": {
-    "defaultMessage": "Use the main model first, with a backup when needed."
+    "defaultMessage": "Choose which model reads images and screenshots."
   },
   "modelsBottomBar.cachedList": {
     "defaultMessage": "Showing the last saved list."

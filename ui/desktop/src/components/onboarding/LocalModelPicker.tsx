@@ -1,3 +1,4 @@
+import { SearchableChoiceList } from '../ui/SearchableChoiceList';
 import { useState, useEffect, useCallback, useRef } from 'react';
 import {
   listLocalModels,
@@ -363,41 +364,43 @@ export default function LocalModelPicker({ onConfigured }: LocalModelPickerProps
 
                 {showAllModels && (
                   <div className="mt-2 space-y-2">
-                    {otherModels.map((model) => (
-                      <div
-                        key={model.id}
-                        onClick={() => setSelectedModelId(model.id)}
-                        className={`w-full p-4 border rounded-lg cursor-pointer transition-all duration-200 ${
-                          selectedModelId === model.id
-                            ? 'border-blue-500 bg-blue-500/5'
-                            : 'border-border-subtle hover:border-border-default'
-                        }`}
-                      >
-                        <div className="flex items-start gap-3">
-                          <input
-                            type="radio"
-                            checked={selectedModelId === model.id}
-                            onChange={() => setSelectedModelId(model.id)}
-                            className="cursor-pointer flex-shrink-0 mt-0.5"
-                          />
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2 flex-wrap">
-                              <span className="font-medium text-text-default text-sm">
-                                {model.id}
-                              </span>
-                              <span className="text-xs text-text-muted">
-                                {formatSize(model.sizeBytes)}
-                              </span>
-                              {model.status.state === 'Downloaded' && (
-                                <span className="text-xs bg-green-600 text-white px-2 py-0.5 rounded-full">
-                                  {intl.formatMessage(i18n.ready)}
+                    <SearchableChoiceList items={otherModels} searchText={(model) => model.id}>
+                      {(visible) => visible.map((model) => (
+                        <div
+                          key={model.id}
+                          onClick={() => setSelectedModelId(model.id)}
+                          className={`w-full p-4 border rounded-lg cursor-pointer transition-all duration-200 ${
+                            selectedModelId === model.id
+                              ? 'border-blue-500 bg-blue-500/5'
+                              : 'border-border-subtle hover:border-border-default'
+                          }`}
+                        >
+                          <div className="flex items-start gap-3">
+                            <input
+                              type="radio"
+                              checked={selectedModelId === model.id}
+                              onChange={() => setSelectedModelId(model.id)}
+                              className="cursor-pointer flex-shrink-0 mt-0.5"
+                            />
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <span className="font-medium text-text-default text-sm">
+                                  {model.id}
                                 </span>
-                              )}
+                                <span className="text-xs text-text-muted">
+                                  {formatSize(model.sizeBytes)}
+                                </span>
+                                {model.status.state === 'Downloaded' && (
+                                  <span className="text-xs bg-green-600 text-white px-2 py-0.5 rounded-full">
+                                    {intl.formatMessage(i18n.ready)}
+                                  </span>
+                                )}
+                              </div>
                             </div>
                           </div>
                         </div>
-                      </div>
-                    ))}
+                      ))}
+                    </SearchableChoiceList>
                   </div>
                 )}
               </div>

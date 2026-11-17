@@ -109,4 +109,20 @@ describe('image capability settings', () => {
     expect(screen.queryByRole('alert')).toBeNull();
     expect(saveModelCapabilityOverrides).not.toHaveBeenCalled();
   });
+  it('can correct a saved model on its own connection when live discovery is unavailable', async () => {
+    const cached = { ...providers[0], metadata: { ...providers[0].metadata,
+      known_models: [{ name: 'vision-local', context_limit: 65536 }] } };
+    vi.mocked(readModelCapabilityOverrides).mockResolvedValue({ version: 1, overrides: [other] });
+    vi.mocked(acpListProviderModels).mockRejectedValueOnce(new Error('offline'));
+    render(<ModelImageCapabilitySettings providers={[cached, providers[1]]} />, { wrapper: IntlTestWrapper });
+    fireEvent.change(screen.getByLabelText('Model connection'), { target: { value: 'one' } });
+    await screen.findByText('Showing the last saved list.');
+    fireEvent.change(screen.getByLabelText('Model'), { target: { value: 'vision-local' } });
+    fireEvent.change(screen.getByLabelText('Image input capability'), { target: { value: 'force_supported' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Save capability correction' }));
+    await screen.findByRole('status');
+    expect(saveModelCapabilityOverrides).toHaveBeenCalledWith({ version: 1, overrides: [
+      other, { providerId: 'one', modelId: 'vision-local', imageInput: 'force_supported' },
+    ] });
+  });
 });

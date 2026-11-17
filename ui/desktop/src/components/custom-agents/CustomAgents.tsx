@@ -1,3 +1,4 @@
+import { WorkspacePageTitle } from '../Layout/WorkspacePageTitle';
 import { buttonVariants } from '../ui/button';
 import { AppEvents } from '../../constants/events';
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
@@ -22,11 +23,11 @@ function AgentCard({ profile, description, tags, applyLabel, applyAriaLabel, dis
   profile: Profile; description: string; tags: string[];
   applyLabel: string; applyAriaLabel?: string; disabled: boolean; onApply: () => void; confirmation?: ReactNode; children: ReactNode;
 }) {
-  return <article className="flex min-w-0 flex-col gap-3 rounded-xl border border-border-primary px-5 py-4">
-    <div className="flex items-center gap-3"><span className="flex size-12 shrink-0 items-center justify-center rounded-lg bg-background-secondary text-2xl"><AgentAvatar avatar={profile.avatar} /></span><h3 className="min-w-0 break-words text-base font-medium">{profile.name}</h3></div>
+  return <article className="flex min-w-0 flex-col gap-2.5 rounded-xl border border-border-primary bg-background-primary p-4">
+    <div className="flex items-center gap-3"><span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-background-secondary text-lg"><AgentAvatar avatar={profile.avatar} /></span><h3 className="min-w-0 break-words text-sm font-semibold">{profile.name}</h3></div>
     <p className="line-clamp-2 h-10 overflow-hidden text-sm leading-5 text-text-secondary" title={description}>{description}</p>
     <ul aria-label="适用领域" className="flex min-h-7 flex-wrap gap-1.5">{tags.map(tag => <li key={tag} className="rounded bg-background-secondary px-2 py-1 text-xs text-text-secondary">{tag}</li>)}</ul>
-    <div className="mt-auto flex items-center justify-between gap-3 pt-1"><button disabled={disabled} className="inline-flex shrink-0 items-center justify-center rounded-lg border border-border-primary px-3 py-1.5 text-sm hover:bg-background-secondary disabled:opacity-50" aria-label={applyAriaLabel} onClick={onApply}>{applyLabel}</button><div className="flex min-w-0 items-center gap-3 text-sm">{children}</div></div>
+    <div className="mt-auto flex flex-wrap items-center gap-2 border-t border-border-primary pt-3"><button disabled={disabled} className="inline-flex shrink-0 items-center justify-center rounded-lg border border-border-primary px-3 py-1.5 text-sm hover:bg-background-secondary disabled:opacity-50" aria-label={applyAriaLabel} onClick={onApply}>{applyLabel}</button><div className="ml-auto flex min-w-0 flex-wrap items-center gap-2 text-sm">{children}</div></div>
     {confirmation}
   </article>;
 }
@@ -125,8 +126,9 @@ export function CustomAgents() {
   }
   function update<K extends keyof Profile>(key: K, value: Profile[K]) { setDraft(d => d ? { ...d, [key]: value } : d); }
   return <main className="h-full overflow-y-auto bg-background-primary text-text-primary">
-    <div className="mx-auto max-w-6xl space-y-6 px-5 py-8 md:px-10">
-      <header className="flex flex-wrap items-start justify-between gap-4"><div><h1 className="flex items-center gap-3 app-page-heading"><Bot className="size-5" />自定义智能体</h1><p className="mt-2 max-w-2xl text-sm text-text-secondary">为不同工作配置专属助手，在同一对话中随时选用、切换或恢复默认助手。</p></div>
+    <div className="mx-auto max-w-6xl space-y-5 px-4 py-6 sm:px-8">
+      <header className="flex flex-wrap items-start justify-between gap-3 border-b border-border-primary pb-4">
+        <WorkspacePageTitle icon={Bot} description="为不同工作配置专属助手，在同一对话中随时选用、切换或恢复默认助手。">自定义智能体</WorkspacePageTitle>
         <div className="flex flex-wrap gap-2"><button className={buttonClass} onClick={() => navigate(returnPath)}><ArrowLeft size={16} />{sessionId ? '返回对话' : '返回新对话'}</button>{!draft && <button className={buttonClass} disabled={!catalog || busy} onClick={() => { setDraft(blank()); setNotice(''); setError(''); }}><Plus size={16} />新建智能体</button>}</div>
       </header>
       {error && <div role="alert" className="rounded-xl border border-red-400/40 p-4 text-sm">{error} <button className="ml-3 underline" onClick={() => void load()} disabled={busy}>重新加载</button></div>}
@@ -153,7 +155,7 @@ export function CustomAgents() {
       </form> : <>
         {!!catalog?.presets?.length && <section aria-labelledby="agent-presets-heading" className="space-y-4">
           <div><h2 id="agent-presets-heading" className="text-base font-medium">默认模板</h2><p className="mt-1 text-sm text-text-secondary">直接应用即可使用，也可自定义后保存。配套技能会随角色加载，模型与权限沿用当前对话。</p></div>
-          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">{catalog.presets.map(preset => <AgentCard key={preset.key}
+          <div className="grid grid-cols-[repeat(auto-fill,minmax(min(100%,18rem),1fr))] gap-3">{catalog.presets.map(preset => <AgentCard key={preset.key}
             profile={preset.profile} description={preset.description} tags={preset.tags}
             applyLabel={applyLabel} applyAriaLabel={`${applyLabel} ${preset.profile.name}`} disabled={busy || !targetReady || legacy}
             onApply={() => void run(current => applyProfile(preset.profile, current))}>
@@ -162,7 +164,7 @@ export function CustomAgents() {
         </section>}
         {!busy && catalog && !profiles.length && !catalog.presets?.length && <div className="rounded-2xl border border-dashed border-border-primary px-6 py-16 text-center"><Bot className="mx-auto mb-4 text-text-secondary" size={40} /><h2 className="text-lg font-medium">创建你的第一个智能体</h2><p className="mt-2 text-sm text-text-secondary">写作、研究、设计或开发，为不同工作准备专属搭档。</p></div>}
         {!!profiles.length && <h2 className="pt-2 text-base font-medium">我的智能体</h2>}
-        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">{profiles.map(profile => <AgentCard key={profile.id}
+        <div className="grid grid-cols-[repeat(auto-fill,minmax(min(100%,18rem),1fr))] gap-3">{profiles.map(profile => <AgentCard key={profile.id}
           profile={profile} description={profile.prompt} tags={[profile.capabilities === 'inherit' ? '自定义智能体' : '保留原有能力限制']}
           applyLabel={applyLabel} applyAriaLabel={`${applyLabel} ${profile.name}`} disabled={busy || !targetReady || legacy} onApply={() => void run(current => applyProfile(profile, current))}
           confirmation={deleteId === profile.id && <div className="space-y-3 border-t border-border-primary pt-3 text-sm"><p>删除此智能体？已有对话及已选角色版本会保留。</p><div className="flex gap-4"><button disabled={busy} onClick={() => void run(async () => { await request('delete', { id: profile.id }); window.dispatchEvent(new Event(AppEvents.AGENT_PROFILES_CHANGED)); setProfiles(items => items.filter(p => p.id !== profile.id)); setDeleteId(undefined); })}>确认删除</button><button onClick={() => setDeleteId(undefined)}>取消删除</button></div></div>}>

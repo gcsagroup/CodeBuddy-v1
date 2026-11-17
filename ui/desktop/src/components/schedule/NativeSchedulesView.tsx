@@ -1,3 +1,4 @@
+import { WorkspacePageTitle } from '../Layout/WorkspacePageTitle';
 import { buttonVariants } from '../ui/button';
 import { useMemo, useState } from 'react';
 import { CalendarClock, Clock3, Plus, Search } from 'lucide-react';
@@ -30,10 +31,10 @@ export default function NativeSchedulesView(_props: { onClose: () => void }) {
     [catalog.records, filter, query]
   );
   return (
-    <main className="h-full overflow-y-auto bg-background-primary px-5 pb-8 pt-14 text-text-primary sm:px-10">
-      <div className="mx-auto max-w-5xl">
-        <div className="mb-6 flex items-center justify-between gap-4">
-          <h1 className="app-page-heading flex items-center gap-2"><CalendarClock className="size-5" aria-hidden="true" />{intl.formatMessage(m.title)}</h1>
+    <main className="h-full overflow-y-auto bg-background-primary px-4 py-6 text-text-primary sm:px-8">
+      <div className="mx-auto max-w-6xl">
+        <div className="mb-5 flex flex-wrap items-start justify-between gap-3 border-b border-border-primary pb-4">
+          <WorkspacePageTitle icon={CalendarClock}>{intl.formatMessage(m.title)}</WorkspacePageTitle>
           <button
             type="button"
             onClick={() =>
@@ -49,33 +50,35 @@ export default function NativeSchedulesView(_props: { onClose: () => void }) {
             {intl.formatMessage(m.new)}
           </button>
         </div>
-        <div
-          role="tablist"
-          aria-label={intl.formatMessage(m.title)}
-          className="mb-4 flex gap-3 text-sm"
-        >
-          {(['all', 'active', 'paused', 'inactive'] as const).map((value) => (
-            <button
-              key={value}
-              type="button"
-              role="tab"
-              aria-selected={filter === value}
-              onClick={() => setFilter(value)}
-              className={`rounded-xl px-3 py-1.5 ${filter === value ? 'bg-background-secondary text-text-primary' : 'text-text-secondary hover:text-text-primary'}`}
-            >
-              {intl.formatMessage(m[value])}
-            </button>
-          ))}
-        </div>
-        <div className="mb-4 flex h-10 items-center gap-2 rounded-xl border border-border-primary px-3 text-text-secondary">
-          <Search className="size-4 shrink-0" />
-          <input
-            aria-label={intl.formatMessage(m.search)}
-            placeholder={intl.formatMessage(m.search)}
-            value={query}
-            onChange={(event) => setQuery(event.target.value)}
-            className="min-w-0 flex-1 bg-transparent text-sm text-text-primary outline-none placeholder:text-text-secondary"
-          />
+        <div className="mb-4 flex flex-wrap items-center gap-3">
+          <div
+            role="tablist"
+            aria-label={intl.formatMessage(m.title)}
+            className="flex max-w-full flex-wrap gap-1 rounded-lg bg-background-secondary p-1 text-sm"
+          >
+            {(['all', 'active', 'paused', 'inactive'] as const).map((value) => (
+              <button
+                key={value}
+                type="button"
+                role="tab"
+                aria-selected={filter === value}
+                onClick={() => setFilter(value)}
+                className={`rounded-md px-3 py-1.5 ${filter === value ? 'bg-background-primary font-medium text-text-primary shadow-sm' : 'text-text-secondary hover:text-text-primary'}`}
+              >
+                {intl.formatMessage(m[value])}
+              </button>
+            ))}
+          </div>
+          <div className="flex h-9 min-w-40 flex-1 items-center gap-2 rounded-lg border border-border-primary px-3 text-text-secondary focus-within:ring-1 focus-within:ring-ring">
+            <Search className="size-4 shrink-0" />
+            <input
+              aria-label={intl.formatMessage(m.search)}
+              placeholder={intl.formatMessage(m.search)}
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+              className="min-w-0 flex-1 bg-transparent text-sm text-text-primary outline-none placeholder:text-text-secondary"
+            />
+          </div>
         </div>
         {catalog.status === 'error' && (
           <div role="alert" className="mb-3 text-sm text-text-danger">
@@ -97,17 +100,17 @@ export default function NativeSchedulesView(_props: { onClose: () => void }) {
         {catalog.status === 'ready' && !visible.length && (
           <p className="px-3 py-5 text-sm text-text-secondary">{intl.formatMessage(m.empty)}</p>
         )}
-        <div className="space-y-1">
+        <div className="divide-y divide-border-primary overflow-hidden rounded-xl has-[button]:border has-[button]:border-border-primary">
           {visible.map((record) => (
             <button
               key={record.id}
               type="button"
               onClick={() => openNativeSchedule(record.id)}
-              className="flex w-full gap-3 rounded-xl px-3 py-4 text-left hover:bg-background-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-primary"
+              className="flex w-full items-start gap-3 px-4 py-3 text-left hover:bg-background-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-primary"
             >
-              <Clock3 className="mt-0.5 size-4 shrink-0 text-text-secondary" />
+              <span className="grid size-8 shrink-0 place-items-center rounded-lg bg-background-secondary"><Clock3 className="size-4 text-text-secondary" aria-hidden="true" /></span>
               <div className="min-w-0 flex-1">
-                <div className="truncate text-sm">{record.title}</div>
+                <div className="break-words text-sm font-medium">{record.title}</div>
                 <div className="mt-1 text-xs leading-5 text-text-secondary">
                   {formatNativeSchedule(record, intl)} ·{' '}
                   {record.status === 'active'

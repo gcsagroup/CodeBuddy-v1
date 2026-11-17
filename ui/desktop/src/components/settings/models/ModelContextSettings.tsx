@@ -1,4 +1,6 @@
-import { useEffect, useMemo, useState } from 'react';
+import { selectNativeText } from '../../../utils/nativeLocalization';
+import { SearchableSelect } from '../../ui/SearchableSelect';
+import { useEffect, useId, useMemo, useState } from 'react';
 import type { ProviderDetails } from '../../../types/providers';
 import { acpReadProviderConfig, acpSaveProviderConfig } from '../../../acp/providers';
 import { useIntl } from '../../../i18n';
@@ -7,6 +9,7 @@ import { Input } from '../../ui/input';
 
 export default function ModelContextSettings({ providers }: { providers: ProviderDetails[] }) {
   const { locale } = useIntl();
+  const fieldId = useId();
   const zh = locale.startsWith('zh');
   const [selection, setSelection] = useState('');
   const [value, setValue] = useState('');
@@ -150,66 +153,106 @@ export default function ModelContextSettings({ providers }: { providers: Provide
       setBusy(false);
     }
   };
-  if (!choices.length) return null;
+  if (!choices.length)
+    return (
+      <section className="runtime-sheet space-y-2">
+        <h3 className="runtime-title">
+          {selectNativeText(locale, 'Context capacity', '上下文容量', '上下文容量')}
+        </h3>
+        <p className="text-sm text-text-secondary">
+          {selectNativeText(
+            locale,
+            'A model from a configured connection is required.',
+            '需要先在「模型与连接」中配置一个模型。',
+            '需要先在「模型與連線」中設定一個模型。'
+          )}
+        </p>
+      </section>
+    );
   return (
-    <section className="space-y-3 rounded-lg border p-4">
-      <h3 className="font-medium">{zh ? '模型上下文容量' : 'Model context capacity'}</h3>
+    <section className="runtime-sheet space-y-4">
+      <h3 className="runtime-title">{zh ? '模型上下文容量' : 'Model context capacity'}</h3>
       <p className="text-sm text-text-muted">
         {zh
           ? '优先读取服务容量。缺少信息时可填写部署的实际上限；留空恢复自动识别。CodeBuddy 按此预算检查压缩。'
           : 'Uses service capacity. Enter the deployment limit when metadata is missing; leave blank for automatic discovery. CodeBuddy checks compaction against this budget.'}
       </p>
-      <select
-        aria-label={zh ? '上下文容量模型' : 'Context capacity model'}
-        value={selection}
-        disabled={busy}
-        onChange={(e) => setSelection(e.target.value)}
-        className="w-full rounded border bg-background-default p-2"
-      >
-        {choices.map((c) => (
-          <option key={c.key} value={c.key}>
-            {c.label}
-          </option>
-        ))}
-      </select>
-      <Input
-        aria-label={zh ? '上下文容量 tokens' : 'Context capacity tokens'}
-        type="number"
-        min={8192}
-        max={10000000}
-        step={1}
-        value={value}
-        disabled={!ready || busy}
-        onChange={(e) => setValue(e.target.value)}
-        placeholder={zh ? '自动识别' : 'Automatic'}
-      />
-      <Button disabled={busy || !ready} onClick={() => void save()}>
-        {zh ? '保存容量' : 'Save capacity'}
-      </Button>
+      <div className="space-y-1.5">
+        <label htmlFor={fieldId} className="text-sm font-semibold">
+          {selectNativeText(locale, 'Model', '模型', '模型')}
+        </label>
+        <SearchableSelect
+          id={fieldId}
+          aria-label={zh ? '上下文容量模型' : 'Context capacity model'}
+          value={selection}
+          disabled={busy}
+          onValueChange={(nextValue) => setSelection(nextValue)}
+          className="w-full rounded border bg-background-default p-2"
+        >
+          {choices.map((c) => (
+            <option key={c.key} value={c.key}>
+              {c.label}
+            </option>
+          ))}
+        </SearchableSelect>
+      </div>
+      <div className="runtime-budget">
+        <label htmlFor={fieldId + '-capacity'}>
+          {selectNativeText(
+            locale,
+            'Context limit (tokens)',
+            '上下文上限（tokens）',
+            '上下文上限（tokens）'
+          )}
+        </label>
+        <div className="flex flex-wrap items-center gap-2">
+          <Input
+            id={fieldId + '-capacity'}
+            className="min-w-32 flex-1"
+            aria-label={zh ? '上下文容量 tokens' : 'Context capacity tokens'}
+            type="number"
+            min={8192}
+            max={10000000}
+            step={1}
+            value={value}
+            disabled={!ready || busy}
+            onChange={(e) => setValue(e.target.value)}
+            placeholder={zh ? '自动识别' : 'Automatic'}
+          />
+          <Button disabled={busy || !ready} onClick={() => void save()}>
+            {zh ? '保存容量' : 'Save capacity'}
+          </Button>
+        </div>
+      </div>
       <p role="status" className="text-sm text-text-muted">
         {status}
       </p>
-      <div className="space-y-3 border-t pt-3">
-        <h4 className="font-medium">{zh ? '单次输出额度' : 'Single-response output budget'}</h4>
+      <div className="runtime-budget border-t border-border-subtle pt-4">
+        <h4 className="text-sm font-semibold">
+          {zh ? '单次输出额度' : 'Single-response output budget'}
+        </h4>
         <p className="text-sm text-text-muted">
           {zh
             ? '限制一次模型调用的输出，部分模型的思考也计入其中。留空使用自动值，最终额度还受剩余上下文空间影响。'
             : 'Limits one model response, including reasoning on some models. Leave blank for automatic defaults; the remaining context may further limit the response.'}
         </p>
-        <Input
-          aria-label={zh ? '单次输出额度 tokens' : 'Output budget tokens'}
-          type="number"
-          min={1}
-          max={outputCapacity ?? undefined}
-          step={1}
-          value={outputValue}
-          disabled={!outputReady || busy}
-          onChange={(e) => setOutputValue(e.target.value)}
-          placeholder={zh ? '自动' : 'Automatic'}
-        />
-        <Button disabled={busy || !outputReady} onClick={() => void saveOutput()}>
-          {zh ? '保存输出额度' : 'Save output budget'}
-        </Button>
+        <div className="flex flex-wrap items-center gap-2">
+          <Input
+            className="min-w-32 flex-1"
+            aria-label={zh ? '单次输出额度 tokens' : 'Output budget tokens'}
+            type="number"
+            min={1}
+            max={outputCapacity ?? undefined}
+            step={1}
+            value={outputValue}
+            disabled={!outputReady || busy}
+            onChange={(e) => setOutputValue(e.target.value)}
+            placeholder={zh ? '自动' : 'Automatic'}
+          />
+          <Button disabled={busy || !outputReady} onClick={() => void saveOutput()}>
+            {zh ? '保存输出额度' : 'Save output budget'}
+          </Button>
+        </div>
         <p role="status" className="text-sm text-text-muted">
           {outputStatus}
         </p>

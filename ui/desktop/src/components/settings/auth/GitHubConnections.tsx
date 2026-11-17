@@ -345,8 +345,8 @@ export default function GitHubConnections({
     }
   };
   return (
-    <div className="space-y-3 py-3 text-sm">
-      <div aria-live="polite">
+    <div className="flex flex-wrap items-center gap-x-4 gap-y-3 py-4 text-sm">
+      <div aria-live="polite" className="min-w-0 flex-1 basis-56 break-words">
         {status && (
           <p>
             {intl.formatMessage(
@@ -393,7 +393,7 @@ export default function GitHubConnections({
         !challenge &&
         !checking &&
         !connectingMcp && (
-          <div className="space-y-2">
+          <div className="min-w-0 max-w-full space-y-2">
             <Button
               size="sm"
               variant="outline"
@@ -405,7 +405,7 @@ export default function GitHubConnections({
                 : t('Connect GitHub', '连接 GitHub', '連線 GitHub')}
             </Button>
             {mcpConnectError && (
-              <p role="alert" className="text-sm text-red-600">
+              <p role="alert" className="max-w-xs text-sm text-red-700 dark:text-red-300">
                 {mcpConnectError === 'account_changed'
                   ? t(
                       'The account changed. Check the connection and try again.',
@@ -428,7 +428,7 @@ export default function GitHubConnections({
           </div>
         )}
       {challenge ? (
-        <div className="space-y-2">
+        <div className="w-full space-y-3 rounded-lg border border-border-primary bg-background-secondary p-3">
           <p>{intl.formatMessage(messages.instructions)}</p>
           <code className="block select-all font-mono text-lg">{challenge.userCode}</code>
           <div className="flex flex-wrap gap-2">
@@ -506,12 +506,12 @@ export default function GitHubConnections({
         </div>
       )}
       {failed && (
-        <p role="alert" className="text-red-700 dark:text-red-300">
+        <p role="alert" className="w-full text-red-700 dark:text-red-300">
           {intl.formatMessage(messages.loginFailed)}
         </p>
       )}
       {logoutFailed && (
-        <p role="alert" className="text-red-700 dark:text-red-300">
+        <p role="alert" className="w-full text-red-700 dark:text-red-300">
           {intl.formatMessage(messages.logoutFailed)}
         </p>
       )}

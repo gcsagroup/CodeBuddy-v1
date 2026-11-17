@@ -1,3 +1,5 @@
+import './runtime-settings.css';
+import { selectNativeText } from '../../../utils/nativeLocalization';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Bot, Image, ScanEye, SlidersHorizontal, Plug, RefreshCw, Layers3 } from 'lucide-react';
 import type { View } from '../../../utils/navigationUtils';
@@ -7,9 +9,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../..
 import { acpListProviderDetails } from '../../../acp/providers';
 import type { ProviderDetails } from '../../../types/providers';
 import SubagentTemplateSettings from './SubagentTemplateSettings';
-import { CodeProModelModal } from '../../codepro/CodeProModelModal';
 import ProviderGrid from '../providers/ProviderGrid';
-import ModelImageCapabilitySettings from './ModelImageCapabilitySettings';
+import VisionSettings from './VisionSettings';
 import ModelContextSettings from './ModelContextSettings';
 import CompactionSettings from './CompactionSettings';
 import ImageGenerationSettings from './ImageGenerationSettings';
@@ -26,7 +27,7 @@ const i18n = defineMessages({
   vision: { id: 'modelsAndRuntime.vision', defaultMessage: 'Image understanding' },
   visionDescription: {
     id: 'modelsAndRuntime.visionDescription',
-    defaultMessage: 'Use the main model first, with a backup when needed.',
+    defaultMessage: 'Choose which model reads images and screenshots.',
   },
   generation: { id: 'modelsAndRuntime.generation', defaultMessage: 'Image and video generation' },
   generationDescription: {
@@ -65,8 +66,7 @@ const i18n = defineMessages({
   },
   customConnectionsDescription: {
     id: 'modelsAndRuntime.customConnectionsDescription',
-    defaultMessage:
-      'Connect a local, LAN, or self-hosted endpoint. Built-in vendor catalogues stay out of everyday settings.',
+    defaultMessage: 'Manage local, LAN and self-hosted model connections.',
   },
   loadingConnections: {
     id: 'modelsAndRuntime.loadingConnections',
@@ -95,7 +95,6 @@ export default function ModelsAndRuntimeSettings({
   active = true,
 }: ModelsAndRuntimeSettingsProps) {
   const intl = useIntl();
-  const [visionSettingsOpen, setVisionSettingsOpen] = useState(false);
   const [subagentDirty, setSubagentDirty] = useState(false);
   const [compactionDirty, setCompactionDirty] = useState(false);
   useEffect(() => {
@@ -106,9 +105,6 @@ export default function ModelsAndRuntimeSettings({
   const [connectionsLoading, setConnectionsLoading] = useState(true);
   const [connectionsFailed, setConnectionsFailed] = useState(false);
   const [connectionsLoaded, setConnectionsLoaded] = useState(false);
-  useEffect(() => {
-    if (!active) setVisionSettingsOpen(false);
-  }, [active]);
 
   const loadCustomConnections = useCallback(async () => {
     setConnectionsLoading(true);
@@ -135,6 +131,30 @@ export default function ModelsAndRuntimeSettings({
     [providers]
   );
 
+  const connectionFeedback = (
+    <>
+      {connectionsLoading && !connectionsLoaded && (
+        <p role="status" className="py-6 text-center text-sm text-text-muted">
+          {intl.formatMessage(i18n.loadingConnections)}
+        </p>
+      )}
+      {connectionsFailed && (
+        <div
+          role="alert"
+          className="flex items-center justify-between gap-4 rounded-md border border-yellow-500/30 bg-yellow-500/5 p-4"
+        >
+          <p className="text-sm text-yellow-700">
+            {intl.formatMessage(i18n.connectionsUnavailable)}
+          </p>
+          <Button variant="outline" size="sm" onClick={() => void loadCustomConnections()}>
+            <RefreshCw className="h-4 w-4" />
+            {intl.formatMessage(i18n.retry)}
+          </Button>
+        </div>
+      )}
+    </>
+  );
+
   const connections = (
     <div className="space-y-4 pb-8">
       <Card className="rounded-lg">
@@ -143,22 +163,7 @@ export default function ModelsAndRuntimeSettings({
           <CardDescription>{intl.formatMessage(i18n.customConnectionsDescription)}</CardDescription>
         </CardHeader>
         <CardContent>
-          {connectionsLoading && !connectionsLoaded && (
-            <p className="py-6 text-center text-sm text-text-muted">
-              {intl.formatMessage(i18n.loadingConnections)}
-            </p>
-          )}
-          {connectionsFailed && (
-            <div className="flex items-center justify-between gap-4 rounded-md border border-yellow-500/30 bg-yellow-500/5 p-4">
-              <p className="text-sm text-yellow-700">
-                {intl.formatMessage(i18n.connectionsUnavailable)}
-              </p>
-              <Button variant="outline" size="sm" onClick={() => void loadCustomConnections()}>
-                <RefreshCw className="h-4 w-4" />
-                {intl.formatMessage(i18n.retry)}
-              </Button>
-            </div>
-          )}
+          {connectionFeedback}
           {connectionsLoaded && (
             <ProviderGrid
               providers={customProviders}
@@ -179,8 +184,22 @@ export default function ModelsAndRuntimeSettings({
     </div>
   );
   return (
-    <>
+    <div className="runtime-settings">
       <SettingsMenu
+        groups={[
+          {
+            title: selectNativeText(intl.locale, 'Model services', '模型服务', '模型服務'),
+            ids: ['connections', 'generation'],
+          },
+          {
+            title: selectNativeText(intl.locale, 'Model roles', '模型分工', '模型分工'),
+            ids: ['vision', 'subagents'],
+          },
+          {
+            title: selectNativeText(intl.locale, 'Context', '上下文', '上下文'),
+            ids: ['compaction', 'context'],
+          },
+        ]}
         visible={active}
         items={[
           {
@@ -212,17 +231,7 @@ export default function ModelsAndRuntimeSettings({
             title: intl.formatMessage(i18n.vision),
             description: intl.formatMessage(i18n.visionDescription),
             icon: <ScanEye className="h-5 w-5" />,
-            content: (
-              <div className="space-y-4">
-                <p className="text-sm text-text-secondary">
-                  {intl.formatMessage(i18n.visionDescription)}
-                </p>
-                <Button variant="outline" onClick={() => setVisionSettingsOpen(true)}>
-                  {intl.formatMessage(i18n.auxiliaryVision)}
-                </Button>
-                <ModelImageCapabilitySettings providers={customProviders} />
-              </div>
-            ),
+            content: <VisionSettings providers={customProviders} />,
           },
           {
             id: 'generation',
@@ -249,20 +258,14 @@ export default function ModelsAndRuntimeSettings({
             title: intl.formatMessage(i18n.context),
             description: intl.formatMessage(i18n.contextDescription),
             icon: <SlidersHorizontal className="h-5 w-5" />,
-            content: <ModelContextSettings providers={customProviders} />,
+            content: connectionsLoaded ? (
+              <ModelContextSettings providers={customProviders} />
+            ) : (
+              connectionFeedback
+            ),
           },
         ]}
       />
-      {active && visionSettingsOpen && (
-        <CodeProModelModal
-          visionOnly
-          onClose={() => setVisionSettingsOpen(false)}
-          onConfigureProvider={() => {
-            setVisionSettingsOpen(false);
-            setView('ConfigureProviders');
-          }}
-        />
-      )}
-    </>
+    </div>
   );
 }

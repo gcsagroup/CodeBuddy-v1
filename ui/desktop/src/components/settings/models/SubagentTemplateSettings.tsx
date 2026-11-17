@@ -1,5 +1,8 @@
+import './subagent-settings.css';
+import { selectNativeText } from '../../../utils/nativeLocalization';
+import { SearchableSelect } from '../../ui/SearchableSelect';
 import { useEffect, useId, useState } from 'react';
-import { ArrowLeft, Bot, ChevronRight, Trash2 } from 'lucide-react';
+import { ArrowLeft, Bot, ChevronRight, Trash2, Plus, FolderSearch, Globe } from 'lucide-react';
 import { acpReadConfig, acpUpsertConfig } from '../../../acp/config';
 import { acpListProviderModels } from '../../../acp/providers';
 import { defineMessages, useIntl } from '../../../i18n';
@@ -147,11 +150,8 @@ function CustomTemplateEditor({
   const fieldClass =
     'w-full rounded-md border border-border-primary bg-background-primary px-3 py-2 text-sm text-text-primary';
   return (
-    <fieldset
-      disabled={disabled}
-      className="min-w-0 space-y-3 rounded-lg border border-border-primary p-4"
-    >
-      <div className="grid gap-3 sm:grid-cols-2">
+    <fieldset disabled={disabled} className="subagent-editor min-w-0">
+      <div className="subagent-identity">
         <label className="block space-y-1 text-sm">
           <span className="block">{intl.formatMessage(messages.name)}</span>
           <input
@@ -170,8 +170,8 @@ function CustomTemplateEditor({
         <textarea
           id={`${id}-prompt`}
           aria-describedby={`${id}-hint`}
-          className={`${fieldClass} min-h-32 resize-y`}
-          rows={5}
+          className={`${fieldClass} min-h-56 resize-y`}
+          rows={9}
           maxLength={8000}
           value={template.prompt}
           onChange={(event) =>
@@ -242,14 +242,14 @@ function ModelPicker({
           </button>
         </div>
       ) : (
-        <select
+        <SearchableSelect
           id={modelFieldId}
           disabled={disabled}
           className={`${className} w-full`}
           aria-label={[label, intl.formatMessage(messages.model)].filter(Boolean).join(' ')}
           value={choiceKey(choice)}
-          onChange={(event) => {
-            const value = event.target.value;
+          onValueChange={(nextValue) => {
+            const value = nextValue;
             if (!value) {
               onChange(null);
               return;
@@ -282,7 +282,7 @@ function ModelPicker({
               </option>
             </optgroup>
           ))}
-        </select>
+        </SearchableSelect>
       )}
       {providerId && inventory[providerId]?.failed && (
         <p className="text-sm text-text-secondary">
@@ -506,8 +506,8 @@ export default function SubagentTemplateSettings({
       ? `${model.modelId} · ${providers.find((provider) => provider.name === model.providerId)?.metadata.display_name || model.providerId}`
       : intl.formatMessage(messages.inherit);
   return (
-    <Card className="rounded-lg">
-      <CardHeader className="pb-3">
+    <Card className="subagent-settings rounded-lg">
+      <CardHeader className="subagent-header pb-3">
         {editor && (
           <button
             type="button"
@@ -547,11 +547,16 @@ export default function SubagentTemplateSettings({
         {loading && <p role="status">{intl.formatMessage(messages.loading)}</p>}
         {settings && !editor && (
           <>
-            <section className="space-y-3" aria-label={intl.formatMessage(messages.customTitle)}>
+            <section
+              className="subagent-custom"
+              aria-label={intl.formatMessage(messages.customTitle)}
+            >
               <div className="flex items-center justify-between gap-3">
-                <h3 className="text-sm font-medium">{intl.formatMessage(messages.customTitle)}</h3>
+                <h3 className="text-sm font-semibold">
+                  {intl.formatMessage(messages.customTitle)}
+                </h3>
                 <Button
-                  variant="outline"
+                  variant="default"
                   size="sm"
                   disabled={saving || (settings.custom?.length ?? 0) >= 16}
                   onClick={() => {
@@ -569,12 +574,28 @@ export default function SubagentTemplateSettings({
                     setStatus(null);
                   }}
                 >
+                  <Plus className="h-4 w-4" aria-hidden="true" />
                   {intl.formatMessage(messages.add)}
                 </Button>
               </div>
-              <div className="divide-y divide-border-subtle">
+              {!settings.custom?.length && (
+                <div className="subagent-empty">
+                  <span className="subagent-avatar">
+                    <Bot aria-hidden="true" />
+                  </span>
+                  <p>
+                    {selectNativeText(
+                      intl.locale || 'en',
+                      'Create a subagent for a recurring task, with its own instructions and model.',
+                      '为常用任务创建子 Agent，设置专属提示词和模型。',
+                      '為常用任務建立子 Agent，設定專屬提示詞與模型。'
+                    )}
+                  </p>
+                </div>
+              )}
+              <div className="subagent-template-list">
                 {settings.custom?.map((template) => (
-                  <div key={template.id} className="flex items-center gap-2">
+                  <div key={template.id} className="subagent-template-row">
                     <button
                       type="button"
                       disabled={saving}
@@ -585,7 +606,9 @@ export default function SubagentTemplateSettings({
                         setStatus(null);
                       }}
                     >
-                      <Bot className="h-4 w-4 shrink-0 text-text-secondary" />
+                      <span className="subagent-avatar">
+                        <Bot aria-hidden="true" />
+                      </span>
                       <span className="min-w-0 flex-1">
                         <span className="block truncate text-sm font-medium">{template.name}</span>
                         <span className="mt-1 block truncate text-xs text-text-secondary">
@@ -620,7 +643,7 @@ export default function SubagentTemplateSettings({
                 ))}
               </div>
             </section>
-            <section className="space-y-2 border-t border-border-subtle pt-4">
+            <section className="subagent-defaults">
               <h3 className="text-sm font-medium">{intl.formatMessage(messages.defaults)}</h3>
               {roles
                 .filter((role) => role !== 'generic')
@@ -630,14 +653,23 @@ export default function SubagentTemplateSettings({
                     type="button"
                     disabled={saving}
                     aria-label={intl.formatMessage(messages[role])}
-                    className="flex w-full items-center justify-between gap-3 rounded-md px-2 py-3 text-left hover:bg-background-muted/60"
+                    className="subagent-role"
                     onClick={() => {
                       setEditor({ kind: 'builtin', role, model: settings.models[role] });
                       setStatus(null);
                     }}
                   >
-                    <span className="min-w-0">
-                      <span className="block text-sm">{intl.formatMessage(messages[role])}</span>
+                    <span className="subagent-avatar" data-role={role}>
+                      {role === 'explorer' ? (
+                        <FolderSearch aria-hidden="true" />
+                      ) : (
+                        <Globe aria-hidden="true" />
+                      )}
+                    </span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block text-sm font-semibold">
+                        {intl.formatMessage(messages[role])}
+                      </span>
                       <span className="mt-1 block truncate text-xs text-text-secondary">
                         {intl.formatMessage(
                           role === 'explorer'
@@ -645,6 +677,12 @@ export default function SubagentTemplateSettings({
                             : messages.browserDescription
                         )}
                       </span>
+                    </span>
+                    <span
+                      className="subagent-model-summary"
+                      title={modelSummary(settings.models[role])}
+                    >
+                      {modelSummary(settings.models[role])}
                     </span>
                     <ChevronRight className="h-4 w-4 shrink-0 text-text-muted" />
                   </button>

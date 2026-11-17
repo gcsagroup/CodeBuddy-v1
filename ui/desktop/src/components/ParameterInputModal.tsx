@@ -1,3 +1,4 @@
+import { SearchableSelect } from './ui/SearchableSelect';
 import React, { useId, useState, useEffect } from 'react';
 import { Parameter } from '../recipe';
 import { Button } from './ui/button';
@@ -207,10 +208,10 @@ const ParameterInputModal: React.FC<ParameterInputModalProps> = ({
                   </label>
 
                   {param.input_type === 'select' && param.options ? (
-                    <select
+                    <SearchableSelect
                       id={fieldId(param.key)}
                       value={inputValues[param.key] || ''}
-                      onChange={(e) => handleChange(param.key, e.target.value)}
+                      onValueChange={(nextValue) => handleChange(param.key, nextValue)}
                       className={`w-full p-3 border rounded-lg bg-background-secondary text-text-primary focus:outline-none focus:ring-2 ${
                         validationErrors[param.key]
                           ? 'border-red-500 focus:ring-red-500'
@@ -223,7 +224,7 @@ const ParameterInputModal: React.FC<ParameterInputModalProps> = ({
                           {option}
                         </option>
                       ))}
-                    </select>
+                    </SearchableSelect>
                   ) : param.input_type === 'boolean' ? (
                     <select
                       id={fieldId(param.key)}

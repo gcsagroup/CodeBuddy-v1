@@ -1,3 +1,4 @@
+import { SearchableSelect } from '../components/ui/SearchableSelect';
 import { useMemo, useState } from 'react';
 import { ArrowLeft, FileDiff } from 'lucide-react';
 import { defineMessages, useIntl } from '../i18n';
@@ -165,11 +166,11 @@ export function WorkspaceChanges({
               </span>
               {hasKnownChanges && <FileChangeCount change={totals} />}
             </div>
-            <select
+            <SearchableSelect
               className="max-w-full rounded-md border border-border-primary bg-background-primary px-2 py-1"
               aria-label={intl.formatMessage(changeMessages.title)}
               value={filter}
-              onChange={(event) => setFilter(event.target.value)}
+              onValueChange={(nextValue) => setFilter(nextValue)}
             >
               <option value="all">{intl.formatMessage(changeMessages.all)}</option>
               {[...turns].reverse().map((item) => (
@@ -177,7 +178,7 @@ export function WorkspaceChanges({
                   {label(item.number)}
                 </option>
               ))}
-            </select>
+            </SearchableSelect>
             <p className="text-xs leading-5 text-text-secondary">
               {intl.formatMessage(changeMessages.coverage)}
             </p>

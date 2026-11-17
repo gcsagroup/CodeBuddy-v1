@@ -1,3 +1,4 @@
+import { ShieldCheck } from 'lucide-react';
 import { SecurityToggle } from './SecurityToggle';
 import { Card, CardContent, CardDescription, CardHeader } from '../../ui/card';
 import { defineMessages, useIntl } from '../../../i18n';
@@ -19,11 +20,18 @@ export default function SecurityAndPermissionsSection() {
 
   return (
     <section aria-label={intl.formatMessage(i18n.title)}>
-      <Card className="rounded-lg pb-2">
-        <CardHeader className="pb-0">
-          <CardDescription>{intl.formatMessage(i18n.description)}</CardDescription>
+      <Card className="@container gap-0 border-border-primary py-0 shadow-none">
+        <CardHeader className="border-b border-border-primary px-4 py-4 @sm:px-5">
+          <div className="flex items-start gap-3">
+            <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-background-secondary">
+              <ShieldCheck className="size-5 text-text-secondary" aria-hidden="true" />
+            </span>
+            <CardDescription className="self-center leading-relaxed">
+              {intl.formatMessage(i18n.description)}
+            </CardDescription>
+          </div>
         </CardHeader>
-        <CardContent className="px-2">
+        <CardContent className="px-4 @sm:px-5">
           <SecurityToggle />
         </CardContent>
       </Card>

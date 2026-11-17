@@ -1,3 +1,4 @@
+import { WorkspacePageTitle } from '../Layout/WorkspacePageTitle';
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import {
   AlertTriangle,
@@ -219,15 +220,15 @@ function ItemCard({
   const toggleable = item.actions.includes(enabled ? 'disable' : 'enable');
   return (
     <Card className="group overflow-hidden border-border-secondary bg-background-primary py-0 shadow-none transition-colors hover:border-border-primary hover:bg-background-secondary">
-      <div className="flex min-h-28 items-stretch">
+      <div className="flex min-h-24 items-stretch">
         <button
           type="button"
           aria-label={item.name}
           onClick={() => onOpen(item)}
-          className="flex min-w-0 flex-1 items-start gap-3 p-4 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
+          className="flex min-w-0 flex-1 items-start gap-3 p-3.5 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
         >
-          <div className="flex size-10 shrink-0 items-center justify-center rounded-lg border border-border-secondary bg-background-secondary text-text-secondary">
-            <ItemIcon className="size-5" />
+          <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-background-secondary text-text-secondary">
+            <ItemIcon className="size-4" aria-hidden="true" />
           </div>
           <div className="min-w-0 flex-1">
             <div className="flex flex-wrap items-center gap-2">
@@ -672,7 +673,7 @@ export default function ToolboxView() {
 
   return (
     <MainPanelLayout>
-      <div data-toolbox-scroll className="min-w-0 flex-1 overflow-y-auto px-4 pb-16 pt-6 sm:px-6 sm:pt-12 lg:px-10">
+      <div data-toolbox-scroll className="min-w-0 flex-1 overflow-y-auto px-4 pb-12 pt-6 sm:px-8">
         <div className="mx-auto max-w-6xl">
           {sessionId && (
             <section aria-label={intl.formatMessage({ id: 'toolbox.session.context', defaultMessage: 'Tools for this conversation' })}
@@ -697,16 +698,10 @@ export default function ToolboxView() {
               </Button>
             </section>
           )}
-          <div className="mb-7 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-            <div>
-              <div className="flex items-center gap-3">
-                <BriefcaseBusiness className="size-5 shrink-0 text-text-primary" aria-hidden="true" />
-                <h1 className="app-page-heading">{intl.formatMessage(i18n.title)}</h1>
-              </div>
-              <p className="mt-2 text-sm text-text-secondary">
-                {intl.formatMessage(i18n.description)}
-              </p>
-            </div>
+          <div className="mb-5 flex flex-wrap items-start justify-between gap-3 border-b border-border-primary pb-4">
+            <WorkspacePageTitle icon={BriefcaseBusiness} description={intl.formatMessage(i18n.description)}>
+              {intl.formatMessage(i18n.title)}
+            </WorkspacePageTitle>
             <div className="flex flex-wrap gap-2 sm:justify-end">
               {(selectedSection === 'all' || selectedSection === 'methods') && (
                 <Button disabled={Boolean(sessionId && !sessionProjectDir)} onClick={() => setSkillRequest({ type: 'create' })}>
@@ -742,38 +737,40 @@ export default function ToolboxView() {
             </div>
           )}
 
-          <div
-            role="tablist"
-            aria-label={intl.formatMessage(i18n.tablist)}
-            className="mb-5 grid w-full grid-cols-4 rounded-lg border border-border-secondary bg-background-secondary p-1 sm:inline-grid sm:w-auto"
-          >
-            {SECTIONS.map((section) => (
-              <button
-                key={section}
-                role="tab"
-                aria-selected={selectedSection === section}
-                onClick={() => {
-                  const next = new URLSearchParams(searchParams);
-                  next.set('section', section);
-                  setSearchParams(next);
-                }}
-                className={`rounded-md px-4 py-2 text-sm transition-colors ${selectedSection === section ? 'bg-background-primary text-text-primary shadow-sm' : 'text-text-secondary hover:text-text-primary'}`}
-              >
-                {intl.formatMessage(i18n[section])}
-              </button>
-            ))}
-          </div>
+          <div className="mb-5 flex flex-wrap items-center gap-3">
+            <div
+              role="tablist"
+              aria-label={intl.formatMessage(i18n.tablist)}
+              className="flex max-w-full flex-wrap gap-1 rounded-lg bg-background-secondary p-1"
+            >
+              {SECTIONS.map((section) => (
+                <button
+                  key={section}
+                  role="tab"
+                  aria-selected={selectedSection === section}
+                  onClick={() => {
+                    const next = new URLSearchParams(searchParams);
+                    next.set('section', section);
+                    setSearchParams(next);
+                  }}
+                  className={`rounded-md px-3 py-1.5 text-sm transition-colors ${selectedSection === section ? 'bg-background-primary text-text-primary shadow-sm' : 'text-text-secondary hover:text-text-primary'}`}
+                >
+                  {intl.formatMessage(i18n[section])}
+                </button>
+              ))}
+            </div>
 
-          <label className="mb-7 flex max-w-2xl items-center gap-2 rounded-lg border border-border-secondary bg-background-primary px-3 py-2.5 focus-within:ring-1 focus-within:ring-ring">
-            <Search className="size-4 text-text-secondary" />
-            <input
-              type="search"
-              value={query}
-              onChange={(event) => setQuery(event.target.value)}
-              placeholder={intl.formatMessage(i18n.search)}
-              className="min-w-0 flex-1 bg-transparent text-sm outline-none"
-            />
-          </label>
+            <label className="flex min-w-40 flex-1 items-center gap-2 rounded-lg border border-border-primary bg-background-primary px-3 py-2 focus-within:ring-1 focus-within:ring-ring">
+              <Search className="size-4 text-text-secondary" />
+              <input
+                type="search"
+                value={query}
+                onChange={(event) => setQuery(event.target.value)}
+                placeholder={intl.formatMessage(i18n.search)}
+                className="min-w-0 flex-1 bg-transparent text-sm outline-none"
+              />
+            </label>
+          </div>
 
           {loading ? (
             <p className="text-sm text-text-secondary">{intl.formatMessage(i18n.loading)}</p>

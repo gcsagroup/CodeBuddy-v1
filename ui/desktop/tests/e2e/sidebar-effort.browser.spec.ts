@@ -322,3 +322,26 @@ test('sidebar accepts drops in task whitespace and project padding, with destina
     await expect(page.getByRole('menuitem',{name:'移除项目',exact:true}).locator('.lucide-folder-minus')).toBeVisible();
   } finally { await page.close(); }
 });
+
+test('automation and history controls work in compact page layouts', async () => {
+  for (const [listPage, record] of [['schedule', '定期检查项目'], ['history', '项目甲的新对话']]) {
+    const page = await browser.newPage({ viewport: { width: 1100, height: 800 } });
+    try {
+      await page.goto(server.resolvedUrls!.local[0] + 'tests/browser-fixtures/sidebar-effort.html?listPage=' + listPage);
+      const heading = page.getByRole('heading', { level: 1 });
+      await expect(heading).toBeVisible();
+      await expect(page.getByText(record, { exact: true }).first()).toBeVisible();
+      await page.screenshot({ path: test.info().outputPath(listPage + '-wide.png') });
+      await page.setViewportSize({ width: 390, height: 800 });
+      const search = page.getByRole(listPage === 'history' ? 'searchbox' : 'textbox').first();
+      await expect(search).toBeVisible();
+      expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);
+      expect((await search.boundingBox())!.width).toBeGreaterThan(50);
+      await page.screenshot({ path: test.info().outputPath(listPage + '-narrow.png') });
+      await search.fill('不存在的记录');
+      await expect(page.getByText(record, { exact: true })).toHaveCount(0);
+    } finally {
+      await page.close();
+    }
+  }
+});

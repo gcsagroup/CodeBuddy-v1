@@ -1,3 +1,4 @@
+import { SearchableSelect } from '../ui/SearchableSelect';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   AlertTriangle,
@@ -560,11 +561,11 @@ export function GitRepositoryPanel({
             <label className="sr-only" htmlFor="codepro-git-local-branch">
               {intl.formatMessage(i18n.localBranch)}
             </label>
-            <select
+            <SearchableSelect
               id="codepro-git-local-branch"
               aria-label={intl.formatMessage(i18n.localBranch)}
               value={selectedBranch}
-              onChange={(event) => setSelectedBranch(event.target.value)}
+              onValueChange={(nextValue) => setSelectedBranch(nextValue)}
               disabled={busy || conflictOperationActive}
               className="min-w-0 flex-1 rounded border border-border-primary bg-background-primary px-2 py-1 text-xs text-text-primary"
             >
@@ -576,7 +577,7 @@ export function GitRepositoryPanel({
                     {branch.name}
                   </option>
                 ))}
-            </select>
+            </SearchableSelect>
             <button
               type="button"
               disabled={busy || conflictOperationActive || !selectedBranch}

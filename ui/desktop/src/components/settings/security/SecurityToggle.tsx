@@ -1,4 +1,5 @@
-import { useState, useEffect, useMemo } from 'react';
+import { SearchableSelect } from '../../ui/SearchableSelect';
+import { useState, useEffect, useMemo, useId } from 'react';
 import { Switch } from '../../ui/switch';
 import { useConfig } from '../../ConfigContext';
 import { trackSettingToggled } from '../../../utils/analytics';
@@ -134,16 +135,20 @@ const ClassifierEndpointInputs = ({
   tokenLabel,
   tokenDescription,
 }: ClassifierEndpointInputsProps) => {
+  const endpointId = useId();
+  const tokenId = useId();
   return (
-    <div className="space-y-3">
+    <div className="grid min-w-0 gap-4 @lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
       <div>
         <label
+          htmlFor={endpointId}
           className={`text-sm font-medium ${disabled ? 'text-text-secondary' : 'text-text-primary'}`}
         >
           {endpointLabel}
         </label>
-        <p className="text-xs text-text-secondary mb-2">{endpointDescription}</p>
+        <p className="mb-2 text-xs leading-relaxed text-text-secondary">{endpointDescription}</p>
         <input
+          id={endpointId}
           type="url"
           value={endpointValue}
           onChange={(e) => onEndpointChange(e.target.value)}
@@ -160,12 +165,14 @@ const ClassifierEndpointInputs = ({
 
       <div>
         <label
+          htmlFor={tokenId}
           className={`text-sm font-medium ${disabled ? 'text-text-secondary' : 'text-text-primary'}`}
         >
           {tokenLabel}
         </label>
-        <p className="text-xs text-text-secondary mb-2">{tokenDescription}</p>
+        <p className="mb-2 text-xs leading-relaxed text-text-secondary">{tokenDescription}</p>
         <input
+          id={tokenId}
           type="password"
           value={tokenValue}
           onChange={(e) => onTokenChange(e.target.value)}
@@ -185,6 +192,7 @@ const ClassifierEndpointInputs = ({
 
 export const SecurityToggle = () => {
   const intl = useIntl();
+  const thresholdId = useId();
   const { config, upsert } = useConfig();
 
   const promptEnabledOverride = window.appConfig?.get('SECURITY_PROMPT_ENABLED_OVERRIDE') as
@@ -325,21 +333,22 @@ export const SecurityToggle = () => {
   const effectiveEnabled = isPromptOverridden ? promptOverrideValue : enabled;
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between py-2 px-2 hover:bg-background-secondary rounded-lg transition-all">
+    <div>
+      <div className="flex items-start justify-between gap-4 py-4">
         <div>
-          <h3 className="text-text-primary">{intl.formatMessage(i18n.enablePromptInjection)}</h3>
-          <p className="text-xs text-text-secondary max-w-md mt-[2px]">
+          <h3 className="text-sm font-semibold text-text-primary">{intl.formatMessage(i18n.enablePromptInjection)}</h3>
+          <p className="mt-1 text-xs leading-relaxed text-text-secondary">
             {intl.formatMessage(i18n.promptInjectionDescription)}
           </p>
           {isPromptOverridden && (
-            <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+            <p className="mt-1 text-xs leading-relaxed text-text-secondary">
               {intl.formatMessage(i18n.overrideNotice)}
             </p>
           )}
         </div>
-        <div className={`flex items-center ${isPromptOverridden ? 'opacity-40' : ''}`}>
+        <div className={`flex shrink-0 items-center ${isPromptOverridden ? 'opacity-40' : ''}`}>
           <Switch
+            aria-label={intl.formatMessage(i18n.enablePromptInjection)}
             checked={isPromptOverridden ? promptOverrideValue : enabled}
             onCheckedChange={handleToggle}
             disabled={isPromptOverridden}
@@ -348,23 +357,23 @@ export const SecurityToggle = () => {
         </div>
       </div>
 
-      <div
-        className={`overflow-hidden transition-all duration-300 ease-in-out ${
-          effectiveEnabled ? 'max-h-[1000px] opacity-100' : 'max-h-0 opacity-0'
-        }`}
-      >
-        <div className="space-y-4 px-2 pb-2">
+      <div hidden={!effectiveEnabled}>
+        <div className="divide-y divide-border-primary border-t border-border-primary">
           {/* Detection Threshold */}
-          <div className={effectiveEnabled ? '' : 'opacity-50'}>
-            <label
-              className={`text-sm font-medium ${effectiveEnabled ? 'text-text-primary' : 'text-text-secondary'}`}
-            >
-              {intl.formatMessage(i18n.detectionThreshold)}
-            </label>
-            <p className="text-xs text-text-secondary mb-2">
-              {intl.formatMessage(i18n.thresholdDescription)}
-            </p>
+          <div className="grid items-start gap-3 py-4 @sm:grid-cols-[minmax(0,1fr)_auto]">
+            <div>
+              <label
+                htmlFor={thresholdId}
+                className={`text-sm font-medium ${effectiveEnabled ? 'text-text-primary' : 'text-text-secondary'}`}
+              >
+                {intl.formatMessage(i18n.detectionThreshold)}
+              </label>
+              <p className="mb-2 text-xs leading-relaxed text-text-secondary">
+                {intl.formatMessage(i18n.thresholdDescription)}
+              </p>
+            </div>
             <input
+              id={thresholdId}
               type="number"
               min={0.01}
               max={1.0}
@@ -393,24 +402,24 @@ export const SecurityToggle = () => {
           </div>
 
           {/* Command Injection Detection Toggle */}
-          <div className="border-t border-border-primary pt-4">
-            <div className="flex items-center justify-between py-2 hover:bg-background-secondary rounded-lg transition-all">
+          <div className="py-4">
+            <div className="flex items-start justify-between gap-4">
               <div>
                 <h4
                   className={`text-sm font-medium ${effectiveEnabled ? 'text-text-primary' : 'text-text-secondary'}`}
                 >
                   {intl.formatMessage(i18n.enableCommandInjection)}
                 </h4>
-                <p className="text-xs text-text-secondary max-w-md mt-[2px]">
+                <p className="mt-1 text-xs leading-relaxed text-text-secondary">
                   {intl.formatMessage(i18n.commandInjectionDescription)}
                 </p>
                 {isCommandClassifierOverridden && (
                   <>
-                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                    <p className="mt-1 text-xs leading-relaxed text-text-secondary">
                       {intl.formatMessage(i18n.overrideNotice)}
                     </p>
                     {commandClassifierOverrideValue && (
-                      <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                      <p className="mt-1 text-xs leading-relaxed text-text-secondary">
                         {intl.formatMessage(i18n.warpNotice)}
                       </p>
                     )}
@@ -418,9 +427,10 @@ export const SecurityToggle = () => {
                 )}
               </div>
               <div
-                className={`flex items-center ${isCommandClassifierOverridden ? 'opacity-40' : ''}`}
+                className={`flex shrink-0 items-center ${isCommandClassifierOverridden ? 'opacity-40' : ''}`}
               >
                 <Switch
+                  aria-label={intl.formatMessage(i18n.enableCommandInjection)}
                   checked={effectiveCommandClassifierEnabled}
                   onCheckedChange={handleCommandClassifierToggle}
                   disabled={!effectiveEnabled || isCommandClassifierOverridden}
@@ -438,11 +448,8 @@ export const SecurityToggle = () => {
               )
             ) : (
               <div
-                className={`overflow-hidden transition-all duration-300 ease-in-out ${
-                  effectiveEnabled && effectiveCommandClassifierEnabled
-                    ? 'max-h-[32rem] opacity-100 mt-3'
-                    : 'max-h-0 opacity-0'
-                }`}
+                hidden={!effectiveEnabled || !effectiveCommandClassifierEnabled}
+                className="mt-3 rounded-lg border border-border-primary bg-background-secondary p-3"
               >
                 <div
                   className={
@@ -470,20 +477,21 @@ export const SecurityToggle = () => {
           </div>
 
           {/* Prompt Injection Detection Toggle */}
-          <div className="border-t border-border-primary pt-4">
-            <div className="flex items-center justify-between py-2 hover:bg-background-secondary rounded-lg transition-all">
+          <div className="py-4">
+            <div className="flex items-start justify-between gap-4">
               <div>
                 <h4
                   className={`text-sm font-medium ${effectiveEnabled ? 'text-text-primary' : 'text-text-secondary'}`}
                 >
                   {intl.formatMessage(i18n.enablePromptInjectionMl)}
                 </h4>
-                <p className="text-xs text-text-secondary max-w-md mt-[2px]">
+                <p className="mt-1 text-xs leading-relaxed text-text-secondary">
                   {intl.formatMessage(i18n.promptInjectionMlDescription)}
                 </p>
               </div>
-              <div className="flex items-center">
+              <div className="flex shrink-0 items-center">
                 <Switch
+                  aria-label={intl.formatMessage(i18n.enablePromptInjectionMl)}
                   checked={mlEnabled}
                   onCheckedChange={handleMlToggle}
                   disabled={!effectiveEnabled}
@@ -494,11 +502,8 @@ export const SecurityToggle = () => {
 
             {/* Configuration Section */}
             <div
-              className={`overflow-hidden transition-all duration-300 ease-in-out ${
-                effectiveEnabled && mlEnabled
-                  ? 'max-h-[32rem] opacity-100 mt-3'
-                  : 'max-h-0 opacity-0'
-              }`}
+              hidden={!effectiveEnabled || !mlEnabled}
+              className="mt-3 rounded-lg border border-border-primary bg-background-secondary p-3"
             >
               <div className={effectiveEnabled && mlEnabled ? '' : 'opacity-50'}>
                 {showModelDropdown ? (
@@ -509,12 +514,12 @@ export const SecurityToggle = () => {
                       >
                         {intl.formatMessage(i18n.detectionModel)}
                       </label>
-                      <p className="text-xs text-text-secondary mb-2">
+                      <p className="mb-2 text-xs leading-relaxed text-text-secondary">
                         {intl.formatMessage(i18n.detectionModelDescription)}
                       </p>
-                      <select
+                      <SearchableSelect
                         value={effectiveModel}
-                        onChange={(e) => handleModelChange(e.target.value)}
+                        onValueChange={(nextValue) => handleModelChange(nextValue)}
                         disabled={!effectiveEnabled || !mlEnabled}
                         className={`w-full px-3 py-2 text-sm border rounded ${
                           effectiveEnabled && mlEnabled
@@ -527,7 +532,7 @@ export const SecurityToggle = () => {
                             {model.label}
                           </option>
                         ))}
-                      </select>
+                      </SearchableSelect>
                     </div>
                   </div>
                 ) : (

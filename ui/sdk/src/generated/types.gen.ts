@@ -1856,6 +1856,7 @@ export type CustomProviderCreateRequest_unstable = {
   requiresAuth: boolean;
   catalogProviderId?: string | null;
   basePath?: string | null;
+  autoAppendApiVersion?: boolean;
   preservesThinking?: boolean | null;
 };
 
@@ -1907,6 +1908,7 @@ export type CustomProviderDiscoverModelsRequest_unstable = {
    */
   providerId?: string | null;
   basePath?: string | null;
+  autoAppendApiVersion?: boolean;
   apiKey?: string | null;
   headers?: {
     [key: string]: string;
@@ -1943,6 +1945,7 @@ export type CustomProviderConfigDto = {
   requiresAuth: boolean;
   catalogProviderId?: string | null;
   basePath?: string | null;
+  autoAppendApiVersion?: boolean;
   apiKeyEnv?: string | null;
   apiKeySet: boolean;
   preservesThinking: boolean;
@@ -1965,6 +1968,7 @@ export type CustomProviderUpdateRequest_unstable = {
   requiresAuth: boolean;
   catalogProviderId?: string | null;
   basePath?: string | null;
+  autoAppendApiVersion?: boolean;
   preservesThinking?: boolean | null;
 };
 

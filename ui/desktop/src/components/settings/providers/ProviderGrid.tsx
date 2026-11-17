@@ -319,6 +319,7 @@ function ProviderCards({
     display_name: editingProvider.config.displayName,
     api_url: editingProvider.config.apiUrl,
     base_path: editingProvider.config.basePath ?? undefined,
+    auto_append_api_version: editingProvider.config.autoAppendApiVersion ?? true,
     api_key: '',
     models: editingProvider.config.models ?? [],
     supports_streaming: editingProvider.config.supportsStreaming ?? true,

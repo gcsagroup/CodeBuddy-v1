@@ -122,6 +122,8 @@ Git 不同步 `runtime/tools/bin`，所以拉取新源码后，旧 EXE 可能仍
 5. **核对结果**：检查文件差异、工具回执、测试命令和退出码，不仅看模型的“完成”文案。
 6. **继续任务**：在原对话补充要求或输入“继续”。恢复失败时保留会话和错误用于排查。
 
+“API 基础路径（可选）”使用开关控制。新建兼容 API 连接默认关闭：保留 API 地址中的路径，只追加 `/chat/completions`、`/models` 等协议端点，不自动补 `/v1`。开启后显示自定义路径输入框并沿用版本补齐规则；OpenAI、Ollama 预设会填写各自所需路径。旧连接缺省保持原行为，可编辑后关闭开关。Google 兼容地址可填写 `https://generativelanguage.googleapis.com/v1beta/openai/`；Google 的请求会省略不支持的 `store` 字段。
+
 ### 提示词示例
 
 ```text

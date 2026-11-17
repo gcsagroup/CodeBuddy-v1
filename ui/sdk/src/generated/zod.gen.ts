@@ -1562,6 +1562,7 @@ export const zCustomProviderCreateRequest_unstable = z.object({
   requiresAuth: z.boolean(),
   catalogProviderId: z.string().nullish(),
   basePath: z.string().nullish(),
+  autoAppendApiVersion: z.boolean().optional(),
   preservesThinking: z.boolean().nullish(),
 });
 
@@ -1605,6 +1606,7 @@ export const zCustomProviderDiscoverModelsRequest_unstable = z.object({
   requiresAuth: z.boolean().optional().default(false),
   providerId: z.string().nullish(),
   basePath: z.string().nullish(),
+  autoAppendApiVersion: z.boolean().optional(),
   apiKey: z.string().nullish(),
   headers: z.record(z.string()).optional().default({}),
 });
@@ -1631,6 +1633,7 @@ export const zCustomProviderConfigDto = z.object({
   requiresAuth: z.boolean(),
   catalogProviderId: z.string().nullish(),
   basePath: z.string().nullish(),
+  autoAppendApiVersion: z.boolean().optional(),
   apiKeyEnv: z.string().nullish(),
   apiKeySet: z.boolean(),
   preservesThinking: z.boolean(),
@@ -1657,6 +1660,7 @@ export const zCustomProviderUpdateRequest_unstable = z.object({
   requiresAuth: z.boolean(),
   catalogProviderId: z.string().nullish(),
   basePath: z.string().nullish(),
+  autoAppendApiVersion: z.boolean().optional(),
   preservesThinking: z.boolean().nullish(),
 });
 

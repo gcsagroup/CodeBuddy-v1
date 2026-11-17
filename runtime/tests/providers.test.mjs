@@ -338,6 +338,54 @@ function input(apiUrl, overrides = {}) {
   };
 }
 
+test('Google compatibility endpoints retain their base path and omit store from native requests', async t => {
+  const urls = [];
+  t.mock.method(globalThis, 'fetch', async url => {
+    urls.push(String(url));
+    return new Response(JSON.stringify({ data: [{ id: 'gemini-3.5-flash-lite' }] }), { headers: { 'content-type': 'application/json' } });
+  });
+  for (const suffix of ['', '/', '/chat/completions']) {
+    const provider = input(`https://generativelanguage.googleapis.com/v1beta/openai${suffix}`, { id: `google-${suffix}` });
+    const route = await driverProvider(provider, 'gemini-3.5-flash-lite');
+    assert.equal(route.baseUrl, 'https://generativelanguage.googleapis.com/v1beta/openai');
+    assert.equal(route.compat.supportsStore, false);
+  }
+  assert.ok(urls.length > 0);
+  assert.ok(urls.every(url => url === 'https://generativelanguage.googleapis.com/v1beta/openai/models'));
+  const proxy = await driverProvider(input('https://proxy.invalid/v1', { id: 'proxy' }), 'gemini-3.5-flash-lite');
+  assert.notEqual(proxy.compat?.supportsStore, false, 'model names must not decide endpoint capabilities');
+
+  const { stream } = await import('../harness/node_modules/@earendil-works/pi-ai/dist/api/openai-completions.js');
+  const route = await driverProvider(input('https://generativelanguage.googleapis.com/v1beta/openai'), 'gemini-3.5-flash-lite');
+  let payload;
+  await stream({ id: 'gemini-3.5-flash-lite', name: 'Fixture', provider: 'fixture-google', api: 'openai-completions',
+    baseUrl: route.baseUrl, compat: route.compat, reasoning: false, input: ['text'], contextWindow: 32768, maxTokens: 1024,
+    cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 } },
+  { messages: [{ role: 'user', content: 'Hello', timestamp: 0 }] },
+  { apiKey: 'fixture-key', onPayload: value => { payload = value; throw new Error('stop before network'); } }).result();
+  assert.ok(payload, 'native serializer must produce the request');
+  assert.equal(Object.hasOwn(payload, 'store'), false);
+});
+
+test('global path policy is shared by discovery, save, read and model routing', async t => {
+  const api = await endpoint(t);
+  const store = memoryStore();
+  for (const autoAppendApiVersion of [false, true]) {
+    const request = { ...input(api.url + '/gateway'), autoAppendApiVersion, basePath: '/custom' };
+    await discover(request);
+    assert.equal(api.requests.at(-1).url, autoAppendApiVersion ? '/custom/v1/models' : '/gateway/models');
+    const saved = await saveProvider(store, request);
+    const provider = store.read().providers.find(p => p.id === saved.providerId);
+    assert.equal(provider.autoAppendApiVersion, autoAppendApiVersion);
+    assert.equal(modelBase(provider), api.url + (autoAppendApiVersion ? '/custom/v1' : '/gateway'));
+    assert.ok(api.requests.some(r => r.url === (autoAppendApiVersion ? '/custom/v1/chat/completions' : '/gateway/chat/completions')));
+    assert.equal((await readProvider(provider)).provider.autoAppendApiVersion, autoAppendApiVersion);
+  }
+  assert.equal(modelBase(input(api.url + '/legacy')), api.url + '/legacy/v1');
+  assert.equal(modelBase(input(api.url + '/v1/responses', { autoAppendApiVersion: false })), api.url + '/v1');
+  assert.throws(() => modelBase(input(api.url, { autoAppendApiVersion: 'false' })), /boolean/);
+});
+
 test('server-advertised context is preserved per model and concurrent session routes reuse discovery', async t => {
   const api = await endpoint(t, (_req, res) => res.end(JSON.stringify({ data: [
     { id: 'fixture-model', max_model_len: 65536 },

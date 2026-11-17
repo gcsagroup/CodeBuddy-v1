@@ -98,6 +98,7 @@ describe('custom provider discovery', () => {
           requires_auth: true,
           headers: {},
           base_path: '/v1',
+          auto_append_api_version: false,
         },
         'custom_office_api'
       )
@@ -109,6 +110,7 @@ describe('custom provider discovery', () => {
       requiresAuth: true,
       providerId: 'custom_office_api',
       basePath: '/v1',
+      autoAppendApiVersion: false,
       apiKey: null,
       headers: {},
     });

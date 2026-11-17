@@ -35,6 +35,7 @@ function updateRequestToCreate(
     requiresAuth: request.requires_auth ?? true,
     catalogProviderId: request.catalog_provider_id ?? null,
     basePath: request.base_path ?? null,
+    autoAppendApiVersion: request.auto_append_api_version,
     preservesThinking: request.preserves_thinking ?? null,
   };
 }
@@ -152,6 +153,7 @@ export async function acpDiscoverCustomProviderModels(
     requiresAuth: request.requires_auth,
     providerId: providerId || null,
     basePath: request.base_path || null,
+    autoAppendApiVersion: request.auto_append_api_version,
     apiKey: request.api_key || null,
     headers: request.headers ?? {},
   };

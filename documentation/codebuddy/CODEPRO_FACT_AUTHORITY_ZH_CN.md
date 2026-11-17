@@ -1,4 +1,8 @@
 <!-- 2026-11-16 已批准：对话 sidebarPlacement 由 Compat 唯一写入，导航只消费；归属与 cwd 分离。目录切换沿用原有 Harness owner 和运行中拒绝规则。详见 docs/conversation-drag-drop.zh-CN.md。 -->
+## 2026-11-17 已批准：提供商 API 路径开关
+
+`runtime/providers.mjs` 统一解析模型发现、验证和执行的路径。提供商配置 `autoAppendApiVersion` 为 false 时忽略自定义 `basePath`，保留 API 地址自身路径，仅追加协议端点，不自动补 `/v1`；true 沿用自定义路径及版本补齐规则。UI 新建默认关闭，已有配置缺省字段按 true 读取，旧客户端更新保留已保存值，不批量迁移已有连接。完整 Chat Completions/Responses 地址不重复追加端点，Ollama 的原生模型发现仍使用 `/api/tags`。Google 官方兼容端点另通过适配器的 `supportsStore: false` 合同禁用不支持的字段；不按模型名称推断服务能力，不修改 Harness 内核。
+
 ## 2026-11-16 已批准：补充后的逐次工具确认与验收事实
 
 Harness 原生用户输入事件持有补充已进入当前轮的事实；适配层仅在该事件或带队列来源的后续原生轮中启用逐次工具确认。非只读提案仍由 Harness 的执行前审批执行，Compat 复用现有审批卡展示精确参数与有界原生回执，只允许本次批准，不复用会话许可。已执行的操作不回滚；禁止审批、取消及未知答复均不授予执行。普通新轮恢复既有权限。此规则默认用于交互会话的补充输入，不重写历史或引入第二执行器。

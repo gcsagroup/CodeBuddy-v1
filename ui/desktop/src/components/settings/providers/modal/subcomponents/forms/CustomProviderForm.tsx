@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Input } from '../../../../../ui/input';
+import { Switch } from '../../../../../ui/switch';
 import { Select } from '../../../../../ui/Select';
 import { Button } from '../../../../../ui/button';
 import { SecureStorageNotice } from '../SecureStorageNotice';
@@ -101,7 +102,7 @@ const i18n = defineMessages({
   apiBasePathHint: {
     id: 'customProviderForm.apiBasePathHint',
     defaultMessage:
-      'Override the generation path required by your provider. A blank path uses Responses for the official OpenAI address and Chat Completions for compatible services. Loading models does not verify this path.',
+      'When enabled, override the API path and fill in the version suffix. When disabled, keep the API URL path and append only protocol endpoints such as /chat/completions and /models.',
   },
   authentication: {
     id: 'customProviderForm.authentication',
@@ -348,6 +349,7 @@ const COMPACT_PROVIDER_PRESETS: CompactProviderPreset[] = [
     engine: 'ollama_compatible',
     displayName: 'Local Ollama',
     apiUrl: 'http://127.0.0.1:11434',
+    basePath: '/v1',
     requiresAuth: false,
   },
   {
@@ -458,6 +460,7 @@ export default function CustomProviderForm({
   const [nameEdited, setNameEdited] = useState(false);
   const [apiUrl, setApiUrl] = useState(compactSetup ? DEFAULT_COMPACT_PROVIDER_PRESET.apiUrl : '');
   const [basePath, setBasePath] = useState('');
+  const [autoAppendApiVersion, setAutoAppendApiVersion] = useState(false);
   const [apiKey, setApiKey] = useState('');
   const [models, setModels] = useState('');
   const [requiresAuth, setRequiresAuth] = useState(
@@ -525,6 +528,7 @@ export default function CustomProviderForm({
       setDisplayName(initialData.display_name);
       setApiUrl(initialData.api_url);
       setBasePath(initialData.base_path ?? '');
+      setAutoAppendApiVersion(initialData.auto_append_api_version ?? true);
       setModels(initialData.models.join(', '));
       setSelectedModel(initialData.models[0] ?? '');
       setSupportsStreaming(initialData.supports_streaming ?? true);
@@ -549,6 +553,7 @@ export default function CustomProviderForm({
     if (!nameEdited) setDisplayName(suggestName(template.name));
     setApiUrl(template.apiUrl);
     setBasePath('');
+    setAutoAppendApiVersion(false);
     setSupportsStreaming(template.supportsStreaming);
     setRequiresAuth(true);
 
@@ -602,7 +607,8 @@ export default function CustomProviderForm({
     ),
     catalog_provider_id:
       selectedTemplate?.providerId ?? initialData?.catalog_provider_id ?? undefined,
-    base_path: basePath || undefined,
+    base_path: autoAppendApiVersion ? basePath || undefined : undefined,
+    auto_append_api_version: autoAppendApiVersion,
   });
 
   const handleDiscoverModels = async () => {
@@ -1001,6 +1007,7 @@ export default function CustomProviderForm({
                     setEngine(preset.engine);
                     setApiUrl(preset.apiUrl);
                     setBasePath(preset.basePath ?? '');
+                    setAutoAppendApiVersion(Boolean(preset.basePath));
                     if (!initialData && !nameEdited)
                       setDisplayName(suggestName(preset.displayName || defaultName));
                     setRequiresAuth(preset.requiresAuth);
@@ -1091,13 +1098,19 @@ export default function CustomProviderForm({
       {isEditable && (
         <div>
           <label
-            htmlFor="base-path"
-            className="flex items-center text-sm font-medium text-text-primary mb-2"
+            htmlFor="base-path-enabled"
+            className="flex items-center justify-between text-sm font-medium text-text-primary mb-2"
           >
             {intl.formatMessage(i18n.apiBasePath)}
+            <Switch id="base-path-enabled" variant="mono" checked={autoAppendApiVersion} onCheckedChange={(checked) => {
+              setAutoAppendApiVersion(checked);
+              resetConnectionTest();
+            }} />
           </label>
+          {autoAppendApiVersion && <>
           <Input
             id="base-path"
+            aria-label={intl.formatMessage(i18n.apiBasePath)}
             value={basePath}
             onChange={(e) => {
               setBasePath(e.target.value);
@@ -1105,6 +1118,7 @@ export default function CustomProviderForm({
             }}
             placeholder={intl.formatMessage(i18n.apiBasePathPlaceholder)}
           />
+          </>}
           <p className="text-xs text-textSubtle mt-1">{intl.formatMessage(i18n.apiBasePathHint)}</p>
         </div>
       )}

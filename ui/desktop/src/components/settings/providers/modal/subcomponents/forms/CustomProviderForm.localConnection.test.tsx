@@ -23,7 +23,27 @@ describe('CustomProviderForm local connection setup', () => {
     expect(screen.getByRole('textbox', { name: 'API Base Path (optional)' })).toHaveValue('/v1/responses');
     await user.click(screen.getByRole('combobox', { name: 'Provider Type' }));
     await user.click(screen.getByRole('option', { name: 'OpenAI-compatible API' }));
-    expect(screen.getByRole('textbox', { name: 'API Base Path (optional)' })).toHaveValue('');
+    expect(screen.queryByRole('textbox', { name: 'API Base Path (optional)' })).not.toBeInTheDocument();
+    expect(screen.getByRole('switch', { name: 'API Base Path (optional)' })).not.toBeChecked();
+  });
+
+  it('toggles custom paths and sends the same path policy to model discovery', async () => {
+    const user = userEvent.setup();
+    const discoverModels = vi.fn().mockResolvedValue(['fixture']);
+    render(<CustomProviderForm initialData={null} isEditable compactSetup discoverModels={discoverModels}
+      onSubmit={vi.fn()} onCancel={vi.fn()} />, { wrapper: IntlTestWrapper });
+    const toggle = screen.getByRole('switch', { name: 'API Base Path (optional)' });
+    expect(toggle).not.toBeChecked();
+    await user.type(screen.getByRole('textbox', { name: 'API URL' }), 'https://example.test/gateway');
+    await user.type(screen.getByLabelText(/^API Key/), 'fixture-key');
+    await user.click(toggle);
+    await user.type(screen.getByRole('textbox', { name: 'API Base Path (optional)' }), '/custom/v1');
+    await user.click(screen.getByRole('button', { name: 'Load models' }));
+    expect(discoverModels).toHaveBeenLastCalledWith(expect.objectContaining({ auto_append_api_version: true, base_path: '/custom/v1' }));
+    await user.click(toggle);
+    expect(screen.queryByRole('textbox', { name: 'API Base Path (optional)' })).not.toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Load models' }));
+    expect(discoverModels).toHaveBeenLastCalledWith(expect.objectContaining({ auto_append_api_version: false, base_path: undefined }));
   });
 
   it('keeps the catalog after a selected model fails and allows saving another model', async () => {

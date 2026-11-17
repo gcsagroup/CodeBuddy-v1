@@ -101,7 +101,10 @@ function endpoints(provider) {
   }
   if (provider.basePath != null && typeof provider.basePath !== "string")
     throw invalid("basePath must be a string");
-  const configuredPath = provider.basePath?.trim() || parsed.pathname;
+  if (provider.autoAppendApiVersion != null && typeof provider.autoAppendApiVersion !== 'boolean')
+    throw invalid('autoAppendApiVersion must be a boolean');
+  const autoAppendApiVersion = provider.autoAppendApiVersion !== false;
+  const configuredPath = (autoAppendApiVersion && provider.basePath?.trim()) || parsed.pathname;
   if (/[?#\\]/.test(configuredPath) || configuredPath.includes("://")) {
     throw providerError(
       "invalid_url",
@@ -111,11 +114,13 @@ function endpoints(provider) {
   const pathname = configuredPath.replace(/^\/+|\/+$/g, "");
   const append = (suffix) =>
     pathname ? `/${pathname}/${suffix}` : `/${suffix}`;
-  const officialDefault = engine === 'openai_compatible' && parsed.origin === 'https://api.openai.com' &&
+  const officialDefault = autoAppendApiVersion && engine === 'openai_compatible' && parsed.origin === 'https://api.openai.com' &&
     !provider.basePath?.trim() && ['', 'v1'].includes(pathname);
+  const googleCompatibilityBase = parsed.origin === 'https://generativelanguage.googleapis.com' &&
+    ['v1beta/openai', 'v1/openai'].includes(pathname);
   const completionPath = officialDefault ? '/v1/responses' : /(?:chat\/completions|responses)$/.test(pathname)
     ? `/${pathname}`
-    : pathname.endsWith("v1")
+    : !autoAppendApiVersion || googleCompatibilityBase || pathname.endsWith("v1")
       ? append("chat/completions")
       : append("v1/chat/completions");
   const discoveryPath =
@@ -127,7 +132,7 @@ function endpoints(provider) {
         ? `/${pathname.replace(/chat\/completions$/, "models")}`
         : pathname.endsWith("responses")
           ? `/${pathname.replace(/responses$/, "models")}`
-          : pathname.endsWith("v1")
+          : !autoAppendApiVersion || googleCompatibilityBase || pathname.endsWith("v1")
             ? append("models")
             : append("v1/models");
   const completion = new URL(parsed);
@@ -580,6 +585,7 @@ export async function saveProvider(store, input, update = false) {
     displayName: requireString(input.displayName, "displayName"),
     apiUrl: requireString(input.apiUrl, "apiUrl"),
     basePath: input.basePath?.trim() || null,
+    autoAppendApiVersion: input.autoAppendApiVersion ?? current?.autoAppendApiVersion ?? true,
     requiresAuth: input.requiresAuth ?? true,
     models: modelIds(input.models ?? current?.models ?? []),
     ...(current?.contextWindows ? { contextWindows: current.contextWindows } : {}),
@@ -770,6 +776,7 @@ export async function readProvider(provider) {
       requiresAuth: provider.requiresAuth,
       catalogProviderId: provider.catalogProviderId ?? null,
       basePath: provider.basePath ?? null,
+      autoAppendApiVersion: provider.autoAppendApiVersion ?? true,
       apiKeyEnv: null,
       apiKeySet: Boolean(provider.secret),
       preservesThinking: provider.preservesThinking ?? false,
@@ -800,10 +807,14 @@ export async function driverProvider(provider, model, { legacyThinking = false }
       outputTokens !== undefined && requestMaxTokens > outputTokens))
     throw providerError('invalid_output_budget', 'The configured output budget must be a positive integer within the known model capacity.');
   const { thinkingToggle: _toggle, thinkingDefault: _default, compat: thinkingCompat, ...nativeThinking } = legacyThinking ? modelThinkingProfile(model) : thinkingProfile(provider, model);
-  const compat = nativeThinking.reasoningEfforts && cachedModels(provider)?.templateBackends?.[model] === 'vllm' && cachedModels(provider)?.thinkingBudgetField
+  let compat = nativeThinking.reasoningEfforts && cachedModels(provider)?.templateBackends?.[model] === 'vllm' && cachedModels(provider)?.thinkingBudgetField
     ? { ...thinkingCompat, thinkingTokenBudgetField: cachedModels(provider).thinkingBudgetField } : thinkingCompat;
   const protocol = endpoints(provider).completion.pathname.endsWith("/responses")
     ? "openai-responses" : "openai-completions";
+  // Google's Chat Completions compatibility API rejects OpenAI's store field.
+  // Express this through the native adapter contract rather than rewriting bodies.
+  if (protocol === 'openai-completions' && new URL(modelBase(provider)).origin === 'https://generativelanguage.googleapis.com')
+    compat = { ...compat, supportsStore: false };
   return {
     id: provider.id,
     baseUrl: modelBase(provider),

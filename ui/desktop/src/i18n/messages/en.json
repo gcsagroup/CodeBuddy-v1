@@ -2298,7 +2298,7 @@
     "defaultMessage": "API Base Path (optional)"
   },
   "customProviderForm.apiBasePathHint": {
-    "defaultMessage": "Override the generation path required by your provider. A blank path uses Responses for the official OpenAI address and Chat Completions for compatible services. Loading models does not verify this path."
+    "defaultMessage": "When enabled, override the API path and fill in the version suffix. When disabled, keep the API URL path and append only protocol endpoints such as /chat/completions and /models."
   },
   "customProviderForm.apiBasePathPlaceholder": {
     "defaultMessage": "e.g., v1/chat/completions or project_id/v1"

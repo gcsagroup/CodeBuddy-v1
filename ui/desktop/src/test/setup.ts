@@ -2,6 +2,13 @@ import '@testing-library/jest-dom';
 import { vi, afterEach } from 'vitest';
 import { cleanup } from '@testing-library/react';
 
+// jsdom has no layout observer; Radix form controls use it for hidden input size.
+globalThis.ResizeObserver ??= class {
+  observe() {}
+  unobserve() {}
+  disconnect() {}
+};
+
 // Mock Electron modules before any imports
 vi.mock('electron', () => ({
   app: {

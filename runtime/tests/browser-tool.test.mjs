@@ -5,6 +5,37 @@ import { createHarnessDriver } from '../harness/index.mjs';
 import { mkdtemp, realpath, rm, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
+test('website acceptance waits for an explicit choice before creating a preview', async () => {
+  for (const decision of ['yes', 'no', 'skip', 'cancel']) {
+    const calls = [], submitted = Promise.withResolvers();
+    const controller = new AbortController();
+    const tool = browserTool({ sessionId: 'website', cwd: '/site', request: async (method, params) => {
+      calls.push({ method, params });
+      return method === 'elicitation/create' ? submitted.promise : { id: 'test-tab', url: 'http://localhost/site' };
+    } });
+    const pending = tool.execute({ operation: 'offer_acceptance', path: 'index.html' }, { signal: controller.signal });
+    assert.deepEqual(calls.map(c => c.method), ['elicitation/create']);
+    const form = calls[0].params;
+    assert.equal(form.sessionId, 'website');
+    assert.equal(form._meta['codebuddy/question-blocking'], true);
+    const choices = form._meta['codepro.dev/questionFields'].answer_0['codepro.dev/suggestedOptions'];
+    if (decision === 'cancel') controller.abort();
+    submitted.resolve(decision === 'skip' ? { action: 'decline' } :
+      { action: 'accept', content: { answer_0: choices[decision === 'no' ? 1 : 0].const, feedback_0: 'Check mobile layout' } });
+    if (decision === 'cancel') await assert.rejects(pending, /abort/i);
+    else if (decision === 'yes') {
+      assert.deepEqual(await pending, { id: 'test-tab', url: 'http://localhost/site', feedback: 'Check mobile layout' });
+      assert.equal(calls[1].method, BROWSER_METHOD);
+      assert.equal(calls[1].params.reuseAutomationTab, true);
+      assert.equal(calls[1].params.operation, 'open');
+    } else {
+      const handoff = await pending;
+      assert.equal(handoff.opened, false);
+      assert.equal(handoff.path, 'index.html');
+    }
+    assert.equal(calls.length, decision === 'yes' ? 2 : 1);
+  }
+});
 test('browser tool binds host session/workspace and validates before dispatch', async () => {
   const calls = [];
   const tool = browserTool({ sessionId: 'session-a', cwd: '/workspace', request: (...args) => { calls.push(args); return {id:'tab',url:'http://127.0.0.1:1234/index.html'}; } });

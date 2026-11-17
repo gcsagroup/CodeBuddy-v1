@@ -1,5 +1,7 @@
 # Browser control
 
+When a website is ready and you have not already specified whether to test it in a browser, CodeBuddy asks first. Select “Start browser testing” to open the site and check its main interactions. Decline or skip to receive the site entry and launch instructions without opening a browser. Automated checks reuse one tab per conversation and leave manually opened tabs alone. Closing the test tab lets the next check start in a fresh tab.
+
 Windows and macOS share three targets: the embedded right panel, an isolated Playwright MCP browser, and a user-selected Chrome/Edge tab.
 
 The developer tool `browser_control` opens HTTP(S) URLs or workspace HTML. HTML file tabs also offer a browser button. Tabs belong to their conversation. Enable the isolated or user-browser Playwright entry in Toolbox. Isolated mode uses installed Edge on Windows or Chrome on Mac. User-browser mode requires the [official extension](https://github.com/microsoft/playwright-mcp/tree/main/extension) and browser-side tab selection and connection confirmation; CodeBuddy does not copy personal browser profiles. Missing extension configuration must be resolved before that connection works.

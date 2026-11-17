@@ -40,6 +40,7 @@ export class BrowserController {
     wc.on('did-start-navigation', (_e, _url, inPlace, main) => {
       if (main && !inPlace) {
         this.nodes.clear();
+        this.messages = [];
         this.hasClickMarker = false;
       }
     });

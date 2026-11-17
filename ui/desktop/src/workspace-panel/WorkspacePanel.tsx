@@ -407,7 +407,7 @@ export function WorkspacePanelContent({
           : {
               ...s,
               tabs: s.tabs.some((t) => t.id === detail.id)
-                ? s.tabs
+                ? s.tabs.map(t => t.id === detail.id && savedTab ? savedTab : t)
                 : [
                     ...s.tabs,
                     savedTab ?? {

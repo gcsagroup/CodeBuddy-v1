@@ -1,6 +1,22 @@
 import { it, expect, vi } from 'vitest';
 import { BROWSER_TAB_EVENT, controlWorkspaceBrowser } from './browserControlClient';
-import { readWorkbench, scopeKey } from './workspacePanelStore';
+import { readWorkbench, saveWorkbench, scopeKey } from './workspacePanelStore';
+
+it('keeps a reused automation tab in place with its new title and leaves manual tabs alone', async () => {
+  const scope = { sessionId: 'repeat-open', root: '/site' };
+  const key = scopeKey(scope);
+  const manual = { kind: 'browser' as const, id: 'manual', title: 'Notes' };
+  saveWorkbench(key, { active: 'manual', filesOpen: true, tabs: [
+    { id: 'agent', kind: 'browser', title: 'First build' }, manual,
+  ] });
+  window.electron.workspacePanel = vi.fn().mockResolvedValue({
+    id: 'agent', browser: { title: 'New build' }, result: { id: 'agent' },
+  });
+  await controlWorkspaceBrowser({ action: 'browser-control', scope, operation: 'open', htmlPath: 'index.html', reuseAutomationTab: true });
+  expect(readWorkbench(key)).toEqual({ active: 'agent', filesOpen: true, tabs: [
+    { id: 'agent', kind: 'browser', title: 'New build' }, manual,
+  ] });
+});
 
 it('reveals the intended tab before an action settles and does not reselect it afterwards', async () => {
   const scope = { sessionId: 'slow-browser-test', root: '/workspace' };

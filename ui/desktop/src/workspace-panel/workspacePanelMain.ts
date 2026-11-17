@@ -64,6 +64,7 @@ interface TerminalState {
   exited: boolean;
 }
 interface BrowserState {
+  automation?: boolean;
   scope: string;
   view: WebContentsView;
   error?: string;
@@ -79,6 +80,7 @@ interface Owner {
   localSelections: Map<string, PanelLocalSelection>;
   terminals: Map<string, TerminalState>;
   browsers: Map<string, BrowserState>;
+  automationOpens?: Map<string, Promise<PanelReply>>;
   documentPreviewer?: Promise<DocumentPreviewer>;
   documentRequests?: Map<string, { scope: string; controller: AbortController }>;
   repositionBrowsers?: () => void;
@@ -291,6 +293,46 @@ function browserFor(owner: Owner, id: string, scope: string) {
   return browser;
 }
 
+async function openBrowserTarget(
+  owner: Owner, request: Extract<PanelRequest, { action: 'browser-control' }>, root: string
+): Promise<PanelReply> {
+  if (Boolean(request.url) === Boolean(request.htmlPath)) throw new Error('Specify one URL or HTML path');
+  const scope = request.scope.sessionId;
+  const existing = request.reuseAutomationTab
+    ? [...owner.browsers].find(([, tab]) => tab.scope === scope && tab.automation)
+    : undefined;
+  const previous = existing?.[1].preview;
+  let createdId: string | undefined;
+  let freshPreview: BrowserState['preview'];
+  try {
+    let preview: BrowserState['preview'];
+    let url: string;
+    if (request.htmlPath) {
+      preview = previous && previous.entry === await panelPath(root, request.htmlPath)
+        ? previous : (freshPreview = await createWorkspacePreview(root, request.htmlPath));
+      url = preview.url;
+    } else {
+      url = panelUrl(request.url!);
+      // Query strings and in-site navigation still need the original preview server.
+      if (previous && new URL(url).origin === new URL(previous.url).origin) preview = previous;
+    }
+    if (owners.get(owner.id) !== owner) throw new Error('Window closed');
+    const id = existing?.[0] ?? (createdId = (await dispatch(owner, { scope: request.scope, action: 'browser-create' })).id!);
+    const browser = browserFor(owner, id, scope);
+    await withBrowserFeedback(browser, 'open', () => browser.view.webContents.loadURL(url));
+    browser.automation = request.reuseAutomationTab;
+    browser.preview = preview;
+    if (previous && previous !== preview) previous.close();
+    return { id, browser: browserState(id, browser),
+      result: { id, url: browser.view.webContents.getURL(), target: 'embedded', localPreview: Boolean(preview) } };
+  } catch (error) {
+    freshPreview?.close();
+    if (createdId && owner.browsers.has(createdId))
+      await dispatch(owner, { scope: request.scope, action: 'browser-close', id: createdId });
+    throw new Error(`Browser open failed; no usable tab ID was returned. Do not guess a tab ID. Local previews require HTML; use file read for Markdown or other text documents. ${error instanceof Error ? error.message : String(error)}`);
+  }
+}
+
 async function dispatch(owner: Owner, request: PanelRequest): Promise<PanelReply> {
   const root = await bindScope(owner, request.scope);
   const scope = request.scope.sessionId;
@@ -368,32 +410,14 @@ async function dispatch(owner: Owner, request: PanelRequest): Promise<PanelReply
     }
     case 'browser-control': {
       if (request.operation === 'open') {
-        if (Boolean(request.url) === Boolean(request.htmlPath))
-          throw new Error('Specify one URL or HTML path');
-        let preview: Awaited<ReturnType<typeof createWorkspacePreview>> | undefined;
-        let id: string | undefined;
-        try {
-          preview = request.htmlPath
-            ? await createWorkspacePreview(root, request.htmlPath)
-            : undefined;
-          const url = preview?.url ?? panelUrl(request.url!);
-          const created = await dispatch(owner, { scope: request.scope, action: 'browser-create' });
-          id = created.id!;
-          const browser = browserFor(owner, id, scope);
-          browser.preview = preview;
-          await withBrowserFeedback(browser, 'open', () => browser.view.webContents.loadURL(url));
-          return {
-            id,
-            browser: browserState(id, browser),
-            result: { id, url, target: 'embedded', localPreview: Boolean(preview) },
-          };
-        } catch (error) {
-          preview?.close();
-          if (id) await dispatch(owner, { scope: request.scope, action: 'browser-close', id });
-          throw new Error(
-            `Browser open failed; no usable tab ID was returned. Any partially created tab was closed. Do not guess a tab ID. Local previews require HTML; use file read for Markdown or other text documents. ${error instanceof Error ? error.message : String(error)}`
-          );
-        }
+        if (!request.reuseAutomationTab) return openBrowserTarget(owner, request, root);
+        // Two parallel opens must not both decide they need the first automation tab.
+        const opens = owner.automationOpens ??= new Map();
+        const open = () => openBrowserTarget(owner, request, root);
+        const pending = (opens.get(scope) ?? Promise.resolve()).then(open, open);
+        opens.set(scope, pending);
+        try { return await pending; }
+        finally { if (opens.get(scope) === pending) opens.delete(scope); }
       }
       const browser = browserFor(owner, request.id!, scope);
       if (request.operation === 'close') {

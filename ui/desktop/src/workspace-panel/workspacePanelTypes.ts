@@ -81,7 +81,7 @@ export interface WebLinkMenuRequest {
   labels: Record<WebLinkMenuChoice, string>;
 }
 export type PanelRequest = { scope: PanelScope; reference?: boolean; line?: number } & (
-  | ({ action: 'browser-control' } & BrowserControlInput)
+  | ({ action: 'browser-control'; reuseAutomationTab?: boolean } & BrowserControlInput)
   | { action: 'list'; path: string }
   | { action: 'open-directory'; path: string }
   | { action: 'open-target'; path: string; choose: boolean }

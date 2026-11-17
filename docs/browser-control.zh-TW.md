@@ -1,5 +1,7 @@
 # 瀏覽器控制
 
+網站開發完成後，若你尚未指定是否進行瀏覽器測試，CodeBuddy 會先詢問。選「開始瀏覽器驗收」就會開啟網站並測試主要操作；選「只給我網站和啟動方式」或略過則提供入口與啟動步驟，不會開啟瀏覽器。右側驗收會在同一交談中重用一個分頁，保留手動開啟的頁面。關閉測試分頁後，下次驗收會建立新分頁。
+
 Windows 與 macOS 共用三種入口：右側內嵌頁面、Playwright MCP 獨立視窗、使用者選擇的 Chrome/Edge 分頁。
 
 開發工具中的 `browser_control` 可開啟 HTTP(S) 或工作區 HTML；HTML 檔案工具列也提供瀏覽器按鈕。頁面綁定目前對話。工具箱可啟用獨立視窗（Windows 使用已安裝的 Edge；Mac 使用 Chrome）或使用者瀏覽器。後者需按 [官方說明](https://github.com/microsoft/playwright-mcp/tree/main/extension)安裝 Playwright 擴充功能，並在瀏覽器確認分頁連線；應用程式不複製個人 profile。缺少擴充功能時需先完成設定。

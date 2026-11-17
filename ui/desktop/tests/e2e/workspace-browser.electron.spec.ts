@@ -46,6 +46,7 @@ test('native embedded browser observes, types, clicks, rejects covered targets a
       <button onmousedown="const end=performance.now()+1400;while(performance.now()<end){}">测试耗时操作</button>
       <div id="shadow-host"></div>
       <script>
+        console.log('first-build-console');
         const outer = document.querySelector('#shadow-host').attachShadow({mode:'open'});
         outer.innerHTML = '<div id="inner"></div>';
         const inner = outer.querySelector('#inner').attachShadow({mode:'open'});
@@ -72,6 +73,28 @@ test('native embedded browser observes, types, clicks, rejects covered targets a
       );
     const opened = await call({ operation: 'open', htmlPath: 'index.html' });
     const id = opened.id;
+    // The manually opened page above remains independent of the agent's one tab.
+    const auto = (target: Record<string, string>) => call({ operation: 'open', reuseAutomationTab: true, ...target });
+    const [first, second] = await Promise.all([auto({ htmlPath: 'index.html' }), auto({ htmlPath: './index.html' })]);
+    expect(first.id).not.toBe(id);
+    expect(second.result).toEqual(first.result);
+    const variant = await auto({ url: first.result.url + '?mode=boss' });
+    expect(variant.id).toBe(first.id);
+    expect((await call({ operation: 'observe', id: first.id })).result.url).toBe(variant.result.url);
+    expect((await fetch(first.result.url)).status).toBe(200);
+    await expect(auto({ htmlPath: 'missing.html' })).rejects.toThrow();
+    expect((await call({ operation: 'console', id: first.id })).result.messages.join()).toContain('first-build-console');
+    await fs.writeFile(path.join(root, 'other.html'), '<title>Second build</title><script>console.log("second-build-console")</script>');
+    const other = await auto({ htmlPath: 'other.html' });
+    expect(other.id).toBe(first.id);
+    expect((await call({ operation: 'observe', id: first.id })).result.title).toBe('Second build');
+    const messages = (await call({ operation: 'console', id: first.id })).result.messages.join();
+    expect(messages).toContain('second-build-console');
+    expect(messages).not.toContain('first-build-console');
+    await expect(fetch(first.result.url)).rejects.toThrow();
+    expect((await call({ operation: 'observe', id })).result.url).toBe(opened.result.url);
+    await call({ operation: 'close', id: first.id });
+    await expect(fetch(other.result.url)).rejects.toThrow();
     await page.evaluate(
       ({ scope, id }) =>
         (window as unknown as { panel: (r: unknown) => Promise<unknown> }).panel({

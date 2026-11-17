@@ -61,6 +61,7 @@ export async function createWorkspacePreview(root: string, entry: string) {
   });
   port = (server.address() as { port: number }).port;
   return {
+    entry: file,
     url: `http://127.0.0.1:${port}${prefix}${encodeURIComponent(path.basename(file))}`,
     close() {
       server.closeAllConnections();

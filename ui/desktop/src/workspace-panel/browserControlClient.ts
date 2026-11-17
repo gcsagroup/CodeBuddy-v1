@@ -28,25 +28,14 @@ export async function controlWorkspaceBrowser(
   const id = reply.id ?? request.id;
   if (id && ['open', 'close'].includes(request.operation)) {
     const current = readWorkbench(key);
-    saveWorkbench(
-      key,
-      request.operation === 'close'
-        ? {
-            tabs: current.tabs.filter((tab) => tab.id !== id),
-            active: current.active === id ? 'start' : current.active,
-          }
-        : {
-            tabs: [
-              ...current.tabs.filter((tab) => tab.id !== id),
-              {
-                id,
-                kind: 'browser',
-                title: reply.browser?.title || reply.browser?.url || 'Browser',
-              },
-            ],
-            active: id,
-          }
-    );
+    const tab = { id, kind: 'browser' as const, title: reply.browser?.title || reply.browser?.url || 'Browser' };
+    saveWorkbench(key, {
+      ...current,
+      tabs: request.operation === 'close' ? current.tabs.filter(t => t.id !== id)
+        : current.tabs.some(t => t.id === id) ? current.tabs.map(t => t.id === id ? tab : t)
+        : [...current.tabs, tab],
+      active: request.operation !== 'close' ? id : current.active === id ? 'start' : current.active,
+    });
   }
   // The real native receipt is returned even if cancellation arrives after input.
   if (id && !knownTarget) announceTab(id, request.operation === 'close');

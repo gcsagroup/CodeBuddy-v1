@@ -31,11 +31,12 @@ for (const dark of [false, true]) test(`loading stays readable and centered (${d
       const area = (await page.getByTestId('conversation-area').boundingBox())!;
       expect(Math.abs(bounds.x + bounds.width / 2 - (area.x + area.width / 2))).toBeLessThan(2);
       expect(Math.abs(bounds.y + bounds.height / 2 - (area.y + area.height / 2))).toBeLessThan(2);
-      await expect(status).toHaveCSS('font-size', '18px');
+      await expect(status).toHaveCSS('font-size', '14px');
       await expect(status).toHaveCSS('opacity', '1');
       const brand = status.locator('.conversation-loading-brand');
       await expect(brand.locator('img')).toBeVisible();
-      expect((await brand.boundingBox())!.width).toBeGreaterThanOrEqual(92);
+      expect((await brand.boundingBox())!.width).toBe(44);
+      expect((await brand.locator('img').boundingBox())!.width).toBe(28);
       expect(await brand.evaluate(element => getComputedStyle(element, '::before').animationName)).toBe('none');
     }
     await page.screenshot({ path: test.info().outputPath('loading.png') });
@@ -51,4 +52,34 @@ for (const dark of [false, true]) test(`loading stays readable and centered (${d
     await page.getByRole('button', { name: '切换加载状态' }).click();
     await expect(status).toBeVisible();
   } finally { await page.close(); }
+});
+
+for (const dark of [false, true]) test(`startup uses a compact consistent brand (${dark ? 'dark' : 'light'})`, async () => {
+  const page = await browser.newPage({reducedMotion: 'reduce'});
+  try {
+    await page.goto(server.resolvedUrls!.local[0] + `tests/browser-fixtures/conversation-loading.html?startup${dark ? '&dark' : ''}`);
+    for (const width of [360, 1100]) {
+      await page.setViewportSize({width, height: 800});
+      const brand = page.locator('.conversation-loading-brand');
+      expect((await brand.boundingBox())!.width).toBe(56);
+      expect((await brand.locator('img').boundingBox())!.width).toBe(36);
+      await expect(page.getByRole('heading')).toHaveCSS('font-size','14px');
+      const box = (await brand.boundingBox())!;
+      expect(Math.abs(box.x + box.width / 2 - width / 2)).toBeLessThan(2);
+    }
+    await page.screenshot({path:test.info().outputPath('startup-compact.png')});
+  } finally { await page.close(); }
+});
+
+test('the initial HTML loading mark matches the compact startup screen', async () => {
+  const page = await browser.newPage({viewport:{width:1100,height:800}});
+  try {
+    await page.route('**/src/renderer.tsx', route => route.abort());
+    await page.goto(server.resolvedUrls!.local[0] + '#/codepro');
+    const brand = page.locator('.first-paint .conversation-loading-brand');
+    await expect(brand).toBeVisible();
+    expect((await brand.boundingBox())!.width).toBe(56);
+    expect((await brand.locator('img').boundingBox())!.width).toBe(36);
+    await page.screenshot({path:test.info().outputPath('initial-paint-compact.png')});
+  } finally {await page.close();}
 });

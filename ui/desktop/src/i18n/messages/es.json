@@ -152,6 +152,9 @@
   "baseChat.lastStage": {
     "defaultMessage": "Last update: {stage}"
   },
+  "baseChat.lastTool": {
+    "defaultMessage": "Último resultado de herramienta: {action}"
+  },
   "baseChat.latest": {
     "defaultMessage": "Back to latest"
   },
@@ -4757,6 +4760,12 @@
   "messageUsageStats.totalTime": {
     "defaultMessage": "Tiempo total"
   },
+  "messageUsageStats.turn": {
+    "defaultMessage": "Total del turno"
+  },
+  "messageUsageStats.turnDetail": {
+    "defaultMessage": "Total de las llamadas registradas en este turno. El historial vuelve a contarse al reenviarlo. La salida puede incluir argumentos de herramientas y razonamiento."
+  },
   "microphoneSelector.chooseDescription": {
     "defaultMessage": "Elige qué micrófono usar para el dictado"
   },
@@ -5198,8 +5207,20 @@
   "modelsBottomBar.refresh": {
     "defaultMessage": "Refresh models"
   },
+  "modelsBottomBar.cachedList": {
+    "defaultMessage": "Showing the last saved list."
+  },
+  "modelsBottomBar.inventoryReadFailed": {
+    "defaultMessage": "Could not read the updated lists. The menu still shows the lists from before the refresh."
+  },
+  "modelsBottomBar.noSavedList": {
+    "defaultMessage": "No saved model list."
+  },
+  "modelsBottomBar.unknownReason": {
+    "defaultMessage": "No specific reason was reported."
+  },
   "modelsBottomBar.refreshFailed": {
-    "defaultMessage": "Some connections could not refresh. Their previous lists are still shown. Try again."
+    "defaultMessage": "Could not update model lists for {failed} of {total} connections."
   },
   "modelsBottomBar.refreshed": {
     "defaultMessage": "Model list updated."
@@ -9542,11 +9563,20 @@
   "workStatus.first": {
     "defaultMessage": "Waiting for model response"
   },
+  "workStatus.minutes": {
+    "defaultMessage": "· {minutes} min {seconds} s en este estado"
+  },
   "workStatus.preparing": {
     "defaultMessage": "Preparing the model request"
   },
   "workStatus.question": {
     "defaultMessage": "Waiting for your answer or approval"
+  },
+  "workStatus.request": {
+    "defaultMessage": "Llamada al modelo {number} · {status}"
+  },
+  "workStatus.requestElapsed": {
+    "defaultMessage": "· {minutes, plural, =0 {} other {# min }}{seconds} s en esta llamada"
   },
   "workStatus.responseRead": {
     "defaultMessage": "Connection established; receiving model output"

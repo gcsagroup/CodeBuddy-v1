@@ -13,3 +13,7 @@
 實作位於 `scripts/installer/installer-ui.iss`、`codebuddy.iss` 及 `install-details.iss`。執行 `node --test scripts/installer-ui.test.cjs scripts/windows-wizard-installer.test.cjs`，使用不同 AppId 的隔離小型安裝器檢查配置、詳情及資料保留，並透過 PrintWindow 擷取該視窗。夾具關閉實際捷徑及應用啟動，不接觸正式安裝。
 
 使用者提供的參考圖僅用於排版與視覺層級，保留 CodeBuddy 標識及行為。原生樣式說明：[WizardStyle](https://jrsoftware.org/ishelp/topic_setup_wizardstyle.htm)。
+
+## 載入動畫尺寸
+
+啟動首幀 HTML 與 React 畫面統一為 56px 外框、36px 標誌；對話載入為 44px 外框、28px 標誌。文字 14px，減輕陰影與留白。保留置中、明暗主題、減少動態偏好及就緒後立即消失的行為；側邊欄執行圖示不變，未修改安裝或狀態邏輯。

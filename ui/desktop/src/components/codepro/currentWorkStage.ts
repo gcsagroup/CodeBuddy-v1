@@ -3,6 +3,27 @@ import { isProgressTool, presentedToolCall } from './CodeProToolContent';
 import { getResponsePhase } from '../../types/responsePhase';
 import { getTurnTerminalRecord } from '../../types/turnTerminal';
 
+// Match the most recent returned action by receipt order (parallel tools can
+// finish out of order). A return is not proof of success or current execution.
+export function latestReturnedAction(messages: Message[], sourceId: string) {
+  const start = messages.findIndex(m => m.id === sourceId);
+  if (start < 0) return undefined;
+  let returnedId: string | undefined;
+  for (let i = messages.length - 1; i >= start; i--) {
+    const message = messages[i];
+    if (getTurnTerminalRecord(message) || (i > start && message.role === 'user' &&
+        message.metadata.userVisible && !message.metadata.steer && message.content.some(c => c.type === 'text'))) break;
+    if (!returnedId) {
+      const responses = getToolResponses(message);
+      returnedId = responses[responses.length - 1]?.id;
+    }
+    if (!returnedId) continue;
+    const request = getToolRequests(message).find(item => item.id === returnedId);
+    if (request) return presentedToolCall(request);
+  }
+  return undefined;
+}
+
 // Public presentation only: never use a stage title to infer execution state.
 export function currentWorkStage(
   messages: Message[],

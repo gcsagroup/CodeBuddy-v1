@@ -14,30 +14,39 @@
 .first-paint { position: fixed; inset: 0; }
 .no-first-paint .first-paint { display: none; }
 .dark .first-paint { color: #eee; background: #191a1c; }
-.startup-loader__content { display: grid; justify-items: center; gap: 1rem; max-width: 30rem; text-align: center; }
+.startup-loader__content { display: grid; justify-items: center; gap: .75rem; max-width: 24rem; text-align: center; }
 .startup-loader__mark { display: grid; justify-items: center; }
-.startup-loader__mark img { width: 4rem; height: auto; display: block; }
+.startup-loader__mark img { width: var(--loading-mark-size, 36px); height: auto; display: block; }
 .conversation-loading-brand {
+  --loading-brand-size: 56px;
+  --loading-mark-size: 36px;
+  --loading-radius: 18px;
   position: relative;
   display: grid;
-  width: 92px;
-  height: 92px;
+  width: var(--loading-brand-size);
+  height: var(--loading-brand-size);
   flex: none;
   place-items: center;
 }
 .conversation-loading-brand::before {
   position: absolute;
   inset: 0;
-  border: 2px solid transparent;
+  border: 1.5px solid transparent;
   border-top-color: #475569;
   border-right-color: #94a3b8;
-  border-radius: 29px;
+  border-radius: var(--loading-radius);
   content: '';
   animation: conversation-loading-orbit 1.8s linear infinite;
 }
-.conversation-loading-brand img { box-shadow: 0 10px 26px rgb(15 23 42 / 0.12); }
+.conversation-loading-brand--compact {
+  --loading-brand-size: 44px;
+  --loading-mark-size: 28px;
+  --loading-radius: 14px;
+}
+.conversation-loading-brand > div { width: var(--loading-mark-size); height: var(--loading-mark-size); }
+.conversation-loading-brand img { width: var(--loading-mark-size); height: auto; box-shadow: 0 4px 12px rgb(15 23 42 / 0.08); }
 @keyframes conversation-loading-orbit { to { transform: rotate(360deg); } }
-.startup-loader__title { margin: 0; font-size: 1.125rem; line-height: 1.5; font-weight: 500; text-wrap: balance; }
+.startup-loader__title { margin: 0; font-size: .875rem; line-height: 1.5; font-weight: 400; text-wrap: balance; }
 .startup-loader__content button { min-height: 2.5rem; padding-inline: 1.2rem; font-size: 1rem; }
 .activity-dots {
   display: inline-flex; align-items: center; justify-content: center;

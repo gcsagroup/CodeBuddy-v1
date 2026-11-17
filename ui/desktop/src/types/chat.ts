@@ -15,6 +15,7 @@ export type TokenState = {
   sessionStats?: { decodeTokens: number; decodeMs: number };
   requestBudget?: RequestBudget;
   contextLimit?: number;
+  pressureThreshold?: number;
   contextUsageSource?: 'provider_actual' | 'local_estimate' | 'streaming_estimate';
   contextCapacitySource?: 'service' | 'catalog' | 'configured' | 'fallback';
   contextUsageKnown?: boolean;

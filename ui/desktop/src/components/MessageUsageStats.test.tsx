@@ -88,7 +88,7 @@ describe('MessageUsageStats', () => {
     const tooltip = within(await screen.findByRole('tooltip'));
 
     expect(tooltip.getByText('Input')).toBeInTheDocument();
-    expect(tooltip.getByText('1.2k')).toBeInTheDocument();
+    expect(tooltip.getByText('1,200')).toBeInTheDocument();
     expect(tooltip.getByText('Output')).toBeInTheDocument();
     expect(tooltip.getByText('340')).toBeInTheDocument();
     expect(tooltip.getByText('(estimated)')).toBeInTheDocument();

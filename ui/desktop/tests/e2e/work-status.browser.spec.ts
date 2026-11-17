@@ -76,6 +76,10 @@ for (const [locale, labels] of Object.entries({
       await page.getByRole('button', { name: 'reconnect', exact: true }).click();
       await expect(status).toHaveText('连接发生错误；正在重新连接（1/5）');
       await page.getByRole('button', { name: 'waiting', exact: true }).click();
+      await expect(status).toContainText('171');
+      await expect(status).toContainText(
+        locale === 'en' ? '1m 35s on this call' : locale === 'zh-CN' ? '本次调用已用 1 分 35 秒' : '本次呼叫已用 1 分 35 秒'
+      );
       await expect(status.locator('svg')).toBeVisible();
       await expect(status.locator('.activity-dots')).toHaveCount(0);
       await page.clock.install();

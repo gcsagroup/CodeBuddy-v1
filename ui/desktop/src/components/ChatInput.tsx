@@ -249,6 +249,7 @@ interface ChatInputProps {
   setView: (view: View, options?: ViewOptions) => void;
   totalTokens?: number;
   contextLimit?: number;
+  pressureThreshold?: number;
   requestBudget?: RequestBudget;
   contextUsageSource?: 'provider_actual' | 'local_estimate' | 'streaming_estimate';
   sessionStats?: TokenState['sessionStats'];
@@ -319,6 +320,7 @@ export default function ChatInput({
   contextLimit,
   requestBudget,
   contextUsageSource,
+  pressureThreshold,
   sessionStats,
   liveSpeed,
   lastSampledSpeed,
@@ -2769,6 +2771,7 @@ export default function ChatInput({
           requestBudget={requestBudget?.model === effectiveModel ? requestBudget : undefined}
           totalTokens={totalTokens}
           tokenLimit={tokenLimit}
+          pressureThreshold={contextLimit === tokenLimit ? pressureThreshold : undefined}
           usageSource={contextUsageSource}
           capacitySource={capacity?.contextLimit === contextLimit ? contextCapacitySource : undefined}
           alerts={alerts}

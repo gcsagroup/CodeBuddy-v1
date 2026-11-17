@@ -43,6 +43,7 @@ export interface PromptActivity {
     childCount: number;
     modelRequestPhase?: 'preparing' | 'connecting' | 'waiting' | 'receiving';
     modelRequestStartedAt?: number;
+    modelRequestNumber?: number;
     responseRetries?: number;
     consecutiveToolFailures?: number;
     detail?: string;
@@ -842,10 +843,11 @@ function createAcpChatSessionStoreInternal(): AcpChatSessionStoreInternal {
         if (
           !entry.sessionReplayActive &&
           !entry.sealedIdleBoundaryActive &&
-          entry.activePromptAttemptId !== null &&
-          entry.promptActivity &&
+          (entry.activePromptAttemptId !== null || (entry.activeRunId !== null && activity.run_id === entry.activeRunId)) &&
           activity.schema_version === 1 &&
-          activity.source_user_message_id === entry.activePromptSourceUserMessageId &&
+          typeof activity.source_user_message_id === 'string' && activity.source_user_message_id.length > 0 &&
+          (activity.source_user_message_id === entry.activePromptSourceUserMessageId ||
+            (entry.activePromptAttemptId === null && entry.activePromptSourceUserMessageId === null)) &&
           typeof activity.run_id === 'string' &&
           (!entry.activeRunId || activity.run_id === entry.activeRunId) &&
           ['model', 'children', 'child_result', 'tool_result'].includes(String(activity.phase)) &&
@@ -865,13 +867,18 @@ function createAcpChatSessionStoreInternal(): AcpChatSessionStoreInternal {
             }
           }
           const toolInput = parseToolInputPreview(activity.tool_input);
+          const attempt = entry.activePromptAttemptId ?? entry.activeRunId!;
+          const prior = entry.promptActivity;
           entry.promptActivity = {
-            ...entry.promptActivity,
+            ...(prior?.promptAttemptId === attempt && prior.sourceUserMessageId === activity.source_user_message_id
+              ? prior : { promptAttemptId: attempt, sourceUserMessageId: activity.source_user_message_id, startedAt: Date.now() }),
             ...(toolInput ? { receivedAt: Date.now() } : {}),
             execution: {
               phase: activity.phase as NonNullable<PromptActivity['execution']>['phase'],
               childCount: Number(activity.child_count),
               toolInput,
+              ...(Number.isSafeInteger(activity.model_request_number) && Number(activity.model_request_number) > 0
+                ? { modelRequestNumber: Number(activity.model_request_number) } : {}),
               ...(typeof activity.model_request_started_at === 'number' && Number.isFinite(activity.model_request_started_at) && activity.model_request_started_at >= 0
                 ? { modelRequestStartedAt: activity.model_request_started_at } : {}),
               ...(Number.isSafeInteger(activity.response_retries) && Number(activity.response_retries) >= 0 && Number(activity.response_retries) <= 10_000
@@ -1486,7 +1493,7 @@ function snapshotFromEntry(entry: StoreEntry): AcpChatSessionSnapshot {
     completedPromptAttemptId: entry.completedPromptAttemptId,
     activeRunId: entry.activeRunId,
     promptActivity:
-      entry.activePromptAttemptId !== null &&
+      (entry.activePromptAttemptId !== null || (entry.activeRunId !== null && entry.promptActivity?.promptAttemptId === entry.activeRunId)) &&
       !entry.sealedIdleBoundaryActive &&
       !entry.sessionReplayActive
         ? entry.promptActivity
@@ -1501,7 +1508,7 @@ function snapshotFromEntry(entry: StoreEntry): AcpChatSessionSnapshot {
         ? entry.thinkingActivity
         : undefined,
     activeToolCallIds:
-      entry.activePromptAttemptId !== null && !entry.sealedIdleBoundaryActive
+      (entry.activePromptAttemptId !== null || entry.activeRunId !== null) && !entry.sessionReplayActive && !entry.sealedIdleBoundaryActive
         ? [...entry.liveToolCallIds]
         : [],
     pendingCancelPromptAttemptId: entry.pendingCancelPromptAttemptId,

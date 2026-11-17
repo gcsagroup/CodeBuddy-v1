@@ -155,6 +155,9 @@
   "baseChat.lastStage": {
     "defaultMessage": "Last update: {stage}"
   },
+  "baseChat.lastTool": {
+    "defaultMessage": "Last tool result: {action}"
+  },
   "baseChat.latest": {
     "defaultMessage": "Back to latest"
   },
@@ -1860,7 +1863,7 @@
     "defaultMessage": "Current generation speed"
   },
   "composerStats.liveDetail": {
-    "defaultMessage": "Output tokens received per second over the latest sample of this request. ≈ indicates an estimate."
+    "defaultMessage": "Output tokens received per second over the latest sample of this request."
   },
   "composerStats.previous": {
     "defaultMessage": "Last sampled generation speed"
@@ -4847,6 +4850,12 @@
   "messageUsageStats.totalTime": {
     "defaultMessage": "Total time"
   },
+  "messageUsageStats.turn": {
+    "defaultMessage": "Turn total"
+  },
+  "messageUsageStats.turnDetail": {
+    "defaultMessage": "Totals across reported calls in this turn. History is counted again when resent. Output can include tool arguments and reasoning."
+  },
   "microphoneSelector.chooseDescription": {
     "defaultMessage": "Choose which microphone to use for dictation"
   },
@@ -5270,8 +5279,14 @@
   "modelsAndRuntime.visionDescription": {
     "defaultMessage": "Use the main model first, with a backup when needed."
   },
+  "modelsBottomBar.cachedList": {
+    "defaultMessage": "Showing the last saved list."
+  },
   "modelsBottomBar.empty": {
     "defaultMessage": "No configured models"
+  },
+  "modelsBottomBar.inventoryReadFailed": {
+    "defaultMessage": "Could not read the updated lists. The menu still shows the lists from before the refresh."
   },
   "modelsBottomBar.loadFailed": {
     "defaultMessage": "Could not load models."
@@ -5285,11 +5300,14 @@
   "modelsBottomBar.noMatches": {
     "defaultMessage": "No matching models"
   },
+  "modelsBottomBar.noSavedList": {
+    "defaultMessage": "No saved model list."
+  },
   "modelsBottomBar.refresh": {
     "defaultMessage": "Refresh models"
   },
   "modelsBottomBar.refreshFailed": {
-    "defaultMessage": "Some connections could not refresh. Their previous lists are still shown. Try again."
+    "defaultMessage": "Could not update model lists for {failed} of {total} connections."
   },
   "modelsBottomBar.refreshed": {
     "defaultMessage": "Model list updated."
@@ -5323,6 +5341,9 @@
   },
   "modelsBottomBar.switching": {
     "defaultMessage": "Switching model…"
+  },
+  "modelsBottomBar.unknownReason": {
+    "defaultMessage": "No specific reason was reported."
   },
   "nativeSchedule.active": {
     "defaultMessage": "Active"
@@ -9753,7 +9774,10 @@
     "defaultMessage": "{seconds}s"
   },
   "workStatus.first": {
-    "defaultMessage": "Working on your request"
+    "defaultMessage": "Waiting for an activity update"
+  },
+  "workStatus.minutes": {
+    "defaultMessage": "· {minutes}m {seconds}s in this state"
   },
   "workStatus.preparing": {
     "defaultMessage": "Getting ready"
@@ -9761,8 +9785,14 @@
   "workStatus.question": {
     "defaultMessage": "Your input is needed"
   },
+  "workStatus.request": {
+    "defaultMessage": "Model call {number} · {status}"
+  },
+  "workStatus.requestElapsed": {
+    "defaultMessage": "{minutes,plural,=0{· {seconds}s on this call} other{· #m {seconds}s on this call}}"
+  },
   "workStatus.responseRead": {
-    "defaultMessage": "Preparing a response"
+    "defaultMessage": "Receiving model output"
   },
   "workStatus.responseWait": {
     "defaultMessage": "Waiting for the model service"

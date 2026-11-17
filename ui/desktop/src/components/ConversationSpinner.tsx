@@ -7,7 +7,7 @@ interface ConversationSpinnerProps {
 export default function ConversationSpinner({ size = 'small' }: ConversationSpinnerProps) {
   if (size === 'large') {
     return (
-      <span aria-hidden="true" className="conversation-loading-brand">
+      <span aria-hidden="true" className="conversation-loading-brand conversation-loading-brand--compact">
         <GooseLogo hover={false} />
       </span>
     );

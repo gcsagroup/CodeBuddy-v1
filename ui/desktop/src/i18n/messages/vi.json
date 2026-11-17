@@ -152,6 +152,9 @@
   "baseChat.lastStage": {
     "defaultMessage": "Last update: {stage}"
   },
+  "baseChat.lastTool": {
+    "defaultMessage": "Kết quả công cụ gần nhất: {action}"
+  },
   "baseChat.latest": {
     "defaultMessage": "Back to latest"
   },
@@ -4757,6 +4760,12 @@
   "messageUsageStats.totalTime": {
     "defaultMessage": "Tổng thời gian"
   },
+  "messageUsageStats.turn": {
+    "defaultMessage": "Tổng trong lượt"
+  },
+  "messageUsageStats.turnDetail": {
+    "defaultMessage": "Tổng các lần gọi được ghi nhận trong lượt này. Lịch sử được tính lại khi gửi lại. Đầu ra có thể gồm đối số công cụ và nội dung suy luận."
+  },
   "microphoneSelector.chooseDescription": {
     "defaultMessage": "Chọn micrô nào để sử dụng cho việc đọc chính tả"
   },
@@ -5198,8 +5207,20 @@
   "modelsBottomBar.refresh": {
     "defaultMessage": "Refresh models"
   },
+  "modelsBottomBar.cachedList": {
+    "defaultMessage": "Showing the last saved list."
+  },
+  "modelsBottomBar.inventoryReadFailed": {
+    "defaultMessage": "Could not read the updated lists. The menu still shows the lists from before the refresh."
+  },
+  "modelsBottomBar.noSavedList": {
+    "defaultMessage": "No saved model list."
+  },
+  "modelsBottomBar.unknownReason": {
+    "defaultMessage": "No specific reason was reported."
+  },
   "modelsBottomBar.refreshFailed": {
-    "defaultMessage": "Some connections could not refresh. Their previous lists are still shown. Try again."
+    "defaultMessage": "Could not update model lists for {failed} of {total} connections."
   },
   "modelsBottomBar.refreshed": {
     "defaultMessage": "Model list updated."
@@ -9542,11 +9563,20 @@
   "workStatus.first": {
     "defaultMessage": "Waiting for model response"
   },
+  "workStatus.minutes": {
+    "defaultMessage": "· {minutes} phút {seconds} giây ở trạng thái này"
+  },
   "workStatus.preparing": {
     "defaultMessage": "Preparing the model request"
   },
   "workStatus.question": {
     "defaultMessage": "Waiting for your answer or approval"
+  },
+  "workStatus.request": {
+    "defaultMessage": "Lần gọi mô hình {number} · {status}"
+  },
+  "workStatus.requestElapsed": {
+    "defaultMessage": "· {minutes, plural, =0 {} other {# phút }}{seconds} giây cho lần gọi này"
   },
   "workStatus.responseRead": {
     "defaultMessage": "Connection established; receiving model output"

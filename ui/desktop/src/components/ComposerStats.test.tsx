@@ -18,9 +18,9 @@ it('switches from live measured or estimated output to the completed session spe
   rerender(view({ rate: 25, estimated: false }));
   expect(screen.getByRole('button', { name: 'Current generation speed' })).toHaveTextContent('25.0 tok/s');
   rerender(view({ rate: 15, estimated: true }));
-  expect(screen.getByText('≈15.0 tok/s')).toBeVisible();
+  expect(screen.getByText('15.0 tok/s')).toBeVisible();
   rerender(view({ rate: null, estimated: false }, { rate: 15, estimated: true }));
-  expect(screen.getByRole('button', { name: 'Last sampled generation speed' })).toHaveTextContent('≈15.0 tok/s');
+  expect(screen.getByRole('button', { name: 'Last sampled generation speed' })).toHaveTextContent('15.0 tok/s');
   rerender(view({ rate: 0, estimated: false }, { rate: 15, estimated: true }));
   expect(screen.getByRole('button', { name: 'Current generation speed' })).toHaveTextContent('0.00 tok/s');
   rerender(view(null));
@@ -31,6 +31,8 @@ it('uses the complete input denominator and the latest request, preserving zero 
   const cached = message({ inputTokens: 180, cacheReadTokens: 820, outputTokens: 40, totalTokens: 1040 });
   expect(latestCacheReading([cached])).toEqual({ cached: 820, prompt: 1000, percent: '82' });
   expect(latestCacheReading([cached, message({ inputTokens: 20, cacheReadTokens: 0 })])?.percent).toBe('0');
+  expect(latestCacheReading([message({ inputTokens: 168134, cacheReadTokens: 768 })])?.percent).toBe('0.45');
+  expect(latestCacheReading([message({ inputTokens: 200000, cacheReadTokens: 1 })])?.percent).toBe('<0.01');
   expect(latestCacheReading([cached, message({ inputTokens: 20 })])).toBeNull();
   expect(latestCacheReading([message({ inputTokens: 100, cacheReadTokens: 800, cacheWriteTokens: 100 })])?.percent).toBe('80');
   expect(latestCacheReading([message({ totalTokens: 100, outputTokens: 10, cacheReadTokens: 200 })])).toBeNull();
@@ -52,4 +54,11 @@ it('does not manufacture numbers before data or reuse a compaction receipt', () 
   expect(screen.getByText('— tok/s')).toBeVisible();
   expect(screen.getByText('Cache hit Not reported')).toBeVisible();
   expect(latestCacheReading([message({ inputTokens: 50, cacheReadTokens: 40, isCompaction: true })])).toBeNull();
+});
+
+it('shows boundary cache percentages without a less-than sign', () => {
+  const { rerender } = render(<ComposerStats messages={[message({ inputTokens: 1, cacheReadTokens: 9999 })]}>{null}</ComposerStats>, { wrapper: IntlTestWrapper });
+  expect(screen.getByText('Cache hit 99.99%')).toBeVisible();
+  rerender(<ComposerStats messages={[message({ inputTokens: 200000, cacheReadTokens: 1 })]}>{null}</ComposerStats>);
+  expect(screen.getByText('Cache hit 0.00%')).toBeVisible();
 });

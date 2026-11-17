@@ -152,6 +152,9 @@
   "baseChat.lastStage": {
     "defaultMessage": "Last update: {stage}"
   },
+  "baseChat.lastTool": {
+    "defaultMessage": "直前のツール結果：{action}"
+  },
   "baseChat.latest": {
     "defaultMessage": "Back to latest"
   },
@@ -4757,6 +4760,12 @@
   "messageUsageStats.totalTime": {
     "defaultMessage": "合計時間"
   },
+  "messageUsageStats.turn": {
+    "defaultMessage": "このターンの合計"
+  },
+  "messageUsageStats.turnDetail": {
+    "defaultMessage": "このターンで報告された呼び出しの合計です。履歴を再送すると再度カウントされます。出力にはツールの引数や推論が含まれる場合があります。"
+  },
   "microphoneSelector.chooseDescription": {
     "defaultMessage": "音声入力に使用するマイクを選択"
   },
@@ -5198,8 +5207,20 @@
   "modelsBottomBar.refresh": {
     "defaultMessage": "Refresh models"
   },
+  "modelsBottomBar.cachedList": {
+    "defaultMessage": "Showing the last saved list."
+  },
+  "modelsBottomBar.inventoryReadFailed": {
+    "defaultMessage": "Could not read the updated lists. The menu still shows the lists from before the refresh."
+  },
+  "modelsBottomBar.noSavedList": {
+    "defaultMessage": "No saved model list."
+  },
+  "modelsBottomBar.unknownReason": {
+    "defaultMessage": "No specific reason was reported."
+  },
   "modelsBottomBar.refreshFailed": {
-    "defaultMessage": "Some connections could not refresh. Their previous lists are still shown. Try again."
+    "defaultMessage": "Could not update model lists for {failed} of {total} connections."
   },
   "modelsBottomBar.refreshed": {
     "defaultMessage": "Model list updated."
@@ -9542,11 +9563,20 @@
   "workStatus.first": {
     "defaultMessage": "Waiting for model response"
   },
+  "workStatus.minutes": {
+    "defaultMessage": "· この状態で {minutes}分{seconds}秒"
+  },
   "workStatus.preparing": {
     "defaultMessage": "Preparing the model request"
   },
   "workStatus.question": {
     "defaultMessage": "Waiting for your answer or approval"
+  },
+  "workStatus.request": {
+    "defaultMessage": "モデル呼び出し {number} · {status}"
+  },
+  "workStatus.requestElapsed": {
+    "defaultMessage": "· この呼び出しで {minutes, plural, =0 {} other {#分}}{seconds}秒"
   },
   "workStatus.responseRead": {
     "defaultMessage": "Connection established; receiving model output"

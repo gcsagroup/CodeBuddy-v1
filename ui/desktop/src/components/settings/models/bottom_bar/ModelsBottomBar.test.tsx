@@ -123,15 +123,48 @@ it('keeps a failed connection list while updating successful connections and all
     provider('offline', ['old-model']),
   ]);
   await user.click(screen.getByRole('button', { name: 'Refresh models' }));
-  expect(await screen.findByRole('alert')).toHaveTextContent('previous lists');
+  expect(await screen.findByRole('alert')).toHaveTextContent('1 of 2 connections');
+  expect(screen.getByRole('alert')).toHaveTextContent('offline · No specific reason was reported. Showing the last saved list.');
   expect(screen.getByRole('alert')).not.toHaveTextContent('PRIVATE_ENDPOINT');
   expect(screen.getByRole('button', { name: 'new-model' })).toBeVisible();
   await user.click(screen.getByRole('button', { name: 'offline (1)' }));
   expect(screen.getByRole('button', { name: 'old-model' })).toBeVisible();
   vi.mocked(acpRefreshProviderModels).mockResolvedValue();
-  await user.click(screen.getByRole('button', { name: 'Refresh models' }));
+  await user.click(screen.getByRole('button', { name: 'Retry' }));
   await waitFor(() => expect(screen.queryByRole('alert')).not.toBeInTheDocument());
   expect(screen.getByRole('status')).toHaveTextContent('Model list updated');
+});
+
+it('names the connection with rejected credentials even when it has no saved models', async () => {
+  const empty = provider('provider-id', []);
+  empty.metadata.display_name = 'Lab LAN';
+  vi.mocked(acpListProviderDetails).mockResolvedValue([provider('p', ['model-A']), empty]);
+  vi.mocked(acpRefreshProviderModels).mockImplementation(async id => {
+    if (id === empty.name) throw { message: 'private upstream body', data: {
+      code: 'custom_provider_invalid_credentials', httpStatus: 401,
+    } };
+  });
+  const user = userEvent.setup();
+  setup();
+  await openModels(user);
+  await user.click(screen.getByRole('button', { name: 'Refresh models' }));
+  const notice = await screen.findByRole('alert');
+  expect(notice).toHaveTextContent('Lab LAN · HTTP 401');
+  expect(notice).toHaveTextContent('The API key was rejected.');
+  expect(notice).toHaveTextContent('No saved model list.');
+  expect(notice).not.toHaveTextContent('private upstream body');
+});
+
+it('distinguishes a failure to read updated lists from a provider refusing the refresh', async () => {
+  const user = userEvent.setup();
+  setup();
+  await openModels(user);
+  vi.mocked(acpListProviderDetails).mockRejectedValueOnce(new Error('read failed'));
+  await user.click(screen.getByRole('button', { name: 'Refresh models' }));
+  const notice = await screen.findByRole('alert');
+  expect(notice).toHaveTextContent('Could not read the updated lists.');
+  expect(notice).not.toHaveTextContent('of 1 connections');
+  expect(screen.getByRole('button', { name: 'model-A', pressed: true })).toBeVisible();
 });
 
 beforeEach(() => {

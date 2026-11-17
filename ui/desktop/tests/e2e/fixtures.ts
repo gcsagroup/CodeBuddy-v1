@@ -885,7 +885,8 @@ export const test = base.extend<GooseTestFixtures>({
         // Process cleanup still has the launcher-tree fallback below.
       }
       if (deterministicServer && (testInfo.title.startsWith('Message identity ') ||
-          testInfo.title.startsWith('Question attention '))) {
+          testInfo.title.startsWith('Question attention ') || testInfo.title.startsWith('Long turn status ') ||
+          testInfo.title.startsWith('Website handoff:'))) {
         await page.evaluate(async (url) => {
           const modulePath = '/src/acp/acpConnection.ts';
           const { getAcpClient } = await import(modulePath);

@@ -1,11 +1,15 @@
 import GooseLogo from './GooseLogo';
-import { Layers3 } from 'lucide-react';
+import { CircleStop, FileSearch, Layers3, Link2, ListChecks, ListTree, Settings2, UsersRound } from 'lucide-react';
 import AnimatedIcons from './AnimatedIcons';
 import ConversationSpinner from './ConversationSpinner';
+import { ToolActivityIcon } from './ToolActivityIcon';
 import { ChatState } from '../types/chatState';
 import { defineMessages, useIntl } from '../i18n';
 import { useEffect, useState } from 'react';
 import type { CompactionLifecycle } from '../types/compactionLifecycle';
+import type { selectWorkStatus } from './codepro/useWorkStatus';
+
+type WorkStatusSource = ReturnType<typeof selectWorkStatus>['source'];
 
 interface LoadingGooseProps {
   message?: string;
@@ -15,6 +19,8 @@ interface LoadingGooseProps {
   assistantName?: 'Code' | 'CodePro';
   compactionLifecycle?: CompactionLifecycle;
   showElapsed?: boolean;
+  workStatusSource?: WorkStatusSource;
+  activeToolName?: string;
 }
 
 export function getLoadingIndicatorPresentation(
@@ -92,6 +98,44 @@ const STATE_ICONS: Record<ChatState, React.ReactNode> = {
   [ChatState.RestartingAgent]: <AnimatedIcons className="flex-shrink-0" variant="waiting" />,
 };
 
+function workStatusIcon(source: WorkStatusSource, toolName?: string): React.ReactNode {
+  const neutralIcon = 'size-4 shrink-0 text-text-secondary';
+  switch (source) {
+    case 'tool':
+    case 'toolInput':
+      return toolName ? <ToolActivityIcon name={toolName} status="loading" animated={false} /> : <ConversationSpinner />;
+    case 'text':
+    case 'responseRead':
+      return <AnimatedIcons variant="streaming" animated={false} />;
+    case 'thought':
+      return <AnimatedIcons variant="thinking" />;
+    case 'question':
+    case 'approval':
+      return <AnimatedIcons variant="question" animated={false} />;
+    case 'children':
+      return <UsersRound className={neutralIcon} aria-hidden="true" />;
+    case 'childResult':
+      return <Layers3 className={neutralIcon} aria-hidden="true" />;
+    case 'toolResult':
+      return <FileSearch className={neutralIcon} aria-hidden="true" />;
+    case 'check':
+      return <ListChecks className={neutralIcon} aria-hidden="true" />;
+    case 'stage':
+      return <ListTree className={neutralIcon} aria-hidden="true" />;
+    case 'preparing':
+      return <Settings2 className="size-4 shrink-0 text-text-secondary motion-safe:animate-spin [animation-duration:4s]" aria-hidden="true" />;
+    case 'connecting':
+      return <Link2 className={neutralIcon} aria-hidden="true" />;
+    case 'responseWait':
+    case 'first':
+      return <ConversationSpinner />;
+    case 'cancel':
+      return <CircleStop className="size-4 shrink-0 text-text-secondary" aria-hidden="true" />;
+    case 'chat_state':
+      return undefined;
+  }
+}
+
 const STATE_MESSAGE_KEYS: Record<ChatState, keyof typeof i18n> = {
   [ChatState.LoadingConversation]: 'loadingConversation',
   [ChatState.Thinking]: 'thinking',
@@ -110,6 +154,8 @@ const LoadingGoose = ({
   assistantName = 'Code',
   compactionLifecycle,
   showElapsed = false,
+  workStatusSource,
+  activeToolName,
 }: LoadingGooseProps) => {
   const intl = useIntl();
   const [now, setNow] = useState(Date.now);
@@ -130,7 +176,7 @@ const LoadingGoose = ({
         seconds: Math.max(0, Math.floor((now - Date.parse(compactionLifecycle.startedAt)) / 1000)),
       })
     : message || localizedStateMessage.replace(/CodeBuddy/g, assistantName);
-  const icon = STATE_ICONS[chatState];
+  const icon = (workStatusSource && workStatusIcon(workStatusSource, activeToolName)) || STATE_ICONS[chatState];
 
   if (compacting) return (
     <div data-testid="loading-indicator" role="status" aria-live="polite" aria-busy="true"
@@ -159,9 +205,15 @@ const LoadingGoose = ({
         role="status"
         aria-live="polite"
         aria-busy="true"
-        className="flex items-center gap-2 text-xs text-text-primary py-2"
+        className="flex items-center gap-2 py-1.5 text-sm text-text-primary"
       >
-        {icon}
+        <span
+          key={`${workStatusSource ?? chatState}:${activeToolName ?? ''}`}
+          aria-hidden="true"
+          className="work-status-icon inline-grid size-6 shrink-0 place-items-center text-text-secondary"
+        >
+          {icon}
+        </span>
         <span className="min-w-0 truncate" title={displayMessage}>
           {showElapsed &&
           !compacting &&
@@ -189,7 +241,7 @@ const LoadingGoose = ({
       {hint && (
         <p
           data-testid="wait-hint"
-          className="pb-2 pl-6 text-xs leading-relaxed text-text-secondary"
+          className="pb-2 pl-8 text-xs leading-relaxed text-text-secondary"
         >
           {hint}
         </p>

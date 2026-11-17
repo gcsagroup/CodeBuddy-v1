@@ -40,7 +40,9 @@ const client = {
     },
     providersInventoryRefresh_unstable: async (request: { providerIds: string[] }) => {
       const bridge = window as unknown as { fixtureRefreshModels: (request: { providerIds: string[] }) => Promise<unknown> };
-      return bridge.fixtureRefreshModels(request);
+      const reply = await bridge.fixtureRefreshModels(request);
+      if (reply && typeof reply === 'object' && 'error' in reply) throw reply.error;
+      return reply;
     },
     preferencesRead_unstable: async () => ({ revision: 0, values: [] }),
     dictationConfig_unstable: async () => ({ providers: {} }),

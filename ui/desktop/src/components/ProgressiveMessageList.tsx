@@ -58,6 +58,7 @@ import UserMessage from './UserMessage';
 import {
   SystemNotificationInline,
   getInlineSystemNotification,
+  groupCompactionFailures,
 } from './context_management/SystemNotificationInline';
 import {
   CreditsExhaustedNotification,
@@ -320,7 +321,7 @@ function OrderedMessageList(props: ProgressiveMessageListProps) {
           ? [content.length === message.content.length ? message : { ...message, content }]
           : [];
       });
-      return presented.filter(
+      return groupCompactionFailures(presented).filter(
         (message) =>
           !message.content.every((content) => {
             if (

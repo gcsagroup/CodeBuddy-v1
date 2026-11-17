@@ -40,6 +40,8 @@ function Fixture() {
                 phase: 'model',
                 childCount: 0,
                 modelRequestPhase: 'waiting',
+                modelRequestNumber: mode === 'waiting' ? 171 : undefined,
+                modelRequestStartedAt: mode === 'waiting' ? receivedAt - 95_000 : undefined,
                 detail: mode === 'reconnect' ? '连接发生错误；正在重新连接（1/5）' : undefined,
               }
             : undefined,

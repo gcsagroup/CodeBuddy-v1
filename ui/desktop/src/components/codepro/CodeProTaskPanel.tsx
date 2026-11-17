@@ -662,7 +662,7 @@ export function CodeProTaskPanel({
                                           : task.status === 'cancelled'
                                             ? 'text-amber-600'
                                             : task.status === 'running'
-                                              ? 'animate-spin text-blue-500'
+                                              ? 'animate-spin text-text-secondary'
                                               : 'text-text-secondary'
                               )}
                               aria-hidden="true"

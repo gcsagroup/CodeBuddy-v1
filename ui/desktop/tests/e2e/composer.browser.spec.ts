@@ -99,13 +99,16 @@ test('composer statistics stay readable, explain their scope and preserve send i
     expect((await stats.boundingBox())!.y).toBeGreaterThanOrEqual((await card.boundingBox())!.y + (await card.boundingBox())!.height - 1);
     const toggle = page.getByRole('button', { name: '切换运行状态' });
     await toggle.click();
-    await expect(stats.getByRole('button', { name: '上次采样的生成速度' })).toHaveText('≈35.0 tok/s');
+    await expect(stats.getByRole('button', { name: '上次采样的生成速度' })).toHaveText('35.0 tok/s');
     await page.getByRole('button', { name: '切换速度采样' }).click();
     await expect(stats.getByRole('button', { name: '当前生成速度' })).toHaveText('42.0 tok/s');
     await toggle.click();
     await expect(stats.getByText('220 tok/s')).toBeVisible();
     await expect(stats.getByText('缓存命中 82%')).toBeVisible();
     await expect(stats.getByText('上下文 6%')).toBeVisible();
+    await stats.getByText('上下文 6%').hover();
+    await expect(page.getByText(/自动压缩触发线.*800,000 tokens/)).toBeVisible();
+    await page.mouse.move(0, 0);
     await stats.getByRole('button', { name: '平均生成速度', exact: true }).focus();
     await expect(page.getByRole('tooltip')).toContainText('不含首字等待和工具执行时间');
     await page.keyboard.press('Escape');
@@ -190,8 +193,14 @@ test('model refresh discovers new remote models and preserves the last list on s
     await page.exposeFunction('fixtureModelInventory', () => ({ entries: [inventory(provider)] }));
     await page.exposeFunction('fixtureRefreshModels', async ({ providerIds }: { providerIds: string[] }) => {
       expect(providerIds).toEqual([fixtureProvider]);
-      provider.models = await discover(provider, provider);
-      return { started: providerIds, skipped: [] };
+      try {
+        provider.models = await discover(provider, provider);
+        return { started: providerIds, skipped: [] };
+      } catch (error) {
+        // Playwright's exposed function otherwise discards the ACP diagnostic fields.
+        if (!(error instanceof Error) || !('data' in error)) throw error;
+        return { error: { message: error.message, data: error.data } };
+      }
     });
     await page.goto(server.resolvedUrls!.local[0] + 'tests/browser-fixtures/composer.html');
     await page.getByRole('button', { name: /思考强度/ }).click();
@@ -205,10 +214,18 @@ test('model refresh discovers new remote models and preserves the last list on s
     expect(provider.models).toContain('new-remote-model');
     fail = true;
     await picker.getByRole('button', { name: '刷新模型', exact: true }).click();
-    await expect(picker.getByRole('alert')).toContainText('部分连接刷新失败');
+    const notice = picker.getByRole('alert');
+    await expect(notice).toContainText('共 1 个连接，1 个未能更新模型列表');
+    await expect(notice).toContainText('Fixture connection · HTTP 503');
+    await expect(notice).toContainText('模型服务返回服务器错误');
+    await expect(notice).toContainText('当前显示上次保存的模型');
     await expect(picker.getByRole('button', { name: 'new-remote-model', exact: true })).toBeVisible();
     await expect(picker.getByRole('button', { name: '刷新模型', exact: true })).toBeEnabled();
-    await page.screenshot({ path: test.info().outputPath('model-refresh.png'), fullPage: true });
+    await picker.screenshot({ path: test.info().outputPath('model-refresh.png') });
+    fail = false;
+    await notice.getByRole('button', { name: '重试', exact: true }).click();
+    await expect(picker.getByRole('status')).toHaveText('模型列表已更新。');
+    await expect(notice).toHaveCount(0);
   } finally {
     await page.close();
     endpoint.closeAllConnections();

@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { IntlProvider } from 'react-intl';
+import SuspenseLoader from '../../src/suspense-loader';
 import ConversationLoading from '../../src/components/ConversationLoading';
 import { applyThemeTokens } from '../../src/theme/theme-tokens';
 import '../../src/styles/main.css';
@@ -15,7 +16,7 @@ function Fixture() {
     <div className="flex h-screen flex-col bg-background-primary text-text-primary">
       <header className="p-4">历史对话</header>
       <main className="relative min-h-0 flex-1" data-testid="conversation-area">
-        {loading ? <ConversationLoading /> : <p>历史内容已显示</p>}
+        {loading ? (new URLSearchParams(location.search).has('startup') ? <SuspenseLoader label="正在启动…" /> : <ConversationLoading />) : <p>历史内容已显示</p>}
       </main>
       <footer className="p-6"><button onClick={() => setLoading(value => !value)}>切换加载状态</button></footer>
     </div>

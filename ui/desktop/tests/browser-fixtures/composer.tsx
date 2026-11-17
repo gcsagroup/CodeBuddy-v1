@@ -108,6 +108,7 @@ Promise.all([
                     workingDir="C:/isolated-composer-fixture"
                     totalTokens={tokens}
                     contextLimit={1000000}
+                    pressureThreshold={800000}
                     contextUsageSource="provider_actual"
                     contextCapacitySource="service"
                     hideWorkingDirSwitcher

@@ -45,7 +45,7 @@ export const SystemNotificationInline: React.FC<SystemNotificationInlineProps> =
     return <div role="status" className="my-3 flex items-center gap-2 rounded-lg border border-border-primary bg-background-secondary/50 px-3 py-2 text-xs text-text-secondary">
       <Icon className="size-3.5 shrink-0" />
       <div className="min-w-0 flex-1">
-        <span>{intl.formatMessage(label)}</span>
+        <span>{intl.formatMessage(label)}{isRecord(data) && typeof data.repeatCount === 'number' && data.repeatCount > 1 && ` × ${data.repeatCount}`}</span>
         {compaction.status === 'failed' && compaction.error && (
           <details className="mt-1">
             <summary className="cursor-pointer text-text-secondary hover:text-text-primary">{intl.formatMessage(m.compactDetails)}</summary>
@@ -77,6 +77,38 @@ export const SystemNotificationInline: React.FC<SystemNotificationInlineProps> =
     );
   return <div className="text-xs text-gray-400 py-2 text-left">{notification.msg}</div>;
 };
+
+// Group repeated automatic failures within a turn for display only. Lifecycle
+// records keep their original operation IDs in the session and in history.
+export function groupCompactionFailures(messages: Message[]): Message[] {
+  const output: Message[] = [];
+  const groups = new Map<string, { index: number; count: number }>();
+  for (const message of messages) {
+    const notification = getInlineSystemNotification(message);
+    const data = notification?.data;
+    const lifecycle = parseCompactionLifecycle(data);
+    if (lifecycle && (lifecycle.status === 'completed' || lifecycle.trigger !== 'auto')) groups.clear();
+    if (message.content.length !== 1 || lifecycle?.trigger !== 'auto' || lifecycle.status !== 'failed' ||
+        !isRecord(data) || !isRecord(data.diagnostic) || typeof data.diagnostic.code !== 'string') {
+      output.push(message);
+      continue;
+    }
+    const key = JSON.stringify([lifecycle.runId, lifecycle.workerSessionId, data.diagnostic.code, lifecycle.error]);
+    const group = groups.get(key);
+    if (!group) {
+      groups.set(key, { index: output.length, count: 1 });
+      output.push(message);
+      continue;
+    }
+    const first = output[group.index];
+    const content = first.content[0];
+    if (content.type === 'systemNotification' && isRecord(content.data)) {
+      group.count++;
+      output[group.index] = { ...first, content: [{ ...content, data: { ...content.data, repeatCount: group.count } }] };
+    }
+  }
+  return output;
+}
 
 export function getInlineSystemNotification(
   message: Message

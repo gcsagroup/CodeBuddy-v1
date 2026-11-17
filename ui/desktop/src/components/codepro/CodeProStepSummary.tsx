@@ -136,7 +136,7 @@ export function CodeProStepSummaryView({
           <Ban className="h-4 w-4 shrink-0 text-amber-600" aria-hidden="true" />
         ) : (
           <LoaderCircle
-            className="h-4 w-4 shrink-0 animate-spin text-blue-500"
+            className="h-4 w-4 shrink-0 animate-spin text-text-secondary"
             aria-hidden="true"
           />
         )}

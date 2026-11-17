@@ -2,7 +2,7 @@ import { fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { IntlTestWrapper } from '../../i18n/test-utils';
 import type { Message, SystemNotificationContent } from '../../types/message';
-import { getInlineSystemNotification, SystemNotificationInline } from './SystemNotificationInline';
+import { groupCompactionFailures, getInlineSystemNotification, SystemNotificationInline } from './SystemNotificationInline';
 
 const request = vi.hoisted(() => vi.fn());
 vi.mock('../../acp/acpConnection', () => ({ getAcpControlClient: async () => ({ extMethod: request }) }));
@@ -37,6 +37,22 @@ it('displays a delivered snapshot immediately without another read', () => {
 });
 
 describe('durable compaction receipts', () => {
+  it('groups matching automatic failures and preserves manual attempts and receipts', () => {
+    const failure = (id: string, trigger: string): Message => ({
+      id, role: 'assistant', created: 1, metadata: { userVisible: true, agentVisible: false },
+      content: [{ type: 'systemNotification', notificationType: 'progressMessage', msg: '', data: {
+        schema_version: 1, event: 'compaction_lifecycle', operation_id: id, status: 'failed', trigger,
+        diagnostic: { code: 'TRANSPORT' }, started_at: '2026-11-05T00:00:00Z', error: 'Connection error',
+      } }],
+    });
+    const receipts = [failure('a', 'auto'), failure('b', 'auto'), failure('c', 'manual')];
+    const cards = groupCompactionFailures(receipts);
+    expect(cards.map(card => card.id)).toEqual(['a', 'c']);
+    expect(getInlineSystemNotification(receipts[0])?.data).not.toHaveProperty('repeatCount');
+    render(<SystemNotificationInline notification={getInlineSystemNotification(cards[0])!} />, { wrapper: IntlTestWrapper });
+    expect(screen.getByRole('status')).toHaveTextContent('× 2');
+  });
+
   it('keeps the failure reason in collapsed details instead of a second alert', () => {
     render(<SystemNotificationInline notification={{ notificationType: 'progressMessage', msg: '', data: {
       schema_version: 1, event: 'compaction_lifecycle', operation_id: 'op', status: 'failed', trigger: 'manual',

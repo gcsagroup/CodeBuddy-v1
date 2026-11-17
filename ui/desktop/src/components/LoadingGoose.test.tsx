@@ -39,6 +39,29 @@ describe('LoadingGoose', () => {
     expect(loading.container.querySelector('.conversation-loading-spinner')).toBeInTheDocument();
     loading.unmount();
   });
+  it('switches the icon with the current action while the chat stays streaming', () => {
+    const renderStatus = (source: 'tool' | 'toolInput' | 'responseWait' | 'text' | 'check' | 'question', toolName?: string) => (
+      <IntlProvider locale="zh-CN">
+        <LoadingGoose chatState={ChatState.Streaming} message="当前动作" workStatusSource={source} activeToolName={toolName} />
+      </IntlProvider>
+    );
+    const view = render(renderStatus('tool', 'developer__write_file'));
+    expect(view.container.querySelector('.lucide-pencil')).toBeInTheDocument();
+    expect(view.container.querySelector('.lucide-pencil')).not.toHaveClass('motion-safe:animate-pulse');
+    view.rerender(renderStatus('tool', 'developer__shell'));
+    expect(view.container.querySelector('.lucide-terminal')).toBeInTheDocument();
+    expect(view.container.querySelector('.lucide-pencil')).not.toBeInTheDocument();
+    view.rerender(renderStatus('toolInput', 'write'));
+    expect(view.container.querySelector('.lucide-pencil')).toBeInTheDocument();
+    view.rerender(renderStatus('responseWait'));
+    expect(view.container.querySelector('.conversation-loading-spinner')).toBeInTheDocument();
+    view.rerender(renderStatus('text'));
+    expect(view.container.querySelector('.lucide-message-square-text')).toBeInTheDocument();
+    view.rerender(renderStatus('check'));
+    expect(view.container.querySelector('.lucide-list-checks')).toBeInTheDocument();
+    view.rerender(renderStatus('question'));
+    expect(view.container.querySelector('.lucide-message-circle-question-mark')).toBeInTheDocument();
+  });
   it('shows elapsed compaction and a long-wait explanation without a fabricated percentage', () => {
     vi.useFakeTimers();
     try {

@@ -18,6 +18,8 @@ const i18n = defineMessages({
     id: 'messageUsageStats.tokensPerSecondUnit',
     defaultMessage: 'tok/s',
   },
+  turn: { id: 'messageUsageStats.turn', defaultMessage: 'Turn total' },
+  turnDetail: { id: 'messageUsageStats.turnDetail', defaultMessage: 'Totals across reported calls in this turn. History is counted again when resent. Output can include tool arguments and reasoning.' },
   tokenUnit: {
     id: 'messageUsageStats.tokenUnit',
     defaultMessage: 'tok',
@@ -97,9 +99,11 @@ function StatRow({ label, value }: { label: string; value: ReactNode }) {
 export default function MessageUsageStats({
   usage,
   compact = false,
+  turnTotal = false,
 }: {
   usage: MessageUsage;
   compact?: boolean;
+  turnTotal?: boolean;
 }) {
   const intl = useIntl();
   const {
@@ -168,6 +172,7 @@ export default function MessageUsageStats({
         >
           {compact ? (
             <>
+              {turnTotal && <span>{intl.formatMessage(i18n.turn)}</span>}
               <Zap className="h-3 w-3" aria-hidden="true" />
               {hasValue(inputTokens) && (
                 <span>
@@ -201,24 +206,25 @@ export default function MessageUsageStats({
         arrowClassName="bg-background-secondary fill-background-secondary"
       >
         <div className="min-w-44 text-xs leading-5 space-y-1">
+          {turnTotal && <p className="max-w-64">{intl.formatMessage(i18n.turnDetail)}</p>}
           {hasTokensSection && (
             <div className={section}>
               {hasValue(inputTokens) && (
                 <StatRow
                   label={intl.formatMessage(i18n.input)}
-                  value={formatTokenCount(inputTokens)}
+                  value={intl.formatNumber(inputTokens)}
                 />
               )}
               {hasValue(outputTokens) && (
                 <StatRow
                   label={intl.formatMessage(i18n.output)}
-                  value={formatTokenCount(outputTokens)}
+                  value={intl.formatNumber(outputTokens)}
                 />
               )}
               {hasValue(totalTokens) && (
                 <StatRow
                   label={intl.formatMessage(i18n.total)}
-                  value={formatTokenCount(totalTokens)}
+                  value={intl.formatNumber(totalTokens)}
                 />
               )}
               {cacheHitPercent !== undefined && (

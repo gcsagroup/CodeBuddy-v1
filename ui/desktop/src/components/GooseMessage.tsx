@@ -832,7 +832,7 @@ export default function GooseMessage({
                   messages={messages}
                 />
                 {displayedUsage && (
-                  <MessageUsageStats usage={displayedUsage} compact={compactTools} />
+                  <MessageUsageStats usage={displayedUsage} compact={compactTools} turnTotal={!!usageOverride} />
                 )}
               </div>
             )}

@@ -14,6 +14,9 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { useModelAndProvider } from '../../../ModelAndProviderContext';
 import { ModelThinkingMenu } from '../../../ThinkingEffortPicker';
 import { acpListProviderDetails, acpRefreshProviderModels } from '../../../../acp/providers';
+import { acpErrorData } from '../../../../acp/errors';
+import { NetworkAccessCancelled } from '../../../../utils/networkAccess';
+import { connectionMessages } from '../../providers/connectionMessages';
 import {
   providerActivationDisabledReason,
   type ProviderDetails,
@@ -37,8 +40,12 @@ const i18n = defineMessages({
   refreshFailed: {
     id: 'modelsBottomBar.refreshFailed',
     defaultMessage:
-      'Some connections could not refresh. Their previous lists are still shown. Try again.',
+      'Could not update model lists for {failed} of {total} connections.',
   },
+  cachedList: { id: 'modelsBottomBar.cachedList', defaultMessage: 'Showing the last saved list.' },
+  noSavedList: { id: 'modelsBottomBar.noSavedList', defaultMessage: 'No saved model list.' },
+  inventoryReadFailed: { id: 'modelsBottomBar.inventoryReadFailed', defaultMessage: 'Could not read the updated lists. The menu still shows the lists from before the refresh.' },
+  unknownReason: { id: 'modelsBottomBar.unknownReason', defaultMessage: 'No specific reason was reported.' },
   manage: { id: 'modelsBottomBar.manage', defaultMessage: 'Manage model connections' },
   switching: { id: 'modelsBottomBar.switching', defaultMessage: 'Switching model…' },
   switchFailed: {
@@ -56,6 +63,34 @@ const i18n = defineMessages({
 });
 
 const MODEL_PREVIEW_COUNT = 6;
+function refreshFailureReason(error: unknown, intl: ReturnType<typeof useIntl>) {
+  if (error instanceof NetworkAccessCancelled) return error.message;
+  const data = acpErrorData(error);
+  const status = data?.httpStatus;
+  const http = typeof status === 'number' && Number.isInteger(status) && status >= 400 && status <= 599 ? status : undefined;
+  const reasons: Record<string, { id: string; defaultMessage: string }> = {
+    custom_provider_invalid_credentials: connectionMessages.invalidCredentials,
+    custom_provider_api_key_required: connectionMessages.apiKeyRequiredForConnection,
+    custom_provider_endpoint_unreachable: connectionMessages.endpointUnreachable,
+    custom_provider_permission_denied: connectionMessages.permissionDenied,
+    custom_provider_no_models: connectionMessages.noModels,
+    custom_provider_model_list_unavailable: connectionMessages.modelListUnavailable,
+    custom_provider_invalid_response: connectionMessages.invalidResponse,
+    custom_provider_response_too_large: connectionMessages.responseTooLarge,
+  };
+  let reason = typeof data?.code === 'string' && Object.prototype.hasOwnProperty.call(reasons, data.code)
+    ? reasons[data.code] : undefined;
+  if (http === 401) reason = connectionMessages.invalidCredentials;
+  if (http === 403) reason = connectionMessages.permissionDenied;
+  if (http === 429) reason = connectionMessages.rateLimited;
+  if (http && http >= 500) reason = connectionMessages.serviceUnavailable;
+  return [http && `HTTP ${http}`, intl.formatMessage(reason ?? i18n.unknownReason)].filter(Boolean).join(' · ');
+}
+type RefreshResult = {
+  total: number;
+  failures: { id: string; name: string; reason: string }[];
+  inventoryReadFailed: boolean;
+};
 type Selection = { provider: string; model: string; providerName: string };
 const identity = (selection: { provider: string; model: string }) =>
   JSON.stringify([selection.provider, selection.model]);
@@ -100,7 +135,7 @@ export default function ModelsBottomBar({
   const [loading, setLoading] = useState(false);
   const [loadError, setLoadError] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
-  const [refreshResult, setRefreshResult] = useState<'success' | 'failed' | null>(null);
+  const [refreshResult, setRefreshResult] = useState<RefreshResult | null>(null);
   const refreshInFlight = useRef(false);
   const loadVersion = useRef(0);
   const [switchError, setSwitchError] = useState<{
@@ -155,10 +190,19 @@ export default function ModelsBottomBar({
     const version = ++loadVersion.current;
     setRefreshing(true);
     setRefreshResult(null);
+    const result: RefreshResult = { total: providers.length, failures: [], inventoryReadFailed: false };
     try {
       const results = await Promise.allSettled(
         providers.map((provider) => acpRefreshProviderModels(provider.name))
       );
+      results.forEach((outcome, i) => {
+        if (outcome.status !== 'rejected') return;
+        const provider = providers[i];
+        result.failures.push({
+          id: provider.name, name: provider.metadata.display_name || provider.name,
+          reason: refreshFailureReason(outcome.reason, intl),
+        });
+      });
       const all = await acpListProviderDetails();
       if (!mounted.current || version !== loadVersion.current) return;
       setProviders(
@@ -166,12 +210,10 @@ export default function ModelsBottomBar({
           (provider) => provider.is_configured && !providerActivationDisabledReason(provider)
         )
       );
-      setRefreshResult(
-        results.some((result) => result.status === 'rejected') ? 'failed' : 'success'
-      );
     } catch {
-      if (mounted.current && version === loadVersion.current) setRefreshResult('failed');
+      result.inventoryReadFailed = true;
     } finally {
+      if (mounted.current && version === loadVersion.current) setRefreshResult(result);
       refreshInFlight.current = false;
       if (mounted.current) setRefreshing(false);
     }
@@ -353,18 +395,29 @@ export default function ModelsBottomBar({
                   />
                 </button>
               </div>
-              {(refreshing || refreshResult) && (
-                <p
-                  role={refreshResult === 'failed' ? 'alert' : 'status'}
-                  className="px-2.5 py-1 text-[11px] leading-4 text-text-secondary"
-                >
-                  {intl.formatMessage(
-                    refreshing
-                      ? i18n.refreshing
-                      : refreshResult === 'failed'
-                        ? i18n.refreshFailed
-                        : i18n.refreshed
-                  )}
+              {refreshResult && (refreshResult.failures.length > 0 || refreshResult.inventoryReadFailed) ? (
+                <div role="alert" className="mx-1 my-1 max-h-[24vh] overflow-y-auto rounded-md bg-background-secondary px-2.5 py-2 text-xs leading-5">
+                  {refreshResult.failures.length > 0 && <>
+                    <p className="font-medium">{intl.formatMessage(i18n.refreshFailed, {
+                      failed: refreshResult.failures.length, total: refreshResult.total,
+                    })}</p>
+                    <ul className="space-y-1">
+                      {refreshResult.failures.map(failure => (
+                        <li key={failure.id} className="break-words">
+                          <strong>{failure.name}</strong> · {failure.reason}{' '}
+                          {intl.formatMessage(providers.some(p => p.name === failure.id && p.metadata.known_models.length)
+                            ? i18n.cachedList : i18n.noSavedList)}
+                        </li>
+                      ))}
+                    </ul>
+                  </>}
+                  {refreshResult.inventoryReadFailed && <p>{intl.formatMessage(i18n.inventoryReadFailed)}</p>}
+                  <button type="button" className="font-medium underline" disabled={refreshing || loading || !!switching}
+                    onClick={() => void refreshModels()}>{intl.formatMessage(i18n.retry)}</button>
+                </div>
+              ) : (refreshing || refreshResult) && (
+                <p role="status" className="px-2.5 py-1 text-[11px] leading-4 text-text-secondary">
+                  {intl.formatMessage(refreshing ? i18n.refreshing : i18n.refreshed)}
                 </p>
               )}
               <div

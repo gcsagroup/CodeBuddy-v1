@@ -1,4 +1,13 @@
 {
+  "messageUsageStats.turn": {
+    "defaultMessage": "本轮累计"
+  },
+  "messageUsageStats.turnDetail": {
+    "defaultMessage": "合计本轮已上报的模型调用。每次重发的历史都会计入输入；输出可能包含工具参数和推理。"
+  },
+  "workStatus.request": {
+    "defaultMessage": "第 {number} 次模型调用 · {status}"
+  },
   "navigationPanel.removeProject": {"defaultMessage": "移除项目"},
   "navigationPanel.stopBeforeMove": {"defaultMessage": "请先停止当前任务，再切换工作区。"},
   "typography.text": { "defaultMessage": "界面字号" },
@@ -51,7 +60,7 @@
   "navigationPanel.expandGroup": { "defaultMessage": "展开分组" },
   "composerStats.live": { "defaultMessage": "当前生成速度" },
   "composerStats.previous": { "defaultMessage": "上次采样的生成速度" },
-  "composerStats.liveDetail": { "defaultMessage": "本次请求最近一个采样时段内每秒收到的输出 token 数。≈ 表示估算值。" },
+  "composerStats.liveDetail": { "defaultMessage": "本次请求最近一个采样时段内每秒收到的输出 token 数。" },
   "composerStats.speed": { "defaultMessage": "平均生成速度" },
   "composerStats.speedDetail": { "defaultMessage": "当前会话已完成模型请求的平均生成速度。不含首字等待和工具执行时间，每次请求完成后更新。" },
   "composerStats.speedUnknown": { "defaultMessage": "等待包含 token 用量和耗时数据的模型请求完成。" },
@@ -211,6 +220,9 @@
   },
   "baseChat.goHome": {
     "defaultMessage": "回到首页"
+  },
+  "baseChat.lastTool": {
+    "defaultMessage": "最近返回结果的工具：{action}"
   },
   "baseChat.lastStage": {
     "defaultMessage": "最近进度说明：{stage}"
@@ -5264,8 +5276,20 @@
   "modelsBottomBar.refresh": {
     "defaultMessage": "刷新模型"
   },
+  "modelsBottomBar.cachedList": {
+    "defaultMessage": "当前显示上次保存的模型。"
+  },
+  "modelsBottomBar.inventoryReadFailed": {
+    "defaultMessage": "无法读取刷新后的模型列表。菜单仍显示刷新前的内容。"
+  },
+  "modelsBottomBar.noSavedList": {
+    "defaultMessage": "没有已保存的模型可显示。"
+  },
+  "modelsBottomBar.unknownReason": {
+    "defaultMessage": "未收到具体错误原因。"
+  },
   "modelsBottomBar.refreshFailed": {
-    "defaultMessage": "部分连接刷新失败，已保留这些连接的上次列表，请重试。"
+    "defaultMessage": "共 {total} 个连接，{failed} 个未能更新模型列表。"
   },
   "modelsBottomBar.refreshed": {
     "defaultMessage": "模型列表已更新。"
@@ -9606,7 +9630,13 @@
     "defaultMessage": "{seconds} 秒"
   },
   "workStatus.first": {
-    "defaultMessage": "正在处理你的请求"
+    "defaultMessage": "等待新的执行状态"
+  },
+  "workStatus.requestElapsed": {
+    "defaultMessage": "· 本次调用已用 {minutes, plural, =0 {} other {# 分 }}{seconds} 秒"
+  },
+  "workStatus.minutes": {
+    "defaultMessage": "· 当前状态已持续 {minutes} 分 {seconds} 秒"
   },
   "workStatus.preparing": {
     "defaultMessage": "正在准备"
@@ -9615,7 +9645,7 @@
     "defaultMessage": "需要你的回复或确认"
   },
   "workStatus.responseRead": {
-    "defaultMessage": "正在组织回复"
+    "defaultMessage": "正在接收模型输出"
   },
   "workStatus.responseWait": {
     "defaultMessage": "等待模型服务返回"

@@ -5,7 +5,8 @@ import { ChatState } from '../../types/chatState';
 import { formatToolInputPreview } from '../ToolInputPreview';
 
 const labels = defineMessages({
-  first: { id: 'workStatus.first', defaultMessage: 'Working on your request' },
+  first: { id: 'workStatus.first', defaultMessage: 'Waiting for an activity update' },
+  request: { id: 'workStatus.request', defaultMessage: 'Model call {number} · {status}' },
   preparing: { id: 'workStatus.preparing', defaultMessage: 'Getting ready' },
   connecting: { id: 'workStatus.connecting', defaultMessage: 'Connecting' },
   responseWait: {
@@ -14,7 +15,7 @@ const labels = defineMessages({
   },
   responseRead: {
     id: 'workStatus.responseRead',
-    defaultMessage: 'Preparing a response',
+    defaultMessage: 'Receiving model output',
   },
   children: {
     id: 'workStatus.children',
@@ -40,7 +41,12 @@ const labels = defineMessages({
     defaultMessage:
       'The model service has not returned content yet. You can keep waiting or stop this request.',
   },
+  minutes: { id: 'workStatus.minutes', defaultMessage: '· {minutes}m {seconds}s in this state' },
   elapsed: { id: 'workStatus.elapsed', defaultMessage: '{seconds}s' },
+  requestElapsed: {
+    id: 'workStatus.requestElapsed',
+    defaultMessage: '· {minutes, plural, =0 {} other {#m }}{seconds}s on this call',
+  },
 });
 
 interface WorkStatusInput {
@@ -156,6 +162,8 @@ export function useWorkStatus(input: WorkStatusInput) {
   const statusKey = JSON.stringify([
     input.activity?.promptAttemptId,
     source,
+    input.activity?.execution?.modelRequestNumber,
+    input.activity?.execution?.modelRequestStartedAt,
     source === 'tool'
       ? [input.actionId ?? input.action, Boolean(input.toolPending)]
       : source === 'toolInput'
@@ -176,8 +184,14 @@ export function useWorkStatus(input: WorkStatusInput) {
     startedAt = Date.now();
     setClock({ key: statusKey, startedAt });
   }
+  const execution = input.activity?.execution;
+  const requestStart = execution?.phase === 'model' &&
+    ['preparing', 'connecting', 'responseWait', 'responseRead', 'text', 'thought'].includes(source)
+    ? execution.modelRequestStartedAt : undefined;
+  const measuredStart = typeof requestStart === 'number' && Number.isFinite(requestStart)
+    ? requestStart : undefined;
   const elapsedSeconds = active
-    ? Math.max(0, Math.floor((Math.max(now, Date.now()) - startedAt) / 1000))
+    ? Math.max(0, Math.floor((Math.max(now, Date.now()) - (measuredStart ?? startedAt)) / 1000))
     : undefined;
   const title =
     source === 'toolInput'
@@ -190,11 +204,17 @@ export function useWorkStatus(input: WorkStatusInput) {
               count: 'childCount' in selection ? selection.childCount : 0,
               action: 'action' in selection ? selection.action : '',
             });
+  const number = input.activity?.execution?.modelRequestNumber;
+  const headline = title && number && active && !input.cancelling && !input.checking &&
+    input.activity?.execution?.phase === 'model' && !input.action
+    ? intl.formatMessage(labels.request, { number, status: title }) : title;
   const elapsed =
     elapsedSeconds !== undefined && elapsedSeconds >= 1
-      ? intl.formatMessage(labels.elapsed, {
-          seconds: elapsedSeconds,
-        })
+      ? measuredStart !== undefined
+        ? intl.formatMessage(labels.requestElapsed, { minutes: Math.floor(elapsedSeconds / 60), seconds: elapsedSeconds % 60 })
+        : elapsedSeconds >= 90
+        ? intl.formatMessage(labels.minutes, { minutes: Math.floor(elapsedSeconds / 60), seconds: elapsedSeconds % 60 })
+        : intl.formatMessage(labels.elapsed, { seconds: elapsedSeconds })
       : undefined;
   return {
     ...selection,
@@ -207,7 +227,7 @@ export function useWorkStatus(input: WorkStatusInput) {
       (selection.silence ?? 0) >= 20
         ? intl.formatMessage(labels.waitingHint)
         : undefined,
-    announcement: title,
-    message: elapsed ? `${title} ${elapsed}` : title,
+    announcement: headline,
+    message: elapsed && headline ? `${headline} ${elapsed}` : headline,
   };
 }

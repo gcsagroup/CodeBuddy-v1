@@ -468,7 +468,7 @@ function ActivityStatusIcon({
   const running = active && outcome === 'running';
 
   return running ? (
-    <LoaderCircle className="h-4 w-4 animate-spin text-blue-500" />
+    <LoaderCircle className="h-4 w-4 animate-spin text-text-secondary" />
   ) : outcome === 'failure' ? (
     <OctagonX className="h-4 w-4 text-red-600" />
   ) : outcome === 'cancelled' ? (
@@ -1024,7 +1024,7 @@ export function CodeProActivityGroup({ notifications, active = false }: CodeProA
         >
           <span className="flex h-4 w-4 shrink-0 items-center justify-center" aria-hidden="true">
             {active ? (
-              <LoaderCircle className="h-4 w-4 animate-spin text-blue-500" />
+              <LoaderCircle className="h-4 w-4 animate-spin text-text-secondary" />
             ) : (
               <ListTree className="h-4 w-4 text-text-secondary" />
             )}

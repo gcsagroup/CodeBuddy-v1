@@ -1,13 +1,15 @@
-import { CodeXml, FileSearch, FileText, Film, Globe, ImagePlus, ListChecks, Monitor, Pencil, Search, Terminal, Wrench } from 'lucide-react';
+import { FileSearch, FileText, Film, Globe, ImagePlus, ListChecks, Monitor, Pencil, Search, Terminal, Wrench } from 'lucide-react';
 import ThinkingIcon from './ThinkingIcon';
 import type { ToolCallStatus } from './ToolCallStatusIndicator';
 import { cn } from '../utils';
+
+const writingTools = new Set(['write', 'edit', 'apply_patch', 'write_file']);
 
 function iconForTool(tool: string) {
   if (tool === 'generate_image') return ImagePlus;
   if (tool === 'generate_video') return Film;
   if (['shell', 'pwsh', 'bash', 'exec_command', 'execute', 'run_command'].includes(tool)) return Terminal;
-  if (['write', 'edit', 'apply_patch', 'write_file'].includes(tool)) return CodeXml;
+  if (writingTools.has(tool)) return Pencil;
   if (['create_document', 'update_document'].includes(tool)) return Pencil;
   if (['read_document', 'read'].includes(tool)) return FileText;
   if (['read_file', 'view_file', 'open_file'].includes(tool)) return FileSearch;
@@ -19,7 +21,7 @@ function iconForTool(tool: string) {
 }
 
 /** Presentation shared by activity events and tool request/receipt rows. */
-export function ToolActivityIcon({ name, status }: { name: string; status: ToolCallStatus }) {
+export function ToolActivityIcon({ name, status, animated = true }: { name: string; status: ToolCallStatus; animated?: boolean }) {
   if (name === 'thinking') return <ThinkingIcon active={status === 'loading'} />;
   const tool = name.split(/__|::/).pop() ?? '';
   // Individual operation failures keep their status text and original detail.
@@ -29,9 +31,8 @@ export function ToolActivityIcon({ name, status }: { name: string; status: ToolC
     <Icon
       aria-hidden="true"
       className={cn(
-        'h-4 w-4 shrink-0',
-        status === 'loading' && 'text-blue-500 motion-safe:animate-pulse',
-        (status === 'error' || status === 'warning') && 'text-text-secondary'
+        'h-4 w-4 shrink-0 text-text-secondary',
+        status === 'loading' && animated && 'motion-safe:animate-pulse'
       )}
     />
   );

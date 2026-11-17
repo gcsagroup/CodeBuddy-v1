@@ -152,6 +152,9 @@
   "baseChat.lastStage": {
     "defaultMessage": "Last update: {stage}"
   },
+  "baseChat.lastTool": {
+    "defaultMessage": "Son araç sonucu: {action}"
+  },
   "baseChat.latest": {
     "defaultMessage": "Back to latest"
   },
@@ -4757,6 +4760,12 @@
   "messageUsageStats.totalTime": {
     "defaultMessage": "Toplam süre"
   },
+  "messageUsageStats.turn": {
+    "defaultMessage": "Tur toplamı"
+  },
+  "messageUsageStats.turnDetail": {
+    "defaultMessage": "Bu turda bildirilen çağrıların toplamı. Geçmiş yeniden gönderildiğinde tekrar sayılır. Çıktı araç argümanlarını ve akıl yürütmeyi içerebilir."
+  },
   "microphoneSelector.chooseDescription": {
     "defaultMessage": "Dikte için hangi mikrofonun kullanılacağını seçin"
   },
@@ -5198,8 +5207,20 @@
   "modelsBottomBar.refresh": {
     "defaultMessage": "Refresh models"
   },
+  "modelsBottomBar.cachedList": {
+    "defaultMessage": "Showing the last saved list."
+  },
+  "modelsBottomBar.inventoryReadFailed": {
+    "defaultMessage": "Could not read the updated lists. The menu still shows the lists from before the refresh."
+  },
+  "modelsBottomBar.noSavedList": {
+    "defaultMessage": "No saved model list."
+  },
+  "modelsBottomBar.unknownReason": {
+    "defaultMessage": "No specific reason was reported."
+  },
   "modelsBottomBar.refreshFailed": {
-    "defaultMessage": "Some connections could not refresh. Their previous lists are still shown. Try again."
+    "defaultMessage": "Could not update model lists for {failed} of {total} connections."
   },
   "modelsBottomBar.refreshed": {
     "defaultMessage": "Model list updated."
@@ -9542,11 +9563,20 @@
   "workStatus.first": {
     "defaultMessage": "Waiting for model response"
   },
+  "workStatus.minutes": {
+    "defaultMessage": "· Bu durumda {minutes} dk {seconds} sn"
+  },
   "workStatus.preparing": {
     "defaultMessage": "Preparing the model request"
   },
   "workStatus.question": {
     "defaultMessage": "Waiting for your answer or approval"
+  },
+  "workStatus.request": {
+    "defaultMessage": "Model çağrısı {number} · {status}"
+  },
+  "workStatus.requestElapsed": {
+    "defaultMessage": "· Bu çağrıda {minutes, plural, =0 {} other {# dk }}{seconds} sn"
   },
   "workStatus.responseRead": {
     "defaultMessage": "Connection established; receiving model output"

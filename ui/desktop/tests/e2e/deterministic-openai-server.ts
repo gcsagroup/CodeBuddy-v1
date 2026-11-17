@@ -610,6 +610,34 @@ function routeCompletion(
     text.includes('implementation.js');
   const permissionPersistence = scenario === 'permission-persistence';
 
+  if (text.includes('WEBSITE_HANDOFF_E2E')) {
+    if (findTool(body, 'check_execution_claims'))
+      return { type: 'tool', name: 'check_execution_claims', arguments: { changes: [], successes: [] } };
+    const messages = body.messages ?? [];
+    const receipts = messages.filter(m => m.role === 'tool').flatMap(m => collectText(m.content));
+    const browser = findTool(body, 'browser_control');
+    if (!browser && !receipts.length && findTool(body, 'search_mcp_tools'))
+      return { type: 'tool', name: 'search_mcp_tools', arguments: { names: ['write', 'browser_control'] } };
+    const called = (name: string) => messages.some(m => m.role === 'assistant' && Array.isArray(m.tool_calls) &&
+      m.tool_calls.some(c => c.function?.name === name));
+    if (!called('write') && findTool(body, 'write'))
+      return { type: 'tool', name: 'write', arguments: { file_path: 'index.html',
+        content: '<meta charset="utf-8"><title>验收样站</title><button>查看作品</button>' } };
+    const last = receipts[receipts.length - 1] ?? '';
+    if (/"opened"\s*:\s*false/.test(last))
+      return { type: 'text', text: '未运行浏览器测试。打开 [网站入口](index.html)，或在项目目录双击 index.html 即可启动。' };
+    if (last.includes('RootWebArea') && last.includes('查看作品'))
+      return { type: 'text', text: '已在浏览器读到“查看作品”按钮。' };
+    const id = last.match(/"id"\s*:\s*"([^"]+)"/)?.[1];
+    if (browser && !called(browser)) return { type: 'tool', name: browser, arguments: { operation: 'offer_acceptance', path: 'index.html' } };
+    if (browser && id) return { type: 'tool', name: browser, arguments: { operation: 'observe', id } };
+    return { type: 'text', text: 'Website fixture: unexpected step; available tools: ' +
+      (body.tools ?? []).map(t => t.function?.name).join(', ') + '; tool receipts: ' + receipts.length };
+  }
+  if (text.includes('LONG_TURN_USAGE_FIXTURE') && findTool(body, 'check_execution_claims')) {
+    return { type: 'tool', name: 'check_execution_claims', arguments: { changes: [], successes: [],
+      ...(text.includes('"executionMissing"') ? { executionMissing: false } : {}) } };
+  }
   if (text.includes('QUESTION_ATTENTION_E2E') && !results) {
     const tool = findTool(body, 'ask_user_question');
     if (tool) return { type: 'tool', name: tool, arguments: {
@@ -984,7 +1012,7 @@ function routeCompletion(
   return { type: 'text', text: 'CodePro 本地确定性模型已完成请求。' };
 }
 
-function writeCompletion(response: ServerResponse, completion: Completion) {
+function writeCompletion(response: ServerResponse, completion: Completion, usage: Record<string, unknown> = { prompt_tokens: 12, completion_tokens: 10, total_tokens: 22 }) {
   response.writeHead(200, {
     'content-type': 'text/event-stream',
     'cache-control': 'no-cache',
@@ -1036,7 +1064,7 @@ function writeCompletion(response: ServerResponse, completion: Completion) {
     response.write(chunk([{ index: 0, delta: { content: completion.text }, finish_reason: null }]));
     response.write(chunk([{ index: 0, delta: {}, finish_reason: 'stop' }]));
   }
-  response.write(chunk([], { prompt_tokens: 12, completion_tokens: 10, total_tokens: 22 }));
+  response.write(chunk([], usage));
   response.end('data: [DONE]\n\n');
 }
 
@@ -1079,7 +1107,12 @@ function streamCompletion(
         });
         return;
       }
-      if (
+      if (requestText(body).includes('LONG_TURN_USAGE_FIXTURE')) {
+        setTimeout(() => {
+          if (!response.destroyed) writeCompletion(response, completion, { prompt_tokens: 1540,
+            prompt_tokens_details: { cached_tokens: 7 }, completion_tokens: 10, total_tokens: 1550 });
+        }, 2000);
+      } else if (
         requestText(body).includes('You are a read-only code reviewer') &&
         requestText(body).includes('cancel-review.ts')
       ) {

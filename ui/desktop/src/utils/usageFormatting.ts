@@ -12,7 +12,8 @@ export function cacheHitReading(usage: MessageUsage | null | undefined) {
       ? usage.inputTokens + usage.cacheReadTokens + (usage.cacheWriteTokens ?? 0) : NaN;
   if (!Number.isFinite(prompt) || prompt <= 0 || usage.cacheReadTokens > prompt) return null;
   const rate = usage.cacheReadTokens / prompt * 100;
-  const percent = rate === 100 ? '100' : rate > 99 ? '<100' : Math.round(rate).toString();
+  const percent = rate === 100 ? '100' : rate > 99 ? '<100'
+    : rate > 0 && rate < 0.01 ? '<0.01' : rate < 1 ? String(Number(rate.toFixed(2))) : String(Math.round(rate));
   return { cached: usage.cacheReadTokens, prompt, percent };
 }
 

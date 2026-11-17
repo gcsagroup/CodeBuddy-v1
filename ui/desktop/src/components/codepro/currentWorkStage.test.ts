@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { Message } from '../../types/message';
-import { currentWorkStage } from './currentWorkStage';
+import { currentWorkStage, latestReturnedAction } from './currentWorkStage';
 
 describe('current work stage', () => {
   it('uses a confirmed public stage, retains it across steer, and never reuses it on a new prompt', () => {
@@ -92,6 +92,11 @@ describe('current work stage', () => {
         },
       ],
     });
+    const origin = { ...request('origin', 'read', {}), id: 'origin', role: 'user' as const,
+      content: [{ type: 'text' as const, text: 'Review the workspace' }] };
+    const calls = [origin, request('a', 'read', {}), request('b', 'write', {}), response('b'), response('a')];
+    expect(latestReturnedAction(calls, 'origin')?.name).toBe('read');
+    expect(latestReturnedAction([...calls, { ...origin, id: 'new' }], 'origin')).toBeUndefined();
     // Ordering from session 20260928_2: published stage, data.js receipt,
     // then index.html/styles.css without another progress title.
     const messages: Message[] = [

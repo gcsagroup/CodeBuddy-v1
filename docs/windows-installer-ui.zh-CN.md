@@ -19,3 +19,7 @@
 实现位于 `scripts/installer/installer-ui.iss`、`codebuddy.iss` 和 `install-details.iss`。运行 `node --test scripts/installer-ui.test.cjs scripts/windows-wizard-installer.test.cjs`，使用不同 AppId 的隔离小型安装器检查布局、详情和数据保留规则，并通过 PrintWindow 获取该窗口的原生截图。夹具关闭真实快捷方式及应用启动，不接触实际安装。
 
 参考用户提供的安装器截图，仅借鉴排版与视觉层级，保留 CodeBuddy 的标识和行为。Inno 原生样式说明：[WizardStyle](https://jrsoftware.org/ishelp/topic_setup_wizardstyle.htm)。
+
+## 加载动画尺寸
+
+启动首帧 HTML 与 React 启动画面统一为 56px 外框、36px 标志；对话加载为 44px 外框、28px 标志。文字为 14px，减轻阴影及留白。保留居中、浅深色适配、减少动态效果偏好和就绪后立即消失的行为。侧边栏运行图标不变。本次只调整显示样式，没有修改启动、安装或会话状态逻辑。

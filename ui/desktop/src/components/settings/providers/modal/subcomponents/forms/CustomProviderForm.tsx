@@ -11,6 +11,8 @@ import ProviderCatalogPicker from '../ProviderCatalogPicker';
 import { defineMessages, useIntl } from '../../../../../../i18n';
 import { acpErrorCode, acpErrorData, acpErrorMessage } from '../../../../../../acp/errors';
 
+import { connectionMessages } from '../../../connectionMessages';
+
 const i18n = defineMessages({
   chooseSetup: {
     id: 'customProviderForm.chooseSetup',
@@ -234,18 +236,6 @@ const i18n = defineMessages({
     id: 'customProviderForm.requestRejected',
     defaultMessage: 'The service rejected the validation request. Verify the API format, tool support and thinking settings for this model.',
   },
-  permissionDenied: {
-    id: 'customProviderForm.permissionDenied',
-    defaultMessage: 'Access was denied. Verify that this API key has permission to use the selected model.',
-  },
-  rateLimited: {
-    id: 'customProviderForm.rateLimited',
-    defaultMessage: 'The service limited this request. Check the account quota and request limits, then retry.',
-  },
-  serviceUnavailable: {
-    id: 'customProviderForm.serviceUnavailable',
-    defaultMessage: 'The model service returned a server error. Retry later or check the service status.',
-  },
   toolsUnsupported: {
     id: 'customProviderForm.toolsUnsupported',
     defaultMessage: 'This model does not support tool calling. Select a model with tool support to use CodeBuddy tasks.',
@@ -311,43 +301,14 @@ const i18n = defineMessages({
     id: 'customProviderForm.customOpenAiEndpoint',
     defaultMessage: 'Custom OpenAI endpoint',
   },
-  invalidCredentials: {
-    id: 'customProviderForm.invalidCredentials',
-    defaultMessage: 'The API key was rejected. Check it and try again.',
-  },
   credentialsNotVerified: {
     id: 'customProviderForm.credentialsNotVerified',
     defaultMessage:
       "This address also works without the API key, so the key could not be verified. Turn off authentication or use the provider's authenticated API address.",
   },
-  endpointUnreachable: {
-    id: 'customProviderForm.endpointUnreachable',
-    defaultMessage:
-      'Could not reach this address. Check that the service is running and try again.',
-  },
-  noModels: {
-    id: 'customProviderForm.noModels',
-    defaultMessage: 'The service is reachable, but it has no models available.',
-  },
   modelUnavailable: {
     id: 'customProviderForm.modelUnavailable',
     defaultMessage: 'The selected model could not complete a test request.',
-  },
-  apiKeyRequiredForConnection: {
-    id: 'customProviderForm.apiKeyRequiredForConnection',
-    defaultMessage: 'Enter the API key again, then test the connection.',
-  },
-  modelListUnavailable: {
-    id: 'customProviderForm.modelListUnavailable',
-    defaultMessage: 'The address responded, but its model list could not be loaded.',
-  },
-  invalidResponse: {
-    id: 'customProviderForm.invalidConnectionResponse',
-    defaultMessage: 'The address did not return a valid model response.',
-  },
-  responseTooLarge: {
-    id: 'customProviderForm.connectionResponseTooLarge',
-    defaultMessage: 'The address returned too much data. Check that this is a model API address.',
   },
   connectionTestHint: {
     id: 'customProviderForm.modelDiscoveryHint',
@@ -663,15 +624,15 @@ export default function CustomProviderForm({
       setModels('');
       const code = acpErrorCode(error);
       const knownMessages: Record<string, string> = {
-        custom_provider_invalid_credentials: intl.formatMessage(i18n.invalidCredentials),
-        custom_provider_api_key_required: intl.formatMessage(i18n.apiKeyRequiredForConnection),
+        custom_provider_invalid_credentials: intl.formatMessage(connectionMessages.invalidCredentials),
+        custom_provider_api_key_required: intl.formatMessage(connectionMessages.apiKeyRequiredForConnection),
         custom_provider_credentials_not_verified: intl.formatMessage(i18n.credentialsNotVerified),
-        custom_provider_endpoint_unreachable: intl.formatMessage(i18n.endpointUnreachable),
+        custom_provider_endpoint_unreachable: intl.formatMessage(connectionMessages.endpointUnreachable),
         custom_provider_model_unavailable: intl.formatMessage(i18n.modelUnavailable),
-        custom_provider_model_list_unavailable: intl.formatMessage(i18n.modelListUnavailable),
-        custom_provider_invalid_response: intl.formatMessage(i18n.invalidResponse),
-        custom_provider_response_too_large: intl.formatMessage(i18n.responseTooLarge),
-        custom_provider_no_models: intl.formatMessage(i18n.noModels),
+        custom_provider_model_list_unavailable: intl.formatMessage(connectionMessages.modelListUnavailable),
+        custom_provider_invalid_response: intl.formatMessage(connectionMessages.invalidResponse),
+        custom_provider_response_too_large: intl.formatMessage(connectionMessages.responseTooLarge),
+        custom_provider_no_models: intl.formatMessage(connectionMessages.noModels),
       };
       const knownMessage = code ? knownMessages[code] : undefined;
       setConnectionError(
@@ -819,20 +780,20 @@ export default function CustomProviderForm({
       const status = typeof data?.httpStatus === 'number' && Number.isInteger(data.httpStatus) && data.httpStatus >= 400 && data.httpStatus <= 599 ? data.httpStatus : undefined;
       const code = acpErrorCode(error);
       const byCode: Record<string, typeof i18n.submitError> = {
-        custom_provider_invalid_credentials: i18n.invalidCredentials,
-        custom_provider_api_key_required: i18n.apiKeyRequiredForConnection,
-        custom_provider_endpoint_unreachable: i18n.endpointUnreachable,
+        custom_provider_invalid_credentials: connectionMessages.invalidCredentials,
+        custom_provider_api_key_required: connectionMessages.apiKeyRequiredForConnection,
+        custom_provider_endpoint_unreachable: connectionMessages.endpointUnreachable,
         custom_provider_model_unavailable: i18n.modelUnavailable,
-        custom_provider_permission_denied: i18n.permissionDenied,
+        custom_provider_permission_denied: connectionMessages.permissionDenied,
         custom_provider_tools_unsupported: i18n.toolsUnsupported,
-        custom_provider_invalid_response: i18n.invalidResponse,
-        custom_provider_response_too_large: i18n.responseTooLarge,
-        custom_provider_model_list_unavailable: i18n.modelListUnavailable,
+        custom_provider_invalid_response: connectionMessages.invalidResponse,
+        custom_provider_response_too_large: connectionMessages.responseTooLarge,
+        custom_provider_model_list_unavailable: connectionMessages.modelListUnavailable,
       };
       const reason = status === 404 ? i18n.pathNotFound
         : status === 400 || status === 422 ? i18n.requestRejected
-          : status === 401 ? i18n.invalidCredentials : status === 403 ? i18n.permissionDenied
-            : status === 429 ? i18n.rateLimited : status && status >= 500 ? i18n.serviceUnavailable
+          : status === 401 ? connectionMessages.invalidCredentials : status === 403 ? connectionMessages.permissionDenied
+            : status === 429 ? connectionMessages.rateLimited : status && status >= 500 ? connectionMessages.serviceUnavailable
               : byCode[code ?? ''] ?? i18n.submitError;
       // Only bounded structured identifiers belong in diagnostics. Upstream text
       // can echo request headers or credentials and must not enter this panel.

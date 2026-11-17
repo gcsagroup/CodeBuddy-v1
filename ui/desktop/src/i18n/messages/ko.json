@@ -152,6 +152,9 @@
   "baseChat.lastStage": {
     "defaultMessage": "Last update: {stage}"
   },
+  "baseChat.lastTool": {
+    "defaultMessage": "최근 도구 결과: {action}"
+  },
   "baseChat.latest": {
     "defaultMessage": "Back to latest"
   },
@@ -4757,6 +4760,12 @@
   "messageUsageStats.totalTime": {
     "defaultMessage": "총 시간"
   },
+  "messageUsageStats.turn": {
+    "defaultMessage": "이번 턴 합계"
+  },
+  "messageUsageStats.turnDetail": {
+    "defaultMessage": "이번 턴에 보고된 호출의 합계입니다. 기록을 다시 보내면 다시 집계합니다. 출력에는 도구 인수와 추론이 포함될 수 있습니다."
+  },
   "microphoneSelector.chooseDescription": {
     "defaultMessage": "받아쓰기에 사용할 마이크 선택"
   },
@@ -5198,8 +5207,20 @@
   "modelsBottomBar.refresh": {
     "defaultMessage": "Refresh models"
   },
+  "modelsBottomBar.cachedList": {
+    "defaultMessage": "Showing the last saved list."
+  },
+  "modelsBottomBar.inventoryReadFailed": {
+    "defaultMessage": "Could not read the updated lists. The menu still shows the lists from before the refresh."
+  },
+  "modelsBottomBar.noSavedList": {
+    "defaultMessage": "No saved model list."
+  },
+  "modelsBottomBar.unknownReason": {
+    "defaultMessage": "No specific reason was reported."
+  },
   "modelsBottomBar.refreshFailed": {
-    "defaultMessage": "Some connections could not refresh. Their previous lists are still shown. Try again."
+    "defaultMessage": "Could not update model lists for {failed} of {total} connections."
   },
   "modelsBottomBar.refreshed": {
     "defaultMessage": "Model list updated."
@@ -9542,11 +9563,20 @@
   "workStatus.first": {
     "defaultMessage": "Waiting for model response"
   },
+  "workStatus.minutes": {
+    "defaultMessage": "· 이 상태에서 {minutes}분 {seconds}초"
+  },
   "workStatus.preparing": {
     "defaultMessage": "Preparing the model request"
   },
   "workStatus.question": {
     "defaultMessage": "Waiting for your answer or approval"
+  },
+  "workStatus.request": {
+    "defaultMessage": "모델 호출 {number} · {status}"
+  },
+  "workStatus.requestElapsed": {
+    "defaultMessage": "· 이 호출에서 {minutes, plural, =0 {} other {#분 }}{seconds}초"
   },
   "workStatus.responseRead": {
     "defaultMessage": "Connection established; receiving model output"

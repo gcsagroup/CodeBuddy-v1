@@ -76,6 +76,12 @@ it('keeps zero visible without inventing unknown capacity or usage', async () =>
   expect(screen.getByRole('button', { name: 'Context usage: 0 / 262,144 (0%)' })).toBeVisible();
 });
 
+it('shows estimated context usage without a leading approximation sign', () => {
+  render(<ContextWindowIndicator showLabel totalTokens={8000} tokenLimit={100000}
+    usageSource="local_estimate" alerts={[]} />, { wrapper: IntlTestWrapper });
+  expect(screen.getByText('Context 8%')).toBeVisible();
+});
+
 it('preserves over-capacity counts and keyboard access to the existing compact action', async () => {
   const compact = vi.fn();
   render(

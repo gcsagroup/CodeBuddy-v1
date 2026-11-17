@@ -106,6 +106,9 @@ export function applyGooseSessionNotification(
                 totalTokens: meter.used as number,
                 contextLimit: meter.contextLimit as number,
                 ...contextSources({ _meta: { harness: meter } }),
+                pressureThreshold: typeof meter.pressureThreshold === 'number' &&
+                  Number.isSafeInteger(meter.pressureThreshold) && meter.pressureThreshold > 0 &&
+                  meter.pressureThreshold <= (meter.contextLimit as number) ? meter.pressureThreshold : undefined,
                 ...(!isSessionReplay ? liveSpeedState(meter.liveSpeed) : {}),
               },
             },

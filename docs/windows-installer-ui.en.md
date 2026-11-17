@@ -13,3 +13,7 @@ The uninstall page also shows the current operation and component above progress
 Implementation: `scripts/installer/installer-ui.iss`, `codebuddy.iss` and `install-details.iss`. Run `node --test scripts/installer-ui.test.cjs scripts/windows-wizard-installer.test.cjs`. The small isolated installer uses a separate AppId to check layout, details and data retention, and captures its own window through PrintWindow. Real shortcuts and application launch are disabled; the actual installation is untouched.
 
 User-provided reference screenshots inform layout and visual hierarchy while CodeBuddy branding and behavior remain intact. Native style reference: [WizardStyle](https://jrsoftware.org/ishelp/topic_setup_wizardstyle.htm).
+
+## Loading animation sizing
+
+The initial HTML and React startup screens use a 56px frame and 36px mark; conversation loading uses a 44px frame and 28px mark. Text is 14px with lighter shadows and tighter spacing. Centering, light/dark themes, reduced motion and ready-state transitions are preserved. Sidebar running indicators and installer/session logic are unchanged.

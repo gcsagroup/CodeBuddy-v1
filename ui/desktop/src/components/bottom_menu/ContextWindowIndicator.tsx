@@ -9,6 +9,7 @@ interface ContextWindowIndicatorProps {
   requestBudget?: RequestBudget;
   totalTokens?: number;
   tokenLimit: number;
+  pressureThreshold?: number;
   alerts: Alert[];
   usageSource?: 'provider_actual' | 'local_estimate' | 'streaming_estimate';
   capacitySource?: 'service' | 'catalog' | 'configured' | 'fallback';
@@ -25,6 +26,7 @@ export function ContextWindowIndicator({
   requestBudget,
   totalTokens,
   tokenLimit,
+  pressureThreshold,
   alerts,
   usageSource,
   capacitySource,
@@ -101,6 +103,9 @@ export function ContextWindowIndicator({
               </p>
             )}
             <p className="font-medium tabular-nums">{compactCounts}</p>
+            {pressureThreshold !== undefined && <p className="mt-1 tabular-nums">
+              {chinese ? (locale === 'zh-TW' ? '自動壓縮門檻' : '自动压缩触发线') : 'Auto-compaction threshold'} · {pressureThreshold.toLocaleString(locale)} tokens ({Math.round(100 * pressureThreshold / tokenLimit)}%)
+            </p>}
           </>
         }
       >
@@ -140,7 +145,7 @@ export function ContextWindowIndicator({
             />
           )}
         </svg>
-        {showLabel && <span>{chinese ? '上下文' : 'Context'} {percentage === undefined ? '—' : `${estimated ? '≈' : ''}${percentage}%`}</span>}
+        {showLabel && <span>{chinese ? '上下文' : 'Context'} {percentage === undefined ? '—' : `${percentage}%`}</span>}
       </BottomMenuAlertPopover>
     </div>
   );

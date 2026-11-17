@@ -1060,6 +1060,26 @@ pre:has(> code.bg-inline-code) {
   animation: conversation-loading-spin 0.85s linear infinite;
 }
 
+.work-status-icon {
+  animation: work-status-icon-enter 180ms ease-out both;
+}
+
+.work-status-icon > svg,
+.work-status-icon > span:not(.conversation-loading-spinner) {
+  width: 19px;
+  height: 19px;
+}
+
+.work-status-icon > .conversation-loading-spinner {
+  width: 18px;
+  height: 18px;
+}
+
+@keyframes work-status-icon-enter {
+  from { opacity: 0; transform: translateY(2px) scale(0.88); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
 .dark .conversation-loading-spinner {
   border-color: #475569;
   border-top-color: #e2e8f0;
@@ -1071,4 +1091,5 @@ pre:has(> code.bg-inline-code) {
 
 @media (prefers-reduced-motion: reduce) {
   .conversation-loading-spinner { animation: none; }
+  .work-status-icon { animation: none; }
 }

@@ -152,6 +152,9 @@
   "baseChat.lastStage": {
     "defaultMessage": "Last update: {stage}"
   },
+  "baseChat.lastTool": {
+    "defaultMessage": "Hasil alat terakhir: {action}"
+  },
   "baseChat.latest": {
     "defaultMessage": "Back to latest"
   },
@@ -4757,6 +4760,12 @@
   "messageUsageStats.totalTime": {
     "defaultMessage": "Waktu total"
   },
+  "messageUsageStats.turn": {
+    "defaultMessage": "Total giliran"
+  },
+  "messageUsageStats.turnDetail": {
+    "defaultMessage": "Total panggilan yang dilaporkan pada giliran ini. Riwayat dihitung kembali saat dikirim ulang. Keluaran dapat mencakup argumen alat dan penalaran."
+  },
   "microphoneSelector.chooseDescription": {
     "defaultMessage": "Pilih mikrofon mana yang akan digunakan untuk dikte"
   },
@@ -5198,8 +5207,20 @@
   "modelsBottomBar.refresh": {
     "defaultMessage": "Refresh models"
   },
+  "modelsBottomBar.cachedList": {
+    "defaultMessage": "Showing the last saved list."
+  },
+  "modelsBottomBar.inventoryReadFailed": {
+    "defaultMessage": "Could not read the updated lists. The menu still shows the lists from before the refresh."
+  },
+  "modelsBottomBar.noSavedList": {
+    "defaultMessage": "No saved model list."
+  },
+  "modelsBottomBar.unknownReason": {
+    "defaultMessage": "No specific reason was reported."
+  },
   "modelsBottomBar.refreshFailed": {
-    "defaultMessage": "Some connections could not refresh. Their previous lists are still shown. Try again."
+    "defaultMessage": "Could not update model lists for {failed} of {total} connections."
   },
   "modelsBottomBar.refreshed": {
     "defaultMessage": "Model list updated."
@@ -9542,11 +9563,20 @@
   "workStatus.first": {
     "defaultMessage": "Waiting for model response"
   },
+  "workStatus.minutes": {
+    "defaultMessage": "· {minutes} mnt {seconds} dtk dalam status ini"
+  },
   "workStatus.preparing": {
     "defaultMessage": "Preparing the model request"
   },
   "workStatus.question": {
     "defaultMessage": "Waiting for your answer or approval"
+  },
+  "workStatus.request": {
+    "defaultMessage": "Panggilan model {number} · {status}"
+  },
+  "workStatus.requestElapsed": {
+    "defaultMessage": "· {minutes, plural, =0 {} other {# mnt }}{seconds} dtk untuk panggilan ini"
   },
   "workStatus.responseRead": {
     "defaultMessage": "Connection established; receiving model output"

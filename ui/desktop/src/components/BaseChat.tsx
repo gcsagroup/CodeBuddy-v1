@@ -18,7 +18,7 @@ import { MainPanelLayout } from './Layout/MainPanelLayout';
 import ChatInput from './ChatInput';
 import { SessionPermissionSummary } from './SessionPermissionSummary';
 import { CodeProPlanDock } from './codepro/CodeProPlanDock';
-import { currentWorkStage } from './codepro/currentWorkStage';
+import { currentWorkStage, latestReturnedAction } from './codepro/currentWorkStage';
 import { ScrollArea, ScrollAreaHandle } from './ui/scroll-area';
 import { useFileDrop } from '../hooks/useFileDrop';
 import { ChatState } from '../types/chatState';
@@ -85,6 +85,7 @@ const i18n = defineMessages({
     id: 'baseChat.checkingResults',
     defaultMessage: 'Checking execution results…',
   },
+  lastTool: { id: 'baseChat.lastTool', defaultMessage: 'Last tool result: {action}' },
   lastStage: { id: 'baseChat.lastStage', defaultMessage: 'Last update: {stage}' },
   changingPermissions: { id: 'sessionPermissions.saving', defaultMessage: 'Changing permissions…' },
   failedToLoadSession: {
@@ -283,12 +284,19 @@ export default function BaseChat({
     return call && request
       ? {
           id: request.id,
+          name: call.name,
           title: formatToolAction(intl, call.name, call.arguments, 'running', 'headline'),
           awaitingResult: call.arguments.__inputPreview !== true,
         }
       : undefined;
   }, [messages, activeToolCallIds, chatState, intl]);
   const currentAction = currentTool?.title;
+  const sourceId = promptActivity?.sourceUserMessageId;
+  const lastAction = useMemo(() => {
+    if (!sourceId || currentAction) return undefined;
+    const call = latestReturnedAction(messages, sourceId);
+    return call ? formatToolAction(intl, call.name, call.arguments, undefined, 'name') : undefined;
+  }, [sourceId, currentAction, messages, intl]);
   const currentStage = useMemo(
     () =>
       promptActivity ? currentWorkStage(messages, promptActivity.sourceUserMessageId) : undefined,
@@ -955,13 +963,16 @@ export default function BaseChat({
                     hint={workStatus.hint}
                     announcement={workStatus.announcement}
                     assistantName="CodePro"
+                    workStatusSource={workStatus.source}
+                    activeToolName={workStatus.source === 'toolInput' ? workStatus.preview.name : currentTool?.name}
                   />
                   {!currentAction &&
                     !checkingResults &&
-                    currentStage &&
+                    (currentStage || lastAction) &&
                     (chatState === ChatState.Thinking || chatState === ChatState.Streaming) && (
-                      <p className="pb-2 text-xs text-text-secondary truncate" title={currentStage}>
-                        {intl.formatMessage(i18n.lastStage, { stage: currentStage })}
+                      <p className="pb-2 text-xs text-text-secondary truncate" title={currentStage || lastAction}>
+                        {currentStage ? intl.formatMessage(i18n.lastStage, { stage: currentStage })
+                          : intl.formatMessage(i18n.lastTool, { action: lastAction })}
                       </p>
                     )}
                 </div>
@@ -1082,6 +1093,7 @@ export default function BaseChat({
                   tokenState.contextLimit ?? session?.model_config?.context_limit ?? undefined
                 }
                 requestBudget={tokenState.requestBudget}
+                pressureThreshold={tokenState.pressureThreshold}
                 contextUsageSource={tokenState.contextUsageSource}
                 sessionStats={tokenState.sessionStats}
                 liveSpeed={tokenState.liveSpeed}

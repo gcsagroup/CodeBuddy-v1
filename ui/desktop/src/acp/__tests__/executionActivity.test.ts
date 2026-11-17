@@ -62,6 +62,19 @@ describe('live execution activity is scoped presentation only', () => {
     expect(store.getSnapshot(sessionId)?.chatState).toBe(ChatState.Streaming);
     expect(store.getSnapshot(sessionId)?.messages).toHaveLength(1);
   });
+  it('shows live host activity in an observing window without acquiring a local prompt', () => {
+    actions.applyAcpSessionNotification({ sessionId, update: { sessionUpdate: 'session_info_update',
+      _meta: { goose: { activeRunId: 'run' } } } });
+    receive({ phase: 'model', model_request_number: 171, model_request_phase: 'waiting' });
+    expect(store.getSnapshot(sessionId)).toMatchObject({ activePromptAttemptId: null,
+      promptActivity: { sourceUserMessageId: 'input', execution: { modelRequestNumber: 171, modelRequestPhase: 'waiting' } } });
+    receive({ run_id: 'old', model_request_number: 1 });
+    expect(store.getSnapshot(sessionId)?.promptActivity?.execution?.modelRequestNumber).toBe(171);
+    actions.applyAcpSessionNotification({ sessionId, update: { sessionUpdate: 'session_info_update',
+      _meta: { goose: { activeRunId: null } } } });
+    receive();
+    expect(store.getSnapshot(sessionId)?.promptActivity).toBeUndefined();
+  });
   it('updates the wait target without adding chat messages or changing execution state', () => {
     start();
     const before = store.getSnapshot(sessionId)!;

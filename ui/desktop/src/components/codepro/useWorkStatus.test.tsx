@@ -36,6 +36,21 @@ describe('evidence-based run advice', () => {
 });
 
 describe('specific live execution feedback', () => {
+  it('recovers the request age on mount and starts a fresh clock on the next model call', () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(200_000);
+    const { result, rerender } = renderHook(({ start, number }) => useWorkStatus({
+      chatState: ChatState.Thinking, checking: false, activity: {
+        promptAttemptId: 'a', sourceUserMessageId: 'u', startedAt: 1_000,
+        execution: { phase: 'model', childCount: 0, modelRequestPhase: 'waiting',
+          modelRequestNumber: number, modelRequestStartedAt: start },
+      },
+    }), { initialProps: { start: 105_000, number: 2 }, wrapper: IntlTestWrapper });
+    expect(result.current.message).toContain('1m 35s on this call');
+    rerender({ start: 200_000, number: 3 });
+    act(() => vi.advanceTimersByTime(2000));
+    expect(result.current.message).toContain('2s on this call');
+  });
   it('shows file preparation without claiming a write, keeps its clock across size updates and respects approval', () => {
     vi.useFakeTimers();
     vi.setSystemTime(100_000);
@@ -100,7 +115,7 @@ describe('specific live execution feedback', () => {
     });
     expect(result.current.message).toBe('Thinking');
     act(() => vi.advanceTimersByTime(4000));
-    expect(result.current.message).toMatch(/^Working on your request/);
+    expect(result.current.message).toMatch(/^Waiting for an activity update/);
     rerender({
       ...base,
       chatState: ChatState.WaitingForUserInput,
@@ -194,7 +209,7 @@ describe('specific live execution feedback', () => {
     });
     expect(result.current.message).toBe('Writing a response');
     act(() => vi.advanceTimersByTime(15_000));
-    expect(result.current.message).toMatch(/^Working on your request(?: \d+s)?$/);
+    expect(result.current.message).toMatch(/^Waiting for an activity update(?: \d+s)?$/);
     rerender({ ...input, activity: { ...input.activity, receivedAt: Date.now() } });
     expect(result.current.message).toBe('Writing a response');
     expect(result.current.source).toBe('text');

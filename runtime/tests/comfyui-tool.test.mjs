@@ -475,7 +475,7 @@ test('server failures and ambiguous submission stay truthful; cancellation targe
   assert.ok(f.calls.some(x => x.url.endsWith(`/api/jobs/${id}/cancel`)));
   assert.ok(f.calls.every(x => !x.url.endsWith('/interrupt')));
 });
-test('accepted queued cancellation without execution history stays cancelled after restart', async t => {
+test('accepted queued cancellation without execution history stays uncertain after restart', async t => {
   const f = await fixture(t);
   let removed = false;
   const options = { ...f.options, fetchImpl: async (url, opts) => {
@@ -486,9 +486,13 @@ test('accepted queued cancellation without execution history stays cancelled aft
   const tool = comfyuiTool(options);
   await tool.execute(generate);
   const cancelled = await tool.execute({ operation: 'cancel', job_id: id });
-  assert.equal(cancelled.status, 'cancelled');
-  assert.equal(cancelled.cancellation_confirmed, true);
-  assert.equal((await comfyuiTool(options).execute({ operation: 'status', job_id: id })).status, 'cancelled');
+  assert.equal(cancelled.status, 'unavailable');
+  assert.equal(cancelled.cancellation_confirmed, false);
+  const restarted = comfyuiTool(options);
+  assert.equal((await restarted.execute({ operation: 'status', job_id: id })).status, 'unavailable');
+  removed = false;
+  f.state('completed');
+  assert.equal((await restarted.execute({ operation: 'status', job_id: id })).status, 'completed');
   assert.equal(f.calls.filter(call => call.url.endsWith('/prompt')).length, 1);
 });
 

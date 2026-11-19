@@ -23,6 +23,9 @@ async function fixture(t, inputModalities = ['text', 'image']) {
   const requests = [], submissions = [];
   const server = createServer(async (req, res) => {
     if (req.url.endsWith('/models')) { res.writeHead(200, { 'content-type': 'application/json' }).end(JSON.stringify({ data: [{ id: 'main', input_modalities: inputModalities }] })); return; }
+    // Optional model metadata probes have no body; this fixture only serves
+    // model inventory and chat completions.
+    if (req.method !== 'POST' || !req.url.endsWith('/chat/completions')) { res.writeHead(404).end(); return; }
     let raw = ''; for await (const chunk of req) raw += chunk;
     const request = JSON.parse(raw);
     if (replyToNoActionReview(request, res)) return;

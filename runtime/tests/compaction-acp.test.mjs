@@ -19,6 +19,7 @@ test('ACP live threshold, repeated compaction, manual command, cancellation and 
   const requests = [], notifications = [];
   let slow = false, slowStarted = Promise.withResolvers();
   const server = createServer(async (req, res) => {
+    if (req.method === 'GET' && req.url.endsWith('/openapi.json')) { res.writeHead(404).end(); return; }
     if (req.url.endsWith('/models')) { res.end(JSON.stringify({ data: ['fixture', 'replacement-model'].map(id => ({ id, contextWindow: 32768 })) })); return; }
     let raw = ''; for await (const c of req) raw += c;
     const request = JSON.parse(raw);
@@ -129,6 +130,7 @@ test('a process killed during compaction restarts without a stale renderer spinn
   let slow = false, started = Promise.withResolvers();
   const requests = [], notifications = [], pending = new Map();
   const endpoint = createServer(async (req, res) => {
+    if (req.method === 'GET' && req.url.endsWith('/openapi.json')) { res.writeHead(404).end(); return; }
     if (req.url.endsWith('/models')) { res.end(JSON.stringify({ data: [{ id: 'fixture', contextWindow: 32768 }] })); return; }
     let raw = ''; for await (const c of req) raw += c;
     const request = JSON.parse(raw);

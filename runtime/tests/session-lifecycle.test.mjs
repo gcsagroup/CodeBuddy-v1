@@ -30,6 +30,7 @@ else {process.stdout.write(JSON.stringify({jsonrpc:'2.0',id:m.id,error:{code:-32
 process.stdout.write(JSON.stringify({jsonrpc:'2.0',id:m.id,result})+'\n');});`);
   const slow = Promise.withResolvers();
   const model = createServer(async (req, res) => {
+    if (req.method === 'GET' && req.url.endsWith('/openapi.json')) { res.writeHead(404).end(); return; }
     if (req.url === '/v1/models') {
       res.writeHead(200, { 'content-type': 'application/json' });
       res.end(JSON.stringify({ data: [{ id: 'fixture', max_model_len: 32768 }] })); return;

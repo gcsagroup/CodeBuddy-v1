@@ -34,6 +34,7 @@ test('original ACP Git and Review flow uses the current session model, persists 
   const root = await realpath(await mkdtemp(path.join(tmpdir(), 'codebuddy-review-harness-'))), cwd = path.join(root, 'project'), dataDir = path.join(root, 'data');
   const requests = [], failures = [], phases = new Map(); let phase = 'valid', heldResponse;
   const model = http.createServer(async (req, res) => {
+    if (req.method === 'GET' && req.url.endsWith('/openapi.json')) { res.writeHead(404).end(); return; }
     try {
       if (req.url.endsWith('/models')) { res.setHeader('content-type', 'application/json'); res.end(JSON.stringify({ data: [{ id: 'main-fixture' }, { id: 'reviewer-fixture' }] })); return; }
       let body = ''; for await (const chunk of req) body += chunk;

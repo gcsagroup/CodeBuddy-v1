@@ -1,5 +1,6 @@
 import { replyToNoActionReview } from '../harness/test/review-fixture.mjs';
 import test from 'node:test';
+import { answerTitleRequest } from './fixtures/title-request.mjs';
 import assert from 'node:assert/strict';
 import { createServer } from 'node:http';
 import { mkdtemp } from 'node:fs/promises';
@@ -12,18 +13,25 @@ test('real ACP carries the native deadline, late reply, turn close and cross-ses
   const gate = Promise.withResolvers(), continued = Promise.withResolvers(), form = Promise.withResolvers();
   const bodies = [], notifications = [];
   const model = createServer(async (req, res) => {
+    if (req.method === 'GET' && req.url.endsWith('/openapi.json')) { res.writeHead(404).end(); return; }
     if (req.url.endsWith('/models')) { res.end(JSON.stringify({ data: [{ id: 'fixture' }] })); return; }
     let raw = ''; for await (const chunk of req) raw += chunk;
     const body = JSON.parse(raw);
     if (replyToNoActionReview(body, res)) return;
+    if (answerTitleRequest(body, res)) return;
     if (!body.stream) { res.end(JSON.stringify({ choices: [{ message: { content: 'OK' } }] })); return; }
     bodies.push(body);
-    const hasTool = body.messages.some(m => m.role === 'tool');
+    const hasTool = body.messages.some(m => m.role === 'tool' && m.tool_call_id === 'color-call');
     if (hasTool) await gate.promise;
     res.writeHead(200, { 'content-type': 'text/event-stream' });
     const emit = (delta, finish_reason = null) => res.write(`data: ${JSON.stringify({ id: 'timed-acp', choices: [{ index: 0, delta, finish_reason }] })}\n\n`);
     if (hasTool) { emit({ role: 'assistant', content: 'Done.' }); emit({}, 'stop'); }
-    else {
+    else if (!body.tools?.some(tool => tool.function?.name === 'ask_user_question')) {
+      // Follow the real model's deferred-tool contract before asking a question;
+      // native question tracking is derived from the logged request schema.
+      emit({ role: 'assistant', tool_calls: [{ index: 0, id: 'discover-question', type: 'function', function: { name: 'search_mcp_tools', arguments: JSON.stringify({ names: ['ask_user_question'] }) } }] });
+      emit({}, 'tool_calls');
+    } else {
       emit({ role: 'assistant', tool_calls: [{ index: 0, id: 'color-call', type: 'function', function: { name: 'ask_user_question', arguments: JSON.stringify({ timeout: 1, questions: [{ id: 'color', question: 'Which color?', options: [{ label: 'Mint' }, { label: 'Cream' }] }] }) } }] });
       emit({}, 'tool_calls');
     }

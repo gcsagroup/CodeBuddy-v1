@@ -60,6 +60,7 @@ async function fixture(t, kind = 'image', modern = false) {
     businessApprovalClients: new WeakMap(),
   });
   const model = createServer(async (req, res) => {
+    if (req.method === 'GET' && req.url.endsWith('/openapi.json')) { res.writeHead(404).end(); return; }
     if (req.url.endsWith('/models')) {
       res.writeHead(200, { 'content-type': 'application/json' }).end(JSON.stringify({ data: [{ id: 'offline' }] }));
       return;
@@ -241,6 +242,7 @@ for (const modern of [false, true]) test(kind + ' real ACP ' + (modern ? 'busine
   const questions = [], submissions = [], results = [], failures = [];
   let latestJob;
   const remote = createServer(async (req, res) => {
+    if (req.method === 'GET' && req.url.endsWith('/openapi.json')) { res.writeHead(404).end(); return; }
     const json = value => res.writeHead(200, { 'content-type': 'application/json' }).end(JSON.stringify(value));
     try {
       const catalog = savedFixtureResponse(req.url); if (catalog) return json(await catalog.json());

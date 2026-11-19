@@ -41,6 +41,7 @@ async function fixture(t) {
   const started = Promise.withResolvers(), resume = Promise.withResolvers(), middle = Promise.withResolvers(), finish = Promise.withResolvers();
   let streams = 0;
   const model = createServer(async (req, res) => {
+    if (req.method === 'GET' && req.url.endsWith('/openapi.json')) { res.writeHead(404).end(); return; }
     if (req.url.endsWith('/models')) { res.end(JSON.stringify({ data: [{ id: 'fixture' }] })); return; }
     let raw = ''; for await (const chunk of req) raw += chunk;
     const body = JSON.parse(raw);

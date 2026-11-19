@@ -40,6 +40,7 @@ else {process.stdout.write(JSON.stringify({jsonrpc:'2.0',id:m.id,error:{code:-32
 process.stdout.write(JSON.stringify({jsonrpc:'2.0',id:m.id,result})+'\n');});`);
   const requests = [], slow = Promise.withResolvers();
   const model = createServer(async (req, res) => {
+    if (req.method === 'GET' && req.url.endsWith('/openapi.json')) { res.writeHead(404).end(); return; }
     if (req.url.endsWith('/models')) { res.writeHead(200, { 'content-type': 'application/json' }).end(JSON.stringify({ data: [{ id: 'fixture' }] })); return; }
     let raw = ''; for await (const part of req) raw += part; const body = JSON.parse(raw);
     if (replyToNoActionReview(body, res)) return;

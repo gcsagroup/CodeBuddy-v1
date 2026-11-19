@@ -1,4 +1,5 @@
 import { replyToNoActionReview } from '../harness/test/review-fixture.mjs';
+import { answerTitleRequest } from './fixtures/title-request.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createServer } from 'node:http';
@@ -35,10 +36,8 @@ test('real ACP CodePro edit cancels the old run, keeps file effects and logs, an
       const request = JSON.parse(raw);
     if (replyToNoActionReview(request, res)) return;
       if (request.stream !== true) { res.writeHead(200, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ id: 'fixture-test', object: 'chat.completion', choices: [{ index: 0, message: { role: 'assistant', content: 'OK' }, finish_reason: 'stop' }] })); return; }
-      if (request.messages.some(message => message.role === 'system' && JSON.stringify(message.content).includes('Summarize the supplied first conversation turn'))) {
+      if (answerTitleRequest(request, res, '文件修改与恢复')) {
         titleRequests.push(request);
-        res.writeHead(200, { 'Content-Type': 'text/event-stream' });
-        res.end(`data: ${JSON.stringify({ id: 'title-fixture', object: 'chat.completion.chunk', model: 'edit-model', choices: [{ index: 0, delta: { role: 'assistant', content: '文件修改与恢复' }, finish_reason: 'stop' }] })}\n\ndata: [DONE]\n\n`);
         return;
       }
       requests.push(request);

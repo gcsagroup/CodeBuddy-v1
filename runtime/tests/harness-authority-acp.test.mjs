@@ -370,17 +370,21 @@ test('model thinking migration restores historical child routes despite a stale 
 
 test('model thinking changes preserve session authorization and the active turn, then apply to the next turn', async t => {
   const f = await fixture(t);
-  await f.store.update(state => { state.providers[0].models.push('gemma4:31b'); });
+  await f.store.update(state => {
+    state.providers[0].models.push('gemma4:31b');
+    state.providers[0].thinkingEfforts = { 'gemma4:31b': 'medium' };
+  });
   await f.request('session/set_config_option', {sessionId:f.sessionId,configId:'model',value:'gemma4:31b'});
   const started=Promise.withResolvers(), finish=Promise.withResolvers();
   f.scripts.push(async ({onEvent})=>{started.resolve();await finish.promise;await onEvent({type:'text_delta',text:'First'});return{stopReason:'end_turn',reason:{kind:'completed'}};});
   const active=f.prompt('First turn');await started.promise;
-  assert.equal(f.sessions[0].options.thinkingEffort,'medium');
-  const approvals=f.compat.sessionToolApprovals;
-  await f.request('_goose/unstable/providers/config/save',{providerId:'fixture',fields:[{key:'thinkingEffort:gemma4:31b',value:'none'}]});
-  assert.equal(f.compat.sessionToolApprovals,approvals,'Changing model effort does not revoke unrelated session approvals');
-  assert.equal(f.sessions[0].options.thinkingEffort,'medium','The active native request keeps its prepared snapshot');
-  finish.resolve();await active;
+  try {
+    assert.equal(f.sessions[0].options.thinkingEffort,'medium');
+    const approvals=f.compat.sessionToolApprovals;
+    await f.request('_goose/unstable/providers/config/save',{providerId:'fixture',fields:[{key:'thinkingEffort:gemma4:31b',value:'none'}]});
+    assert.equal(f.compat.sessionToolApprovals,approvals,'Changing model effort does not revoke unrelated session approvals');
+    assert.equal(f.sessions[0].options.thinkingEffort,'medium','The active native request keeps its prepared snapshot');
+  } finally { finish.resolve();await active; }
   f.scripts.push(async({onEvent})=>{await onEvent({type:'text_delta',text:'Second'});return{stopReason:'end_turn',reason:{kind:'completed'}};});
   await f.prompt('Second turn');
   assert.equal(f.sessions.at(-1).options.thinkingEffort,'off');

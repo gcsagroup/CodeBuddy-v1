@@ -66,6 +66,7 @@ async function scriptedModel(cwd) {
     ],
   };
   const server = http.createServer(async (req, res) => {
+    if (req.method === 'GET' && req.url.endsWith('/openapi.json')) { res.writeHead(404).end(); return; }
     try {
       if (req.url.endsWith('/models')) { res.setHeader('content-type', 'application/json'); res.end(JSON.stringify({ data: [{ id: 'official-codepro-fixture' }] })); return; }
       let raw = ''; for await (const part of req) raw += part;

@@ -535,10 +535,9 @@ export function comfyuiMediaTool({ cwd, dataDir, sessionId, baseUrl = DEFAULT_CO
     if (['queued', 'running', 'completed'].includes(job.status)) { delete job.error; delete job.failure_info; }
     await inErrorStage(job.status === 'completed' ? 'output_publication' : 'query', 'host', () => save(job, current => {
       // Classify interruption with the latest accepted cancellation, not the poll's old copy.
-      // Pending cancellation dequeues the job without creating execution history.
-      // Only a previously accepted, targeted cancel plus absence from both queues
-      // can establish cancellation; a missing job alone remains unavailable.
-      if ((interrupted || job.status === 'unavailable') && (current?.cancel_requested || job.cancel_requested)) {
+      // A cancellation acknowledgement is not a terminal execution receipt.
+      // Missing queue/history entries can still precede a completed output.
+      if (interrupted && (current?.cancel_requested || job.cancel_requested)) {
         job.status = 'cancelled'; delete job.failure_info; delete job.error;
       }
       return job;

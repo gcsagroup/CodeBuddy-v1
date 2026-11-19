@@ -20,6 +20,7 @@ test('actual summary failures publish safe native reasons and preserve them acro
     return {...original,onFailure(...args){if(brokenObserver)throw Error('PRIVATE_OBSERVER_FAILURE');return original.onFailure(...args);}};
   });
   const endpoint=createServer(async(req,res)=>{
+    if(req.method==='GET'&&req.url.endsWith('/openapi.json'))return res.writeHead(404).end();
     if(req.url.endsWith('/models'))return res.end(JSON.stringify({data:[{id:'fixture',context_window:65536}]}));
     let raw='';for await(const chunk of req)raw+=chunk;
     const body=JSON.parse(raw);

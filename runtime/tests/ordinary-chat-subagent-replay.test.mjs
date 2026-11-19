@@ -16,6 +16,7 @@ for (const stopDuringCleanup of [false, true]) test(`cold replay restores a chil
   const cleanupEntered = Promise.withResolvers(), cleanupRelease = Promise.withResolvers();
   let parentRequests = 0, childRequests = 0, releaseChild, compat, driver, parentId;
   const endpoint = createServer(async (req, res) => {
+    if (req.method === 'GET' && req.url.endsWith('/openapi.json')) { res.writeHead(404).end(); return; }
     if (req.url.endsWith('/models')) return res.end(JSON.stringify({ data: [{ id: 'fixture', context_window: 65536 }] }));
     let raw = ''; for await (const bytes of req) raw += bytes;
     const body = JSON.parse(raw);

@@ -297,7 +297,7 @@
     "defaultMessage": "Échec de la lecture du fichier image"
   },
   "chatInput.imageLimit": {
-    "defaultMessage": "Vous pouvez joindre jusqu’à {count} images par message."
+    "defaultMessage": "Ce message contient déjà {current} images ; vous en ajoutez {incoming}, mais la limite est de {count}. Ce lot n’a été ni ajouté ni envoyé. Les pièces jointes et fichiers générés sont conservés. Choisissez moins d’images ou envoyez des lots séparés en précisant leur objectif."
   },
   "chatInput.listening": {
     "defaultMessage": "Listening"
@@ -10258,5 +10258,38 @@
   },
   "typography.zoomHint": {
     "defaultMessage": "Redimensionne ensemble la discussion, la barre latérale et les commandes."
+  },
+  "thinkingEffortPicker.cannotDisable": {
+    "defaultMessage": "Ce modèle ne permet pas de désactiver le raisonnement. Son niveau minimal est {level}."
+  },
+  "thinkingEffortPicker.default": {
+    "defaultMessage": "Valeur par défaut du service"
+  },
+  "thinkingEffortPicker.defaultNotice": {
+    "defaultMessage": "Le modèle choisit son niveau de raisonnement. Cela ne désactive pas le raisonnement."
+  },
+  "thinkingEffortPicker.refresh": {
+    "defaultMessage": "Revérifier les capacités du modèle"
+  },
+  "thinkingEffortPicker.schemaControls": {
+    "defaultMessage": "Options déclarées par l’API ; leur effet sur ce modèle n’a pas été vérifié."
+  },
+  "thinkingEffortPicker.stale": {
+    "defaultMessage": "Le niveau précédent n’est plus disponible. Le niveau de remplacement actuel est utilisé ; choisissez un niveau pris en charge."
+  },
+  "thinkingEffortPicker.templateControls": {
+    "defaultMessage": "Validé avec le modèle de tokenisation de ce modèle, sans génération. La qualité du raisonnement n’a pas été mesurée."
+  },
+  "thinkingEffortPicker.unknown": {
+    "defaultMessage": "Les niveaux réglables ne sont pas confirmés. La valeur par défaut du service est utilisée."
+  },
+  "thinkingEffortPicker.unsupported": {
+    "defaultMessage": "Ce modèle ne prend pas en charge le réglage du raisonnement."
+  },
+  "thinkingEffortPicker.useDefault": {
+    "defaultMessage": "Utiliser la valeur par défaut du modèle"
+  },
+  "userMessage.removeEditedImage": {
+    "defaultMessage": "Retirer l’image {number} de ce renvoi"
   }
 }

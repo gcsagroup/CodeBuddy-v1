@@ -297,7 +297,7 @@
     "defaultMessage": "छवि फ़ाइल पढ़ने में विफल"
   },
   "chatInput.imageLimit": {
-    "defaultMessage": "एक संदेश में अधिकतम {count} इमेज जोड़ सकते हैं।"
+    "defaultMessage": "इस संदेश में पहले से {current} चित्र हैं; आप {incoming} जोड़ रहे हैं, लेकिन सीमा {count} है। यह समूह न जोड़ा गया, न भेजा गया। मौजूदा अटैचमेंट और बनाई गई फ़ाइलें सुरक्षित हैं। कम चित्र चुनें या हर समूह का उद्देश्य बताकर अलग-अलग भेजें।"
   },
   "chatInput.listening": {
     "defaultMessage": "Listening"
@@ -10258,5 +10258,38 @@
   },
   "typography.zoomHint": {
     "defaultMessage": "चैट, साइडबार और नियंत्रणों का आकार एक साथ बदलें।"
+  },
+  "thinkingEffortPicker.cannotDisable": {
+    "defaultMessage": "इस मॉडल में विचार बंद करने का विकल्प नहीं है। इसका सबसे कम स्तर {level} है।"
+  },
+  "thinkingEffortPicker.default": {
+    "defaultMessage": "सेवा का डिफ़ॉल्ट"
+  },
+  "thinkingEffortPicker.defaultNotice": {
+    "defaultMessage": "मॉडल अपना विचार स्तर चुनता है। इससे विचार बंद नहीं होता।"
+  },
+  "thinkingEffortPicker.refresh": {
+    "defaultMessage": "मॉडल की क्षमताएँ दोबारा जाँचें"
+  },
+  "thinkingEffortPicker.schemaControls": {
+    "defaultMessage": "API द्वारा घोषित विकल्प; इस मॉडल पर इनके प्रभाव की पुष्टि नहीं हुई है।"
+  },
+  "thinkingEffortPicker.stale": {
+    "defaultMessage": "पिछला स्तर अब उपलब्ध नहीं है। वर्तमान वैकल्पिक स्तर उपयोग में है; इसे बदलने के लिए समर्थित स्तर चुनें।"
+  },
+  "thinkingEffortPicker.templateControls": {
+    "defaultMessage": "इस मॉडल के टोकनाइज़र टेम्पलेट से बिना जनरेशन के सत्यापित किया गया। विचार की गुणवत्ता नहीं मापी गई है।"
+  },
+  "thinkingEffortPicker.unknown": {
+    "defaultMessage": "समायोज्य स्तरों की पुष्टि नहीं हुई है। सेवा का डिफ़ॉल्ट उपयोग में है।"
+  },
+  "thinkingEffortPicker.unsupported": {
+    "defaultMessage": "यह मॉडल विचार स्तर बदलने का समर्थन नहीं करता।"
+  },
+  "thinkingEffortPicker.useDefault": {
+    "defaultMessage": "मॉडल का डिफ़ॉल्ट उपयोग करें"
+  },
+  "userMessage.removeEditedImage": {
+    "defaultMessage": "दोबारा भेजे जा रहे संदेश से चित्र {number} हटाएँ"
   }
 }

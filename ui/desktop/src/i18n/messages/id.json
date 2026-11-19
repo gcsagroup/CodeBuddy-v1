@@ -297,7 +297,7 @@
     "defaultMessage": "Gagal membaca berkas gambar"
   },
   "chatInput.imageLimit": {
-    "defaultMessage": "Anda dapat melampirkan hingga {count} gambar per pesan."
+    "defaultMessage": "Pesan ini sudah memiliki {current} gambar; Anda menambahkan {incoming}, tetapi batasnya {count}. Kelompok ini tidak ditambahkan atau dikirim. Lampiran dan file yang dihasilkan tetap disimpan. Pilih lebih sedikit gambar atau kirim kelompok terpisah dengan menjelaskan tujuannya."
   },
   "chatInput.listening": {
     "defaultMessage": "Listening"
@@ -10258,5 +10258,38 @@
   },
   "typography.zoomHint": {
     "defaultMessage": "Ubah skala percakapan, bilah samping, dan kontrol secara bersamaan."
+  },
+  "thinkingEffortPicker.cannotDisable": {
+    "defaultMessage": "Model ini tidak menyediakan opsi untuk menonaktifkan penalaran. Tingkat terendahnya adalah {level}."
+  },
+  "thinkingEffortPicker.default": {
+    "defaultMessage": "Default layanan"
+  },
+  "thinkingEffortPicker.defaultNotice": {
+    "defaultMessage": "Model memilih tingkat penalarannya sendiri. Ini tidak menonaktifkan penalaran."
+  },
+  "thinkingEffortPicker.refresh": {
+    "defaultMessage": "Periksa ulang kemampuan model"
+  },
+  "thinkingEffortPicker.schemaControls": {
+    "defaultMessage": "Opsi yang dinyatakan API; pengaruhnya pada model ini belum diverifikasi."
+  },
+  "thinkingEffortPicker.stale": {
+    "defaultMessage": "Tingkat sebelumnya tidak lagi tersedia. Tingkat pengganti saat ini digunakan; pilih tingkat yang didukung."
+  },
+  "thinkingEffortPicker.templateControls": {
+    "defaultMessage": "Divalidasi dengan templat tokenizer model ini tanpa menghasilkan keluaran. Kualitas penalaran belum diukur."
+  },
+  "thinkingEffortPicker.unknown": {
+    "defaultMessage": "Tingkat yang dapat disesuaikan belum dikonfirmasi. Default layanan digunakan."
+  },
+  "thinkingEffortPicker.unsupported": {
+    "defaultMessage": "Model ini tidak mendukung penalaran yang dapat disesuaikan."
+  },
+  "thinkingEffortPicker.useDefault": {
+    "defaultMessage": "Gunakan default model"
+  },
+  "userMessage.removeEditedImage": {
+    "defaultMessage": "Hapus gambar {number} dari pengiriman ulang ini"
   }
 }

@@ -297,7 +297,7 @@
     "defaultMessage": "Bilddatei konnte nicht gelesen werden"
   },
   "chatInput.imageLimit": {
-    "defaultMessage": "Pro Nachricht können bis zu {count} Bilder angehängt werden."
+    "defaultMessage": "Diese Nachricht enthält bereits {current} Bilder. Sie fügen {incoming} hinzu, erlaubt sind {count}. Diese Auswahl wurde weder hinzugefügt noch gesendet. Vorhandene Anhänge und erzeugte Dateien bleiben erhalten. Wählen Sie weniger Bilder oder senden Sie getrennte Gruppen und erklären Sie deren Zweck."
   },
   "chatInput.listening": {
     "defaultMessage": "Listening"
@@ -10258,5 +10258,38 @@
   },
   "typography.zoomHint": {
     "defaultMessage": "Skaliert Chat, Seitenleiste und Bedienelemente gemeinsam."
+  },
+  "thinkingEffortPicker.cannotDisable": {
+    "defaultMessage": "Dieses Modell bietet keine Aus-Einstellung. Die niedrigste Stufe ist {level}."
+  },
+  "thinkingEffortPicker.default": {
+    "defaultMessage": "Dienststandard"
+  },
+  "thinkingEffortPicker.defaultNotice": {
+    "defaultMessage": "Das Modell wählt seine Denkstufe selbst. Dadurch wird das Denken nicht deaktiviert."
+  },
+  "thinkingEffortPicker.refresh": {
+    "defaultMessage": "Modellfähigkeiten erneut prüfen"
+  },
+  "thinkingEffortPicker.schemaControls": {
+    "defaultMessage": "Von der API deklarierte Optionen; ihre Wirkung auf dieses Modell wurde nicht überprüft."
+  },
+  "thinkingEffortPicker.stale": {
+    "defaultMessage": "Die bisherige Stufe ist nicht mehr verfügbar. Die aktuelle Ersatzstufe wird verwendet; wählen Sie eine unterstützte Stufe."
+  },
+  "thinkingEffortPicker.templateControls": {
+    "defaultMessage": "Mit der Tokenizer-Vorlage dieses Modells ohne Generierung geprüft. Die Qualität des Denkens wurde nicht gemessen."
+  },
+  "thinkingEffortPicker.unknown": {
+    "defaultMessage": "Anpassbare Stufen sind nicht bestätigt. Der Dienststandard wird verwendet."
+  },
+  "thinkingEffortPicker.unsupported": {
+    "defaultMessage": "Dieses Modell unterstützt keine anpassbare Denkstufe."
+  },
+  "thinkingEffortPicker.useDefault": {
+    "defaultMessage": "Modellstandard verwenden"
+  },
+  "userMessage.removeEditedImage": {
+    "defaultMessage": "Bild {number} aus dieser erneuten Sendung entfernen"
   }
 }

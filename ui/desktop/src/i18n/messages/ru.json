@@ -297,7 +297,7 @@
     "defaultMessage": "Не удалось прочитать файл изображения"
   },
   "chatInput.imageLimit": {
-    "defaultMessage": "К одному сообщению можно прикрепить до {count} изображений."
+    "defaultMessage": "В сообщении уже {current} изображений; вы добавляете {incoming}, но предел — {count}. Эта группа не добавлена и не отправлена. Имеющиеся вложения и созданные файлы сохранены. Выберите меньше изображений или отправьте отдельные группы, пояснив назначение каждой."
   },
   "chatInput.listening": {
     "defaultMessage": "Listening"
@@ -10258,5 +10258,38 @@
   },
   "typography.zoomHint": {
     "defaultMessage": "Одновременно меняет масштаб чата, боковой панели и элементов управления."
+  },
+  "thinkingEffortPicker.cannotDisable": {
+    "defaultMessage": "Эта модель не позволяет отключить рассуждения. Минимальный уровень — {level}."
+  },
+  "thinkingEffortPicker.default": {
+    "defaultMessage": "По умолчанию сервиса"
+  },
+  "thinkingEffortPicker.defaultNotice": {
+    "defaultMessage": "Модель сама выбирает уровень рассуждений. Это не отключает рассуждения."
+  },
+  "thinkingEffortPicker.refresh": {
+    "defaultMessage": "Повторно проверить возможности модели"
+  },
+  "thinkingEffortPicker.schemaControls": {
+    "defaultMessage": "Параметры заявлены API; их действие на эту модель не проверено."
+  },
+  "thinkingEffortPicker.stale": {
+    "defaultMessage": "Прежний уровень больше недоступен. Используется текущий запасной вариант; выберите поддерживаемый уровень."
+  },
+  "thinkingEffortPicker.templateControls": {
+    "defaultMessage": "Проверено с шаблоном токенизатора этой модели без генерации. Качество рассуждений не измерялось."
+  },
+  "thinkingEffortPicker.unknown": {
+    "defaultMessage": "Настраиваемые уровни не подтверждены. Используется значение сервиса по умолчанию."
+  },
+  "thinkingEffortPicker.unsupported": {
+    "defaultMessage": "Эта модель не поддерживает настройку уровня рассуждений."
+  },
+  "thinkingEffortPicker.useDefault": {
+    "defaultMessage": "Использовать настройку модели по умолчанию"
+  },
+  "userMessage.removeEditedImage": {
+    "defaultMessage": "Убрать изображение {number} из повторной отправки"
   }
 }

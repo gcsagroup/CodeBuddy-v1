@@ -297,7 +297,7 @@
     "defaultMessage": "画像ファイルの読み込みに失敗しました"
   },
   "chatInput.imageLimit": {
-    "defaultMessage": "1つのメッセージに追加できる画像は最大 {count} 枚です。"
+    "defaultMessage": "このメッセージには既に {current} 枚の画像があり、{incoming} 枚を追加しようとしていますが、上限は {count} 枚です。今回の画像は追加も送信もされていません。既存の添付ファイルと生成ファイルは保持されます。画像を減らすか、目的を説明して分けて送信してください。"
   },
   "chatInput.listening": {
     "defaultMessage": "Listening"
@@ -10258,5 +10258,38 @@
   },
   "typography.zoomHint": {
     "defaultMessage": "チャット、サイドバー、操作ボタンをまとめて拡大・縮小します。"
+  },
+  "thinkingEffortPicker.cannotDisable": {
+    "defaultMessage": "このモデルでは思考をオフにできません。最低レベルは {level} です。"
+  },
+  "thinkingEffortPicker.default": {
+    "defaultMessage": "サービスの既定値"
+  },
+  "thinkingEffortPicker.defaultNotice": {
+    "defaultMessage": "モデルが思考レベルを選択します。思考をオフにする設定ではありません。"
+  },
+  "thinkingEffortPicker.refresh": {
+    "defaultMessage": "モデルの機能を再確認"
+  },
+  "thinkingEffortPicker.schemaControls": {
+    "defaultMessage": "API が宣言した設定です。このモデルでの効果は未検証です。"
+  },
+  "thinkingEffortPicker.stale": {
+    "defaultMessage": "以前のレベルは使用できません。現在の代替設定を使用しています。対応するレベルを選択してください。"
+  },
+  "thinkingEffortPicker.templateControls": {
+    "defaultMessage": "このモデルのトークナイザーテンプレートで生成せずに検証しました。思考の品質は測定していません。"
+  },
+  "thinkingEffortPicker.unknown": {
+    "defaultMessage": "調整可能なレベルは未確認です。サービスの既定値を使用します。"
+  },
+  "thinkingEffortPicker.unsupported": {
+    "defaultMessage": "このモデルは思考レベルの調整に対応していません。"
+  },
+  "thinkingEffortPicker.useDefault": {
+    "defaultMessage": "モデルの既定値を使用"
+  },
+  "userMessage.removeEditedImage": {
+    "defaultMessage": "今回の再送信から画像 {number} を削除"
   }
 }

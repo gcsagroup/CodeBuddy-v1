@@ -297,7 +297,7 @@
     "defaultMessage": "No se pudo leer el archivo de imagen"
   },
   "chatInput.imageLimit": {
-    "defaultMessage": "Puedes adjuntar hasta {count} imágenes por mensaje."
+    "defaultMessage": "Este mensaje ya tiene {current} imágenes; vas a añadir {incoming}, pero el límite es {count}. Este lote no se añadió ni se envió. Se conservan los adjuntos y archivos generados. Elige menos imágenes o envía lotes separados explicando el propósito de cada uno."
   },
   "chatInput.listening": {
     "defaultMessage": "Listening"
@@ -10258,5 +10258,38 @@
   },
   "typography.zoomHint": {
     "defaultMessage": "Cambia a la vez la escala del chat, la barra lateral y los controles."
+  },
+  "thinkingEffortPicker.cannotDisable": {
+    "defaultMessage": "Este modelo no permite desactivar el razonamiento. Su nivel mínimo es {level}."
+  },
+  "thinkingEffortPicker.default": {
+    "defaultMessage": "Predeterminado del servicio"
+  },
+  "thinkingEffortPicker.defaultNotice": {
+    "defaultMessage": "El modelo elige su nivel de razonamiento. Esto no desactiva el razonamiento."
+  },
+  "thinkingEffortPicker.refresh": {
+    "defaultMessage": "Volver a comprobar las capacidades del modelo"
+  },
+  "thinkingEffortPicker.schemaControls": {
+    "defaultMessage": "Opciones declaradas por la API; no se ha verificado su efecto en este modelo."
+  },
+  "thinkingEffortPicker.stale": {
+    "defaultMessage": "El nivel anterior ya no está disponible. Se usa la alternativa actual; elige un nivel compatible para sustituirlo."
+  },
+  "thinkingEffortPicker.templateControls": {
+    "defaultMessage": "Validado con la plantilla del tokenizador de este modelo, sin generar contenido. No se ha evaluado la calidad del razonamiento."
+  },
+  "thinkingEffortPicker.unknown": {
+    "defaultMessage": "No se han confirmado niveles ajustables. Se usa el valor predeterminado del servicio."
+  },
+  "thinkingEffortPicker.unsupported": {
+    "defaultMessage": "Este modelo no admite razonamiento ajustable."
+  },
+  "thinkingEffortPicker.useDefault": {
+    "defaultMessage": "Usar valor predeterminado del modelo"
+  },
+  "userMessage.removeEditedImage": {
+    "defaultMessage": "Quitar la imagen {number} de este reenvío"
   }
 }

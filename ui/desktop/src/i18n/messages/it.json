@@ -297,7 +297,7 @@
     "defaultMessage": "Impossibile leggere il file immagine"
   },
   "chatInput.imageLimit": {
-    "defaultMessage": "Puoi allegare fino a {count} immagini per messaggio."
+    "defaultMessage": "Questo messaggio contiene già {current} immagini; ne stai aggiungendo {incoming}, ma il limite è {count}. Questo gruppo non è stato aggiunto né inviato. Gli allegati e i file generati vengono conservati. Scegli meno immagini o invia gruppi separati spiegando lo scopo di ciascuno."
   },
   "chatInput.listening": {
     "defaultMessage": "Listening"
@@ -10258,5 +10258,38 @@
   },
   "typography.zoomHint": {
     "defaultMessage": "Ridimensiona insieme chat, barra laterale e controlli."
+  },
+  "thinkingEffortPicker.cannotDisable": {
+    "defaultMessage": "Questo modello non permette di disattivare il ragionamento. Il livello minimo è {level}."
+  },
+  "thinkingEffortPicker.default": {
+    "defaultMessage": "Predefinito del servizio"
+  },
+  "thinkingEffortPicker.defaultNotice": {
+    "defaultMessage": "Il modello sceglie il livello di ragionamento. Questo non disattiva il ragionamento."
+  },
+  "thinkingEffortPicker.refresh": {
+    "defaultMessage": "Ricontrolla le capacità del modello"
+  },
+  "thinkingEffortPicker.schemaControls": {
+    "defaultMessage": "Opzioni dichiarate dall’API; il loro effetto su questo modello non è stato verificato."
+  },
+  "thinkingEffortPicker.stale": {
+    "defaultMessage": "Il livello precedente non è più disponibile. È in uso il livello alternativo attuale; scegli un livello supportato."
+  },
+  "thinkingEffortPicker.templateControls": {
+    "defaultMessage": "Validato con il template del tokenizer di questo modello, senza generazione. La qualità del ragionamento non è stata misurata."
+  },
+  "thinkingEffortPicker.unknown": {
+    "defaultMessage": "I livelli regolabili non sono confermati. È in uso il valore predefinito del servizio."
+  },
+  "thinkingEffortPicker.unsupported": {
+    "defaultMessage": "Questo modello non supporta il ragionamento regolabile."
+  },
+  "thinkingEffortPicker.useDefault": {
+    "defaultMessage": "Usa il valore predefinito del modello"
+  },
+  "userMessage.removeEditedImage": {
+    "defaultMessage": "Rimuovi l’immagine {number} da questo reinvio"
   }
 }

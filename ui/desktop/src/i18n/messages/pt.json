@@ -297,7 +297,7 @@
     "defaultMessage": "Falha ao ler o ficheiro de imagem"
   },
   "chatInput.imageLimit": {
-    "defaultMessage": "Você pode anexar até {count} imagens por mensagem."
+    "defaultMessage": "Esta mensagem já tem {current} imagens; você está adicionando {incoming}, mas o limite é {count}. Este lote não foi adicionado nem enviado. Os anexos e arquivos gerados são mantidos. Escolha menos imagens ou envie lotes separados explicando a finalidade de cada um."
   },
   "chatInput.listening": {
     "defaultMessage": "Listening"
@@ -10258,5 +10258,38 @@
   },
   "typography.zoomHint": {
     "defaultMessage": "Ajuste a escala da conversa, da barra lateral e dos controles em conjunto."
+  },
+  "thinkingEffortPicker.cannotDisable": {
+    "defaultMessage": "Este modelo não permite desativar o raciocínio. O nível mínimo é {level}."
+  },
+  "thinkingEffortPicker.default": {
+    "defaultMessage": "Padrão do serviço"
+  },
+  "thinkingEffortPicker.defaultNotice": {
+    "defaultMessage": "O modelo escolhe o nível de raciocínio. Isso não desativa o raciocínio."
+  },
+  "thinkingEffortPicker.refresh": {
+    "defaultMessage": "Verificar novamente as capacidades do modelo"
+  },
+  "thinkingEffortPicker.schemaControls": {
+    "defaultMessage": "Opções declaradas pela API; o efeito neste modelo não foi verificado."
+  },
+  "thinkingEffortPicker.stale": {
+    "defaultMessage": "O nível anterior não está mais disponível. O nível alternativo atual está em uso; escolha um nível compatível."
+  },
+  "thinkingEffortPicker.templateControls": {
+    "defaultMessage": "Validado com o modelo de tokenização deste modelo, sem geração. A qualidade do raciocínio não foi medida."
+  },
+  "thinkingEffortPicker.unknown": {
+    "defaultMessage": "Os níveis ajustáveis não foram confirmados. O padrão do serviço está em uso."
+  },
+  "thinkingEffortPicker.unsupported": {
+    "defaultMessage": "Este modelo não oferece raciocínio ajustável."
+  },
+  "thinkingEffortPicker.useDefault": {
+    "defaultMessage": "Usar padrão do modelo"
+  },
+  "userMessage.removeEditedImage": {
+    "defaultMessage": "Remover a imagem {number} deste reenvio"
   }
 }

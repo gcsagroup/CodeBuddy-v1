@@ -297,7 +297,7 @@
     "defaultMessage": "Resim dosyası okunamadı"
   },
   "chatInput.imageLimit": {
-    "defaultMessage": "Bir mesaja en fazla {count} resim ekleyebilirsiniz."
+    "defaultMessage": "Bu mesajda zaten {current} resim var; {incoming} resim ekliyorsunuz ancak sınır {count}. Bu grup eklenmedi veya gönderilmedi. Mevcut ekler ve oluşturulan dosyalar korunur. Daha az resim seçin veya her grubun amacını açıklayarak ayrı gruplar gönderin."
   },
   "chatInput.listening": {
     "defaultMessage": "Listening"
@@ -10258,5 +10258,38 @@
   },
   "typography.zoomHint": {
     "defaultMessage": "Sohbeti, kenar çubuğunu ve denetimleri birlikte ölçeklendirin."
+  },
+  "thinkingEffortPicker.cannotDisable": {
+    "defaultMessage": "Bu model düşünmeyi kapatma seçeneği sunmuyor. En düşük düzeyi {level}."
+  },
+  "thinkingEffortPicker.default": {
+    "defaultMessage": "Hizmet varsayılanı"
+  },
+  "thinkingEffortPicker.defaultNotice": {
+    "defaultMessage": "Model düşünme düzeyini kendisi seçer. Bu, düşünmeyi kapatmaz."
+  },
+  "thinkingEffortPicker.refresh": {
+    "defaultMessage": "Model yeteneklerini yeniden denetle"
+  },
+  "thinkingEffortPicker.schemaControls": {
+    "defaultMessage": "API tarafından bildirilen seçenekler; bu model üzerindeki etkileri doğrulanmadı."
+  },
+  "thinkingEffortPicker.stale": {
+    "defaultMessage": "Önceki düzey artık kullanılamıyor. Geçerli yedek düzey kullanılıyor; desteklenen bir düzey seçin."
+  },
+  "thinkingEffortPicker.templateControls": {
+    "defaultMessage": "Bu modelin tokenizer şablonuyla, çıktı üretilmeden doğrulandı. Düşünme kalitesi ölçülmedi."
+  },
+  "thinkingEffortPicker.unknown": {
+    "defaultMessage": "Ayarlanabilir düzeyler doğrulanmadı. Hizmet varsayılanı kullanılıyor."
+  },
+  "thinkingEffortPicker.unsupported": {
+    "defaultMessage": "Bu model ayarlanabilir düşünmeyi desteklemiyor."
+  },
+  "thinkingEffortPicker.useDefault": {
+    "defaultMessage": "Model varsayılanını kullan"
+  },
+  "userMessage.removeEditedImage": {
+    "defaultMessage": "Bu yeniden gönderimden {number} numaralı resmi kaldır"
   }
 }

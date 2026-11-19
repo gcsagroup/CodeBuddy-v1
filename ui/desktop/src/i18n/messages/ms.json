@@ -297,7 +297,7 @@
     "defaultMessage": "Gagal membaca fail imej"
   },
   "chatInput.imageLimit": {
-    "defaultMessage": "Anda boleh melampirkan sehingga {count} imej bagi setiap mesej."
+    "defaultMessage": "Mesej ini sudah mempunyai {current} imej; anda menambah {incoming}, tetapi hadnya ialah {count}. Kumpulan ini tidak ditambah atau dihantar. Lampiran dan fail yang dijana dikekalkan. Pilih lebih sedikit imej atau hantar kumpulan berasingan dengan menerangkan tujuan setiap kumpulan."
   },
   "chatInput.listening": {
     "defaultMessage": "Listening"
@@ -10258,5 +10258,38 @@
   },
   "typography.zoomHint": {
     "defaultMessage": "Laraskan skala sembang, bar sisi dan kawalan serentak."
+  },
+  "thinkingEffortPicker.cannotDisable": {
+    "defaultMessage": "Model ini tidak menyediakan pilihan untuk mematikan penaakulan. Tahap terendahnya ialah {level}."
+  },
+  "thinkingEffortPicker.default": {
+    "defaultMessage": "Lalai perkhidmatan"
+  },
+  "thinkingEffortPicker.defaultNotice": {
+    "defaultMessage": "Model memilih tahap penaakulannya sendiri. Ini tidak mematikan penaakulan."
+  },
+  "thinkingEffortPicker.refresh": {
+    "defaultMessage": "Semak semula keupayaan model"
+  },
+  "thinkingEffortPicker.schemaControls": {
+    "defaultMessage": "Pilihan yang dinyatakan oleh API; kesannya pada model ini belum disahkan."
+  },
+  "thinkingEffortPicker.stale": {
+    "defaultMessage": "Tahap sebelumnya tidak lagi tersedia. Tahap gantian semasa digunakan; pilih tahap yang disokong."
+  },
+  "thinkingEffortPicker.templateControls": {
+    "defaultMessage": "Disahkan menggunakan templat tokenizer model ini tanpa penjanaan. Kualiti penaakulan belum diukur."
+  },
+  "thinkingEffortPicker.unknown": {
+    "defaultMessage": "Tahap boleh laras belum disahkan. Lalai perkhidmatan digunakan."
+  },
+  "thinkingEffortPicker.unsupported": {
+    "defaultMessage": "Model ini tidak menyokong penaakulan boleh laras."
+  },
+  "thinkingEffortPicker.useDefault": {
+    "defaultMessage": "Gunakan lalai model"
+  },
+  "userMessage.removeEditedImage": {
+    "defaultMessage": "Alih keluar imej {number} daripada penghantaran semula ini"
   }
 }

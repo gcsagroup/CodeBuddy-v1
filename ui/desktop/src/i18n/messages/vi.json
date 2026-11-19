@@ -297,7 +297,7 @@
     "defaultMessage": "Không thể đọc tệp hình ảnh"
   },
   "chatInput.imageLimit": {
-    "defaultMessage": "Bạn có thể đính kèm tối đa {count} hình ảnh trong mỗi tin nhắn."
+    "defaultMessage": "Tin nhắn này đã có {current} ảnh; bạn đang thêm {incoming} ảnh nhưng giới hạn là {count}. Nhóm ảnh này chưa được thêm hoặc gửi. Các tệp đính kèm và tệp đã tạo vẫn được giữ lại. Chọn ít ảnh hơn hoặc gửi thành các nhóm riêng và giải thích mục đích của từng nhóm."
   },
   "chatInput.listening": {
     "defaultMessage": "Listening"
@@ -10258,5 +10258,38 @@
   },
   "typography.zoomHint": {
     "defaultMessage": "Thay đổi tỷ lệ cuộc trò chuyện, thanh bên và các nút điều khiển cùng lúc."
+  },
+  "thinkingEffortPicker.cannotDisable": {
+    "defaultMessage": "Mô hình này không có tùy chọn tắt suy luận. Mức thấp nhất là {level}."
+  },
+  "thinkingEffortPicker.default": {
+    "defaultMessage": "Mặc định của dịch vụ"
+  },
+  "thinkingEffortPicker.defaultNotice": {
+    "defaultMessage": "Mô hình tự chọn mức suy luận. Thiết lập này không tắt suy luận."
+  },
+  "thinkingEffortPicker.refresh": {
+    "defaultMessage": "Kiểm tra lại khả năng của mô hình"
+  },
+  "thinkingEffortPicker.schemaControls": {
+    "defaultMessage": "Các tùy chọn do API công bố; tác dụng trên mô hình này chưa được xác minh."
+  },
+  "thinkingEffortPicker.stale": {
+    "defaultMessage": "Mức trước đây không còn khả dụng. Đang dùng mức thay thế hiện tại; hãy chọn một mức được hỗ trợ."
+  },
+  "thinkingEffortPicker.templateControls": {
+    "defaultMessage": "Đã xác thực bằng mẫu tokenizer của mô hình này mà không sinh nội dung. Chưa đo chất lượng suy luận."
+  },
+  "thinkingEffortPicker.unknown": {
+    "defaultMessage": "Chưa xác nhận các mức có thể điều chỉnh. Đang dùng mặc định của dịch vụ."
+  },
+  "thinkingEffortPicker.unsupported": {
+    "defaultMessage": "Mô hình này không hỗ trợ điều chỉnh mức suy luận."
+  },
+  "thinkingEffortPicker.useDefault": {
+    "defaultMessage": "Dùng mặc định của mô hình"
+  },
+  "userMessage.removeEditedImage": {
+    "defaultMessage": "Xóa ảnh {number} khỏi lần gửi lại này"
   }
 }

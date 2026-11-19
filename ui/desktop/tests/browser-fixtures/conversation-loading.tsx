@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { Suspense, lazy, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { IntlProvider } from 'react-intl';
 import SuspenseLoader from '../../src/suspense-loader';
@@ -10,8 +10,15 @@ import '../../src/styles/startup-loader.css';
 const dark = new URLSearchParams(location.search).has('dark');
 document.documentElement.classList.toggle('dark', dark);
 applyThemeTokens(dark ? 'dark' : 'light');
+const PendingApp = lazy(() => new Promise<{ default: () => null }>(() => {}));
 function Fixture() {
   const [loading, setLoading] = useState(true);
+  // Match renderer.tsx before App supplies its full-height desktop shell.
+  if (new URLSearchParams(location.search).has('root-startup')) {
+    return <IntlProvider locale="zh-CN" messages={{ 'suspenseLoader.loading': '正在加载…' }}>
+      <Suspense fallback={<SuspenseLoader />}><PendingApp /></Suspense>
+    </IntlProvider>;
+  }
   return <IntlProvider locale="zh-CN" messages={{ 'loadingGoose.loadingConversation': '正在加载对话…' }}>
     <div className="flex h-screen flex-col bg-background-primary text-text-primary">
       <header className="p-4">历史对话</header>

@@ -11,7 +11,9 @@
   background: var(--color-background-primary, #fafafa);
   font-family: var(--font-sans, system-ui), sans-serif;
 }
-.first-paint { position: fixed; inset: 0; }
+/* Before App mounts, #root has no height. Keep its fallback in the viewport;
+   nested route loaders must still fit their own content area. */
+.first-paint, #root > .startup-loader { position: fixed; inset: 0; }
 .no-first-paint .first-paint { display: none; }
 .dark .first-paint { color: #eee; background: #191a1c; }
 .startup-loader__content { display: grid; justify-items: center; gap: .75rem; max-width: 24rem; text-align: center; }

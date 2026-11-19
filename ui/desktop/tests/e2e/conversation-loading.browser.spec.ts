@@ -66,6 +66,9 @@ for (const dark of [false, true]) test(`startup uses a compact consistent brand 
       await expect(page.getByRole('heading')).toHaveCSS('font-size','14px');
       const box = (await brand.boundingBox())!;
       expect(Math.abs(box.x + box.width / 2 - width / 2)).toBeLessThan(2);
+      const content = (await page.getByRole('status').boundingBox())!;
+      const area = (await page.getByTestId('conversation-area').boundingBox())!;
+      expect(Math.abs(content.y + content.height / 2 - (area.y + area.height / 2))).toBeLessThan(2);
     }
     await page.screenshot({path:test.info().outputPath('startup-compact.png')});
   } finally { await page.close(); }
@@ -82,4 +85,37 @@ test('the initial HTML loading mark matches the compact startup screen', async (
     expect((await brand.locator('img').boundingBox())!.width).toBe(36);
     await page.screenshot({path:test.info().outputPath('initial-paint-compact.png')});
   } finally {await page.close();}
+});
+
+test('startup stays vertically centered when React takes over the initial HTML', async () => {
+  const page = await browser.newPage({ viewport: { width: 1100, height: 800 } });
+  let startRenderer!: () => void;
+  const rendererReady = new Promise<void>(resolve => { startRenderer = resolve; });
+  try {
+    await page.route('**/src/renderer.tsx', async route => {
+      await rendererReady;
+      // Isolate the startup layout from Electron IPC and backend connections.
+      await route.fulfill({ contentType: 'application/javascript',
+        body: 'import "/tests/browser-fixtures/conversation-loading.tsx";' });
+    });
+    await page.goto(server.resolvedUrls!.local[0] + '?root-startup#/codepro', { waitUntil: 'commit' });
+    const firstPaint = page.locator('.first-paint .startup-loader__content');
+    await expect(firstPaint).toBeVisible();
+    const initial = (await firstPaint.boundingBox())!;
+    expect(Math.abs(initial.y + initial.height / 2 - 400)).toBeLessThan(2);
+    startRenderer();
+    const status = page.locator('.startup-loader__content[role="status"]');
+    await expect(status).toBeVisible();
+    await expect(page.locator('.first-paint')).toHaveCount(0);
+    for (const viewport of [{ width: 1100, height: 800 }, { width: 360, height: 640 }]) {
+      await page.setViewportSize(viewport);
+      const box = (await status.boundingBox())!;
+      await page.screenshot({ path: test.info().outputPath(`startup-react-${viewport.width}.png`) });
+      expect(Math.abs(box.x + box.width / 2 - viewport.width / 2)).toBeLessThan(2);
+      expect(Math.abs(box.y + box.height / 2 - viewport.height / 2)).toBeLessThan(2);
+    }
+  } finally {
+    startRenderer();
+    await page.close();
+  }
 });

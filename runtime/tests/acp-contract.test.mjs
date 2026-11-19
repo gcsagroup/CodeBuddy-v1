@@ -502,6 +502,48 @@ test("cancel is handled while prompt is pending on the same transport", async (t
   assert.equal(aborted, true);
 });
 
+test('media polling lists scoped jobs without copying conversation history', async t => {
+  const { client, dataDir } = await setup(t);
+  await configure(client);
+  const sessionId = await newSession(client, dataDir);
+  const otherId = await newSession(client, dataDir);
+  await client.request('session/prompt', {
+    sessionId, prompt: [{ type: 'text', text: 'Synthetic conversation history for media polling' }],
+  });
+
+  const imageId = '11111111-1111-4111-8111-111111111111';
+  const videoId = '22222222-2222-4222-8222-222222222222';
+  const otherImageId = '33333333-3333-4333-8333-333333333333';
+  const jobs = [
+    ['image', sessionId, imageId, '2026-01-01T00:00:00.000Z'],
+    ['video', sessionId, videoId, '2026-01-02T00:00:00.000Z'],
+    ['image', otherId, otherImageId, '2026-01-03T00:00:00.000Z'],
+  ];
+  for (const [kind, owner, id, createdAt] of jobs) {
+    const directory = path.join(dataDir, kind + '-jobs', Buffer.from(owner).toString('hex'));
+    await mkdir(directory, { recursive: true });
+    await writeFile(path.join(directory, id + '.json'), JSON.stringify({
+      job_id: id, prompt_id: id, status: 'completed', created_at: createdAt,
+      input: {}, images: [], videos: [],
+    }));
+  }
+
+  const clone = globalThis.structuredClone;
+  let copiedHistory = false;
+  const probe = t.mock.method(globalThis, 'structuredClone', (value, ...args) => {
+    if (value?.id === sessionId && value.updates?.length) copiedHistory = true;
+    return clone(value, ...args);
+  });
+  try {
+    const result = await client.request('_codebuddy/media/jobs', { sessionId });
+    assert.equal(result.sessionId, sessionId);
+    assert.deepEqual(result.jobs.map(({ job_id, kind }) => [job_id, kind]), [[videoId, 'video'], [imageId, 'image']]);
+    assert.equal(copiedHistory, false, 'polling media jobs must not deep-copy a populated chat transcript');
+  } finally {
+    probe.mock.restore();
+  }
+});
+
 test('chat stop cancels only its unfinished media and preview cancellation stays session scoped', async t => {
   const started = Promise.withResolvers();
   const driver = controlledDriver(async (_id, _content, { signal }) => {

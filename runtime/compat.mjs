@@ -1647,7 +1647,7 @@ export class Compat {
     }
     if (method === "_codebuddy/media/jobs") {
       requireString(p.sessionId, "sessionId");
-      const session = this.session(p.sessionId);
+      const session = this.session(p.sessionId, { fields: ['id', 'cwd'] });
       const options = { cwd: session.cwd, dataDir: this.store.directory, sessionId: session.id };
       if (p.operation === 'cancel') {
         if (!['image', 'video'].includes(p.kind)) throw invalid('Choose an image or video job');

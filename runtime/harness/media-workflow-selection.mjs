@@ -86,13 +86,21 @@ export async function selectMediaWorkflow(ctx, agent, { workflows, kind, mode, r
       typeof choice.reason !== 'string' || choice.reason.length > 2000 ||
       Object.keys(choice).some(key => !['workflow_id', 'mode', 'reason', 'single_media_only', ...(image ? ['images_only', 'image_count'] : [])].includes(key)))
     throw new Error('Media workflow selection returned an invalid result');
-  if (image && !(choice.image_count === null || (Number.isSafeInteger(choice.image_count) && choice.image_count >= 0)))
-    throw new Error('Media selection did not establish the requested image count; no image was submitted.');
+  // Count is a completion optimization, not authority to choose a workflow.
+  // An invalid optional delivery scope must disable automatic conclusion,
+  // rather than strand an otherwise valid generation in repeated retries.
+  if (image && !(Number.isSafeInteger(choice.image_count) && choice.image_count > 0)) {
+    choice.image_count = null;
+    choice.images_only = false;
+    choice.single_media_only = false;
+  }
   const selected = workflows.find(workflow => workflow.id === choice.workflow_id);
   if (!selected || choice.mode !== selected.mode || !selected.dependencies_available)
     throw new Error(`No available workflow was selected for the current request: ${choice.reason}`);
   if (!selected.compatible)
-    throw new Error(`The current request selects ${selected.label} (${selected.mode}), incompatible with the proposed mode/references. Correct those arguments; do not replace the workflow.`);
+    throw new Error(Number.isSafeInteger(selected.reference_slots) && referenceCount > selected.reference_slots
+      ? `所选工作流 ${selected.label} 最多支持 ${selected.reference_slots} 张参考图片，本次提供了 ${referenceCount} 张。尚未上传参考图或提交生成，已有结果保留。请先选择要用于本次生成的图片，或明确拆成多个任务；不能擅自丢弃图片或更换工作流。`
+      : `The current request selects ${selected.label} (${selected.mode}), incompatible with the proposed mode/references. Use ${['text_to_image', 'image_to_image'].includes(selected.mode) ? 'generate_image' : 'generate_video'} with operation="generate" and mode="${selected.mode}". If unavailable, load that exact tool using search_mcp_tools. No generation was submitted. Do not retry the same incompatible arguments or replace the workflow.`);
   await assertCurrent();
   return { workflow_name: selected.label, fallback: selected.fallback === true, assertCurrent, receipt: {
     source: 'current_request', request_hash: requestHash, request_ids: request.map(message => message.id),

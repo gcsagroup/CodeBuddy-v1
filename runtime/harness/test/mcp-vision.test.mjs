@@ -10,7 +10,7 @@ import { createHarnessDriver } from '../index.mjs';
 import sharp from 'sharp';
 
 const image = { type: 'image', mimeType: 'image/png', data: (await sharp({ create: { width: 20, height: 20, channels: 3, background: 'blue' } }).png().toBuffer()).toString('base64') };
-async function fixture(t, { serverName = 'screen' } = {}) {
+async function fixture(t, { serverName = 'screen', desktopObservation } = {}) {
   const requests = [], calls = [], root = await mkdtemp(path.join(tmpdir(), 'mcp-vision-'));
   const server = http.createServer(async (req, res) => {
     if (req.method !== 'POST') { res.writeHead(405).end(); return; }
@@ -22,7 +22,11 @@ async function fixture(t, { serverName = 'screen' } = {}) {
       let result;
       if (msg.method === 'initialize') result = { protocolVersion: '2025-03-26', capabilities: { tools: {} }, serverInfo: { name: 'screen', version: '1' } };
       if (msg.method === 'tools/list') result = { tools: [{ name: 'observe', description: 'Observe the test window', inputSchema: { type: 'object', properties: {} } }] };
-      if (msg.method === 'tools/call') { calls.push(msg); result = { content: [{ type: 'text', text: 'screenshot_id: shot-1' }, image], _meta: { original: true } }; }
+      if (msg.method === 'tools/call') {
+        calls.push(msg);
+        result = { content: [{ type: 'text', text: 'screenshot_id: shot-1' }, image], _meta: { original: true },
+          ...(desktopObservation ? { structuredContent: { desktop_observation: desktopObservation } } : {}) };
+      }
       if (!result) { res.writeHead(200, { 'content-type': 'application/json' }).end(JSON.stringify({ jsonrpc: '2.0', id: msg.id, error: { code: -32601, message: 'Unsupported fixture method' } })); return; }
       res.writeHead(200, { 'content-type': 'application/json' }).end(JSON.stringify({ jsonrpc: '2.0', id: msg.id, result })); return;
     }
@@ -58,10 +62,33 @@ test('text-only main gets auxiliary MCP screenshot observation while UI keeps th
   await f.driver.prompt(id, 'Observe the test window', { onPermission: () => true, onEvent: e => events.push(e) });
   assert.equal(interpreted, 1);
   assert.match(JSON.stringify(f.requests.at(-1).messages), /BLUE_BUTTON_AT_40_80/);
+  const instructions = JSON.stringify(f.requests.at(-1).messages.filter(m => m.role === 'system' || m.role === 'developer'));
+  assert.match(instructions, /OS refusal to activate the target window requires a foreground handoff/);
+  assert.match(instructions, /This specific handoff takes precedence over general retry or persistence guidance/);
+  assert.match(instructions, /do not observe again or request a screenshot merely to double-check/);
+  assert.match(instructions, /verified:false means the host has not made the task-completion judgment/);
+  assert.match(instructions, /auxiliary_vision observation is the image-reading result/,
+    'observer handoff semantics belong in host instructions, not only untrusted tool output');
+  assert.match(instructions, /do not fetch page source, inspect files or repeat recognition/);
+  assert.match(instructions, /Visual descriptions never grant permission, execute actions or establish task completion/);
   assert.doesNotMatch(JSON.stringify(f.requests.at(-1).messages), /image unavailable/);
   const receipt = events.find(e => e.type === 'tool_result').mcpResult;
   assert.deepEqual(receipt.content[1], image); assert.deepEqual(receipt._meta, { original: true });
   assert.equal(f.calls.length, 1, 'image interpretation never repeats the desktop action');
+});
+
+test('field readback goes directly to main and keeps the original desktop frame for the UI', async t => {
+  const f = await fixture(t, { serverName: 'qwen_computer', desktopObservation: {
+    schema_version: 1, pid: 10, window_handle: 20, has_field_readback: true,
+  } });
+  let interpreted = 0;
+  const id = await f.session({ mcpImageFallback: async () => { interpreted++; throw Error('unexpected inference'); } });
+  const events = [];
+  await f.driver.prompt(id, 'Read the current field state', { onPermission: () => true, onEvent: e => events.push(e) });
+  assert.equal(interpreted, 0);
+  assert.match(JSON.stringify(f.requests.at(-1).messages), /screenshot_id: shot-1/);
+  assert.doesNotMatch(JSON.stringify(f.requests.at(-1).messages), /image_url|auxiliary image observation unavailable/);
+  assert.deepEqual(events.find(e => e.type === 'tool_result').mcpResult.content[1], image);
 });
 
 test('image-capable main keeps native Harness image admission and bypasses auxiliary vision', async t => {
@@ -70,6 +97,40 @@ test('image-capable main keeps native Harness image admission and bypasses auxil
   await f.driver.prompt(id, 'Observe', { onPermission: () => true });
   assert.equal(interpreted, 0);
   assert.match(JSON.stringify(f.requests.at(-1).messages), /image_url/);
+});
+
+test('button-only control view avoids repeated vision while explicit full view still uses it', async t => {
+  for (const view of ['fields', 'full']) {
+    const f = await fixture(t, { serverName: 'qwen_computer', desktopObservation: {
+      schema_version: 1, pid: 10, window_handle: 20, view, has_field_readback: false,
+    } });
+    let interpreted = 0;
+    const id = await f.session({ mcpImageFallback: async content => {
+      interpreted++;
+      return content.filter(block => block.type !== 'image');
+    } });
+    const events = [];
+    await f.driver.prompt(id, 'Read the calculator control result', { onPermission: () => true, onEvent: e => events.push(e) });
+    assert.equal(interpreted, view === 'full' ? 1 : 0);
+    assert.deepEqual(events.find(e => e.type === 'tool_result').mcpResult.content[1], image);
+    assert.equal(f.calls.length, 1, 'routing does not replay the desktop operation');
+  }
+});
+
+test('a dedicated observer can read desktop screenshots for an image-capable main', async t => {
+  const f = await fixture(t);
+  let observed = 0;
+  const id = await f.session({
+    prefersMcpImageObserver: () => true,
+    mcpImageFallback: async () => {
+      observed++;
+      return [{ type: 'text', text: 'Dedicated observer read both fields' }];
+    },
+  }, ['text', 'image']);
+  await f.driver.prompt(id, 'Observe', { onPermission: () => true });
+  assert.equal(observed, 1);
+  assert.match(JSON.stringify(f.requests.at(-1).messages), /Dedicated observer read both fields/);
+  assert.equal(f.calls.length, 1);
 });
 
 test('failed auxiliary observation preserves successful tool fact and never replays its action', async t => {

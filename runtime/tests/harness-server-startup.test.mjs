@@ -13,6 +13,27 @@ import { createCompatServer } from '../server.mjs';
 import { acquireProfileLock } from '../profile-lock.mjs';
 const run = promisify(execFile);
 
+test('saved title recovery does not gate readiness and shutdown still drains its owner', { timeout: 10000 }, async t => {
+  const directory = await mkdtemp(path.join(tmpdir(), 'codebuddy-startup-titles-'));
+  const store = await openStore(directory);
+  await store.update(state => state.sessions.push({ id: 'old', title: '新对话', messageCount: 2 }));
+  const lookup = Promise.withResolvers();
+  let nativeClosed = false;
+  const app = await createCompatServer({ dataDir: directory, secret: 'isolated-title-startup', driver: {
+    listSessions: () => lookup.promise,
+    async close() { nativeClosed = true; },
+  } });
+  t.after(async () => { lookup.resolve([]); await app.close(); await rm(directory, { recursive: true, force: true }); });
+  assert.match(await app.listen(), /^http:/);
+  const closing = app.close();
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(nativeClosed, false, 'Native owner stays alive while admitted title inspection settles');
+  lookup.resolve([{ sessionId: 'old', projections: { values: { title: 'Recovered title' } } }]);
+  await closing;
+  assert.equal(nativeClosed, true);
+  assert.equal((await openStore(directory)).readSession('old').title, '新对话', 'Shutdown cancels pending title changes');
+});
+
 test('a damaged profile fails startup and releases its lease after runtime loading', async t => {
   const dataDir = await mkdtemp(path.join(tmpdir(), 'codebuddy-startup-invalid-'));
   t.after(() => rm(dataDir, { recursive: true, force: true }));

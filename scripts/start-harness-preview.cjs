@@ -156,8 +156,12 @@ function defaultCommands(repoRoot) {
   return {
     prepare: [
       ...(process.platform === 'darwin' ? [{ args: [path.join(repoRoot, 'scripts/prepare-harness-macos-tools.cjs')], cwd: repoRoot }] : []),
-      { args: [tsc, '--project', path.join(sdkRoot, 'tsconfig.json')], cwd: sdkRoot },
-      { args: [path.join(desktopRoot, 'scripts', 'i18n-compile.js')], cwd: desktopRoot },
+      // Both outputs are required before runtime/Forge; neither consumes the
+      // other's files. Mac artifact preparation above remains a prerequisite.
+      [
+        { args: [tsc, '--project', path.join(sdkRoot, 'tsconfig.json')], cwd: sdkRoot },
+        { args: [path.join(desktopRoot, 'scripts', 'i18n-compile.js')], cwd: desktopRoot },
+      ],
     ],
     desktop: { args: [path.resolve(path.dirname(forgePackagePath), forgeBin), 'start'], cwd: desktopRoot },
   };
@@ -258,12 +262,17 @@ async function startPreview(options = {}) {
     env.GOOSE_WORKING_DIR = workspaceRoot;
     receipt.defaultWorkspaceRoot = workspaceRoot;
     saveReceipt();
-    for (const command of commands.prepare) {
-      const prepare = spawnLogged(process.execPath, command.args, { cwd: command.cwd, env }, path.join(logRoot, 'prepare.log'));
-      owned.push(prepare);
-      const result = await Promise.race([prepare.completion, interrupted]);
+    for (const [index, group] of commands.prepare.entries()) {
+      const preparations = (Array.isArray(group) ? group : [group]).map((command, childIndex) => {
+        const logPath = path.join(logRoot, `prepare-${index}-${childIndex}.log`);
+        const prepare = spawnLogged(process.execPath, command.args, { cwd: command.cwd, env }, logPath);
+        owned.push(prepare);
+        return prepare.completion.then(result => {
+          if (result.code !== 0) throw new Error(`Preview preparation failed. See ${logPath}`);
+        });
+      });
+      const result = await Promise.race([Promise.all(preparations).then(() => ({})), interrupted]);
       if (result.interrupted) return 0;
-      if (result.code !== 0) throw new Error(`Preview preparation failed. See ${path.join(logRoot, 'prepare.log')}`);
     }
     if (process.platform === 'darwin') {
       receipt.artifactCheck = await checkPreviewArtifacts(repoRoot);

@@ -8,6 +8,30 @@ import path from 'node:path';
 import { createHarnessDriver } from '../index.mjs';
 const { installToolDiscovery } = await import('../tool-discovery.mjs');
 
+test('compact discovery gives the actual desktop skill entry only for an eligible connected chat', () => {
+  const catalog = [{ name: 'skill' }];
+  const sections = new Map(), hooks = new Map();
+  const ctx = { tools: { schemas: () => catalog, register() {}, get() {} },
+    systemPrompt: { section: section => sections.set(section.name, section) },
+    on: (name, hook) => hooks.set(name, hook) };
+  const agent = { id: 'main', session: { log: [], requestHeader() {} } };
+  installToolDiscovery(ctx, agent, undefined, () => true, true);
+  const hint = () => sections.get('codebuddy:mcp-discovery').text();
+  assert.equal(hint(), '');
+  catalog.push({ name: 'mcp__qwen_computer__get_app_state' });
+  assert.match(hint(), /skill\(\{"name":"computer-use"\}\)/);
+  assert.match(hint(), /named application, window, or on-screen form/);
+  assert.match(hint(), /do not substitute shell UI scripts/,
+    'compact roles must receive the desktop execution boundary before selecting a skill');
+  assert.match(hint(), /current control receipts/);
+  catalog.shift();
+  assert.match(hint(), /mcp__qwen_computer__get_app_state/);
+  assert.doesNotMatch(hint(), /skill\(|mcp__qwen_computer__list_apps/);
+  catalog.push({ name: 'skill' });
+  hooks.get('tools/result')({ agent, name: 'skill' }, { value: { name: 'computer-use', provider: 'codebuddy-computer-skill' } });
+  assert.equal(hint(), '');
+});
+
 test('desktop skill revelation respects scoped registries and the originating agent', async () => {
   const hooks = new Map(), sections = new Map();
   const catalog = [{ name: 'mcp__qwen_computer__list_apps', parameters: { type: 'object' } }];
@@ -33,6 +57,46 @@ test('desktop skill revelation respects scoped registries and the originating ag
     'reconnection must use the current registry instead of caching platform assumptions');
   catalog.pop();
   assert.match(availability(), /open_path is unavailable/);
+});
+
+test('compact first request offers the selected pending desktop connection without forcing an action', { timeout: 30000 }, async t => {
+  let release;
+  const connecting = new Promise(resolve => { release = resolve; });
+  const requests = [];
+  const server = http.createServer(async (req, res) => {
+    let raw = ''; for await (const chunk of req) raw += chunk;
+    const message = JSON.parse(raw);
+    if (replyToNoActionReview(message, res)) return;
+    if (req.url === '/mcp') {
+      if (!('id' in message)) { res.writeHead(202).end(); return; }
+      if (message.method === 'initialize') await connecting;
+      const result = message.method === 'initialize'
+        ? { protocolVersion: '2025-03-26', capabilities: { tools: {} }, serverInfo: { name: 'slow-desktop', version: '1' } }
+        : { tools: [] };
+      res.writeHead(200, { 'content-type': 'application/json' }).end(JSON.stringify({ jsonrpc: '2.0', id: message.id, result })); return;
+    }
+    requests.push(message);
+    res.writeHead(200, { 'content-type': 'text/event-stream' });
+    res.end(`data: ${JSON.stringify({ id: 'fixture', object: 'chat.completion.chunk', choices: [{ index: 0, delta: { content: 'No action.' }, finish_reason: 'stop' }] })}\n\ndata: [DONE]\n\n`);
+  });
+  await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
+  const root = await mkdtemp(path.join(tmpdir(), 'pending-desktop-'));
+  const driver = await createHarnessDriver({ dataDir: path.join(root, 'state'), cwd: root });
+  t.after(async () => { release(); await driver.close(); server.closeAllConnections(); await new Promise(resolve => server.close(resolve)); await rm(root, { recursive: true, force: true }); });
+  const baseUrl = `http://127.0.0.1:${server.address().port}`;
+  const options = { mainAgentRole: { baseline: () => null, input: () => null }, backgroundMcp: true };
+  const create = mcpServers => driver.createSession({ cwd: root, provider: { id: 'fixture', baseUrl, contextWindow: 65536 }, model: 'fixture', options: { ...options, mcpServers } });
+  const pending = await create([{ serverName: 'qwen_computer', transport: 'streamable-http', url: `${baseUrl}/mcp`, backgroundStart: true }]);
+  await driver.prompt(pending.sessionId, '请检查目标窗口。');
+  assert.match(JSON.stringify(requests.at(-1).messages), /Pending MCP: qwen_computer/);
+  assert.ok(requests.at(-1).messages.some(message => JSON.stringify(message).includes('servers')));
+  const prompt = requests.at(-1).messages.map(message => typeof message.content === 'string' ? message.content : JSON.stringify(message.content)).join('\n');
+  assert.ok(prompt.includes('search_mcp_tools({"names":["skill"],"servers":["qwen_computer"]})'));
+  assert.match(prompt, /do not substitute shell UI scripts/);
+  assert.equal(requests.at(-1).tools.some(tool => tool.function.name.startsWith('mcp__')), false);
+  const absent = await create([]);
+  await driver.prompt(absent.sessionId, '请检查目标窗口。');
+  assert.doesNotMatch(JSON.stringify(requests.at(-1).messages), /reveal the connected desktop tools/);
 });
 
 test('first request exposes the desktop skill; loading it preserves deferred tools and input permissions', { timeout: 60000 }, async t => {
@@ -71,6 +135,9 @@ test('first request exposes the desktop skill; loading it preserves deferred too
   await driver.prompt(sessionId, '请完成当前任务。', { onPermission: async () => true });
   assert.equal(requests.length, 2, 'model-selected skill completes within the first user turn');
   assert.match(JSON.stringify(requests[1].messages), /Tool exit code 0.*not completion evidence/);
+  assert.match(JSON.stringify(requests[1].messages), /Activation denied is a foreground handoff/,
+    'the actual post-skill request must distinguish an OS activation refusal from stale element recovery');
+  assert.match(JSON.stringify(requests[1].messages), /fresh read of a background window does not resolve/);
   assert.equal(desktopCalls.length, 0, 'loading instructions does not perform desktop actions');
   for (const name of ['open_path', 'list_apps', 'get_app_state', 'click', 'press_key', 'type_text', 'drag', 'scroll', 'set_value', 'perform_secondary_action'])
     assert.ok(requests[1].tools.some(tool => tool.function.name === `mcp__qwen_computer__${name}`), 'skill load removes the extra discovery round');
@@ -101,4 +168,15 @@ test('first request exposes the desktop skill; loading it preserves deferred too
   await driver.prompt(other.sessionId, '继续');
   assert.match(JSON.stringify(requests.at(-1).messages), /no computer-control tools are available/);
   assert.equal(requests.at(-1).tools.some(tool => tool.function.name.startsWith('mcp__qwen_computer__')), false, 'offline skill never creates a connection');
+  const compact = await driver.createSession({ cwd: root,
+    provider: { id: 'fixture', baseUrl, contextWindow: 65536 }, model: 'fixture',
+    options: { mainAgentRole: { baseline: () => null, input: () => null },
+      mcpServers: [{ serverName: 'qwen_computer', transport: 'streamable-http', url: `${baseUrl}/mcp` }] } });
+  await driver.prompt(compact.sessionId, '请在指定工单填写联系人，保留其他字段。');
+  assert.match(JSON.stringify(requests.at(-1).messages), /named application, window, or on-screen form/);
+  assert.match(JSON.stringify(requests.at(-1).messages), /do not substitute shell UI scripts/,
+    'the real compact first request must retain the same UI execution boundary as full discovery');
+  assert.match(JSON.stringify(requests.at(-1).messages), /current control receipts/);
+  assert.equal(requests.at(-1).tools.some(tool => tool.function.name.startsWith('mcp__qwen_computer__')), false,
+    'guidance does not force skill selection or bypass scoped tool discovery');
 });

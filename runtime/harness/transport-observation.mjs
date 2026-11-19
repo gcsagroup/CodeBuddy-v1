@@ -1,4 +1,4 @@
-import { requestBudgetChannel, streamingOutputChannel } from './sdk-budget/vllm-count.mjs';
+import { requestBudgetChannel, streamingOutputChannel, reasoningControlsChannel } from './sdk-budget/vllm-count.mjs';
 import { AsyncLocalStorage } from 'node:async_hooks';
 import { channel } from 'node:diagnostics_channel';
 import { randomUUID } from 'node:crypto';
@@ -69,6 +69,8 @@ export function observeModelTransport(ctx, publish, onStreamingOutput) {
   };
   const budget = info => context.getStore()?.report?.('request_budget', info);
   requestBudgetChannel.subscribe(budget);
+  const controls = info => context.getStore()?.report?.('request_controls', info);
+  reasoningControlsChannel.subscribe(controls);
   const output = sample => {
     const scope = context.getStore();
     if (scope?.sessionId && !scope.purpose) onStreamingOutput?.(scope.sessionId, sample);
@@ -141,6 +143,7 @@ export function observeModelTransport(ctx, publish, onStreamingOutput) {
   return () => {
     dispose();
     requestBudgetChannel.unsubscribe(budget);
+    reasoningControlsChannel.unsubscribe(controls);
     streamingOutputChannel.unsubscribe(output);
     for (const [name, listener] of Object.entries(listeners)) channel(name).unsubscribe(listener);
     context.disable();

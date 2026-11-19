@@ -12,6 +12,23 @@ import { workStatusUpdates } from '../../work-status.mjs';
 let driver, server, root, provider;
 const requests = [];
 const groundingAttempts = new Map();
+test('desktop publishes completed reasoning once, including a final-only block and an unfinished prefix', async () => {
+  const { desktopReasoningDelta } = await import('../driver.mjs');
+  const published = new Map();
+  const delta = (index, text) => desktopReasoningDelta(published, { type: 'reasoning-delta', index, text });
+  const end = (index, text, type = 'reasoning') => desktopReasoningDelta(published, { type: 'block-end', index, block: { type, text } });
+  assert.equal(delta(0, 'first'), 'first');
+  assert.equal(end(1, 'second'), 'second');
+  assert.equal(end(0, 'first block'), ' block');
+  assert.equal(end(0, 'first block'), '');
+  assert.equal(delta(0, 'late'), '');
+  assert.equal(delta(2, 'complete'), 'complete');
+  assert.equal(end(2, 'complete'), '');
+  assert.equal(end(3, ''), '');
+  assert.equal(end(4, 'answer only', 'text'), '');
+  assert.equal(delta(5, 'prefix'), 'prefix');
+  assert.equal(end(5, 'different snapshot'), '');
+});
 const bareToolTexts = {
   subagent: 'call:subagent{description:<|"|>代码审查专家<|"|>,prompt:<|"|>检查示例代码<|"|>,role:<|"|>代码审查专家<|"|>}<tool_call|>',
   image: 'call:generate_image{job_id:<|"|>fixture-existing-job<|"|>,operation:<|"|>status<|"|>,wait_seconds:30}<tool_call|>',
@@ -111,6 +128,23 @@ before(async () => {
 after(async () => { await driver?.close(); server?.closeAllConnections(); await new Promise(resolve => server?.close(resolve)); });
 
 async function session() { return driver.createSession({ sessionId: randomUUID(), cwd: root, provider, model: 'fixture-model' }); }
+
+test('tool-free follow-ups reuse the first system prefix and retain corrections and model settings', async () => {
+  const { sessionId } = await driver.createSession({ cwd: root, provider, model: 'fixture-model',
+    options: { mainAgentRole: { baseline: () => null, input: () => null } } });
+  await driver.prompt(sessionId, 'fixture_chat: planned quantity is 19');
+  const first = requests.at(-1);
+  const policy = body => JSON.stringify(body.messages.filter(message => ['system', 'developer'].includes(message.role)));
+  assert.match(policy(first), /exact answer format, return it alone/);
+  await driver.prompt(sessionId, 'fixture_chat: corrected quantity is 23');
+  const next = requests.at(-1);
+  assert.equal(policy(next), policy(first));
+  const history = JSON.stringify(next.messages.filter(message => message.role === 'user'));
+  assert.match(history, /planned quantity is 19/);
+  assert.match(history, /corrected quantity is 23/);
+  assert.equal(next.model, first.model);
+  assert.equal(next.reasoning_effort, first.reasoning_effort);
+});
 
 test('real Harness streams, uses HTTP adapter, and persists session history', async () => {
   assert.equal(driver.version, HARNESS_VERSION);

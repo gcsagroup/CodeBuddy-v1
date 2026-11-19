@@ -4,10 +4,18 @@ import { setTimeout as delay } from 'node:timers/promises';
 import { VisionRouting } from '../vision-routing.mjs';
 import { RuntimeSettings } from '../settings.mjs';
 import { createServer } from 'node:http';
+import preset from '../default-model.json' with { type: 'json' };
 
 const image = { type: 'image', data: 'AQID', mediaType: 'image/png' };
 const providers = [{ id: 'vision', models: ['seeing'], requiresAuth: false }];
 const request = () => ({ sessionId: 'product', cwd: process.cwd(), content: [{ type: 'text', text: 'What does this show?' }, image], main: { providerId: 'main', modelId: 'text' }, routing: { visionRoute: { enabled: true, mode: 'auto', providerId: 'vision', modelId: 'seeing' } }, providers });
+
+test('too many direct uploads report the actual count before any model call', async () => {
+  const f = fixture({ main: 'supported' });
+  await assert.rejects(f.service.preparePrompt({ ...request(), content: Array.from({ length: 9 }, () => image) }), error =>
+    error.data.reason === 'image_limit' && error.data.imageCount === 9 && error.data.imageLimit === 8);
+  assert.equal(f.calls.length, 0);
+});
 function fixture({ main = 'unsupported', auxiliary = 'supported', prompt } = {}) {
   const created = [], calls = [];
   const driver = { createSession: async value => { created.push(value); }, prompt: async (id, content, options) => {
@@ -19,6 +27,89 @@ function fixture({ main = 'unsupported', auxiliary = 'supported', prompt } = {})
   const service = new VisionRouting(driver, { resolveCapability: async value => ({ imageInput: value.providerId === 'main' ? main : value.modelId === 'seeing' ? auxiliary : 'unknown' }), resolveProvider: async value => ({ id: value.id, baseUrl: 'http://127.0.0.1:1' }) });
   return { service, created, calls };
 }
+
+test('only identical desktop images in the same window and turn reuse vision, retaining the current receipt', async () => {
+  const f = fixture(), turn = {};
+  const read = (text, data, handle = 17, scope = turn) => f.service.prepareToolContent({
+    ...request(), turn: scope, toolName: 'desktop', desktopObservation: { pid: 2, window_handle: handle },
+    content: [{ type: 'text', text }, { type: 'image', mimeType: 'image/png', data }],
+  });
+  await read('old control token', 'AQID');
+  const repeated = await read('fresh control token', 'AQID');
+  assert.equal(repeated[0].text, 'fresh control token');
+  assert.match(repeated[1].text, /"reusedIdenticalScreenshot":true/);
+  assert.equal(f.calls.length, 1);
+  await read('one changed byte', 'AQIE');
+  await read('other window', 'AQIE', 18);
+  await read('another turn', 'AQIE', 18, {});
+  assert.equal(f.calls.length, 4);
+});
+
+test('identical browser frames reuse only inside the same tab, navigation, model and turn', async () => {
+  const f = fixture(), turn = {};
+  f.service.resolveCapability = async () => ({ imageInput: 'supported' });
+  const p = { ...request(), turn, toolName: 'browser_control', browserObservation: { schemaVersion: 1, webContentsId: 7, navigationRevision: 0 },
+    content: [{ type: 'text', text: 'live receipt' }, { ...image, mimeType: image.mediaType }] };
+  await f.service.prepareToolContent(p);
+  const repeated = await f.service.prepareToolContent({ ...p, content: [{ type: 'text', text: 'new receipt' }, p.content[1]] });
+  assert.equal(repeated[0].text, 'new receipt');
+  assert.match(repeated[1].text, /"reusedIdenticalScreenshot":true/);
+  assert.equal(f.calls.length, 1);
+  for (const change of [
+    { browserObservation: { ...p.browserObservation, navigationRevision: 1 } },
+    { browserObservation: { ...p.browserObservation, webContentsId: 8 } },
+    { turn: {} },
+    { content: [{ ...p.content[1], data: 'AQIE' }] },
+    { routing: { visionRoute: { ...p.routing.visionRoute, modelId: 'other-vision' } } },
+    { toolName: 'untrusted_host' },
+    { toolName: 'untrusted_host' },
+  ]) await f.service.prepareToolContent({ ...p, ...change });
+  assert.equal(f.calls.length, 8);
+  const cancelled = new AbortController(); cancelled.abort();
+  await assert.rejects(f.service.prepareToolContent({ ...p, signal: cancelled.signal }));
+  assert.equal(f.calls.length, 8);
+});
+
+test('canceled browser observations do not populate the image cache', async () => {
+  let cancel = true;
+  const f = fixture({ prompt: async ({ onEvent }) => { await onEvent({ type: 'text_delta', text: 'partial' }); return { stopReason: cancel ? 'cancelled' : 'end_turn' }; } });
+  const p = { ...request(), turn: {}, toolName: 'browser_control', browserObservation: { schemaVersion: 1, webContentsId: 7, navigationRevision: 0 }, content: [{ ...image, mimeType: image.mediaType }] };
+  await assert.rejects(f.service.prepareToolContent(p)); cancel = false;
+  await f.service.prepareToolContent(p);
+  assert.equal(f.calls.length, 2);
+});
+
+test('the bundled observer uses concise non-reasoning reading for uploads and tool captures', async () => {
+  const sessions = [];
+  const provider = { id: preset.providerId, apiUrl: preset.baseUrl, engine: 'openai', requiresAuth: false };
+  const service = new VisionRouting({
+    createSession: async s => sessions.push(s),
+    prompt: async (_, __, { onEvent }) => { await onEvent({ type: 'text_delta', text: '888' }); return { stopReason: 'end_turn' }; },
+  }, { resolveCapability: async () => ({ imageInput: 'supported' }), resolveProvider: async () => ({}) });
+  const p = { ...request(), providers: [provider], routing: { visionRoute: { enabled: true, mode: 'always', providerId: provider.id, modelId: preset.visionModelId } } };
+  await service.prepareToolContent({ ...p, content: [{ ...image, mimeType: image.mediaType }], desktopObservation: { pid: 2, window_handle: 17 } });
+  await service.preparePrompt(p);
+  assert.deepEqual(sessions[0].provider.compat.chatTemplateKwargs, { enable_thinking: false });
+  assert.equal(sessions[0].options.thinkingEffort, 'off');
+  assert.equal(sessions[0].options.temperature, 0);
+  assert.equal(sessions[1].provider.compat.chatTemplateKwargs.enable_thinking, false);
+  assert.equal(sessions[1].options.thinkingEffort, 'off');
+  assert.equal(sessions[1].options.temperature, 0);
+  await service.prepareToolContent({ ...p, toolName: 'browser_control', browserObservation: { schemaVersion: 1, webContentsId: 7, navigationRevision: 1 }, content: [{ ...image, mimeType: image.mediaType }] });
+  assert.deepEqual(sessions[2].provider.compat.chatTemplateKwargs, { enable_thinking: false });
+  assert.equal(sessions[2].options.thinkingEffort, 'off');
+  assert.deepEqual(sessions[2].options.tools, []);
+});
+
+test('a CUA model name on a different endpoint does not imply template support', async () => {
+  const f = fixture();
+  f.service.resolveCapability = async () => ({ imageInput: 'supported' });
+  const provider = { id: 'custom_other_endpoint', apiUrl: 'http://127.0.0.1:19876/v1', engine: 'openai_compatible', requiresAuth: false };
+  const p = { ...request(), providers: [provider], routing: { visionRoute: { enabled: true, mode: 'always', providerId: provider.id, modelId: preset.visionModelId } } };
+  await f.service.prepareToolContent({ ...p, desktopObservation: { pid: 2, window_handle: 17 }, content: [{ ...image, mimeType: image.mediaType }] });
+  assert.equal(f.created[0].provider.compat?.chatTemplateKwargs, undefined);
+  assert.equal(f.created[0].options.thinkingEffort, undefined);
+});
 
 test('plain text and supported main image routes preserve arrays without auxiliary sessions', async () => {
   const f = fixture({ main: 'supported' }), p = request();

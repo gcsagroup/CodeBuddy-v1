@@ -7,6 +7,21 @@ const privateText = 'PRIVATE_BODY_KEY_COOKIE_PATH';
 const unsafe = () => ({ message: privateText, body: privateText, headers: { authorization: privateText },
   url: `https://private.invalid/?token=${privateText}`, stack: `C:\\Users\\${privateText}\\work` });
 
+test('vision failures keep actionable safe reasons in both terminal and RPC presentation', () => {
+  for (const reason of ['vision_timeout', 'vision_not_configured', 'image_limit']) {
+    const error = { ...unsafe(), code: -32602, data: { kind: 'vision_error', reason, imageCount: 9 } };
+    const terminal = publicFailure(error), rpc = publicRpcError(error, 'session/prompt');
+    assert.notEqual(terminal.code, 'UNKNOWN_FAILURE');
+    assert.equal(rpc.message, terminal.message);
+    assert.equal(JSON.stringify(rpc).includes(privateText), false);
+    if (reason === 'image_limit') {
+      assert.match(terminal.message, /9 张/);
+      assert.match(terminal.message, /最多发送 8 张/);
+      assert.match(terminal.message, /无需重新生成/);
+    }
+  }
+});
+
 test('only structured native/status/transport facts produce public advice; provider prose never escapes', () => {
   for (const [facts, pattern] of [
     [{ code: 'AUTH', status: 401 }, /身份验证/],

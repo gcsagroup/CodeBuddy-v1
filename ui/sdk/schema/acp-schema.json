@@ -5920,6 +5920,7 @@
             "null"
           ],
           "enum": [
+            "default",
             "none",
             "minimal",
             "low",

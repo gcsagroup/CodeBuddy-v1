@@ -44,11 +44,11 @@
       "path": "bin/qwen-computer-use.exe",
       "platform": "win32",
       "architecture": "x64",
-      "sha256": "954d4941947f51a1f7566db283d737c64382e4a51d8f8f22ef47097c3b771e05",
-      "bytes": 5189120,
+      "sha256": "12c3ee03a78afc4ab0e75db98033d624a08affce076751acf8e25a8c155a440a",
+      "bytes": 5457408,
       "sourcePath": "target/debug/qwen-computer-use.exe",
-      "sourceModifiedAt": "2026-11-13T03:42:54.8327496Z",
-      "sourceBaselineRevision": "411dce84a2c13e687b58a28632af5a5e64316c96",
+      "sourceModifiedAt": "2026-11-18T03:51:27.678365+00:00",
+      "sourceBaselineRevision": "4c8afad978b6e893a3545c0859dd5b4824a91223",
       "sourceBaselineIncludesUncommittedChanges": true,
       "rebuiltForThisRevision": true,
       "license": "MIT",
@@ -60,10 +60,9 @@
           "mcp"
         ]
       ],
-      "buildProfile": "go1.27.0 windows/amd64; go build -o ../../target/debug/qwen-computer-use.exe .",
-      "buildLog": ".local/tool-artifact-repair-20261113/go-build.log",
-      "sourceManifest": ".local/tool-artifact-repair-20261113/go-source-manifest.json",
-      "validation": "go test ./... (54 passed, 2 skipped); go vet ./..."
+      "buildProfile": "go1.27.3 windows/amd64; go build -o ../../target/debug/qwen-computer-use.exe .",
+      "sourceManifest": ".local/field-write-24/native-source-manifest.json",
+      "validation": "go test ./..., go vet ./... and go build passed; Windows verification in .local/field-write-24/"
     }
   ]
 }

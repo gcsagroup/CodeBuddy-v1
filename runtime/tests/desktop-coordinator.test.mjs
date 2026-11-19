@@ -12,10 +12,15 @@ test('window title is bound before discovery and isolated by prompt, including a
   const { begin } = fixture(t), first = begin('named');
   const list = title => ({name: 'mcp__qwen_computer__list_apps', arguments: {window_title: title}});
   const scope = turn => turn.metadata()['codebuddy/desktop-control'].windowTitle;
+  const write = window_title => ({name:'mcp__qwen_computer__set_value', arguments:{window_title}});
+  await assert.rejects(first.execute(write('Parity Mac 1103'), () => assert.fail('input established scope')), /first desktop discovery/);
   assert.equal(await first.execute(list('Parity Mac 1103'), () => scope(first)), 'Parity Mac 1103');
   await assert.rejects(first.execute(list(''), () => assert.fail('scope widened')), /already bound/);
   await assert.rejects(first.execute(list('Parity QA 472'), () => assert.fail('scope replaced')), /already bound/);
   assert.equal(await first.execute(tool, () => scope(first)), 'Parity Mac 1103');
+  assert.equal(await first.execute(write('Parity Mac 1103'), () => scope(first)), 'Parity Mac 1103');
+  await assert.rejects(first.execute(write(''), () => assert.fail('input widened scope')), /already bound/);
+  await assert.rejects(first.execute(write('Other'), () => assert.fail('input changed scope')), /already bound/);
   await first.end();
   const second = begin('general');
   assert.equal(await second.execute(list(''), () => scope(second)), '');
@@ -213,12 +218,39 @@ test('queue withdrawal is local, not task cancellation', async t => {
 test('physical pause marker blocks in-flight receipt and resume waits for cleanup', async t => {
   const { host, directory, begin } = fixture(t), a = begin('A');
   const gate = Promise.withResolvers(), started = Promise.withResolvers();
-  const pending = assert.rejects(a.execute(tool, async () => { started.resolve(); await gate.promise; return 'old image'; }), /DESKTOP_PAUSED/);
+  const pending = assert.rejects(a.execute(tool, async () => { started.resolve(); await gate.promise; return 'old image'; }), /DESKTOP_STOPPED/);
   await started.promise;
   writeFileSync(join(directory, 'paused'), 'physical-input');
   await assert.rejects(host.resume('physical-input'), /收尾/);
   gate.resolve(); await pending;
   assert.equal(a.controller.signal.aborted, false);
+});
+
+test('lost receipt after a complete write stays unknown and is observed before resume', async t => {
+  const { host, begin } = fixture(t), first = begin('lost-receipt');
+  let value = '', writes = 0;
+  await assert.rejects(first.execute({ name: 'mcp__qwen_computer__type_text' }, async () => {
+    value = 'customer draft'; writes++;
+    host.hold('owner_lost');
+    throw Error('native transport closed before reply');
+  }), error => {
+    assert.equal(error.desktopOutcome, 'stopped');
+    assert.match(error.message, /结果未知/);
+    assert.match(error.message, /可能全部完成/);
+    assert.match(error.message, /历史观察，不是当前值/);
+    return true;
+  });
+  assert.equal(value, 'customer draft');
+  assert.equal(first.controller.signal.aborted, false);
+  await assert.rejects(first.execute({ name: 'mcp__qwen_computer__get_app_state' }, async () => assert.fail('refresh after lost receipt')),
+    { desktopOutcome: 'stopped' });
+  await assert.rejects(first.admit(tool, async () => assert.fail('approval after lost receipt')), /结果未知/);
+  assert.equal(await first.execute({ name: 'read_file' }, async () => 'independent work'), 'independent work');
+  await first.end();
+  await host.preparePrompt('lost-receipt');
+  const resumed = begin('lost-receipt');
+  assert.equal(await resumed.execute({ name: 'mcp__qwen_computer__get_app_state' }, async () => value), 'customer draft');
+  assert.equal(writes, 1);
 });
 
 test('late Esc token and late resume cannot affect replacement owner', async t => {

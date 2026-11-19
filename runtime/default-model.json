@@ -4,6 +4,7 @@
   "modelId": "gemma-4-26B-A4B-it-uncensored-FP8-W8A16",
   "contextWindow": 65536,
   "imageInput": true,
+  "visionModelId": "CUA-S1-Qwen3.5-4B",
   "compactionFallback": {
     "baseUrl": "http://192.168.9.120:8001",
     "modelIds": ["qwen3.8-flash-next-uncensored"]

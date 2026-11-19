@@ -19,7 +19,7 @@ description: 使用 CodeBuddy 的 ComfyUI 工具選擇已儲存工作流程，�
 
 ## 選擇與調參
 
-- 先 `operation=inspect`。影片指定 `mode`：`text_to_video` 為文字生成；`image_to_video` 使用 `image_path` 首幀；`reference_to_video` 使用 1–2 張 `reference_images` 保持角色／物件身分。圖片須為工作區內 PNG，順序對應 `<Picture 1>`、`<Picture 2>`。這是目前工具範圍，不是模型的完整能力。
+- 先 `operation=inspect`。影片指定 `mode`：`text_to_video` 為文字生成；`image_to_video` 使用 `image_path` 首幀；`reference_to_video` 使用 1–2 張 `reference_images` 保持角色／物件身分。圖片可使用本對話上傳附件原始路徑（不需複製或改副檔名），或工作區內 PNG/JPEG，順序對應 `<Picture 1>`、`<Picture 2>`。這是目前工具範圍，不是模型的完整能力。
 - 獨立解析器依宿主已接納的當前請求及即時目錄選擇工作流，不讀取長會話的舊選擇。主 Agent 提供創作提示、模式及參考素材，生成時省略 `workflow_name`；舊名稱僅相容接收，不能覆寫解析結果。提交前重新讀取已儲存檔案，不含瀏覽器未儲存編輯。
 - 模式不是檔案身分。指定、切換或否定由解析器理解，工具只校驗結果、模式及參考數量；缺失、歧義、解析失敗或請求／目錄變更均不提交、不自動替換。依錯誤修正不相容參數，不重生成已完成任務。選擇器不授予建立替代圖的許可。
 - `duration_seconds` 就是秒數，介面可能誤譯為「期間」。遵守使用者指定時長，保留秒轉幀公式與 fps；幀對齊會使實際時長略有差異，以輸出 MP4 為準。長片段的成本與品質須實測，不因訓練範圍就自行縮短。

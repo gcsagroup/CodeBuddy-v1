@@ -74,7 +74,7 @@ test('ordinary native failures survive cold load, including legacy history, with
   const privateText = 'PRIVATE_RAW_PROVIDER_PATH_AND_TOKEN';
   let mode = 'auth', requests = 0, app, c;
   const endpoint = createServer(async (req, res) => {
-    if (req.url.endsWith('/models')) return res.end(JSON.stringify({ data: [{ id: 'fixture', context_window: 65536 }] }));
+    if (req.url.endsWith('/models')) return res.end(JSON.stringify({ data: [{ id: 'fixture', context_window: 65536, supports_reasoning: false }] }));
     let raw = ''; for await (const chunk of req) raw += chunk;
     const body = JSON.parse(raw);
     if (replyToNoActionReview(body, res)) return;
@@ -299,7 +299,7 @@ test('real native AUTH remains visible when stop arrives while driver event clea
   let requests = 0, compat;
   const entered = Promise.withResolvers(), release = Promise.withResolvers();
   const endpoint = createServer(async (req, res) => {
-    if (req.url.endsWith('/models')) return res.end(JSON.stringify({ data: [{ id: 'fixture' }] }));
+    if (req.url.endsWith('/models')) return res.end(JSON.stringify({ data: [{ id: 'fixture', supports_reasoning: false }] }));
     let raw = ''; for await (const chunk of req) raw += chunk;
     const body = JSON.parse(raw); if (replyToNoActionReview(body, res)) return;
     requests++; res.writeHead(401, { 'content-type': 'application/json' })

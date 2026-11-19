@@ -90,7 +90,9 @@ export function executionReceiptContext(session, currentFacts = [], { queuedWhil
   if (boundaryOnly) {
     // Native tool messages carry this turn's receipts. Keep only cross-turn
     // provenance here so a new tool result doesn't invalidate the entire prefix.
-    if (!previous && !queuedWhileBusy) return '';
+    // An ordinary tool-free turn has no action provenance to disambiguate.
+    // Keep the same prefix as the first turn, including after a cold resume.
+    if (!queuedWhileBusy && (!previous || (previous.terminalReason === 'completed' && !previous.tools.total))) return '';
     return 'Turn boundary (host data). Previous actions are not new work. Use native tool results after this input for current progress.\n' +
       JSON.stringify({ turn: log[start].data.turn, ...(queuedWhileBusy ? { inputOrigin: 'queued-while-busy' } : {}),
         ...(previous ? { previousTurn: previous } : {}) });

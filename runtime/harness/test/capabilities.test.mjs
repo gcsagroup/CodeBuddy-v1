@@ -417,6 +417,24 @@ test('host screenshot survives the next model step and native session restart', 
   assert.equal(calls, 1, 'history reuse must not replay the screenshot action');
 });
 
+test('only the browser host forwards its capture identity to the auxiliary observer', async () => {
+  const browserObservation = { schemaVersion: 1, webContentsId: 7, navigationRevision: 3 };
+  const contexts = [];
+  const created = await session({
+    mcpImageFallback: async (_content, context) => { contexts.push(context); return [{ type: 'text', text: 'Read-only observation' }]; },
+    tools: ['browser_control', 'other_image'].map(name => ({ name, inputSchema: { type: 'object', properties: {} },
+      async execute() { return { browserObservation, content: [{ type: 'image', mimeType: 'image/png', data: 'AQID' }] }; },
+    })),
+  });
+  for (const name of ['browser_control', 'other_image']) {
+    const result = await driver.callTool(created.sessionId, name, {}, { onPermission: async () => true });
+    assert.equal(result.isError, false);
+  }
+  assert.equal(contexts.length, 2);
+  assert.deepEqual(contexts[0].browserObservation, browserObservation);
+  assert.equal(contexts[1].browserObservation, undefined);
+});
+
 test('host image admission failures preserve action receipts without replay', async () => {
   for (const badImage of [false, true]) {
     let calls = 0;

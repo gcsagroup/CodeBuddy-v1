@@ -12,7 +12,7 @@
 | 首帧动画 | generate_video / image_to_video | 一个 image_path，不混用 reference_images |
 | 身份／物体参考视频 | generate_video / reference_to_video | 1–2 张 reference_images，不混用 image_path |
 
-图片生成的实际模式由 reference_images 决定；视频生成必须指定 mode。R2V 的图片用于身份／物体参考，不是首尾帧插值。当前视频接口没有 last_frame、音频参考或视频参考参数；即便底层模型支持，也不要发明字段。素材要求：工作区内普通 PNG 文件，每张不超过 20 MiB、像素数不超过 16,777,216；宿主还检查实际文件路径，不能用软链接指向工作区外文件。
+图片生成的实际模式由 reference_images 决定；视频生成必须指定 mode。R2V 的图片用于身份／物体参考，不是首尾帧插值。当前视频接口没有 last_frame、音频参考或视频参考参数；即便底层模型支持，也不要发明字段。ComfyUI 参考素材可使用本对话上传附件的原始路径，或工作区 PNG/JPEG，每张最多 20 MiB。无需复制附件、改扩展名或寻找 shell；宿主核验附件归属，其他工作区外文件仍拒绝读取。云端模型仍使用工作区 PNG。
 
 ## 可执行的参数形状
 

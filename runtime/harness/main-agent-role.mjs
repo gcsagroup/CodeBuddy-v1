@@ -39,7 +39,7 @@ export function installMainAgentRole(ctx, agent, capabilities, source, events = 
       // Default/inherited roles have no tool mask. Restricted roles need names,
       // not a deep copy of every schema on each registry notification.
       const deny = !profile || profile.capabilities === 'inherit' ? []
-        : ctx.tools.schemas(capabilities).map(tool => tool.name).filter(name => !collaboration.has(name) && !agentAllowsTool(profile, name)).sort();
+        : [...ctx.tools.view(capabilities).visible.keys()].filter(name => !collaboration.has(name) && !agentAllowsTool(profile, name)).sort();
       const signature = JSON.stringify(deny);
       if (signature === maskSignature) return;
       const next = deny.length ? ctx.tools.restrict({ deny }) : undefined;

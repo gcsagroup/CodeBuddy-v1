@@ -77,7 +77,7 @@ import { chatInstallTools, isChatInstallProposal } from './chat-install.mjs';
 import { ConversationEditing } from "./conversation-editing.mjs";
 import { listSubagentCatalog, readSubagentConversation, followSubagentConversation, subagentLifecycleUpdate } from "./subagent-conversations.mjs";
 import { McpApps } from "./mcp-apps.mjs";
-import { VisionRouting } from "./vision-routing.mjs";
+import { VisionRouting, prefersVisionObserver } from "./vision-routing.mjs";
 import { LibraryService } from "./library.mjs";
 import { desktopPetTool, PET_TOOL_NAME } from "./desktop-pet-tool.mjs";
 import { browserTool } from './browser-tool.mjs';
@@ -479,11 +479,16 @@ export class Compat {
     });
   }
   async initialize() {
+    const startupStarted = performance.now();
+    const traceStartup = phase => console.info('[Compat startup timing]', JSON.stringify({
+      phase, elapsedMs: Math.round(performance.now() - startupStarted), at_ms: Date.now(),
+    }));
     await this.settings.initialize();
     if (this.store.directory)
       this.journal = await openTranscriptJournal(this.store);
     await this.runs.initialize();
     await this.reviews.initialize();
+    traceStartup('local-state-ready');
     if (typeof this.driver.startNativeSchedules === 'function') {
       await this.driver.startNativeSchedules({
         prepareSession: async id => {
@@ -506,7 +511,12 @@ export class Compat {
       });
       this.nativeScheduling = true;
     } else await this.schedules?.start();
-    await restoreMissingTitles(this).catch(() => console.error('[session title] Could not restore saved titles'));
+    traceStartup('schedules-ready');
+    // Historical title repair is independent of accepting desktop connections.
+    // Keep its lifetime owned here, and join it before disposing the native host.
+    this.titleRestoration = restoreMissingTitles(this)
+      .then(() => traceStartup('titles-ready'))
+      .catch(() => console.error('[session title] Could not restore saved titles'));
     this.sessionDeletions.resume();
   }
   async reviewContext(sessionId) {
@@ -985,13 +995,18 @@ export class Compat {
       mcpServers,
       backgroundMcp: true,
       mcpApprovalScopes: mcpServers.map(mcpSessionApprovalScope).filter(Boolean),
-      mcpImageFallback: async (content, { signal, toolName, sessionId }) => {
+      prefersMcpImageObserver: (modelId) => prefersVisionObserver(
+        this.store.read(['modelRouting']).modelRouting?.visionRoute,
+        { providerId: prepared.model?.provider.id ?? s.providerId, modelId },
+      ),
+      mcpImageFallback: async (content, { signal, toolName, sessionId, desktopObservation, browserObservation }) => {
         const state = this.store.read(["modelRouting", "providers"]);
+        const turn = sessionId === s.id ? this.active.get(s.id) : undefined;
         return this.vision.prepareToolContent({
           sessionId: s.id, cwd: s.cwd, signal,
           routing: state.modelRouting, providers: state.providers,
-          content, toolName,
-          onProgress: sessionId === s.id ? this.active.get(s.id)?.visionProgress : undefined,
+          content, toolName, turn, desktopObservation, browserObservation,
+          onProgress: turn?.visionProgress,
         });
       },
       subagentModels: await resolveSubagentModels(state.config, state.providers,
@@ -1634,6 +1649,13 @@ export class Compat {
       requireString(p.sessionId, "sessionId");
       const session = this.session(p.sessionId);
       const options = { cwd: session.cwd, dataDir: this.store.directory, sessionId: session.id };
+      if (p.operation === 'cancel') {
+        if (!['image', 'video'].includes(p.kind)) throw invalid('Choose an image or video job');
+        requireString(p.job_id, 'job_id');
+        const tool = p.kind === 'image' ? comfyuiTool({...options,...mediaOptions(this.store,'image')})
+          : comfyuiVideoTool({...options,...mediaOptions(this.store,'video')});
+        return tool.execute({ operation: 'cancel', job_id: p.job_id });
+      }
       const [images, videos] = await Promise.all([comfyuiTool({...options,...mediaOptions(this.store,'image')}).jobs(), comfyuiVideoTool({...options,...mediaOptions(this.store,'video')}).jobs()]);
       return { sessionId: session.id, jobs: [...images, ...videos].sort((a, b) => b.created_at.localeCompare(a.created_at)) };
     }
@@ -1773,7 +1795,7 @@ export class Compat {
           });
         // Persist the conversation before starting model/MCP services. Their
         // readiness belongs to the first prompt, not the new-chat navigation.
-        await this.store.update((state) => state.sessions.push(s));
+        await this.store.insertSession(() => s);
       } catch (error) {
         await this.workspaces.releaseSession(sessionId, { discardUnused: true });
         throw error;
@@ -1864,6 +1886,13 @@ export class Compat {
           }
         }
         checkpoint("workspaceMs");
+        // Loading already requires the native permission state. Open it once
+        // before terminal/history inspection, which can then reuse its live log
+        // instead of opening and parsing the same cold session twice.
+        const loadedModes = s.readonlyHistory
+          ? { ...modes, currentModeId: "read-only" }
+          : await this.permissionModes(s);
+        checkpoint("permissionsMs");
         const initialLiveReplay = this.active.get(s.id)?.replay;
         const legacy = s.legacyHistory ? updatesFromConversation(
           await loadLegacyConversation(this.store.directory, s.legacyHistory), s.createdAt,
@@ -2092,10 +2121,6 @@ export class Compat {
             questionNotification(s.id, await this.driver.questions(s.id)),
           );
         checkpoint("questionsMs");
-        const loadedModes = s.readonlyHistory
-          ? { ...modes, currentModeId: "read-only" }
-          : await this.permissionModes(s);
-        checkpoint("permissionsMs");
         const configOptions = this.options(s);
         checkpoint("optionsMs");
         const extensionResults = await this.extensionResults(s);
@@ -2163,6 +2188,17 @@ export class Compat {
         active.userRequestedStop = true; // Presentation only; native cancellation still owns settlement.
         active.controller.abort();
         if (active.driverStarted) await this.driver.cancel(p.sessionId);
+        // Stop only this conversation's outstanding generation jobs. Native
+        // cancellation releases tool waits; per-job receipts own remote state.
+        const session = this.session(p.sessionId);
+        const options = { cwd: session.cwd, dataDir: this.store.directory, sessionId: session.id };
+        await Promise.allSettled(['image', 'video'].map(async kind => {
+          const tool = kind === 'image' ? comfyuiTool({...options,...mediaOptions(this.store,kind)})
+            : comfyuiVideoTool({...options,...mediaOptions(this.store,kind)});
+          const jobs = await tool.jobs();
+          await Promise.allSettled(jobs.filter(job => !['completed', 'failed', 'cancelled'].includes(job.status))
+            .map(job => tool.execute({ operation: 'cancel', job_id: job.job_id })));
+        }));
       }
       return {};
     }
@@ -2215,7 +2251,7 @@ export class Compat {
       });
     }
     if (method === "session/set_config_option") {
-      const s = this.session(p.sessionId);
+      const s = this.session(p.sessionId, { fields: ['id', 'providerId', 'modelId'] });
       if (this.active.has(s.id))
         throw invalid("Stop the current turn before changing its model", { code: 'SESSION_BUSY' });
       let selection;
@@ -2242,14 +2278,11 @@ export class Compat {
       const provider = this.provider(selection.providerId);
       if (!provider.models.includes(selection.modelId))
         throw invalid("Unknown model");
-      await this.store.update((state) =>
-        Object.assign(
-          state.sessions.find((x) => x.id === s.id),
-          { providerId: provider.id, modelId: selection.modelId },
-        ),
+      await this.store.updateSession(s.id, saved =>
+        Object.assign(saved, { providerId: provider.id, modelId: selection.modelId }),
       );
       this.initialized.delete(s.id);
-      return { configOptions: this.options(this.session(s.id)) };
+      return { configOptions: this.options(this.session(s.id, { fields: ['providerId', 'modelId'] })) };
     }
     if (method === "session/set_mode") {
       const s = this.session(p.sessionId);
@@ -2834,6 +2867,7 @@ export class Compat {
       case "defaults/clear":
         await this.store.update(
           (s) => (s.defaults = { providerId: null, modelId: null }),
+          ['defaults'], { skipUnchanged: true },
         );
         return {};
       case "defaults/save": {
@@ -2843,6 +2877,7 @@ export class Compat {
         await this.store.update(
           (s) =>
             (s.defaults = { providerId: p.providerId, modelId: p.modelId }),
+          ['defaults'], { skipUnchanged: true },
         );
         return {};
       }
@@ -2914,7 +2949,7 @@ export class Compat {
           await this.store.update((state) => {
             const saved = state.providers.find((x) => x.id === id);
             if (saved) saved.models = models;
-          });
+          }, ['providers'], { skipUnchanged: true });
           started.push(id);
         }
         return { started, skipped };
@@ -2952,7 +2987,7 @@ export class Compat {
             else delete s.preferences[key];
           }
           s.revision++;
-        });
+        }, ['preferences', 'revision']);
         const changed = name.endsWith("save") ? (p.values ?? []).map(item => item.key) : p.keys ?? [];
         if (changed.includes('gooseMode')) await this.syncGlobalPermissions();
         if (changed.some(key => key !== 'gooseMode')) this.initialized.clear();
@@ -2983,13 +3018,13 @@ export class Compat {
         const entry = p.isSecret
           ? { secret: await protectSecret(String(p.value)) }
           : { value: p.value };
-        await this.store.update((s) => (s.config[p.key] = entry));
+        await this.store.update((s) => (s.config[p.key] = entry), ['config']);
         // Query metadata reads the store per invocation; keep its live MCP scope.
         if (p.key !== COMMON_QUERY_KEY) this.initialized.clear();
         return {};
       }
       case "config/remove":
-        await this.store.update((s) => delete s.config[p.key]);
+        await this.store.update((s) => delete s.config[p.key], ['config']);
         if (p.key !== COMMON_QUERY_KEY) this.initialized.clear();
         return {};
       case "config/extensions/list":
@@ -3802,6 +3837,7 @@ export class Compat {
     // Already admitted configuration/tool requests may still persist results.
     // Do not flush or dispose their owners until those requests have settled.
     await drainRequests();
+    await this.titleRestoration;
     await Promise.allSettled(
       [...this.sessionMutations.values()].map((change) => change.done),
     );

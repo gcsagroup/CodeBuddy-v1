@@ -22,6 +22,10 @@ const equal = (a, b) => {
   return left.length === right.length && timingSafeEqual(left, right);
 };
 export async function createCompatServer({ dataDir, secret, driver, defaultModel, onRuntimeLoaded }) {
+  const startupStarted = performance.now();
+  const traceStartup = phase => console.info('[Runtime startup timing]', JSON.stringify({
+    phase, elapsedMs: Math.round(performance.now() - startupStarted), at_ms: Date.now(),
+  }));
   if (typeof secret !== "string" || secret.length < 16)
     throw Error("A local server secret of at least 16 characters is required");
   const profileLock = await acquireProfileLock(path.resolve(dataDir));
@@ -42,6 +46,7 @@ export async function createCompatServer({ dataDir, secret, driver, defaultModel
     if (profile.status === 'rejected') throw profile.reason;
     const { Compat } = runtime.value;
     const store = profile.value;
+    traceStartup('profile-and-imports-ready');
     let warmup;
     if (!driver) {
       let loaded;
@@ -103,6 +108,7 @@ export async function createCompatServer({ dataDir, secret, driver, defaultModel
           "releaseNativeSessionCapabilities",
           "history",
           "presentationContent",
+          "referenceImageFiles",
           "listSubagentChildren",
           "listSessions",
           "rename",
@@ -137,11 +143,13 @@ export async function createCompatServer({ dataDir, secret, driver, defaultModel
     compat = new Compat(store, createConversationDriver(driver, store));
     const sourceStatus = await previewSource;
     const runtimeIdentity = sourceStatus ? await sourceStatus() : undefined;
+    traceStartup('source-identity-ready');
     compat.runtimeStatus = async () => ({
       ...(sourceStatus ? await sourceStatus() : {}),
       activeTurns: compat.active.size,
     });
     await compat.initialize();
+    traceStartup('compat-ready');
     appProxy = await createMcpAppProxy({ secret });
     let stopping = false;
     let pendingRequests = 0;

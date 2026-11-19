@@ -11,6 +11,20 @@ async function assertDiskMatches(store, root) {
   assert.deepEqual((await openStore(root)).read(), JSON.parse(expected));
 }
 
+test('batched writes preserve UTF-8 history across small and oversized chunks', async () => {
+  const root = await mkdtemp(path.join(tmpdir(), 'store-encoding-batches-'));
+  const store = await openStore(root);
+  await store.update(state => {
+    state.sessions = Array.from({ length: 600 }, (_, index) => ({
+      id: String(index), updates: [{ text: '客户🙂'.repeat(256) }],
+    }));
+    state.sessions.splice(300, 0, { id: 'large', updates: [{ text: '大🙂'.repeat(200000) }] });
+  });
+  await store.update(state => { state.config.batch = true; }, ['config']);
+  await store.updateSession('large', session => { session.updates.push({ text: '末尾' }); });
+  await assertDiskMatches(store, root);
+});
+
 test('encoded snapshots retain exact JSON across scoped edits, deletion, new keys and full invalidation', async () => {
   const root = await mkdtemp(path.join(tmpdir(), 'store-encoding-json-'));
   const store = await openStore(root);

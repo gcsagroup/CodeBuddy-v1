@@ -13,6 +13,8 @@ const deferred = name => optionalNative.has(name) || name.startsWith('mcp__') ||
 // permits them. Discovery and permission/execution ownership stay unchanged.
 const deliveryTools = new Set(['write', 'edit', 'browser_control', 'install_mcp_extension', 'install_skill']);
 for (const name of deliveryTools) optionalNative.add(name);
+// Both prompt variants must retain the execution boundary before skill loading.
+const desktopTaskGuidance = 'Inspect a named application, window, or on-screen form via desktop MCP; clarify ambiguous targets. Consult the computer-use skill when available; do not substitute shell UI scripts or search unrelated files. Use current control receipts; request screenshots only for unresolved visual details. Shell status and titles alone cannot verify delivery.';
 // Real Ollama Cloud calls emitted null for optional nullable values and strings
 // for referenced objects. Advertise omission and inline acyclic local references;
 // the registry retains the original schema and validates the actual call.
@@ -193,7 +195,7 @@ export function installToolDiscovery(ctx, agent, modelEndpoint = () => undefined
   if (!available().length && !pendingMcpServers(agent).length) return;
   ctx.tools.register({
     name: 'search_mcp_tools',
-    description: compact ? 'Use visible tools directly. {"query":"@code"} loads missing file and shell tools. For a finished website, load browser_control to offer optional testing. Use keywords or names for other tools; load skill for Office, desktop, media or named skills. Chat directly.' : 'Find and load tools by keywords or exact names. Includes file edits, shell, skills, memory, goals, jobs, subagents, Git, desktop, browser and web. Empty query lists a page. Loaded tools keep their original permissions and execute through CodeBuddy.',
+    description: compact ? 'Use visible tools directly. Load file/shell via @code, others by keyword/name, skill for Office/desktop/media or named skills, browser_control to offer site testing. Answer chat directly.' : 'Find and load tools by keywords or exact names. Includes file edits, shell, skills, memory, goals, jobs, subagents, Git, desktop, browser and web. Empty query lists a page. Loaded tools keep their original permissions and execute through CodeBuddy.',
     parameters: { type: 'object', properties: compact ? {
       query: { type: 'string' },
       names: { type: 'array', items: { type: 'string' }, maxItems: 5 },
@@ -206,7 +208,7 @@ export function installToolDiscovery(ctx, agent, modelEndpoint = () => undefined
       offset: { type: 'integer', minimum: 0, description: 'Page offset, default 0.' },
     }, additionalProperties: false },
     output: { schema: { type: 'object', additionalProperties: true }, render: (_args, value) => {
-      if (!compact) return [{ type: 'text', text: JSON.stringify(value) }];
+      // The next request carries the canonical schemas. Keep only the discovery receipt in history.
       const { tools, ...metadata } = value;
       const result = { tools: tools.map(tool => tool.name) };
       for (const [key, item] of Object.entries(metadata)) {
@@ -239,10 +241,24 @@ export function installToolDiscovery(ctx, agent, modelEndpoint = () => undefined
   });
   ctx.systemPrompt.section({ name: 'codebuddy:mcp-discovery', order: 99, interpolate: false,
     text: () => {
-      const count = available().length;
+      const catalog = available();
+      const count = catalog.length;
       const pending = pendingMcpServers(agent);
-      if (compact) return pending.length ? 'Pending MCP: ' + pending.join(', ') : '';
-      return (pending.length ? `Selected MCP servers connecting in the background: ${JSON.stringify(pending)}. Their tools are not missing or disabled. To use one, call search_mcp_tools with servers containing its exact name; this waits for its actual catalog. ` : '') + (count ? `${count} tools are available through search_mcp_tools. Call tools already present in the current tool schemas directly; search only for missing schemas. Native names: ${available().filter(t => optionalNative.has(t.name)).map(t => t.name).join(', ')}. Search other capabilities by keywords; use English names/keywords for discovery.${available().some(t => t.name.startsWith('mcp__qwen_computer__')) ? ' Desktop GUI work: consult the computer-use skill before acting. Use the desktop MCP for input and fresh screenshots for verification. If focus, permission or visual observation fails, report that blocker; do not substitute shell UI scripts or treat shell exit status as delivery evidence.' : ''}` : '');
+      if (compact) {
+        const hints = pending.length ? ['Pending MCP: ' + pending.join(', ')] : [];
+        if (!computerSkillLoaded && catalog.some(tool => tool.name === 'skill') &&
+          (catalog.some(tool => tool.name === 'mcp__qwen_computer__get_app_state') || pending.includes('qwen_computer'))) {
+          const discovery = pending.includes('qwen_computer')
+            ? '{"names":["skill"],"servers":["qwen_computer"]}' : '{"names":["skill"]}';
+          hints.push(desktopTaskGuidance + ` Load the skill tool with search_mcp_tools(${discovery}), then call skill({"name":"computer-use"}) to reveal the connected desktop tools.`);
+        }
+        if (!catalog.some(tool => tool.name === 'skill') && !selected.has('mcp__qwen_computer__get_app_state')) {
+          const readers = catalog.filter(tool => ['mcp__qwen_computer__get_app_state', 'mcp__qwen_computer__list_apps'].includes(tool.name));
+          if (readers.length) hints.push('Desktop observation: load by exact names ' + JSON.stringify(readers.map(tool => tool.name)) + '. Use the same window_title throughout.');
+        }
+        return hints.join('\n');
+      }
+      return (pending.length ? `Selected MCP servers connecting in the background: ${JSON.stringify(pending)}. Their tools are not missing or disabled. To use one, call search_mcp_tools with servers containing its exact name; this waits for its actual catalog. ` : '') + (count ? `${count} tools are available through search_mcp_tools. Call tools already present in the current tool schemas directly; search only for missing schemas. Native names: ${available().filter(t => optionalNative.has(t.name)).map(t => t.name).join(', ')}. Search other capabilities by keywords; use English names/keywords for discovery.${available().some(t => t.name.startsWith('mcp__qwen_computer__')) ? ' ' + desktopTaskGuidance : ''}` : '');
     },
   });
   ctx.systemPrompt.section({ name: 'codebuddy:desktop-availability', order: 100, interpolate: false,
@@ -268,6 +284,9 @@ export function installToolDiscovery(ctx, agent, modelEndpoint = () => undefined
     // server tools, without mutating shared connection scopes or their registry.
     const active = new Set(tools.map(t => t.name));
     const sections = assembly.sections?.filter(section => {
+      if (section.name === 'codebuddy:desktop-receipts') {
+        return tools.some(tool => tool.name.startsWith('mcp__') || tool.name === 'browser_control');
+      }
       if (compact) {
         if (section.name === 'codebuddy:install-guidance') return active.has('install_mcp_extension') || active.has('install_skill');
         if (section.name === 'codebuddy:schedule-controls') return tools.some(tool => tool.name.startsWith('schedule_'));
@@ -286,7 +305,7 @@ export function installToolDiscovery(ctx, agent, modelEndpoint = () => undefined
     });
     if (compact && !selected.size && !hasNamedFiles && sections) {
       for (const [index, section] of sections.entries()) {
-        if (section.name === 'codebuddy:conversation-language') sections[index] = { ...section, text: 'Use the user’s requested language, otherwise match theirs.' };
+        if (section.name === 'codebuddy:conversation-language') sections[index] = { ...section, text: 'Match the requested language and detail. Reuse established results; update changed or uncertain facts. When the user specifies an exact answer format, return it alone.' };
       }
     }
     const contexts = compact && !selected.size && !hasNamedFiles ? assembly.contexts?.filter(context =>

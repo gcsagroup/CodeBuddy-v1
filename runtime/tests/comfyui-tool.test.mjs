@@ -8,6 +8,7 @@ import { comfyuiTool, comfyWorkflow, comfyuiUrl } from '../comfyui-tool.mjs';
 import { comfyuiVideoTool } from '../comfyui-video-tool.mjs';
 import { validatePreference } from '../settings.mjs';
 import { createHarnessDriver } from '../harness/index.mjs';
+import { createRequire } from 'node:module';
 import { readMediaLibrary } from '../media-library.mjs';
 
 const id = 'bafe8f1d-310a-4e29-92e7-73e7ba920ade';
@@ -38,6 +39,30 @@ async function fixture(t, saveNode = '461', batch = 1) {
   return { root, cwd, png, calls, options, tool: comfyuiTool(options), state: value => { state = value; } };
 }
 const generate = { operation: 'generate', prompt: 'A watercolor mountain', request_id: id };
+
+test('session-authorized JPEG attachments upload directly without copying or renaming files', async t => {
+  const f = await fixture(t);
+  const file = path.join(f.root, 'attachment-without-extension');
+  const sharp = createRequire(new URL('../harness/package.json', import.meta.url))('sharp');
+  const jpeg = await sharp({ create: { width: 64, height: 64, channels: 3, background: '#ff0000' } }).jpeg().toBuffer();
+  const receipt = await f.tool.execute({ ...generate, mode: 'image_to_image', reference_images: [file] }, {
+    readReferenceImage: async requested => { assert.equal(requested, file); return jpeg; },
+  });
+  assert.equal(receipt.status, 'queued');
+  const upload = f.calls.find(call => call.url.endsWith('/upload/image'));
+  assert.equal(upload.body.get('image').type, 'image/jpeg');
+  assert.match(upload.body.get('image').name, /\.jpg$/);
+  assert.deepEqual(Buffer.from(await upload.body.get('image').arrayBuffer()), jpeg);
+});
+
+test('invalid JPEG reference fails before upload or generation', async t => {
+  const f = await fixture(t);
+  const result = await f.tool.execute({ ...generate, mode: 'image_to_image', reference_images: ['/invalid-reference'] }, {
+    readReferenceImage: async () => Buffer.from([0xff, 0xd8, 0xff, 0xe0, 1, 2, 3]),
+  });
+  assert.equal(result.status, 'failed');
+  assert.equal(f.calls.filter(call => call.url.endsWith('/upload/image') || call.url.endsWith('/prompt')).length, 0);
+});
 
 function requestedImages(count, ids = ['kitten-turn'], only = true) {
   return { selectWorkflow: async ({ workflows }) => {
@@ -450,6 +475,30 @@ test('server failures and ambiguous submission stay truthful; cancellation targe
   assert.ok(f.calls.some(x => x.url.endsWith(`/api/jobs/${id}/cancel`)));
   assert.ok(f.calls.every(x => !x.url.endsWith('/interrupt')));
 });
+test('accepted queued cancellation without execution history stays cancelled after restart', async t => {
+  const f = await fixture(t);
+  let removed = false;
+  const options = { ...f.options, fetchImpl: async (url, opts) => {
+    if (url.includes('/cancel')) { removed = true; f.state('removed'); return Response.json({ cancelled: true }); }
+    if (removed && url.includes('/history/')) return Response.json({});
+    return f.options.fetchImpl(url, opts);
+  } };
+  const tool = comfyuiTool(options);
+  await tool.execute(generate);
+  const cancelled = await tool.execute({ operation: 'cancel', job_id: id });
+  assert.equal(cancelled.status, 'cancelled');
+  assert.equal(cancelled.cancellation_confirmed, true);
+  assert.equal((await comfyuiTool(options).execute({ operation: 'status', job_id: id })).status, 'cancelled');
+  assert.equal(f.calls.filter(call => call.url.endsWith('/prompt')).length, 1);
+});
+
+test('missing queued job without accepted cancellation remains unavailable', async t => {
+  const f = await fixture(t);
+  await f.tool.execute(generate);
+  f.state('removed');
+  assert.equal((await f.tool.execute({ operation: 'status', job_id: id })).status, 'unavailable');
+});
+
 test('unsupported targeted cancellation never calls a global interrupt', async t => {
   const f = await fixture(t); await f.tool.execute(generate); f.state('running');
   const old = comfyuiTool({ ...f.options, fetchImpl: (url, opts) => url.includes('/cancel') ? Promise.resolve(new Response('', { status: 404 })) : f.options.fetchImpl(url, opts) });

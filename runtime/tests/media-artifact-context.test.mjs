@@ -11,7 +11,7 @@ const { admittedMediaRequest } = await import('../harness/media-workflow-selecti
 test('native direct media delivery skips final inference while complex scope continues', { timeout: 30000 }, async t => {
   const root = await mkdtemp(join(tmpdir(), 'cb-media-direct-'));
   const requests = [];
-  let single = true, generated = false;
+  let single = true, generated = false, observations = 0;
   const server = createServer(async (req, res) => {
     let raw = ''; for await (const c of req) raw += c;
     const request = JSON.parse(raw); requests.push(request);
@@ -33,16 +33,20 @@ test('native direct media delivery skips final inference while complex scope con
   await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
   const driver = await createHarnessDriver({ dataDir: join(root, 'state'), cwd: root });
   t.after(async () => { await driver.close(); server.closeAllConnections(); await new Promise(done => server.close(done)); await rm(root, { recursive: true, force: true }); });
-  const config = { cwd: root, model: 'fixture', provider: { id: 'fixture', baseUrl: `http://127.0.0.1:${server.address().port}/v1`, apiKey: 'fixture' }, options: { mcpServers: [], tools: [{ name: 'generate_image', currentRequestWorkflow: true,
+  const config = { cwd: root, model: 'fixture', provider: { id: 'fixture', baseUrl: `http://127.0.0.1:${server.address().port}/v1`, apiKey: 'fixture' }, options: { mcpServers: [],
+    mcpImageFallback: async content => { observations++; return content.filter(b => b.type !== 'image'); },
+    tools: [{ name: 'generate_image', currentRequestWorkflow: true,
     execute: async (_input, context) => {
       const selected = await context.selectWorkflow({ workflows: [{ id: 'saved:test', label: 'test', mode: 'text_to_image', compatible: true, dependencies_available: true }], kind: 'image', mode: 'text_to_image', referenceCount: 0 });
-      return { job_id: 'fixture', status: 'completed', workflow: { id: 'saved:test' }, workflow_selection: selected.receipt, images: [{ path: join(root, 'output.png') }] };
+      const receipt = { job_id: 'fixture', status: 'completed', workflow: { id: 'saved:test' }, workflow_selection: selected.receipt, images: [{ path: join(root, 'output.png') }] };
+      return { ...receipt, content: [{ type: 'text', text: JSON.stringify(receipt) }, { type: 'image', mimeType: 'image/png', data: 'fixture-preview' }] };
     } }] } };
   for (const scope of [true, false]) {
-    single = scope; generated = false; const before = requests.length;
+    single = scope; generated = false; observations = 0; const before = requests.length;
     const s = await driver.createSession(config);
     await driver.prompt(s.sessionId, scope ? 'Generate one image.' : 'Generate an image then analyze its composition.', { onPermission: async () => true });
     assert.equal(requests.length - before, scope ? 2 : 3, 'only direct delivery skips the final main-model inference');
+    assert.equal(observations, scope ? 0 : 1, 'delivery-only requests skip optional image observation; analysis requests keep it');
     const history = await driver.history(s.sessionId);
     assert.ok(history.events.some(e => e.type === 'tool/result'));
     assert.equal(history.events.findLast(e => e.type === 'turn/end').data.reason.kind, 'completed');
@@ -115,7 +119,7 @@ test('native next-turn model context refreshes media facts without selecting ref
   assert.match(afterResult, /one completed artifact does not establish/);
   await driver.prompt(s.sessionId, 'Edit the previous image.');
   const context = JSON.stringify(requests.at(-1).messages.filter(m => m.role === 'user'));
-  assert.match(context, /Recent completed media receipts/);
+  assert.match(context, /Recent media receipts/);
   assert.match(context, /D:\/fresh-cat.png/);
   assert.match(context, /White scarf cat/);
   assert.equal(executions, 1, 'context refresh never invokes a generation or rewrites a proposal');
@@ -124,7 +128,7 @@ test('native next-turn model context refreshes media facts without selecting ref
   assert.ok(compacted.events.some(e => e.type === 'compaction/end'));
   await driver.prompt(s.sessionId, 'Use the original and edited images as character references.');
   const restored = JSON.stringify(requests.at(-1).messages.filter(m => m.role === 'user'));
-  assert.match(restored, /Recent completed media receipts/, 'required native context is restored after compaction');
+  assert.match(restored, /Recent media receipts/, 'required native context is restored after compaction');
   assert.match(restored, /D:\/fresh-cat.png/);
   assert.match(restored, /White scarf cat/);
   assert.match(restored, /Current admitted media request.*Use the original and edited images as character references/,
@@ -132,7 +136,7 @@ test('native next-turn model context refreshes media facts without selecting ref
   const after = await driver.history(s.sessionId);
   const compactEnd = after.events.findLast(e => e.type === 'compaction/end').seq;
   assert.ok(after.events.some(e => e.seq > compactEnd && e.type === 'user/message' &&
-    e.data.source?.form === 'snapshot' && e.data.content.some(c => c.text?.includes('Recent completed media receipts'))),
+    e.data.source?.form === 'snapshot' && e.data.content.some(c => c.text?.includes('Recent media receipts'))),
   'the receipt context must be re-admitted after compaction, not merely retained in an old request');
   const other = await driver.createSession(config);
   await driver.prompt(other.sessionId, 'Hello.');

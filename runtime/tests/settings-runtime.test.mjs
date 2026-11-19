@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { mkdtemp, mkdir, realpath } from "node:fs/promises";
+import { mkdtemp, mkdir, realpath, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import http from "node:http";
@@ -10,6 +10,36 @@ import { CODEPRO_ROLES } from "../roles.mjs";
 import { commonQueryMetadata } from "../common-query-settings.mjs";
 
 const ext = (name) => `_goose/unstable/${name}`;
+
+test('background settings writes preserve history without cloning it into each transaction', async t => {
+  const measurements = [];
+  const f = await fixture({ onTiming: value => measurements.push(value) });
+  t.after(() => rm(path.dirname(f.store.directory), { recursive: true, force: true }));
+  const history = Array.from({ length: 2048 }, (_, id) => ({
+    sessionUpdate: 'agent_message_chunk', content: { type: 'text', text: `${id}: ${'saved history '.repeat(64)}` },
+  }));
+  await f.store.updateSession(f.session.id, row => { row.updates = history; });
+  measurements.length = 0;
+
+  await f.compat.request(ext('preferences/save'), {
+    expectedRevision: 0, values: [{ key: 'gooseThinkingEffort', value: 'high' }],
+  });
+  await assert.rejects(f.compat.request(ext('preferences/save'), {
+    expectedRevision: 0, values: [{ key: 'gooseThinkingEffort', value: 'low' }],
+  }), /Preferences changed/);
+  await f.compat.request(ext('config/upsert'), { key: 'test-setting', value: 'saved' });
+  await f.compat.request(ext('config/remove'), { key: 'test-setting' });
+  await f.compat.request(ext('preferences/remove'), { expectedRevision: 1, keys: ['gooseThinkingEffort'] });
+
+  const commits = measurements.filter(value => value.operation === 'commit');
+  assert.equal(commits.filter(value => value.committed).length, 4);
+  assert.ok(commits.every(value => value.roots && !value.roots.includes('sessions')),
+    'settings-only transactions must not clone and serialize the complete history');
+  const reopened = await openStore(f.store.directory);
+  assert.deepEqual(reopened.readSession(f.session.id).updates, history);
+  assert.equal(reopened.read(['revision']).revision, 2);
+  assert.equal(reopened.read(['config']).config['test-setting'], undefined);
+});
 
 test("common query settings reach the standalone tool without leaking other config", async () => {
   const f = await fixture();
@@ -41,11 +71,11 @@ test("common query settings reach the standalone tool without leaking other conf
   await f.compat.request(ext("config/upsert"), { key: "unrelated", value: "new" });
   assert.equal(f.compat.initialized.has(f.session.id), false, "other configuration retains capability invalidation");
 });
-async function fixture({ codepro = false } = {}) {
+async function fixture({ codepro = false, onTiming } = {}) {
   const directory = await realpath(await mkdtemp(
     path.join(tmpdir(), "codebuddy-settings-runtime-"),
   ));
-  const store = await openStore(path.join(directory, "data"));
+  const store = await openStore(path.join(directory, "data"), { onTiming });
   const cwd = path.join(directory, "project");
   await mkdir(cwd);
   const provider = (id) => ({
@@ -88,8 +118,9 @@ async function fixture({ codepro = false } = {}) {
   const created = [];
   const driver = {
     createSession: async (options) => {
-      const { mcpImageFallback, mcpRequestMetadata, restoreSubagentProvider, mainAgentRole, ...serializableOptions } = options.options;
+      const { mcpImageFallback, mcpRequestMetadata, prefersMcpImageObserver, restoreSubagentProvider, mainAgentRole, ...serializableOptions } = options.options;
       assert.equal(typeof mcpImageFallback, "function");
+      assert.equal(typeof prefersMcpImageObserver, 'function');
       created.push(
         structuredClone({
           ...options,

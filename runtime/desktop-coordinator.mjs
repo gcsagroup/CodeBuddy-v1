@@ -8,6 +8,7 @@ export const desktopDirectory = () => process.env.CODEBUDDY_DESKTOP_CONTROL_DIRE
   join(process.env.LOCALAPPDATA || homedir(), 'CodeBuddy', 'desktop-control-v1');
 export const isDesktopTool = name => /^mcp__qwen_computer__(open_path|list_apps|get_app_state|click|press_key|type_text|drag|scroll|set_value|perform_secondary_action)$/.test(name);
 const pausedMessage = 'DESKTOP_PAUSED: 电脑操作已暂停，原任务未取消。继续能够独立完成的思考和非桌面工作，不必结束整个任务；如果下一步必须使用电脑，再说明受阻部分。不添加恢复提示。不要自行解除暂停或重放结果未知的动作。';
+const unverifiedActionMessage = ' 本次操作已交给执行器，但中断后没有可用的结果确认：可能全部完成、部分完成或尚未生效。只能报告“结果未知”，不能声称“未派发”“未写入”或“内容未变”，也不能声称成功。操作前的值只是历史观察，不是当前值；不要重复派发，恢复后先重新观察实际内容。';
 const staleMessage = 'DESKTOP_OBSERVATION_EXPIRED: 控制权已变更。未执行本次操作；先重新观察目标窗口，再决定下一步，不要重放之前结果未知的操作。';
 const stoppedMessage = 'DESKTOP_STOPPED: 本轮电脑控制已被打断，整个任务没有停止。本次桌面动作可能部分完成；本轮不要再调用电脑工具，也不要换用脚本或其他输入方式。继续能够独立完成的思考和非桌面工作；只有剩余步骤必须使用电脑时，简要说明已完成和未完成部分，不反复重试或声称全部完成。不要求用户点击恢复按钮，不重放结果未知的动作。';
 const unavailableMessage = 'DESKTOP_UNAVAILABLE: 电脑控制连接的身份校验未通过，本轮不再使用电脑工具。本次未派发输入；不要重试或改用脚本输入。整个任务继续完成其他独立工作，简要说明受阻部分，不添加恢复提示。';
@@ -198,12 +199,15 @@ export class DesktopCoordinator {
     if (turn.withdrawn) throw controlError('withdrawn', 'DESKTOP_WITHDRAWN: 用户已退出本轮电脑控制排队；原任务保留，继续独立的非桌面工作。');
     const title = tool.arguments?.window_title;
     if (title !== undefined) {
-      if (!['mcp__qwen_computer__list_apps', 'mcp__qwen_computer__get_app_state', 'mcp__qwen_computer__open_path'].includes(tool.name)
-        || typeof title !== 'string' || (title !== '' && !title.trim()))
+      if (typeof title !== 'string' || (title !== '' && !title.trim()))
         throw Error('Declare the exact requested window_title on the first desktop discovery call.');
-      if (turn.windowTitle !== undefined && title !== turn.windowTitle)
+      if (turn.windowTitle === undefined) {
+        if (!['mcp__qwen_computer__list_apps', 'mcp__qwen_computer__get_app_state', 'mcp__qwen_computer__open_path'].includes(tool.name))
+          throw Error('Declare the exact requested window_title on the first desktop discovery call.');
+        turn.windowTitle = title;
+      } else if (title !== turn.windowTitle) {
         throw Error('The window title for this turn is already bound. No input dispatched.');
-      turn.windowTitle = title;
+      }
     }
     mkdirSync(this.directory, { recursive: true });
     if (!this.timer) {
@@ -281,12 +285,20 @@ export class DesktopCoordinator {
       }
       this.publish();
       if (turn.desktopStopped) throw controlError('stopped', turn.failureMessage ?? stoppedMessage);
-      if (this.pauseRevision() !== null) { turn.notifiedPause = true; throw controlError('paused', pausedMessage + ' 本次已派发动作的结果尚未核对，不要重复派发。'); }
+      if (this.pauseRevision() !== null) throw controlError('paused', pausedMessage);
       return result;
     } catch (error) {
       this.publish();
       if (turn.desktopStopped) throw controlError('stopped', turn.failureMessage ?? stoppedMessage);
-      if (this.pauseRevision() !== null) { turn.notifiedPause = true; throw controlError('paused', pausedMessage + ' 已派发动作可能部分完成，不要重复派发。'); }
+      if (this.pauseRevision() !== null) {
+        // Once an in-flight result is lost, a model refresh must not wait for a
+        // resume inside the same turn. Only fresh user input can start again.
+        turn.desktopStopped = true;
+        turn.failureMessage = stoppedMessage + unverifiedActionMessage;
+        const stopped = controlError('stopped', turn.failureMessage);
+        turn.desktopAbort.abort(stopped);
+        throw stopped;
+      }
       throw error;
     } finally {
       turn.inFlight--;

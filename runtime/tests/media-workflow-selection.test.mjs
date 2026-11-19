@@ -65,7 +65,7 @@ test('a multi-image turn concludes only on the requested saved count and only fo
   assert.equal(await eligible(result), false);
 });
 
-test('image submission requires an interpreted count and rejects malformed counts', async () => {
+test('malformed optional image counts disable direct delivery without blocking a valid workflow', async () => {
   for (const count of [undefined, -1, '3', 1.5, 3, null]) {
     const choice = { workflow_id: workflows[0].id, mode: workflows[0].mode, reason: 'fixture', image_count: count, images_only: true };
     const f = fixture({chunks: [
@@ -73,8 +73,12 @@ test('image submission requires an interpreted count and rejects malformed count
       {type: 'finish', reason: {kind: 'tool-calls'}},
     ]});
     const selection = f.select({ kind: 'image' });
-    if (count === 3 || count === null) assert.equal((await selection).receipt.image_count, count);
-    else await assert.rejects(selection, /image count/);
+    const receipt = (await selection).receipt;
+    assert.equal(receipt.image_count, count === 3 ? 3 : null);
+    if (count !== 3) {
+      assert.equal(receipt.images_only, false);
+      assert.equal(receipt.single_media_only, false);
+    }
   }
 });
 
@@ -125,7 +129,13 @@ test('invalid, incomplete, missing and action responses do not authorize generat
 
 test('the selected workflow cannot silently change the proposed mode or reference form', async () => {
   const f = fixture();
-  await assert.rejects(f.select({ workflows: workflows.map(w => ({ ...w, compatible: false })) }), /incompatible with the proposed mode/);
+  await assert.rejects(f.select({ workflows: workflows.map(w => ({ ...w, compatible: false })) }), /incompatible with the proposed mode.*generate_video.*mode="text_to_video".*search_mcp_tools/);
+});
+
+test('reference overflow explains counts, submission state and recovery without silently dropping inputs', async () => {
+  const f = fixture();
+  await assert.rejects(f.select({ referenceCount: 2, workflows: workflows.map(w => ({ ...w, compatible: false, reference_slots: 1 })) }),
+    /最多支持 1 张.*提供了 2 张.*尚未上传参考图或提交生成.*已有结果保留.*不能擅自丢弃图片/);
 });
 
 test('aborted requests stop before the auxiliary model is called', async () => {

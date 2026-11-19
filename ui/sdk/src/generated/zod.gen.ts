@@ -2167,7 +2167,16 @@ export const zRecipeSettingsDto = z.object({
   temperature: z.number().nullish(),
   max_turns: z.number().int().gte(0).nullish(),
   goose_thinking_effort: z
-    .enum(["none", "minimal", "low", "medium", "high", "xhigh", "max"])
+    .enum([
+      "default",
+      "none",
+      "minimal",
+      "low",
+      "medium",
+      "high",
+      "xhigh",
+      "max",
+    ])
     .nullish(),
 });
 

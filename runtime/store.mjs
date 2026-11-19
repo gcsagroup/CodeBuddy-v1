@@ -6,6 +6,26 @@ import { randomUUID } from "node:crypto";
 import { performance } from "node:perf_hooks";
 import { isDeepStrictEqual } from "node:util";
 
+function* writeChunks(chunks) {
+  const limit = 1024 * 1024;
+  let pending = [];
+  let size = 0;
+  for (const chunk of chunks) {
+    if (size && size + chunk.length > limit) {
+      yield Buffer.concat(pending, size);
+      pending = [];
+      size = 0;
+    }
+    if (chunk.length >= limit) {
+      yield chunk;
+    } else {
+      pending.push(chunk);
+      size += chunk.length;
+    }
+  }
+  if (size) yield Buffer.concat(pending, size);
+}
+
 export async function openStore(dataDir, { replaceFile = rename, defaultModel, onTiming, replaceDeletionFile } = {}) {
   await mkdir(dataDir, { recursive: true });
   const file = path.join(dataDir, "state.json");
@@ -36,7 +56,7 @@ export async function openStore(dataDir, { replaceFile = rename, defaultModel, o
       state.providers.push({
         id: defaultModel.providerId, engine: 'openai', displayName: 'CodeBuddy LAN',
         apiUrl: defaultModel.baseUrl, basePath: null, requiresAuth: false,
-        models: [defaultModel.modelId], contextWindows: { [defaultModel.modelId]: defaultModel.contextWindow },
+        models: [...new Set([defaultModel.modelId, defaultModel.visionModelId].filter(Boolean))], contextWindows: { [defaultModel.modelId]: defaultModel.contextWindow },
         supportsStreaming: true, preservesThinking: true, catalogProviderId: null,
         secret: null, headersProtected: null,
       });
@@ -69,7 +89,9 @@ export async function openStore(dataDir, { replaceFile = rename, defaultModel, o
       state.defaults = { providerId: defaultModel.providerId, modelId: defaultModel.modelId };
       state.modelRouting = {
         version: 2, advancedRoutingEnabled: false, routes: [], maxParallelCoders: 1,
-        visionRoute: { enabled: true, mode: 'auto', ...state.defaults },
+        visionRoute: defaultModel.visionModelId
+          ? { enabled: true, mode: 'always', providerId: defaultModel.providerId, modelId: defaultModel.visionModelId }
+          : { enabled: true, mode: 'auto', ...state.defaults },
       };
       if (defaultModel.imageInput === true) {
         state.modelCapabilities = { version: 1, overrides: [
@@ -190,7 +212,9 @@ export async function openStore(dataDir, { replaceFile = rename, defaultModel, o
             // A rename protects readers, but cannot preserve an unflushed file
             // across a system crash. Every replacement contains configuration
             // and history, even when this caller changed only one small root.
-            await writeFile(tmp, serialized, { mode: 0o600, flush: true });
+            // Batch small cached fragments to avoid a filesystem write per
+            // session or separator. Large cached buffers need no extra copy.
+            await writeFile(tmp, writeChunks(serialized), { mode: 0o600, flush: true });
           } finally {
             measure('write_ms');
           }

@@ -47,6 +47,7 @@ export async function restoreMissingTitles(host) {
   const native = await host.driver.listSessions();
   const titles = new Map(native.map(row => [row.sessionId, row.projections?.values?.title]));
   for (const original of candidates) {
+    if (host.closing) break;
     if (!titles.has(original.id)) continue;
     let title = titles.get(original.id);
     if (!title) {
@@ -60,7 +61,17 @@ export async function restoreMissingTitles(host) {
       }
     }
     if (title && !isPlaceholderTitle(title)) {
-      await host.store.updateSession(original.id, saved => applyTitle(saved, original, title));
+      let updated;
+      await host.store.updateSession(original.id, saved => {
+        const previous = saved.title;
+        if (!host.closing) applyTitle(saved, original, title);
+        if (saved.title !== previous) updated = saved.title;
+      });
+      if (updated) for (const connection of host.connections ?? []) {
+        if (!connection.background) connection.notify('session/update', {
+          sessionId: original.id, update: { sessionUpdate: 'session_info_update', title: updated },
+        });
+      }
     }
   }
 }

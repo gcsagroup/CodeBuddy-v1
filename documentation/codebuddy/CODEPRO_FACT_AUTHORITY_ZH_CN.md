@@ -1,4 +1,22 @@
 <!-- 2026-11-16 已批准：对话 sidebarPlacement 由 Compat 唯一写入，导航只消费；归属与 cwd 分离。目录切换沿用原有 Harness owner 和运行中拒绝规则。详见 docs/conversation-drag-drop.zh-CN.md。 -->
+## 2026-11-19 已批准：Mac 可选单字段聚焦写入
+
+主模型选择当前已观察字段和值；Go 只校验并透传可选 `set_value.focus`，Swift 唯一持有聚焦、聚焦后窗口/控件/旧值/实际焦点/输入版本/租约复核与真实写入回执。聚焦触发的应用变化不得跳过重新校验。失败停止，无坐标猜测、键盘回退、整表批量或动作重放。旧调用不变，不新增持久化状态；宿主继续持有 Esc、断线停控及新输入恢复权威。见 [协议与迁移边界](../../docs/mac-focused-value.zh-CN.md)。
+
+繁體：原生層在單欄聚焦後重新核對再寫入，主模型仍選欄位，宿主仍控制接管與恢復。English: The model selects one field; native code revalidates after focusing before writing. Host takeover and resume authority are unchanged.
+
+## 2026-11-19 已批准：Mac 当前 PDF 只读落盘回执
+
+Mac 原生观察器从已匹配窗口的 AXDocument 读取本地 PDF，用系统 PDFKit 返回磁盘字段快照；模型不能提供另一个路径。原生层持有文件身份、读前读后稳定性及读取失败事实，Go 只投影 `pdf_document`。界面控件值与磁盘值分别保留，主模型比较目标、保留字段和真实回执；不新增自动保存、提交或任务完成裁决。只读字段快照不证明远端同步成功。旧观察调用兼容，无新持久化状态。
+
+繁體：原生層只讀目前視窗 AXDocument 指定的本機 PDF，分開回傳磁碟與介面值，不自動儲存或提交。English: The native observer owns read-only disk evidence for the local PDF identified by the matched window's AXDocument. Go projects it; the model compares values. No automatic save, submit, new persistence, or completion authority is introduced.
+
+## 2026-11-19 已批准：Mac FORMS 英文评分标签投影
+
+主模型持有字段含义、英文标签翻译与用户修改范围的判断；Go MCP 仅把可选 `form_labels` 绑定到当前窗口快照中的控件，Swift 在评分前核对窗口、所有带名称或值的节点及全部可编辑字段的身份、标签、值与几何。空白非编辑装饰节点不构成语义上下文；字段原生路径、旧值和附近文字仍须一致。原始中文标签、当前值和用户填写值不被投影改写。FluidUse/CUA-S1-FORMS 只持有本地推荐与概率，不持有输入、授权或完成事实。未映射字段不评分；过期或无效投影只降级推荐，仍返回新观察。既有无投影调用保留原行为，不新增持久状态或输入权限。详见 `docs/mac-form-label-projection.zh-CN.md`。
+
+繁體：主模型翻譯評分標籤，宿主綁定觀察、原生層核對；FORMS 僅推薦，不改原值或權限。English: The main model owns semantic translation; Go binds the current observation and Swift validates it. Local FORMS owns recommendations only; original values, input permissions and completion ownership remain unchanged.
+
 ## 2026-11-17 已批准：提供商 API 路径开关
 
 `runtime/providers.mjs` 统一解析模型发现、验证和执行的路径。提供商配置 `autoAppendApiVersion` 为 false 时忽略自定义 `basePath`，保留 API 地址自身路径，仅追加协议端点，不自动补 `/v1`；true 沿用自定义路径及版本补齐规则。UI 新建默认关闭，已有配置缺省字段按 true 读取，旧客户端更新保留已保存值，不批量迁移已有连接。完整 Chat Completions/Responses 地址不重复追加端点，Ollama 的原生模型发现仍使用 `/api/tags`。Google 官方兼容端点另通过适配器的 `supportsStore: false` 合同禁用不支持的字段；不按模型名称推断服务能力，不修改 Harness 内核。
@@ -433,6 +451,12 @@ English: Explicit GitHub MCP connection verifies the current CLI account and fix
 
 Harness 继续持有工具发现、审批、执行与完成判断。browser_control 经现有 ACP 请求连接到 Electron 工作台；Electron 持有当前窗口、会话、真实工作区路径和 WebContentsView 身份，只接受有限操作，不暴露全局调试端口。页面观察与输入回执分别返回；派发成功不等于页面行为已成功。后台会话的浏览器标签由现有工作台状态保存，不能转移到另一会话。
 
+2026-11-17 电脑控制方案内的可选观察扩展：BrowserController 持有观察 ID、分页候选及节点语义，调用者只能引用当次兼容候选；导航、重新观察或派发使旧候选失效。原生 appSnapshot 持有字段候选，结构化字段复用现有 field token 与 set_value 校验，不新增执行者。主模型继续判断，CUA 只提供识图证据；候选不是授权或完成事实。旧节点调用与旧结果消费者保持兼容，不迁移持久化状态。
+
+Windows 默认观察使用控件视图；原生快照输出 `desktop_observation.view=fields`，MCP 桥仅消费该观察方式，将控件文本交给主模型，原始截图留在回执。没有输入框不等于必须识图；主模型在控件证据不足时显式请求 `full`。旧客户端需要完整视觉观察时显式指定 `full`，Mac 默认不变。繁體：觀察方式由原生快照持有，橋接層只消費，原圖保留。English: Native snapshots own the observation mode; the bridge projects control text while preserving the frame. Explicit full observations retain visual inference.
+
+繁體：瀏覽器控制器持有觀察與候選生命週期；原生快照的欄位候選沿用 field token。主模型判斷、CUA 識圖，權限與完成判定不變。English: BrowserController owns observation-bound candidates; native snapshots expose existing field tokens. The main model decides and CUA perceives. Approval and completion ownership are unchanged; legacy callers remain compatible.
+
 独立浏览器与用户浏览器使用锁定版本的 Microsoft Playwright MCP，分别消费隔离配置和官方扩展连接；用户浏览器由用户选择并确认标签页，不复制日常浏览器 profile。工作区 HTML 预览只服务选中文件同目录的公开网页资源，关闭标签或宿主时释放服务。旧配置和历史不迁移；设置中移除“工具与连接”入口不删除用户数据或改变工具箱配置。
 
 繁體：Harness 持有執行與審批；Electron 管理會話內嵌頁面，Playwright MCP 管理獨立或使用者選擇的瀏覽器。English: Harness owns execution and approval; Electron owns embedded session pages and Playwright MCP owns isolated or user-selected browsers.
@@ -471,6 +495,16 @@ CodeBuddy 继续持有连接鉴权、凭据保护、工具启用与明确禁用�
 设置中的存储管理页面、导航、手动缓存清理、空间统计和迁移 IPC 及 worker 已移除。runtime/storage-management.cjs 只保留已有数据位置和旧迁移记录的兼容读取与启动占用检查；安装器不选择、迁移或覆盖数据位置。默认 ~/.CodeBuddy，已保存位置优先，不因功能移除重置或删除数据。Harness 继续拥有会话、执行和任务状态；既有 Electron 自动缓存维护不变。
 
 繁體：儲存管理入口與操作已移除，保留既有資料位置相容讀取，不刪除資料。English: Storage management actions are removed; existing data locations remain compatible and no user data is deleted.
+
+## 2026-11-19 已批准：模型思考能力读取与切换
+
+Provider 发现层仍为能力唯一 owner；模型切换通过 model-settings/read 一次返回当前连接及模型的档位、默认值、来源和未知/不可调状态。UI 不将接口通用 OpenAPI 枚举当作模型能力，也不重新推断档位。模型声明优先；缺少 owned_by 的网关可由 OpenAPI 中明确的聊天模板路由合同识别无生成探测。连接身份缓存与并发去重继续复用，显式重新检测使现有发现缓存失效，不在启动时遍历所有模型。
+
+显式请求 default 表示不覆盖服务端思考参数，与 none 关闭不同。2026-11-19 用户追加批准：模型菜单不再为已确认支持关闭的模型额外显示“服务默认”，以“无”作为最低档；未设置、旧 default 或失效偏好由 model-settings owner 回退为 none，既有有效选择保留。明确不支持思考的模型只显示“无”而不发送控制参数；未知或不能关闭的模型仍保留真实的服务默认语义，不伪造关闭。现有 thinkingEfforts 持久化容器及 Recipe 字段继续复用，不迁移旧记录；Recipe 的显式 default 仍表示省略覆盖。当前正在执行的请求不变。Harness 仍负责序列化，前端只消费结构化结果。回退旧版本前需将使用 default 的 Recipe 改回既有可用档位或清除覆盖。
+
+繁體：Provider 仍是模型能力唯一權威；切換以單次模型快照讀取，快取命中不重複探測。OpenAPI 通用列舉不是模型能力。已確認能關閉的模型以「無」起步，未設定、舊 default 或失效偏好由既有 owner 回退至 none，有效選擇保留。未知或不能關閉的模型不偽造關閉；明確不支援思考的模型只顯示「無」。舊資料不遷移，Recipe 的 default 仍省略覆寫，執行中的請求不變。
+
+English: Provider discovery remains the sole capability owner. Model switching consumes one scoped snapshot and reuses the connection cache. Generic OpenAPI enums are candidates, not model capabilities. For confirmed off-capable models, the existing settings owner resolves unset, old default, or stale preferences to none; valid selections remain. The menu starts at None without an extra service-default slot. Unknown and always-on models do not acquire a fabricated off control; explicitly non-reasoning models display None without sending controls. No stored records are migrated. Recipe default still omits overrides, and active requests retain their snapshots. Older Recipe consumers do not accept the default literal.
 
 ## 2026-10-19 已批准：安装版手动配置与模型能力读取
 

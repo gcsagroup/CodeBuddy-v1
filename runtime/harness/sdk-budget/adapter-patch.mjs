@@ -20,7 +20,7 @@ export const adapterPatch = {
       return source.slice(source.indexOf(start), source.indexOf(end));
     };
     replace('import { homedir } from "node:os";', `import { homedir } from "node:os";
-import { countVllmInput, requestBudgetChannel, streamingOutputChannel } from ${JSON.stringify(new URL('./vllm-count.mjs', import.meta.url).href)};
+import { countVllmInput, requestBudgetChannel, streamingOutputChannel, observeReasoningControls } from ${JSON.stringify(new URL('./vllm-count.mjs', import.meta.url).href)};
 import { gemmaCallTransport } from ${JSON.stringify(new URL('../gemma-call-transport.mjs', import.meta.url).href)};
 import { gemmaToolResponseStop } from ${JSON.stringify(new URL('../gemma-response.mjs', import.meta.url).href)};
 import { randomUUID as requestFitId } from "node:crypto";
@@ -129,6 +129,7 @@ ${setup.replaceAll('\t\t\t', '\t\t')}${projection.replaceAll('\t\t\t\t', '\t\t')
     replace('\t\t\t\t\theaders: requestHeaders(profile.headers)\n', `\t\t\t\t\theaders: requestHeaders(profile.headers),
 \t\t\t\t\t...(recovery ? {fetch: recovery.fetch} : {}),
 \t\t\t\t\tonPayload: payload => {
+\t\t\t\t\t\tobserveReasoningControls(payload);
 \t\t\t\t\t\tpayload = gemmaToolResponseStop(payload, model);
 \t\t\t\t\t\tif (profile.vllmCount && model.api === "openai-completions" && payload.stream_options?.include_usage)
 \t\t\t\t\t\t\tpayload = { ...payload, stream_options: { ...payload.stream_options, continuous_usage_stats: true } };

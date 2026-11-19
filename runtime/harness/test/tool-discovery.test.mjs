@@ -318,6 +318,13 @@ test('MCP discovery reduces first request, loads callable schemas, preserves per
  assert.ok(calls.includes('tool_137'));
  assert.match(JSON.stringify(requests.at(-1).messages),/SERVER_GUIDANCE_ONLY_WHEN_LOADED/);
  assert.equal(requests.at(-1).tools.filter(x=>x.function.name.startsWith('mcp__')).length,1);
+ const afterDiscovery=requests.at(-1);
+ const definition=afterDiscovery.tools.find(tool=>tool.function.name==='mcp__catalog__tool_137').function;
+ assert.match(definition.description,/schema notes/);
+ assert.deepEqual(definition.parameters,{type:'object',properties:{}});
+ const receipts=afterDiscovery.messages.filter(message=>message.role==='tool');
+ assert.match(JSON.stringify(receipts),/mcp__catalog__tool_137/);
+ assert.doesNotMatch(JSON.stringify(receipts),/schema notes/);
  const b=await create();await driver.prompt(b.sessionId,'hello');
  assert.equal(requests.at(-1).tools.filter(x=>x.function.name.startsWith('mcp__')).length,0);assert.equal(initializations,1);
  const count=calls.length;

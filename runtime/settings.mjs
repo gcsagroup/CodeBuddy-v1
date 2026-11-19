@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto';
 import { isDeepStrictEqual } from 'node:util';
-import { invalid, requireString, providerStatus, readProvider, saveProvider, contextProfile, outputBudgetProfile, resolvedInventory, resolvedModelInfo, resolveImageCapability, thinkingProfile, discover } from './providers.mjs';
+import { invalid, requireString, providerStatus, readProvider, saveProvider, contextProfile, outputBudgetProfile, resolvedInventory, resolvedModelInfo, resolveImageCapability, thinkingProfile, discover, isBundledVisionModel, invalidateModelMetadata } from './providers.mjs';
 import { applyModelThinking, modelThinkingOptions, THINKING_EFFORTS } from './model-settings.mjs';
 import { protectSecret, revealSecret } from './secrets.mjs';
 import { extensionName, extensionConfigKey, extensionSnapshotChanged } from './session-extensions.mjs';
@@ -191,7 +191,11 @@ export class RuntimeSettings {
           if (!provider) throw fail('provider_unavailable', '备用识图连接尚未配置或已不可用，请重新选择连接。');
           let available;
           try { available = await discover(provider, provider, { timeoutMs: 5000 }); }
-          catch { throw fail('capability_unavailable', '暂时无法核实备用识图模型，请检查连接后重试；原设置未更改。'); }
+          catch (error) {
+            // The LAN gateway can return 503 on its shared list while inference for CUA is healthy.
+            if (error.data?.httpStatus === 503 && isBundledVisionModel(provider, modelId)) available = [modelId];
+            else throw fail('capability_unavailable', '暂时无法核实备用识图模型，请检查连接后重试；原设置未更改。');
+          }
           if (!available.includes(modelId)) throw fail('model_unavailable', '所选备用识图模型已不在服务列表中，请重新选择。');
           const capability = await this.request('model-capabilities/resolve', { providerId, modelId });
           if (capability.imageInput !== 'supported') throw fail('image_not_supported', '所选备用模型尚未确认支持图片，请选择支持图片的模型。');
@@ -246,6 +250,23 @@ export class RuntimeSettings {
         await this.changed(); return { message: 'Saved' };
       }
       case 'providers/config/status': return { statuses: this.store.read(["providers"]).providers.filter(x => !p.providerIds?.length || p.providerIds.includes(x.id)).map(providerStatus) };
+      case 'model-settings/read': {
+        const provider = this.store.read(['providers']).providers.find(x => x.id === p.providerId);
+        if (!provider || !provider.models.includes(p.modelId)) throw invalid('Unknown model connection');
+        if (p.refresh === true) invalidateModelMetadata(provider);
+        await resolvedModelInfo(provider, p.modelId);
+        const current = this.store.read(['providers']).providers.find(x => x.id === p.providerId);
+        if (!current || !isDeepStrictEqual({ ...current, thinkingEfforts: undefined }, { ...provider, thinkingEfforts: undefined }))
+          throw invalid('Model connection changed; reload model settings');
+        const profile = thinkingProfile(provider, p.modelId);
+        const saved = current.thinkingEfforts?.[p.modelId];
+        const thinking = modelThinkingOptions(profile, saved, this.store.read(['preferences']).preferences?.gooseThinkingEffort);
+        const state = profile.reasoningEfforts === false ? 'unsupported' : thinking.options.length ? 'supported' : 'unknown';
+        const stalePreference = saved != null && saved !== 'default' && !thinking.options.includes(saved);
+        return { providerId: p.providerId, modelId: p.modelId, ...contextProfile(provider, p.modelId),
+          thinking: { ...thinking, options: state === 'unsupported' ? ['none'] : thinking.options.includes('none') ? thinking.options : ['default', ...thinking.options],
+            value: state === 'unsupported' ? 'none' : state === 'supported' ? thinking.value ?? 'default' : 'default', state, stalePreference } };
+      }
       case 'providers/config/read': {
         const provider = this.store.read(["providers"]).providers.find(x => x.id === p.providerId); if (!provider) throw invalid('Unknown provider');
         await resolvedInventory(provider);
@@ -272,7 +293,7 @@ export class RuntimeSettings {
               await resolvedModelInfo(provider, model);
               const profile = thinkingProfile(provider, model);
               const options = modelThinkingOptions(profile);
-              if (!THINKING_EFFORTS.includes(value) || !options.options.includes(value)) throw invalid('Selected thinking effort is unavailable for this model');
+              if (!THINKING_EFFORTS.includes(value) || value !== 'default' && !options.options.includes(value)) throw invalid('Selected thinking effort is unavailable for this model');
               applyModelThinking(profile, value);
             }
             updates.set(model, value);
@@ -287,7 +308,7 @@ export class RuntimeSettings {
               if (value === null) delete target.thinkingEfforts[model];
               else Object.defineProperty(target.thinkingEfforts, model, { value, enumerable: true, writable: true, configurable: true });
             }
-          });
+          }, ['providers']);
           // Preferences apply on the next prepared turn; active native requests keep their snapshot.
           await this.changed({ kind: 'model-thinking' });
           return { status: providerStatus(provider), refresh: { started: [] } };
@@ -368,7 +389,7 @@ export class RuntimeSettings {
           s.capabilityUsage ??= {}; const key = createHash('sha256').update(JSON.stringify([p.kind, p.capabilityId])).digest('hex');
           s.capabilityUsage[key] = { kind: p.kind, capabilityId: p.capabilityId, successCount: (s.capabilityUsage[key]?.successCount ?? 0) + 1, lastSuccessAt: new Date().toISOString(), recentResult: String(p.recentResult ?? ''), reference: p.reference ?? null };
           s.capabilityUsageEvents.push(p.eventId); return { recorded: true };
-        });
+        }, ['capabilityUsage', 'capabilityUsageEvents'], { skipUnchanged: true });
       }
       default: return undefined;
     }

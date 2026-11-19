@@ -13,6 +13,18 @@ const call = (id, args) => ({ type: 'tool/call', data: { callId: id, name: 'pwsh
 const result = (id, isError = false) => ({ type: 'tool/result', data: { message: { toolCallId: id, isError, content: [{ type: 'text', text: isError ? 'aborted' : 'observed output' }] } } });
 const facts = text => JSON.parse(text.slice(text.indexOf('\n') + 1));
 
+test('tool-free completed turns share a prefix; queued input and interruptions retain provenance', () => {
+  const previous = n => [turn(n), turn(n, 'turn/end'), turn(n + 1)];
+  const context = (log, queuedWhileBusy = false) => executionReceiptContext({ log }, [], { boundaryOnly: true, queuedWhileBusy });
+  assert.equal(context([turn(1)]), '');
+  assert.equal(context(previous(1)), '');
+  assert.equal(context(previous(1)), context(previous(17)));
+  assert.equal(facts(context(previous(1), true)).inputOrigin, 'queued-while-busy');
+  const interrupted = previous(2);
+  interrupted[1].data.reason.kind = 'interrupted';
+  assert.equal(facts(context(interrupted)).previousTurn.terminalReason, 'interrupted');
+});
+
 test('compact receipts distinguish unfinished processes and preserve the previous turn across current actions', () => {
   assert.equal(processReceiptText({ kind: 'background', exitCode: 0 }), undefined);
   assert.equal(processReceiptText({ kind: 'foreground', exitCode: null, timedOut: true, signal: 'SIGTERM' }),

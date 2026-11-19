@@ -127,6 +127,26 @@ test('routing requires real configured models and preserves disabled combination
   await settings.request('codepro/model-routing/save', { config: invalid });
   assert.equal((await settings.request('codepro/model-routing/read', {})).config.routes[0].modelId, 'unavailable');
 });
+test('usage receipts preserve unrelated history and deduplicate concurrent records after reload', async t => {
+  const { dir, store } = await fixture(t);
+  const history = [{ id: 'other-chat', updates: [{ text: '中文历史🙂'.repeat(20000) }], messageCount: 1 }];
+  await store.update(s => { s.sessions = history; s.config = { keep: 'unchanged' }; });
+  const timings = [];
+  const scoped = await openStore(dir, { onTiming: event => timings.push(event) });
+  const settings = new RuntimeSettings(scoped, {});
+  const receipt = { eventId: 'same-tool-result', kind: 'external', capabilityId: 'computer', reference: 'tool:read' };
+  const results = await Promise.all([settings.request('capability-usage/record-success', receipt), settings.request('capability-usage/record-success', receipt)]);
+  assert.deepEqual(results, [{ recorded: true }, { recorded: false }]);
+  const reloaded = await openStore(dir);
+  assert.deepEqual(reloaded.read(['sessions']).sessions, history);
+  assert.deepEqual(reloaded.read(['config']).config, { keep: 'unchanged' });
+  assert.equal(Object.values(reloaded.read(['capabilityUsage']).capabilityUsage)[0].successCount, 1);
+  assert.deepEqual(reloaded.read(['capabilityUsageEvents']).capabilityUsageEvents, ['same-tool-result']);
+  const commits = timings.filter(event => event.operation === 'commit');
+  assert.ok(commits.every(event => !event.roots?.includes('sessions') && event.roots !== null), 'usage accounting must not clone every chat');
+  assert.equal(commits.filter(event => event.committed).length, 1, 'duplicate receipts do not rewrite history');
+});
+
 test('prompt settings, explicit model capabilities and usage receipts use original SDK shapes', async t => {
   const { settings } = await fixture(t);
   await settings.request('config/prompts/save', { name: 'system', content: 'fixture instructions' });

@@ -2,6 +2,25 @@ import { channel } from 'node:diagnostics_channel';
 
 export const requestBudgetChannel = channel('codebuddy.request-budget');
 export const streamingOutputChannel = channel('codebuddy.streaming-output-count');
+export const reasoningControlsChannel = channel('codebuddy.reasoning-controls');
+
+export function observeReasoningControls(payload) {
+  // Only allowlisted control values leave the final serialization boundary.
+  // Never publish messages, arbitrary template kwargs, URLs or credentials.
+  const allowed = new Set(['none', 'minimal', 'low', 'medium', 'high', 'xhigh', 'max']);
+  const effort = value => allowed.has(value) ? value : undefined;
+  const controls = {};
+  if (effort(payload.reasoning_effort)) controls.reasoning_effort = payload.reasoning_effort;
+  if (effort(payload.reasoning?.effort)) controls.reasoning = { effort: payload.reasoning.effort };
+  const kwargs = payload.chat_template_kwargs;
+  if (typeof kwargs?.enable_thinking === 'boolean' || effort(kwargs?.reasoning_effort)) controls.chat_template_kwargs = {
+    ...(typeof kwargs?.enable_thinking === 'boolean' ? { enable_thinking: kwargs.enable_thinking } : {}),
+    ...(effort(kwargs?.reasoning_effort) ? { reasoning_effort: kwargs.reasoning_effort } : {}),
+  };
+  if (Number.isSafeInteger(payload.thinking_token_budget) && payload.thinking_token_budget >= 0)
+    controls.thinking_token_budget = payload.thinking_token_budget;
+  reasoningControlsChannel.publish({ controls });
+}
 
 // vLLM's chat tokenizer renders messages, tool definitions and template kwargs.
 // Fields that select a different renderer cannot be silently treated as counted.

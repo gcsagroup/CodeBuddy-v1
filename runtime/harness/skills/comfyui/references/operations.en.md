@@ -10,7 +10,7 @@ Live tool schemas take precedence. These are CodeBuddy arguments, not raw HTTP p
 | Animate first frame | generate_video / image_to_video | One image_path |
 | Identity/object reference | generate_video / reference_to_video | 1–2 reference_images |
 
-Image generation derives its mode from reference_images. Video generation requires mode. Do not mix reference fields. R2V is not first/last-frame interpolation. The interface has no last_frame, audio-reference or video-reference argument; model capability does not add tool fields. Inputs must be regular workspace PNGs, ≤20 MiB and ≤16,777,216 pixels each. Resolved paths must remain inside the workspace.
+Image generation derives its mode from reference_images. Video generation requires mode. Do not mix reference fields. R2V is not first/last-frame interpolation. The interface has no last_frame, audio-reference or video-reference argument; model capability does not add tool fields. For ComfyUI, use original session-uploaded attachment paths directly, or regular workspace PNG/JPEG files, each at most 20 MiB. Do not copy or rename attachments. Other external files are rejected. Cloud routes still require workspace PNGs.
 
 ## Calls and tuning
 

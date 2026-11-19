@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import { replyToNoActionReview } from '../harness/test/review-fixture.mjs';
 import assert from 'node:assert/strict';
 import { createServer } from 'node:http';
-import { mkdtemp } from 'node:fs/promises';
+import { mkdtemp, readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { randomUUID } from 'node:crypto';
@@ -87,6 +87,12 @@ test('auxiliary title inference uses the conversation route and both sides witho
   assert.match(JSON.stringify(request.messages), /USER_FIRST_TITLE/);
   assert.match(JSON.stringify(request.messages), /ASSISTANT_TITLE_CONTEXT/);
   assert.equal(request.tools?.length ?? 0, 0);
+  const long = '长'.repeat(4000);
+  await f.driver.generateTitle(id, { user: 'USER_START' + long + 'USER_END', assistant: 'ANSWER_START' + long + 'ANSWER_END' });
+  const excerpts = JSON.stringify(f.requests.at(-1).messages);
+  for (const marker of ['USER_START', 'USER_END', 'ANSWER_START', 'ANSWER_END']) assert.ok(excerpts.includes(marker));
+  assert.ok(excerpts.length < long.length);
+
 });
 
 test('tool-only output and unavailable auxiliary inference use the native first-request title', async t => {
@@ -235,6 +241,24 @@ test('editing a failed first submission cuts before the first admitted request',
   const input = JSON.stringify(f.requests.at(-1).messages);
   assert.match(input, /USER_RETRY_FROM_START/);
   assert.doesNotMatch(input, /USER_FAILED_FIRST|USER_ADMITTED_AFTER_FAILURE/);
+});
+
+test('editing a rejected first upload works even when no native turn has ever started', async t => {
+  const f = await fixture(t), id = await f.create();
+  await f.store.update(state => state.sessions.find(item => item.id === id).updates.push({
+    sessionUpdate: 'user_message_chunk', messageId: 'rejected-upload', content: { type: 'text', text: 'USER_FAILED_UPLOAD' },
+    _meta: { goose: { messageId: 'rejected-upload', created: 1 } },
+  }));
+  assert.equal((await f.driver.history(id)).events.some(e => e.type === 'turn/start'), false);
+  await new ConversationEditing(f.store, f.driver).request('session/conversation/truncate', { sessionId: id, truncateFrom: 1 });
+  await f.setup(id);
+  await f.turn(id, 'USER_EDIT_AFTER_UPLOAD_FAILURE', 10);
+  assert.match(JSON.stringify(f.requests.at(-1).messages), /USER_EDIT_AFTER_UPLOAD_FAILURE/);
+  assert.doesNotMatch(JSON.stringify(f.requests.at(-1).messages), /USER_FAILED_UPLOAD/);
+  const png = await readFile(new URL('../../ui/desktop/src/pets/assets/red-panda/sprites.png', import.meta.url));
+  const files = await f.driver.referenceImageFiles(id, [{ data: png.toString('base64'), mediaType: 'image/png' }]);
+  await f.driver.prompt(id, [{ type: 'text', text: 'USER_EDIT_REFERENCE' }, ...files]);
+  assert.match(JSON.stringify(f.requests.at(-1).messages), /reference-1\.png/, 'Original-image receipt must belong to the edited native session');
 });
 
 test('CodePro editing requires idle owner cancellation and preserves source history if cancellation or commit fails', async t => {

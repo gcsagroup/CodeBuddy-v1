@@ -196,6 +196,39 @@ test('failed bridge startup never launches desktop and records a failed receipt'
   assert.equal(receipt.desktopPid, null);
 });
 
+test('independent preparation overlaps but both outputs gate backend startup', async t => {
+  const { root, options } = fixture(t);
+  const work = (name, other) => ({ cwd: root, args: ['-e', `
+    const fs=require('node:fs');
+    fs.writeFileSync('${name}.started','yes');
+    const timeout=setTimeout(()=>process.exit(9),3000);
+    const timer=setInterval(()=>{
+      if(fs.existsSync('${other}.started')) {
+        fs.writeFileSync('${name}.done','yes'); clearInterval(timer); clearTimeout(timeout);
+      }
+    },10);
+  `] });
+  options.commands.prepare = [[work('sdk','locales'),work('locales','sdk')]];
+  fs.writeFileSync(options.serverPath, `
+    const fs=require('node:fs');
+    if(!fs.existsSync('sdk.done')||!fs.existsSync('locales.done')) process.exit(8);
+  ` + fs.readFileSync(options.serverPath,'utf8'));
+  assert.equal(await startPreview(options), 0);
+  assert.ok(fs.existsSync(path.join(root,'desktop-observed.json')));
+});
+
+test('one failed preparation stops its concurrent sibling and never starts backend', async t => {
+  const { options } = fixture(t);
+  options.commands.prepare = [[
+    { cwd: options.repoRoot, args: ['-e', 'process.exit(3)'] },
+    { cwd: options.repoRoot, args: ['-e', 'setInterval(()=>{},1000)'] },
+  ]];
+  await assert.rejects(startPreview(options), /Preview preparation failed/);
+  const receipt = JSON.parse(fs.readFileSync(path.join(options.dataDirectory,'logs/preview/launch.json')));
+  assert.equal(receipt.runtimePid,null);
+  assert.equal(receipt.desktopPid,null);
+});
+
 for (const defect of ['missing', 'size', 'checksum']) {
   test(`artifact ${defect} failure stops backend and desktop before startup`, async (t) => {
     const { root, options, toolFile, toolBytes } = fixture(t);

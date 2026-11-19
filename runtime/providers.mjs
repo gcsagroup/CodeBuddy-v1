@@ -1,9 +1,10 @@
 import { desktopNetworkAllowed } from "./desktop-network-consent.mjs";
+import distributionModel from './default-model.json' with { type: 'json' };
 import { randomUUID, createHash } from "node:crypto";
 import { protectSecret, revealSecret } from "./secrets.mjs";
 import { DEFAULT_CONTEXT_WINDOW } from "./model-defaults.mjs";
 import { REASONING_BUDGETS, advertisesThinkingBudget } from './reasoning-budget.mjs';
-import { catalogModels, catalogThinkingProfile, catalogProviderForEndpoint, catalogModelIds, DEFAULT_OUTPUT_TOKENS } from './harness/model-catalog.mjs';
+import { catalogModels, catalogThinkingProfile, catalogProviderForEndpoint, catalogModelIds, catalogModelId, DEFAULT_OUTPUT_TOKENS } from './harness/model-catalog.mjs';
 
 const RESPONSE_LIMIT = 2 * 1024 * 1024;
 const REQUEST_TIMEOUT_MS = 30_000;
@@ -21,6 +22,62 @@ function modelContext(model) {
 }
 function modelOutput(model) {
   return [model?.maxOutputTokens, model?.max_output_tokens, model?.maxTokens, model?.max_tokens, model?.limit?.output, model?.top_provider?.max_completion_tokens].find(value => Number.isSafeInteger(value) && value > 0);
+}
+function declaredThinkingProfile(values, source, defaultValue) {
+  if (!Array.isArray(values) || !values.length || !values.every(value =>
+    ['none', 'minimal', 'low', 'medium', 'high', 'xhigh', 'max'].includes(value))) return undefined;
+  return { reasoningEfforts: Object.fromEntries(values.map(value => [value === 'none' ? 'off' : value, value])),
+    ...(values.includes(defaultValue) ? { thinkingDefault: defaultValue === 'none' ? 'off' : defaultValue } : {}),
+    thinkingSource: source,
+    compat: { thinkingFormat: 'openai', supportsReasoningEffort: true, supportsDeveloperRole: false } };
+}
+function modelDeclaredThinking(model) {
+  if (model?.supports_reasoning === false) return { reasoningEfforts: false };
+  return declaredThinkingProfile(model?.supported_reasoning_efforts ?? model?.reasoning_efforts ?? model?.reasoning?.efforts,
+    'models', model?.default_reasoning_effort);
+}
+function schemaNode(document, value, depth = 0) {
+  if (!value || typeof value !== 'object' || depth > 12) return {};
+  if (typeof value.$ref === 'string') {
+    if (!value.$ref.startsWith('#/')) return {}; // Never fetch a schema-supplied remote URL.
+    const target = value.$ref.slice(2).split('/').map(key => key.replace(/~1/g, '/').replace(/~0/g, '~'))
+      .reduce((node, key) => node && Object.hasOwn(node, key) ? node[key] : undefined, document);
+    return schemaNode(document, target, depth + 1);
+  }
+  return value;
+}
+function schemaEnum(document, value, depth = 0) {
+  if (depth > 12) return [];
+  const node = schemaNode(document, value);
+  if (Array.isArray(node.enum)) return node.enum.filter(value => typeof value === 'string');
+  return (node.anyOf ?? node.oneOf ?? []).flatMap(part => schemaEnum(document, part, depth + 1));
+}
+function schemaThinking(document, provider) {
+  const operation = document?.paths?.[endpoints(provider).completion.pathname]?.post;
+  const request = schemaNode(document, operation?.requestBody);
+  const body = schemaNode(document, request?.content?.['application/json']?.schema);
+  // Only the configured operation's request schema owns these parameter values.
+  const effort = schemaNode(document, body.properties?.reasoning_effort);
+  return declaredThinkingProfile(schemaEnum(document, effort), 'openapi', effort.default);
+}
+function schemaUrl(provider) {
+  return new URL(endpoints(provider).completion.pathname.replace(/(?:\/v1)?\/(?:chat\/completions|responses)$/, '/openapi.json'), provider.apiUrl);
+}
+function schemaTemplateBackend(document, provider) {
+  const completion = endpoints(provider).completion.pathname;
+  if (document?.paths?.[`${completion}/render`]?.post) return 'vllm';
+  const tokenize = completion.replace(/(?:\/v1)?\/chat\/completions$/, '/tokenize');
+  const operation = document?.paths?.[tokenize]?.post;
+  const request = schemaNode(document, operation?.requestBody);
+  const body = schemaNode(document, request?.content?.['application/json']?.schema);
+  // A gateway can hide owned_by. Only a declared chat tokenizer contract is
+  // evidence for the template dialect, never the model's display name.
+  if (body.properties?.messages && body.properties?.chat_template_kwargs) return 'vllm';
+  return undefined;
+}
+
+export function invalidateModelMetadata(provider) {
+  modelListings.delete(listingKey(provider));
 }
 function modelImageProfile(model, source = 'provider_metadata') {
   const input = model?.inputModalities ?? model?.input ?? model?.input_modalities ?? model?.architecture?.input_modalities;
@@ -165,7 +222,7 @@ function orderedModels(provider, ids, created = {}) {
     const first = versions.get(a), second = versions.get(b);
     return Number(Boolean(second)) - Number(Boolean(first)) ||
       (first && second ? second[0] - first[0] || second[1] - first[1] : 0) ||
-      Number(catalog.has(b)) - Number(catalog.has(a)) ||
+      Number(catalog.has(catalogModelId(catalogProviderId, b))) - Number(catalog.has(catalogModelId(catalogProviderId, a))) ||
       (created[b] ?? 0) - (created[a] ?? 0);
   });
 }
@@ -384,13 +441,16 @@ export async function discover(input, stored, { timeoutMs, authPending, refreshM
   const created = Object.fromEntries(models.filter(model => Number.isSafeInteger(model?.created) && model.created > 0)
     .map(model => [model.id, model.created]));
   const outputSources = Object.fromEntries(Object.keys(outputs).map(id => [id, 'service']));
+  const thinking = Object.fromEntries(models.flatMap(model => {
+    const profile = modelDeclaredThinking(model); return profile ? [[model.id, profile]] : [];
+  }));
   const key = listingKey(provider);
   const previous = cachedModels(provider);
-  const modelSignature = JSON.stringify({ ids, contexts, inputs, outputs, nonChatModels, templateBackends });
+  const modelSignature = JSON.stringify({ ids, contexts, inputs, outputs, nonChatModels, templateBackends, thinking });
   // Reopening a model picker must not discard an in-flight or completed
   // capability probe for the same inventory. Explicit refresh still renews it.
   if (refreshMetadata || !previous || previous.modelSignature !== modelSignature) {
-    modelListings.set(key, { modelSignature, contexts, inputs, outputs, outputSources, nonChatModels, templateBackends, created, expires: Date.now() + metadataTtlMs });
+    modelListings.set(key, { modelSignature, contexts, inputs, outputs, outputSources, nonChatModels, templateBackends, thinking, created, expires: Date.now() + metadataTtlMs });
   }
   return orderedModels(provider, ids, created);
 }
@@ -410,24 +470,41 @@ async function resolveContext(provider, model, authPending, retryAfterRefresh = 
   }
   await cached.pending;
   cached = cachedModels(provider);
-  if (cached && (!cached.contexts?.[model] || !cached.inputs?.[model] || !cached.outputs?.[model] || !Object.hasOwn(cached.thinking ?? {}, model))) {
+  if (cached && (!cached.contexts?.[model] || !cached.inputs?.[model] || !cached.outputs?.[model] || !Object.hasOwn(cached.thinking ?? {}, model) || cached.templateBackends?.[model])) {
     cached.details ??= new Map();
     if (!cached.details.has(model)) cached.details.set(model, (async () => {
       try {
         let capacity, source;
         const base = new URL(provider.apiUrl);
+        let schemaProfile;
+        if (!catalogProviderId && !Object.hasOwn(cached.thinking ?? {}, model) && endpoints(provider).completion.pathname.endsWith('/chat/completions') && engineName(provider.engine) !== 'ollama_compatible') {
+          const auth = await (authPending ?? credentials(provider, provider));
+          cached.openapi ??= requestJson(schemaUrl(provider), { headers: auth.requestHeaders, timeoutMs: 2000 }).catch(() => undefined);
+          schemaProfile = schemaThinking(await cached.openapi, provider);
+          const backend = schemaTemplateBackend(await cached.openapi, provider);
+          if (backend) { cached.templateBackends ??= {}; cached.templateBackends[model] = backend; }
+        }
         if (Object.hasOwn(cached.templateBackends ?? {}, model) && endpoints(provider).completion.pathname.endsWith('/chat/completions')) {
           const auth = await (authPending ?? credentials(provider, provider));
           cached.thinking ??= {};
-          cached.thinking[model] = await templateThinkingProfile(provider, model, auth.requestHeaders, cached.templateBackends[model]);
+          if (cached.thinking[model]?.reasoningEfforts !== false) {
+            const observed = await templateThinkingProfile(provider, model, auth.requestHeaders, cached.templateBackends[model], cached.thinking[model] ?? schemaProfile);
+            if (observed !== undefined) cached.thinking[model] = observed;
+          }
           if (cached.templateBackends[model] === 'vllm') {
             // One advisory schema read per cached connection inventory, never
             // per slider event, model token, or agent step. Unknown support
             // leaves the existing request dialect untouched.
-            cached.budgetSupport ??= requestJson(new URL(endpoints(provider).completion.pathname.replace(/(?:\/v1)?\/chat\/completions$/, '/openapi.json'), provider.apiUrl),
-              { headers: auth.requestHeaders, timeoutMs: 2000 }).then(advertisesThinkingBudget, () => false);
+            cached.openapi ??= requestJson(schemaUrl(provider), { headers: auth.requestHeaders, timeoutMs: 2000 }).catch(() => undefined);
+            cached.budgetSupport ??= cached.openapi.then(advertisesThinkingBudget);
             cached.thinkingBudgetField = await cached.budgetSupport ? 'thinking_token_budget' : undefined;
           }
+        }
+        if (!Object.hasOwn(cached.thinking ?? {}, model) && endpoints(provider).completion.pathname.endsWith('/chat/completions') && engineName(provider.engine) !== 'ollama_compatible') {
+          cached.thinking ??= {};
+          // An operation-wide enum is a probe candidate list, not this model's
+          // capability. Missing/failed probes must remain unknown.
+          cached.thinking[model] = {};
         }
         // Cloud uses its full window. Local model_info is only an architectural
         // maximum, not the running num_ctx; never adopt it as deployment capacity.
@@ -451,7 +528,7 @@ async function resolveContext(provider, model, authPending, retryAfterRefresh = 
           source = 'service';
         }
         if (catalogProviderId && (!capacity || !cached.outputs?.[model] || !cached.inputs?.[model])) {
-          const info = (await catalogModels(catalogProviderId)).find(m => m.id === model);
+          const info = (await catalogModels(catalogProviderId)).find(m => m.id === catalogModelId(catalogProviderId, model));
           if (!capacity && info?.contextWindow) {
             capacity = info.contextWindow;
             source = 'catalog';
@@ -482,7 +559,21 @@ async function resolveContext(provider, model, authPending, retryAfterRefresh = 
   return cachedModels(provider)?.contexts?.[model];
 }
 
+export function isBundledVisionModel(provider, model) {
+  return provider.id === distributionModel.providerId && isDistributionVisionEndpoint(provider, model);
+}
+
+// Connection IDs are user-owned aliases; endpoint capabilities do not change
+// when the same distribution service is added through the connection editor.
+export function isDistributionVisionEndpoint(provider, model) {
+  return model === distributionModel.visionModelId &&
+    modelBase(provider) === distributionModel.baseUrl + '/v1';
+}
+
 export async function resolveImageCapability(provider, model) {
+  if (isBundledVisionModel(provider, model)) {
+    return { imageInput: 'supported', source: 'catalog' };
+  }
   await resolveContext(provider, model);
   return cachedModels(provider)?.inputs?.[model] ?? { imageInput: 'unknown', source: 'unknown' };
 }
@@ -513,7 +604,9 @@ async function validateSelection(provider, stored, legacyThinking) {
   const reasoning = responses
     ? typeof effort === 'string' ? { reasoning: { effort } } : {}
     : selected.provider.compat?.thinkingFormat === 'chat-template'
-      ? { chat_template_kwargs: { enable_thinking: selected.thinkingEffort != null && selected.thinkingEffort !== 'off' } }
+      ? { chat_template_kwargs: { enable_thinking: selected.thinkingEffort != null && selected.thinkingEffort !== 'off',
+        ...(selected.provider.compat.chatTemplateKwargs?.reasoning_effort?.$var === 'thinking.effort' && typeof effort === 'string'
+          ? { reasoning_effort: effort } : {}) } }
       : typeof effort === 'string' ? { reasoning_effort: effort } : {};
   const budget = selected.thinkingEffort && selected.thinkingEffort !== 'off' && effort !== 'none'
     ? 4096 : PROBE_OUTPUT_TOKENS;
@@ -659,27 +752,45 @@ export function inventory(provider) {
   };
 }
 
-async function templateThinkingProfile(provider, model, headers, backend) {
+async function templateThinkingProfile(provider, model, headers, backend, declared) {
   // The generic OpenAPI enum is not a model capability. Render the actual
   // template without inference: custom/quantized names need no name heuristics.
   const completionPath = endpoints(provider).completion.pathname;
-  const url = new URL(backend === 'sglang'
+  let url = new URL(backend === 'sglang'
     ? completionPath.replace(/chat\/completions$/, 'tokenize')
     : `${completionPath}/render`, provider.apiUrl);
   headers = new Headers(headers);
   headers.set('Content-Type', 'application/json');
-  const levels = [undefined, 'medium', 'low', 'high', 'xhigh', 'minimal', 'max', 'none'];
-  const rendered = await Promise.all(levels.map(async level => {
+  const candidates = ['medium', 'low', 'high', 'xhigh', 'minimal', 'max', 'none'];
+  const levels = [undefined, ...candidates.filter(level => !declared?.reasoningEfforts ||
+    Object.values(declared.reasoningEfforts).includes(level))];
+  let tokenize = false, unavailable = false;
+  const render = async level => {
     try {
       const body = await requestJson(url, { method: 'POST', headers,
-        payload: { model, messages: [{ role: 'user', content: 'Reply OK.' }], max_tokens: 1,
-          ...(level === undefined ? {} : { reasoning_effort: level }) }, timeoutMs: 2000 });
-      const tokens = backend === 'sglang' ? body.tokens : body.token_ids;
+        payload: { model, messages: [{ role: 'user', content: 'Reply OK.' }],
+          ...(tokenize ? {} : { max_tokens: 1 }),
+          ...(level === undefined ? {} : tokenize
+            ? { chat_template_kwargs: { enable_thinking: level !== 'none', reasoning_effort: level } }
+            : { reasoning_effort: level }) }, timeoutMs: 2000 });
+      const tokens = tokenize || backend === 'sglang' ? body.tokens : body.token_ids;
       if (!Array.isArray(tokens) || !tokens.length || !tokens.every(token => Number.isSafeInteger(token) && token >= 0)) return null;
       return JSON.stringify(tokens);
-    } catch { return null; }
-  }));
-  if (!rendered[0]) return {};
+    } catch (error) {
+      // Only a missing render route enables the vLLM tokenizer fallback. An
+      // authentication/network failure is not evidence about model support.
+      if (level === undefined && [404, 405].includes(error.data?.httpStatus)) unavailable = true;
+      return null;
+    }
+  };
+  let baseline = await render(undefined);
+  if (!baseline && unavailable && backend === 'vllm') {
+    tokenize = true;
+    url = new URL(completionPath.replace(/(?:\/v1)?\/chat\/completions$/, '/tokenize'), provider.apiUrl);
+    baseline = await render(undefined);
+  }
+  if (!baseline) return undefined;
+  const rendered = [baseline, ...await Promise.all(levels.slice(1).map(render))];
   // Accepted but ignored fields must not become fake intensity settings. Only
   // expose distinct rendered modes, and preserve the service's existing default.
   const modes = new Map();
@@ -691,7 +802,12 @@ async function templateThinkingProfile(provider, model, headers, backend) {
   const defaultLevel = modes.get(rendered[0]);
   return { reasoningEfforts, thinkingDefault: defaultLevel === 'none' ? 'off' : defaultLevel,
     thinkingToggle: Object.keys(reasoningEfforts).every(level => ['off', 'medium'].includes(level)),
-    compat: { thinkingFormat: 'openai', supportsReasoningEffort: true, supportsDeveloperRole: false } };
+    ...(tokenize ? { thinkingSource: 'tokenize' } : {}),
+    compat: tokenize
+      ? { thinkingFormat: 'chat-template', chatTemplateKwargs: {
+        enable_thinking: { $var: 'thinking.enabled' }, reasoning_effort: { $var: 'thinking.effort' },
+      }, supportsDeveloperRole: false }
+      : { thinkingFormat: 'openai', supportsReasoningEffort: true, supportsDeveloperRole: false } };
 }
 
 function modelThinkingProfile(model) {
@@ -725,8 +841,10 @@ function ollamaThinkingProfile(body) {
   if (!efforts || !Object.keys(efforts).some(level => level !== 'off')) return {};
   return {
     reasoningEfforts: efforts,
-    thinkingDefault: typeof body.thinking?.default === 'string' && body.thinking.default !== 'none' &&
-      Object.hasOwn(efforts, body.thinking.default) ? body.thinking.default : undefined,
+    thinkingDefault: body.thinking?.default === false || body.thinking?.default === 'none'
+      ? Object.hasOwn(efforts, 'off') ? 'off' : undefined
+      : body.thinking?.default === true && Object.hasOwn(efforts, 'medium') ? 'medium'
+      : typeof body.thinking?.default === 'string' && Object.hasOwn(efforts, body.thinking.default) ? body.thinking.default : undefined,
     thinkingToggle: Array.isArray(values) && values.every(value => typeof value === 'boolean') || Object.keys(efforts).every(level => ['off', 'medium'].includes(level)),
     compat: { thinkingFormat: 'openai', supportsReasoningEffort: true, supportsDeveloperRole: false },
   };
@@ -806,7 +924,7 @@ export async function driverProvider(provider, model, { legacyThinking = false }
   if (requestMaxTokens !== null && (!Number.isSafeInteger(requestMaxTokens) || requestMaxTokens < 1 ||
       outputTokens !== undefined && requestMaxTokens > outputTokens))
     throw providerError('invalid_output_budget', 'The configured output budget must be a positive integer within the known model capacity.');
-  const { thinkingToggle: _toggle, thinkingDefault: _default, compat: thinkingCompat, ...nativeThinking } = legacyThinking ? modelThinkingProfile(model) : thinkingProfile(provider, model);
+  const { thinkingToggle: _toggle, thinkingDefault: _default, thinkingSource: _source, compat: thinkingCompat, ...nativeThinking } = legacyThinking ? modelThinkingProfile(model) : thinkingProfile(provider, model);
   let compat = nativeThinking.reasoningEfforts && cachedModels(provider)?.templateBackends?.[model] === 'vllm' && cachedModels(provider)?.thinkingBudgetField
     ? { ...thinkingCompat, thinkingTokenBudgetField: cachedModels(provider).thinkingBudgetField } : thinkingCompat;
   const protocol = endpoints(provider).completion.pathname.endsWith("/responses")

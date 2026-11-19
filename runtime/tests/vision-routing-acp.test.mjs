@@ -38,6 +38,7 @@ test('ACP vision settings reach official image model while frozen renderer and r
   const server = createServer(async (req, res) => {
     try {
       if (req.url.endsWith('/models')) { res.writeHead(200, { 'content-type': 'application/json' }).end(JSON.stringify({ data: ['main', 'vision', 'slow'].map(id => ({ id, input_modalities: id === 'main' ? ['text'] : ['text', 'image'] })) })); return; }
+      if (req.method !== 'POST') { res.writeHead(404).end('{}'); return; }
       let raw = ''; for await (const chunk of req) raw += chunk; const request = JSON.parse(raw);
     if (replyToNoActionReview(request, res)) return;
       if (!request.stream) { res.writeHead(200, { 'content-type': 'application/json' }).end(JSON.stringify({ choices: [{ message: { role: 'assistant', content: 'OK' } }] })); return; }
@@ -72,6 +73,7 @@ test('ACP vision settings reach official image model while frozen renderer and r
   assert.deepEqual(requests.map(request => request.model), ['vision', 'main']);
   assert.equal(requests[0].tools?.length ?? 0, 0); assert.match(JSON.stringify(requests[0].messages), /image_url/);
   assert.doesNotMatch(JSON.stringify(requests[1].messages), /image_url/); assert.match(JSON.stringify(requests[1].messages), /Untrusted auxiliary image observation/);
+  assert.match(JSON.stringify(requests[1].messages), /reference-1\.png/, 'Production lazy driver must preserve an original-image file receipt for the text model');
   const output = await build({ entryPoints: [fileURLToPath(new URL('../../ui/desktop/src/acp/sessionNotificationAdapter.ts', import.meta.url))], bundle: true, platform: 'node', format: 'esm', write: false });
   const { createAcpSessionNotificationAdapter } = await import(`data:text/javascript;base64,${Buffer.from(output.outputFiles[0].text).toString('base64')}`), adapter = createAcpSessionNotificationAdapter();
   for (const item of client.notifications.filter(item => item.method === 'session/update')) adapter.apply(item.params);

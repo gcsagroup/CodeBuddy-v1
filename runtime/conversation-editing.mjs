@@ -80,7 +80,10 @@ export class ConversationEditing {
       const requestedIndex = prefix.requestId ? (source.updates ?? []).findIndex(update => metaId(update) === prefix.requestId) : -1;
       const nativeBoundary = requestedIndex < 0 ? undefined : (source.updates ?? []).slice(requestedIndex).find(update => update.sessionUpdate === 'user_message_chunk' && sourceRequests.has(metaId(update)));
       const beforeRequestId = nativeBoundary ? metaId(nativeBoundary) : undefined;
-      const forked = await this.driver.fork(source.id, isClear ? { atSeq: 0 } : beforeRequestId ? { beforeRequestId } : {});
+      // A visible first request can fail before native admission. There is no
+      // completed turn to fork, but the native empty prefix is still valid.
+      const emptyNativePrefix = sourceRequests.size === 0 && prefix.requestId;
+      const forked = await this.driver.fork(source.id, isClear || emptyNativePrefix ? { atSeq: 0 } : beforeRequestId ? { beforeRequestId } : {});
       const history = await this.driver.history(forked.sessionId);
       const nativeRequests = [...new Set(history.events.filter(event => event.type === 'agent/inbox/spliced').flatMap(event => event.data.inserted ?? []).filter(item => item.source?.kind === 'user').map(item => item.source.rpcId))];
       const displayedRequests = [...new Set(prefix.updates.filter(u => u.sessionUpdate === 'user_message_chunk').map(metaId).filter(id => sourceRequests.has(id)))];

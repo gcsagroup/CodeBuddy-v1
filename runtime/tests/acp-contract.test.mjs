@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdtemp, realpath, rm, writeFile, readFile } from "node:fs/promises";
+import { mkdtemp, mkdir, realpath, rm, writeFile, readFile } from "node:fs/promises";
 import http from "node:http";
 import os from "node:os";
 import path from "node:path";
@@ -102,6 +102,7 @@ async function connect(baseUrl) {
 
 function controlledDriver(prompt) {
   return {
+    generateTitle: async () => undefined,
     permissions: permissionDriver(),
     created: [],
     cancelled: [],
@@ -499,6 +500,49 @@ test("cancel is handled while prompt is pending on the same transport", async (t
   const result = await pending;
   assert.equal(result.stopReason, "cancelled");
   assert.equal(aborted, true);
+});
+
+test('chat stop cancels only its unfinished media and preview cancellation stays session scoped', async t => {
+  const started = Promise.withResolvers();
+  const driver = controlledDriver(async (_id, _content, { signal }) => {
+    started.resolve();
+    await new Promise(resolve => signal.aborted ? resolve() : signal.addEventListener('abort', resolve, { once: true }));
+    return { stopReason: 'cancelled' };
+  });
+  const f = await setup(t, driver);
+  await configure(f.client);
+  const sessionId = await newSession(f.client, f.dataDir);
+  const otherId = await newSession(f.client, f.dataDir);
+  const ids = ['11111111-1111-4111-8111-111111111111', '22222222-2222-4222-8222-222222222222', '33333333-3333-4333-8333-333333333333'];
+  const cancelled = [];
+  const media = http.createServer((req, res) => {
+    req.resume(); res.setHeader('content-type', 'application/json');
+    if (req.url.startsWith('/history/')) {
+      const id = req.url.slice('/history/'.length);
+      res.end(JSON.stringify(cancelled.includes(`/api/jobs/${id}/cancel`)
+        ? { [id]: { status: { status_str: 'error', messages: [['execution_interrupted', {}]] } } } : {}));
+    }
+    else if (req.url === '/queue') res.end(JSON.stringify({ queue_running: [[0, ids[0]]], queue_pending: [[1, ids[2]]] }));
+    else if (req.url.endsWith('/cancel')) { cancelled.push(req.url); res.end(JSON.stringify({ cancelled: true })); }
+    else res.writeHead(404).end('{}');
+  });
+  await new Promise(resolve => media.listen(0, '127.0.0.1', resolve));
+  t.after(() => { media.closeAllConnections(); media.close(); });
+  for (const [index, owner, status] of [[0, sessionId, 'running'], [1, sessionId, 'completed'], [2, otherId, 'queued']]) {
+    const directory = path.join(f.dataDir, 'image-jobs', Buffer.from(owner).toString('hex'));
+    await mkdir(directory, { recursive: true });
+    await writeFile(path.join(directory, ids[index] + '.json'), JSON.stringify({ job_id: ids[index], prompt_id: ids[index], server: `http://127.0.0.1:${media.address().port}`, status, created_at: new Date().toISOString(), input: {}, images: [] }));
+  }
+  const pending = f.client.request('session/prompt', { sessionId, prompt: [{ type: 'text', text: 'Wait for the existing generation' }] });
+  await started.promise;
+  await f.client.request('session/cancel', { sessionId });
+  assert.equal((await pending).stopReason, 'cancelled');
+  assert.deepEqual(cancelled, [`/api/jobs/${ids[0]}/cancel`]);
+  await assert.rejects(f.client.request('_codebuddy/media/jobs', { sessionId, operation: 'cancel', kind: 'image', job_id: ids[2] }));
+  assert.equal(cancelled.length, 1, 'another conversation cannot be cancelled through this session');
+  const result = await f.client.request('_codebuddy/media/jobs', { sessionId: otherId, operation: 'cancel', kind: 'image', job_id: ids[2] });
+  assert.equal(result.cancellation_confirmed, true);
+  assert.deepEqual(cancelled, [`/api/jobs/${ids[0]}/cancel`, `/api/jobs/${ids[2]}/cancel`]);
 });
 
 test("malformed and missing sessions fail without dispatching the driver", async (t) => {

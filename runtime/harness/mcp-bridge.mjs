@@ -288,7 +288,20 @@ export async function apply(ctx, config) {
               if (Buffer.byteLength(JSON.stringify(result)) > MAX_META_BYTES) throw Error('MCP tool result exceeds the host app limit');
               let content = result.content;
               if (content.some(block => block.type === 'image')) {
-                try { content = await ctx.get('codebuddyMcpVision')?.project(content, exec) ?? content; }
+                const desktopObservation = config.serverName === 'qwen_computer' ? result.structuredContent?.desktop_observation : undefined;
+                // Control-first observations also cover apps with buttons but no
+                // writable fields. Keep the frame in the receipt; the main model
+                // can request full when control evidence is insufficient.
+                try {
+                  if ((desktopObservation?.view === 'fields' || desktopObservation?.has_field_readback === true) && desktopObservation.schema_version === 1 &&
+                      Number.isSafeInteger(desktopObservation.pid) && desktopObservation.pid > 0 &&
+                      Number.isSafeInteger(desktopObservation.window_handle) && desktopObservation.window_handle > 0 &&
+                      content.some(block => block.type === 'text' && block.text?.trim())) {
+                    content = content.filter(block => block.type !== 'image');
+                  } else {
+                    content = await ctx.get('codebuddyMcpVision')?.project(content, exec, desktopObservation) ?? content;
+                  }
+                }
                 catch (error) {
                   if (exec.signal.aborted) throw error;
                   ctx.get('codebuddyMcpVision')?.unavailable?.(exec, { extensionName: config.serverName, toolName: tool.name });

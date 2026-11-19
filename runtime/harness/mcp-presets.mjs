@@ -15,14 +15,15 @@ export function restrictSessionTools(ctx, filter, inheritedScope, inheritedFilte
   if (!inheritedScope || filter.allow === undefined) return ctx.tools.restrict(filter);
   let previous, signature;
   const refresh = () => {
-    // Most inherited tools have no global namesake. Avoid two complete native
-    // view traversals per tool; only overlapping names need identity checks.
-    const globalNames = new Set(ctx.tools.schemas().map(tool => tool.name));
-    const inherited = ctx.tools.schemas(inheritedScope).filter(({ name }) =>
+    // Consume the pinned Harness registry's derived view without copying every
+    // JSON schema on each synchronous registration notification. Keep masks
+    // synchronous, including same-name shadow changes; do not cache visibility.
+    const globalTools = ctx.tools.view().visible;
+    const inherited = [...ctx.tools.view(inheritedScope).visible].filter(([name, definition]) =>
       (!inheritedFilter?.allow || inheritedFilter.allow.includes(name)) &&
       !inheritedFilter?.deny?.includes(name) &&
-      (!globalNames.has(name) || ctx.tools.get(name, inheritedScope) !== ctx.tools.get(name))
-    ).map(tool => tool.name);
+      (!globalTools.has(name) || definition !== globalTools.get(name))
+    ).map(([name]) => name);
     const next = JSON.stringify(inherited);
     if (next === signature) return;
     // Set before changing the mask: the official registry emits tools/change

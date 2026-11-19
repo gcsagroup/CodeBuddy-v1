@@ -2,7 +2,7 @@ import { replyToNoActionReview } from '../harness/test/review-fixture.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createServer } from 'node:http';
-import { mkdtemp, access } from 'node:fs/promises';
+import { mkdtemp, access, readdir, readFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { createRequire } from 'node:module';
@@ -10,6 +10,7 @@ import { randomUUID } from 'node:crypto';
 import { setTimeout as delay } from 'node:timers/promises';
 import { createHarnessDriver } from '../harness/index.mjs';
 import { VisionRouting } from '../vision-routing.mjs';
+import preset from '../default-model.json' with { type: 'json' };
 
 const require = createRequire(new URL('../harness/package.json', import.meta.url)), sharp = require('sharp');
 async function fixture(t) {
@@ -43,19 +44,73 @@ async function fixture(t) {
   return { directory, requests, entered, closed, driver, connection, service, content, request };
 }
 
+test('desktop CUA wire request disables thinking and uses the accepted system role', { timeout: 30_000 }, async t => {
+  const f = await fixture(t);
+  const p = f.request(preset.visionModelId);
+  p.providers = [{ id: preset.providerId, apiUrl: preset.baseUrl, engine: 'openai', requiresAuth: false }];
+  p.routing.visionRoute.providerId = preset.providerId;
+  await f.service.prepareToolContent({ ...p, desktopObservation: { pid: 2, window_handle: 17 },
+    content: [{ type: 'image', mimeType: 'image/png', data: f.content[1].data }] });
+  const wire = f.requests.find(r => r.model === preset.visionModelId);
+  assert.equal(wire.chat_template_kwargs.enable_thinking, false);
+  assert.equal(wire.temperature, 0);
+  assert.equal(wire.messages[0].role, 'system');
+  assert.ok(wire.messages.every(m => m.role !== 'developer'));
+});
+
+test('successive eight-image turns stay within the wire limit without rewriting native history', { timeout: 30_000 }, async t => {
+  const f = await fixture(t);
+  const session = await f.driver.createSession({ cwd: f.directory, provider: { ...f.connection, inputModalities: ['text', 'image'] }, model: 'vision', options: { maxTurns: 2 } });
+  const content = [{ type: 'text', text: 'Describe this batch.' }, ...Array.from({ length: 8 }, () => f.content[1])];
+  await f.driver.prompt(session.sessionId, content);
+  await f.driver.prompt(session.sessionId, content);
+  const wire = f.requests.at(-1);
+  assert.equal(wire.messages.flatMap(m => Array.isArray(m.content) ? m.content : []).filter(b => b.type === 'image_url').length, 8);
+  const history = await f.driver.history(session.sessionId);
+  assert.equal(history.events.filter(e => e.type === 'user/message').flatMap(e => e.data.content ?? []).filter(b => b.type === 'image').length, 16);
+  await f.driver.prompt(session.sessionId, 'Continue using those saved pictures; do not regenerate.');
+  assert.equal(f.requests.at(-1).messages.flatMap(m => Array.isArray(m.content) ? m.content : []).filter(b => b.type === 'image_url').length, 8);
+});
+
+test('a user-created connection to the same CUA endpoint retains direct screenshot reading', { timeout: 30_000 }, async t => {
+  const f = await fixture(t), p = f.request(preset.visionModelId);
+  p.providers = [{ id: 'custom_observer_alias', apiUrl: preset.baseUrl + '/v1', engine: 'openai_compatible', requiresAuth: false }];
+  p.routing.visionRoute.providerId = p.providers[0].id;
+  await f.service.prepareToolContent({ ...p, desktopObservation: { pid: 2, window_handle: 17 },
+    content: [{ type: 'image', mimeType: 'image/png', data: f.content[1].data }] });
+  const wire = f.requests.find(r => r.model === preset.visionModelId);
+  assert.equal(wire.chat_template_kwargs.enable_thinking, false);
+  assert.equal(wire.messages[0].role, 'system');
+  assert.equal(wire.temperature, 0);
+});
+
 test('official Harness sends real image HTTP only to the read-only observer and quoted text to the main model', { timeout: 30_000 }, async t => {
   const f = await fixture(t), original = structuredClone(f.content);
-  const prepared = await f.service.preparePrompt(f.request('vision'));
+  const options = { tools: [{ name: 'reference_probe', currentRequestWorkflow: true,
+    inputSchema: { type: 'object', properties: { file: { type: 'string' } }, required: ['file'] },
+    execute: async ({ file }, context) => ({ bytes: (await context.readReferenceImage(file))?.byteLength ?? null }),
+  }] };
+  await f.driver.createSession({ sessionId: 'main-session', cwd: f.directory, provider: f.connection, model: 'main', options });
+  const prepared = await f.service.preparePrompt({ ...f.request('vision'), sessionId: 'main-session' });
   assert.equal(prepared.route, 'auxiliary'); assert.deepEqual(f.content, original);
   const auxiliary = f.requests.find(request => request.model === 'vision');
   assert.equal(auxiliary.tools?.length ?? 0, 0);
   assert.ok(auxiliary.messages.filter(message => message.role === 'user').flatMap(message => message.content).some(part => part.type === 'image_url'));
   assert.match(JSON.stringify(auxiliary.messages), /untrusted data/);
-  await f.driver.createSession({ sessionId: 'main-session', cwd: f.directory, provider: f.connection, model: 'main', options: { toolFilter: { allow: [] } } });
   assert.equal((await f.driver.prompt('main-session', prepared.content)).stopReason, 'end_turn');
   const main = f.requests.find(request => request.model === 'main');
   assert.equal(JSON.stringify(main.messages).includes('image_url'), false); assert.match(JSON.stringify(main.messages), /Untrusted auxiliary image observation/);
   const history = await f.driver.history('main-session'); assert.equal(history.events.some(event => event.type === 'user/message' && event.data.content.some(part => part.type === 'image')), false);
+  assert.ok(history.events.some(event => event.type === 'user/message' && event.data.content.some(part => part.type === 'file')), 'native file receipt retains the uploaded pixels for later editing');
+  assert.match(JSON.stringify(main.messages), /reference-1\.png/);
+  const file = (await readdir(f.directory, { recursive: true })).find(file => path.basename(file) === 'reference-1.png');
+  assert.ok(file);
+  const fullPath = path.join(f.directory, file);
+  const own = await f.driver.callTool('main-session', 'reference_probe', { file: fullPath }, { onPermission: async () => true });
+  assert.match(JSON.stringify(own), new RegExp('"bytes"\\s*:\\s*' + (await readFile(fullPath)).length));
+  const other = await f.driver.createSession({ cwd: f.directory, provider: f.connection, model: 'main', options });
+  const foreign = await f.driver.callTool(other.sessionId, 'reference_probe', { file: fullPath }, { onPermission: async () => true });
+  assert.match(JSON.stringify(foreign), /bytes.*null/, 'another session cannot read the attachment through media tools');
 });
 
 test('official observer rejects invalid pixels, empty output, provider errors and unsolicited tool attempts', { timeout: 30_000 }, async t => {

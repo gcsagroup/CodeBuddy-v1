@@ -33,7 +33,7 @@ const visionMessages = {
   model_unavailable: '备用识图模型不可用，请在设置中重新选择。',
   capability_unavailable: '暂时无法核实备用识图模型，请检查连接后重试。',
   configuration_changed: '识图设置刚发生变化，请重新确认后保存。',
-  image_limit: '本次识图的图片数量或总大小超过限制，请减少图片后重试。',
+  image_limit: '本次图片超过处理限制。每次最多发送 8 张，单张不超过 8 MiB、合计不超过 32 MiB。请分批发送并说明每批用途；如果需要同时比较全部图片，可先合成一张清晰的联系表。已生成的文件保留，无需重新生成。',
   image_invalid: '图片数据、格式或大小不符合识图限制，请重新添加图片。',
   query_limit: '本次识图附带的文字过长，请缩短后重试。',
   image_not_supported: '所选备用模型尚未确认支持图片，请重新选择支持图片的模型。',
@@ -44,17 +44,23 @@ const visionMessages = {
   vision_incomplete: '图片识别未正常完成，没有将未完成的内容交给主模型。',
   vision_empty: '备用识图模型没有返回图片说明，请重试或更换模型。',
 };
+for (const [reason, message] of Object.entries(visionMessages))
+  localMessages.set(`VISION_${reason.replace(/^vision_/, '').toUpperCase()}`, message);
 
 // A display projection only: never mutate a native failure or decide retries.
 // No provider prose, request/response payloads, headers, URLs or paths escape.
 export function publicFailure(error, observation = {}) {
-  let code, status, providerCode;
+  let code, status, providerCode, visionReason, imageCount;
   const transport = new Set(), seen = new Set(), queue = [error];
   for (let i = 0; i < queue.length && seen.size < 8; i++) {
     const value = queue[i];
     if (!value || typeof value !== 'object' || seen.has(value)) continue;
     seen.add(value);
     try {
+      if (!visionReason && value.data?.kind === 'vision_error' && Object.hasOwn(visionMessages, value.data.reason))
+        visionReason = value.data.reason;
+      if (value.data?.reason === 'image_limit' && Number.isSafeInteger(value.data.imageCount) && value.data.imageCount > 0)
+        imageCount = value.data.imageCount;
       if (!code && (nativeCodes.has(value.code) || localMessages.has(value.code))) code = value.code;
       if (!code && (nativeCodes.has(value.data?.code) || localMessages.has(value.data?.code))) code = value.data.code;
       if (!providerCode && providerCodes.has(value.code)) providerCode = value.code;
@@ -74,11 +80,12 @@ export function publicFailure(error, observation = {}) {
   if (Array.isArray(observedTransport))
     for (const value of observedTransport.slice(0, 64)) if (transportCodes.has(value)) transport.add(value);
   code ??= providerKinds.get(providerCode) ?? (transport.size ? 'TRANSPORT' : 'UNKNOWN_FAILURE');
-  const identity = providerCode ?? code;
+  const identity = visionReason ? `VISION_${visionReason.replace(/^vision_/, '').toUpperCase()}` : providerCode ?? code;
   const diagnostic = { code: identity, ...(status === undefined ? {} : { httpStatus: status }),
     ...(transport.size ? { transportCodes: [...transport].slice(0, 4) } : {}) };
   let message;
-  if (localMessages.has(code)) message = localMessages.get(code);
+  if (visionReason) message = (imageCount ? `本次选择了 ${imageCount} 张图片，尚未提交给模型。` : '') + visionMessages[visionReason];
+  else if (localMessages.has(code)) message = localMessages.get(code);
   else if (code === 'ABORTED') message = '操作已中止。已提交的记录保留，请核对当前状态后继续。';
   else if (['COMPACTION_NOT_SMALLER', 'COMPACTION_EMPTY_SUMMARY', 'COMPACTION_TARGET_WINDOW_EXCEEDED'].includes(code)) {
     message = ({ COMPACTION_NOT_SMALLER: '模型未生成更小的有效摘要。', COMPACTION_EMPTY_SUMMARY: '模型未返回可提交的摘要。',
@@ -99,11 +106,11 @@ export function publicRpcError(error, method) {
   // Preserve existing business error contracts outside model/turn failures.
   const guarded = failure.code !== 'UNKNOWN_FAILURE' || failure.httpStatus !== undefined || ['session/prompt', 'session/set_config_option'].includes(method);
   if (!guarded) return { code: rpcCode, message: field(error, 'message'), data: originalData };
-  const data = providerCodes.has(failure.code) || localMessages.has(failure.code) ? { code: failure.code, ...(failure.httpStatus ? { httpStatus: failure.httpStatus } : {}) }
-    : field(originalData, 'kind') === 'vision_error' ? { kind: 'vision_error',
+  const data = field(originalData, 'kind') === 'vision_error' ? { kind: 'vision_error',
       ...(safeReason && Object.hasOwn(visionMessages, safeReason) ? { reason: safeReason } : {}) }
+    : providerCodes.has(failure.code) || localMessages.has(failure.code) ? { code: failure.code, ...(failure.httpStatus ? { httpStatus: failure.httpStatus } : {}) }
     : ['recipe_params_cancelled', 'credits_exhausted'].includes(safeReason) ? { reason: safeReason } : undefined;
   const { message, ...diagnostic } = failure;
-  return { code: rpcCode, message: data?.kind === 'vision_error' ? visionMessages[data.reason] ?? '图片识别未完成，请检查识图设置后重试。' : message,
+  return { code: rpcCode, message: data?.kind === 'vision_error' && !data.reason ? '图片识别未完成，请检查识图设置后重试。' : message,
     data: { ...data, diagnostic } };
 }

@@ -6,6 +6,36 @@ import {mkdtemp} from 'node:fs/promises';
 import {tmpdir} from 'node:os';
 import path from 'node:path';
 
+test('changing the default model preserves history and repeated selection skips the durable write', async () => {
+  const timings = [];
+  const directory = await mkdtemp(path.join(tmpdir(), 'codebuddy-default-selection-'));
+  const store = await openStore(directory, { onTiming: event => timings.push(event) });
+  const history = { id: 'existing', updates: [{ content: { type: 'text', text: 'saved history '.repeat(1000) } }] };
+  await store.update(state => {
+    state.providers = [{ id: 'p', models: ['a','b'], engine: 'openai_compatible', apiUrl: 'http://fixture.invalid', requiresAuth: false }];
+    state.sessions.push(history);
+  });
+  const host = new Compat(store, {});
+  timings.length = 0;
+  for (const modelId of ['a','b','b']) await host.request('_goose/unstable/defaults/save', { providerId:'p', modelId });
+  assert.deepEqual(timings.filter(e => e.operation === 'commit').map(e => [e.roots,e.committed]),
+    [[['defaults'],true],[['defaults'],true],[['defaults'],false]]);
+  const reloaded = await openStore(directory);
+  assert.deepEqual(reloaded.readSession(history.id), history);
+  assert.deepEqual(reloaded.read(['defaults']).defaults, { providerId:'p', modelId:'b' });
+  await host.request('_goose/unstable/defaults/clear');
+  assert.deepEqual(store.readSession(history.id), history);
+  await store.updateSession(history.id, s => Object.assign(s, { providerId: 'p', modelId: 'a' }));
+  timings.length = 0;
+  const result = await host.request('session/set_config_option', { sessionId: history.id, configId: 'model', value: 'b' });
+  assert.equal(result.configOptions.find(option => option.id === 'model').currentValue, 'b');
+  const commits = timings.filter(e => e.operation === 'commit');
+  assert.equal(commits.length, 1);
+  assert.equal(commits[0].session_id, history.id);
+  assert.deepEqual(commits[0].roots, ['sessions']);
+  assert.deepEqual((await openStore(directory)).readSession(history.id), { ...history, providerId: 'p', modelId: 'b' });
+});
+
 test('large migrated history lists from one snapshot and preserves latest run metadata', async () => {
   const state = {sessions: Array.from({length: 650}, (_, i) => ({
     id: `session-${i}`, cwd: 'D:\\fixture', title: `history ${i}`,

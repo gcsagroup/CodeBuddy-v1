@@ -17,6 +17,8 @@ test('official model capabilities supply the actual offered levels without inven
   assert.deepEqual(options.options, ['low','medium','high','xhigh','max']);
   assert.equal(options.value,'medium');
   assert.equal(modelThinkingOptions({reasoningEfforts:false}).options.length,0);
+  assert.equal(modelThinkingOptions({reasoningEfforts:false}, 'high').value, null);
+  assert.equal(modelThinkingOptions({}, 'high').value, 'high');
   assert.deepEqual(modelThinkingOptions({reasoningEfforts:{high:'high'}}).options,['high']);
 });
 
@@ -109,22 +111,22 @@ test('fresh profiles read mixed Ollama Cloud efforts without breaking other mode
     });
     const { fields } = await settings.request('providers/config/read', { providerId: provider.id });
     const read = (kind, model) => JSON.parse(fields.find(field => field.key === `${kind}:${model}`).value);
-    assert.deepEqual(read('thinkingEffort', 'glm-5.2'), { options: ['none', 'high', 'max'], value: 'high', toggle: false });
-    assert.deepEqual(read('thinkingEffort', 'deepseek-v4.1-flash:1017'), { options: ['none', 'low', 'high', 'max'], value: 'high', toggle: false });
-    assert.deepEqual(read('thinkingEffort', 'gemma4:31b'), { options: ['none', 'medium'], value: 'medium', toggle: true });
+    assert.deepEqual(read('thinkingEffort', 'glm-5.2'), { options: ['none', 'high', 'max'], value: 'none', toggle: false });
+    assert.deepEqual(read('thinkingEffort', 'deepseek-v4.1-flash:1017'), { options: ['none', 'low', 'high', 'max'], value: 'none', toggle: false });
+    assert.deepEqual(read('thinkingEffort', 'gemma4:31b'), { options: ['none', 'medium'], value: legacy === undefined ? 'none' : 'medium', toggle: true });
     assert.equal(read('contextWindow', 'gemma4:31b').contextWindow, 262144);
     assert.equal(read('contextWindow', 'glm-5.2').contextWindow, 1048576);
-    assert.equal(read('thinkingEffort', 'invalid-advisory-default').value, 'high');
+    assert.equal(read('thinkingEffort', 'invalid-advisory-default').value, 'none');
     const selected = applyModelThinking(native.get('glm-5.2'), modelThinkingPreference(thinkingProfile(provider, 'glm-5.2'), undefined, legacy));
-    assert.equal(selected.thinkingEffort, 'high');
+    assert.equal(selected.thinkingEffort, 'off');
   }
   await assert.rejects(settings.request('providers/config/save', {
     providerId: provider.id, fields: [{ key: 'thinkingEffort:glm-5.2', value: 'medium' }],
   }), /unavailable/);
   await store.update(state => { state.providers[0].thinkingEfforts = { 'glm-5.2': 'medium' }; });
   const staleRead = await settings.request('providers/config/read', { providerId: provider.id });
-  assert.equal(JSON.parse(staleRead.fields.find(field => field.key === 'thinkingEffort:glm-5.2').value).value, 'high');
-  assert.equal(modelThinkingPreference(thinkingProfile(provider, 'glm-5.2'), 'medium'), 'high');
+  assert.equal(JSON.parse(staleRead.fields.find(field => field.key === 'thinkingEffort:glm-5.2').value).value, 'none');
+  assert.equal(modelThinkingPreference(thinkingProfile(provider, 'glm-5.2'), 'medium'), 'none');
   assert.equal(store.read().providers[0].thinkingEfforts['glm-5.2'], 'medium', 'Reading new capabilities must not overwrite an older user preference');
 });
 
@@ -157,7 +159,7 @@ for (const invalidation of ['expiry', 'model-list refresh']) {
     await resolvedModelInfo(provider, model);
     const { fields } = await settings.request('providers/config/read', { providerId: provider.id });
     const offered = JSON.parse(fields.find(field => field.key === `thinkingEffort:${model}`).value);
-    assert.deepEqual(offered, { options: ['none', 'low', 'high', 'max'], value: 'low', toggle: false });
+    assert.deepEqual(offered, { options: ['none', 'low', 'high', 'max'], value: 'none', toggle: false });
     if (invalidation === 'expiry') now += 5 * 60_000 + 1;
     else {
       models.push('newly-published-model');
@@ -241,7 +243,7 @@ for (const changed of [false, true]) test(`model details survive a ${changed ? '
   const settings = new RuntimeSettings({ read: () => ({ providers: [provider], preferences: {} }) });
   const { fields } = await settings.request('providers/config/read', { providerId: provider.id });
   const read = kind => JSON.parse(fields.find(field => field.key === `${kind}:${model}`).value);
-  assert.deepEqual(read('thinkingEffort'), { options: ['none', 'low', 'high', 'max'], value: 'high', toggle: false });
+  assert.deepEqual(read('thinkingEffort'), { options: ['none', 'low', 'high', 'max'], value: 'none', toggle: false });
   assert.equal(read('contextWindow').contextSource, 'service');
   assert.equal(read('contextWindow').contextWindow, 1048576);
   await resolvedModelInfo(provider, model);

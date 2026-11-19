@@ -29,6 +29,7 @@ async function endpoint(t, handler) {
     const body = raw ? JSON.parse(raw) : null;
     requests.push({ url: req.url, headers: req.headers, body });
     res.setHeader("content-type", "application/json");
+    if (req.url.endsWith('/openapi.json')) return res.writeHead(404).end('{}');
     if (handler) return handler(req, res, body);
     res.end(
       JSON.stringify(
@@ -200,7 +201,7 @@ test('image capability uses declared metadata, preserves manual denial and never
     { providerId: provider.id, modelId: 'seeing', imageInput: 'force_unsupported' },
   ] } });
   assert.deepEqual(await resolve('seeing'), { providerId: provider.id, modelId: 'seeing', imageInput: 'unsupported', source: 'user_override' });
-  assert.equal(api.requests.length, 1, 'Capability and context share one cached discovery');
+  assert.deepEqual(api.requests.map(r => r.url), ['/v1/models', '/openapi.json'], 'Capability and context share the cached inventory and schema fallback');
 });
 
 test('explicit catalog provider uses official Harness metadata and unknown model keeps upstream fallback', async t => {
@@ -351,7 +352,7 @@ test('Google compatibility endpoints retain their base path and omit store from 
     assert.equal(route.compat.supportsStore, false);
   }
   assert.ok(urls.length > 0);
-  assert.ok(urls.every(url => url === 'https://generativelanguage.googleapis.com/v1beta/openai/models'));
+  assert.ok(urls.every(url => ['https://generativelanguage.googleapis.com/v1beta/openai/models', 'https://generativelanguage.googleapis.com/v1beta/openai/openapi.json'].includes(url)), 'discovery and schema fallback preserve the configured API base path');
   const proxy = await driverProvider(input('https://proxy.invalid/v1', { id: 'proxy' }), 'gemini-3.5-flash-lite');
   assert.notEqual(proxy.compat?.supportsStore, false, 'model names must not decide endpoint capabilities');
 
@@ -399,11 +400,11 @@ test('server-advertised context is preserved per model and concurrent session ro
   assert.equal(main.contextWindow, 65536);
   assert.equal(other.contextWindow, 131072);
   assert.equal(again.contextWindow, 65536);
-  assert.equal(api.requests.length, 1);
+  assert.equal(api.requests.length, 2);
   assert.equal(inventory(provider).models[0].contextLimit, 65536);
   assert.equal((await driverProvider(provider, 'invalid')).contextSource, 'fallback');
   assert.equal((await driverProvider(provider, 'absent')).contextSource, 'fallback');
-  assert.equal(api.requests.length, 1);
+  assert.equal(api.requests.length, 2);
   const changed = await endpoint(t, (_req, res) => res.end(JSON.stringify({ data: [{ id: 'fixture-model', max_model_len: 8192 }] })));
   assert.equal((await driverProvider({ ...provider, apiUrl: changed.url }, 'fixture-model')).contextWindow, 8192);
 });
@@ -413,7 +414,7 @@ test('unavailable model metadata keeps completions usable and does not retry for
   const provider = { ...input(api.url), id: 'offline-metadata' };
   assert.equal((await driverProvider(provider, 'fixture-model')).contextWindow, 262144);
   assert.equal((await driverProvider(provider, 'fixture-model')).contextSource, 'fallback');
-  assert.equal(api.requests.length, 1);
+  assert.equal(api.requests.length, 2);
   assert.equal(inventory(provider).models[0].contextLimit, 262144);
 });
 
@@ -438,12 +439,12 @@ test('initial desktop inventory resolves capacity before any conversation and sh
   assert.deepEqual(first.models.map(model => model.contextLimit), [65536, 131072]);
   assert.deepEqual(concurrent, first);
   assert.equal((await driverProvider(provider, 'fixture-model')).contextWindow, 65536);
-  assert.equal(api.requests.length, 1, 'homepage and first conversation share one metadata request');
+  assert.deepEqual(api.requests.map(r => r.url), ['/v1/models', '/openapi.json'], 'homepage and first conversation share cached metadata');
   const offline = await endpoint(t, (_req, res) => { res.writeHead(404); res.end('{}'); });
   const unavailable = { ...input(offline.url), id: 'homepage-offline' };
   assert.equal((await resolvedInventory(unavailable)).models[0].contextLimit, 262144);
   await resolvedInventory(unavailable);
-  assert.equal(offline.requests.length, 1);
+  assert.equal(offline.requests.length, 2);
 });
 
 test("manual provider save discovers then verifies selected model before publishing SDK-compatible config", async (t) => {
@@ -592,7 +593,7 @@ test('provider routes keep discovery, save and chat aligned without guessing a p
 test('a model listing cannot validate rejected tools or thinking parameters, and failed edits preserve the old connection', async t => {
   for (const param of ['tools', 'reasoning_effort']) {
     const api = await endpoint(t, (req, res, body) => {
-      if (req.url.endsWith('/models')) return res.end(JSON.stringify({ data: [{ id: 'fixture-model' }] }));
+      if (req.url.endsWith('/models')) return res.end(JSON.stringify({ data: [{ id: 'fixture-model', reasoning_efforts: ['high'] }] }));
       assert.equal(body.tools[0].function.name, 'connection_check');
       assert.equal(body.reasoning_effort, 'high');
       assert.equal(body.max_tokens, 4096);
@@ -622,12 +623,14 @@ test('probe respects discovered Ollama thinking and tools capabilities', async t
       : { choices: [{ message: { content: 'OK' } }] })));
   await saveProvider(memoryStore(), input(api.url, { engine: 'ollama_compatible' }));
   const body = api.requests.at(-1).body;
-  assert.equal(body.reasoning_effort, 'high');
+  assert.equal(body.reasoning_effort, 'none', 'Off-capable models default to the requested None policy');
   assert.equal(body.tools[0].function.name, 'connection_check');
 });
 
 test('Responses probe includes the same saved reasoning preference with function tools', async t => {
-  const api = await endpoint(t);
+  const api = await endpoint(t, (req, res) => res.end(JSON.stringify(req.url.endsWith('/models')
+    ? { data: [{ id: 'fixture-model', reasoning_efforts: ['none', 'high'] }] }
+    : { output_text: 'OK' })));
   const store = memoryStore();
   const provider = { ...input(api.url, { basePath: '/v1/responses' }), id: 'reasoning', thinkingEfforts: { 'fixture-model': 'none' } };
   await store.update(state => { state.providers.push(provider); });
@@ -644,7 +647,7 @@ test('Gemma template probe does not invent an OpenAI reasoning_effort field', as
     ? { data: [{ id: 'gemma-4-local' }] } : { choices: [{ message: { content: 'OK' } }] })));
   await saveProvider(memoryStore(), input(api.url, { models: ['gemma-4-local'] }));
   const body = api.requests.at(-1).body;
-  assert.deepEqual(body.chat_template_kwargs, { enable_thinking: true });
+  assert.deepEqual(body.chat_template_kwargs, { enable_thinking: false });
   assert.equal(body.reasoning_effort, undefined);
 });
 

@@ -14,6 +14,7 @@ test('Gemma chat-template thinking reaches Harness wire and streams reasoning se
   const requests = [], model = 'gemma-4-26B-A4B-it-uncensored-FP8-W8A16';
   const server = createServer(async (req, res) => {
     if (req.url === '/v1/models') { res.setHeader('content-type','application/json'); res.end(JSON.stringify({data:[{id:model,max_model_len:65536}]})); return; }
+    if (req.method === 'GET') { res.writeHead(404); res.end(); return; }
     let raw = ''; for await (const chunk of req) raw += chunk;
     const body = JSON.parse(raw);
     if (replyToNoActionReview(body, res)) return; requests.push(body);
@@ -52,7 +53,7 @@ test('unknown model defaults do not invent reasoning support or infer it from hi
 
 test('explicit effort profiles declare only the requested transport control and preserve route isolation', () => {
   const provider = { id: 'fixture', compat: { supportsDeveloperRole: false } };
-  for (const requested of THINKING_EFFORTS) {
+  for (const requested of THINKING_EFFORTS.filter(value => value !== 'default')) {
     const configured = applyModelThinking(provider, requested);
     assert.deepEqual(Object.values(configured.provider.reasoningEfforts), [requested]);
     assert.equal(configured.provider.reasoningEfforts[configured.thinkingEffort], requested);
@@ -91,7 +92,7 @@ test('all six original UI efforts reach the actual official Harness HTTP complet
     await driver.createSession({ sessionId, cwd: root, provider: configured.provider, model: 'unknown-thinking-model', options: { systemPrompt: 'RECIPE_ROLE_REGRESSION_742', ...(configured.thinkingEffort === undefined ? {} : { thinkingEffort: configured.thinkingEffort }) } });
     const result = await driver.prompt(sessionId, `thinking_fixture_${effort ?? 'default'}`);
     assert.equal(result.stopReason, 'end_turn');
-    assert.equal(requests.at(-1).reasoning_effort, effort, `selected ${effort ?? 'default'} should preserve the intended wire value`);
+    assert.equal(requests.at(-1).reasoning_effort, effort === 'default' ? undefined : effort, `selected ${effort ?? 'default'} should preserve the intended wire value`);
     const policy = requests.at(-1).messages.find(message => JSON.stringify(message.content).includes('RECIPE_ROLE_REGRESSION_742'));
     assert.equal(policy?.role, 'system', 'Choosing an effort must not silently promote unknown endpoints to developer-role support');
   }

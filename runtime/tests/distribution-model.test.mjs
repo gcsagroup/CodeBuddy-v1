@@ -34,7 +34,7 @@ test('preview CLI seeds the same main and vision defaults as the installed deskt
   });
   const state = JSON.parse(await readFile(path.join(dir, 'state.json'), 'utf8'));
   assert.equal(state.providers[0].apiUrl, defaultModel.baseUrl);
-  assert.deepEqual(state.modelRouting.visionRoute, { enabled: true, mode: 'auto', ...state.defaults });
+  assert.deepEqual(state.modelRouting.visionRoute, { enabled: true, mode: 'always', providerId: defaultModel.providerId, modelId: defaultModel.visionModelId });
   assert.equal(state.modelCapabilities.overrides[0].imageInput, 'force_supported');
   assert.equal(state.providers.length, 2);
   assert.deepEqual(state.providers[1].models, ['qwen3.8-flash-next-uncensored', 'Qwen3.8-27B-FP4', 'Qwen3.8-27B-CyberSecurity']);
@@ -66,8 +66,10 @@ test('fresh installed profile exposes Gemma, Flash and both existing Qwen models
   assert.equal(providerStatus(providers[0]).isConfigured, true);
   const settings = new RuntimeSettings(store);
   const routing = await settings.request('codepro/model-routing/read');
-  assert.deepEqual(routing.config.visionRoute, { enabled: true, mode: 'auto', ...defaults });
+  assert.deepEqual(routing.config.visionRoute, { enabled: true, mode: 'always', providerId: defaults.providerId, modelId: defaultModel.visionModelId });
   assert.equal((await settings.request('model-capabilities/resolve', defaults)).imageInput, 'supported');
+  assert.ok(providers[0].models.includes(defaultModel.visionModelId));
+  assert.equal((await settings.request('model-capabilities/resolve', routing.config.visionRoute)).source, 'catalog');
   const resolved = await driverProvider(providers[0]);
   assert.ok(resolved);
   await store.update(() => {});
@@ -90,6 +92,25 @@ test('restart preserves custom models and deliberate removal of the bundled prov
     state.defaults = { providerId: null, modelId: null };
   });
   assert.deepEqual((await openStore(dir, { defaultModel })).read().providers, []);
+});
+
+test('an existing LAN profile can select built-in CUA while the gateway directory is down', async t => {
+  const dir = await fixture(t);
+  const store = await openStore(dir, { defaultModel });
+  await store.update(state => {
+    state.providers[0].models = [defaultModel.modelId];
+    state.modelRouting.visionRoute = { ...state.defaults, enabled: true, mode: 'auto' };
+  });
+  const settings = new RuntimeSettings(store);
+  const config = (await settings.request('codepro/model-routing/read')).config;
+  config.visionRoute = { providerId: defaultModel.providerId, modelId: defaultModel.visionModelId, enabled: true, mode: 'always' };
+  t.mock.method(globalThis, 'fetch', async () => new Response('{}', { status: 503 }));
+  await settings.request('codepro/model-routing/save', { config });
+  assert.deepEqual(store.read().modelRouting.visionRoute, config.visionRoute);
+  await store.update(state => {
+    state.modelCapabilities.overrides.push({ providerId: defaultModel.providerId, modelId: defaultModel.visionModelId, imageInput: 'force_unsupported' });
+  });
+  await assert.rejects(settings.request('codepro/model-routing/save', { config }), /图片/);
 });
 
 test('legacy distribution credentials are ignored and never imported into new profiles', async t => {

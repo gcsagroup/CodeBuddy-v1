@@ -5,6 +5,17 @@ import { createHarnessDriver } from '../harness/index.mjs';
 import { mkdtemp, realpath, rm, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
+
+test('open carries literals and returns controls in the same host request', async () => {
+  const calls=[];
+  const receipt={id:'tab',url:'http://localhost/',view:'controls',observationId:'fresh',candidates:[{id:'type-company',valueId:'company'}]};
+  const tool=browserTool({sessionId:'form',cwd:'/workspace',request:async(method,args)=>{calls.push({method,args});return receipt;}});
+  const textValues=[{id:'company',text:'海风测试'}];
+  assert.deepEqual(await tool.execute({operation:'open',url:'http://localhost/',view:'controls',textValues}),receipt);
+  assert.equal(calls.length,1);
+  assert.deepEqual(calls[0].args.textValues,textValues);
+  assert.equal(calls[0].args.view,'controls');
+});
 test('website acceptance waits for an explicit choice before creating a preview', async () => {
   for (const decision of ['yes', 'no', 'skip', 'cancel']) {
     const calls = [], submitted = Promise.withResolvers();

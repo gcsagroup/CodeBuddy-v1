@@ -10,7 +10,7 @@
 | 首幀動畫 | generate_video / image_to_video | 一個 image_path |
 | 身分／物體參考 | generate_video / reference_to_video | 1–2 張 reference_images |
 
-圖片實際模式由 reference_images 決定；影片 generate 必須有 mode，不混用兩種素材欄位。R2V 不是首尾幀插值；介面沒有 last_frame、音訊／影片參考欄位，不因模型支援就發明參數。素材為工作區內普通 PNG，每張 ≤20 MiB、≤16,777,216 像素，解析後路徑仍須在工作區內。
+圖片實際模式由 reference_images 決定；影片 generate 必須有 mode，不混用兩種素材欄位。R2V 不是首尾幀插值；介面沒有 last_frame、音訊／影片參考欄位，不因模型支援就發明參數。ComfyUI 支援直接使用本對話上傳附件的原始路徑，或工作區 PNG/JPEG（每張最多 20 MiB）。無需複製附件、改副檔名或尋找 shell。其他工作區外檔案仍拒絕讀取；雲端模型仍使用工作區 PNG。
 
 ## 呼叫與調參
 

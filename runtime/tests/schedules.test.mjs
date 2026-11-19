@@ -492,6 +492,8 @@ test('weekday schedules skip the weekend and preserve recipe-local effort withou
   await call('create', { id: 'weekday-task', cron: '0 0 9 * * 1-5', recipe: { ...recipe, settings: { goose_thinking_effort: 'high' } } });
   assert.equal(store.read().schedules[0].nextRun, '2026-10-19T01:00:00.000Z');
   assert.equal(store.read().schedules[0].recipe.settings.goose_thinking_effort, 'high');
+  await call('create', { id: 'service-default', cron: '* * * * *', recipe: { ...recipe, settings: { goose_thinking_effort: 'default' } } });
+  assert.equal(store.read().schedules.find(job => job.id === 'service-default').recipe.settings.goose_thinking_effort, 'default');
   await assert.rejects(call('create', { id: 'invalid-effort', cron: '* * * * *', recipe: { ...recipe, settings: { goose_thinking_effort: 'invented' } } }), /Invalid scheduled recipe/);
   await assert.rejects(call('create', { id: 'chat-override', cron: '* * * * *', executionMode: 'current_session', targetSessionId: 'chat', recipe: { ...recipe, settings: { goose_thinking_effort: 'high' } } }), /existing model and tools/);
 });

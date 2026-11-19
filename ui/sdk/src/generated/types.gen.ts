@@ -2525,6 +2525,7 @@ export type RecipeSettingsDto = {
    * Optional recipe-local reasoning effort. Omitted or null inherits model defaults without changing global preferences.
    */
   goose_thinking_effort?:
+    | "default"
     | "none"
     | "minimal"
     | "low"

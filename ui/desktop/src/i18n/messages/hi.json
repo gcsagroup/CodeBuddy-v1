@@ -5,6 +5,9 @@
   "announcementModal.gotIt": {
     "defaultMessage": "समझ गया!"
   },
+  "app.completionFollowUp": {
+    "defaultMessage": "अगला कार्य जोड़ें…"
+  },
   "app.chooseFolder": {
     "defaultMessage": "Choose folder"
   },
@@ -7917,7 +7920,7 @@
     "defaultMessage": "सिस्टम सेटिंग खोलें"
   },
   "settings.notifications.task.description": {
-    "defaultMessage": "जब विंडो पृष्ठभूमि में हो तो CodeBuddy कोई कार्य पूरा कर ले तो सूचित करें"
+    "defaultMessage": "कार्य पूरा होने पर विंडो या सिस्टम सूचना में सूचित करें"
   },
   "settings.notifications.task.title": {
     "defaultMessage": "कार्य पूर्ण होने की सूचनाएं"

@@ -8,4 +8,5 @@ export function revealChatOnActivate(windows: BrowserWindow[]) {
   if (target.isMinimized()) target.restore();
   target.show();
   target.focus();
+  return target;
 }

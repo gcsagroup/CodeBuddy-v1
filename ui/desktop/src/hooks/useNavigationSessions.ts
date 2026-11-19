@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { beginSessionLoadTiming } from '../acp/sessionLoadTiming';
+import { acpChatSessionController } from '../acp/chatSessionController';
 import { useNavigate, useLocation, useSearchParams } from 'react-router-dom';
 import { useChatContext } from '../contexts/ChatContext';
 import { getSessionDisplayName } from '../sessions';
@@ -303,6 +304,9 @@ export function useNavigationSessions() {
   const handleSessionClick = useCallback(
     (sessionId: string) => {
       beginSessionLoadTiming(sessionId, 'sidebar');
+      // Start the existing restore transaction before mounting the chat tree.
+      // Its controller coalesces the subsequent mount and preserves validation.
+      void acpChatSessionController.loadSession(sessionId);
       const pairPath = workspaceMode === 'codepro' ? '/codepro/pair' : '/pair';
       navigate(`${pairPath}?resumeSessionId=${sessionId}`);
     },

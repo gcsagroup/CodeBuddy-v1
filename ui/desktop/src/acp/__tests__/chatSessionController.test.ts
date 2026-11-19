@@ -226,6 +226,18 @@ function pendingToolPermissionMessage(): Message & { id: string } {
 }
 
 describe('acpChatSessionController.loadSession', () => {
+  it('preserves a pending workspace confirmation when the chat mounts after eager loading', async () => {
+    vi.mocked(acpChatSessionStore.getSnapshot).mockReturnValue({
+      ...snapshotWithActivePrompt(null),
+      workspaceReconfirmation: { sessionId: SESSION_ID, workingDir: 'D:\\Projects\\Ledger' },
+    });
+    const onSessionLoaded = vi.fn();
+    await acpChatSessionController.loadSession(SESSION_ID, { onSessionLoaded });
+    expect(acpLoadSession).not.toHaveBeenCalled();
+    expect(acpChatSessionActions.startSessionLoad).not.toHaveBeenCalled();
+    expect(onSessionLoaded).not.toHaveBeenCalled();
+  });
+
   it('publishes a shared history restore only once for simultaneous consumers', async () => {
     let complete!: (result: ReturnType<typeof mockLoadResult>) => void;
     vi.mocked(acpChatSessionStore.getSnapshot).mockReturnValue(undefined);
@@ -472,6 +484,42 @@ describe('acpChatSessionController.submitMessage', () => {
     vi.mocked(acpChatSessionActions.clearPromptCancellation).mockReturnValue(undefined);
     vi.mocked(acpChatSessionActions.finishPromptAttemptIfCurrent).mockReturnValue(true);
   });
+
+  it.each(['current', 'old terminal', 'different request', 'different source', 'interrupted'])(
+    'delivers a sealed completion only to its original request: %s',
+    async (scenario) => {
+      const msg = userMessage();
+      const terminal = checkpointMessage(1);
+      const content = terminal.content[0];
+      if (content.type !== 'systemNotification' || !content.data || typeof content.data !== 'object')
+        throw new Error('Expected terminal fixture');
+      content.data = {
+        ...content.data,
+        status: scenario === 'interrupted' ? 'interrupted' : 'completed',
+        source_user_message_id: scenario === 'different source' ? 'other-message' : msg.id,
+        report: undefined,
+        checkpoint_id: null,
+        retry_strategy: 'not_available',
+      };
+      const before = snapshotWithActivePrompt(null);
+      if (scenario === 'old terminal') before.messages = [terminal];
+      vi.mocked(acpPromptSession).mockImplementationOnce(async () => {
+        const [, requestId] = vi.mocked(acpChatSessionActions.startPromptRequest).mock.lastCall!;
+        vi.mocked(acpChatSessionStore.getSnapshot).mockReturnValue({
+          ...before,
+          promptRequestId: scenario === 'different request' ? 'other-attempt' : requestId,
+          messages: [terminal],
+        });
+        return { stopReason: 'end_turn' };
+      });
+      vi.mocked(acpChatSessionActions.finishPromptAttemptIfCurrent).mockReturnValue(false);
+      const onFinish = vi.fn();
+      await acpChatSessionController.submitMessage(SESSION_ID, msg, {
+        getCurrentSnapshot: () => before, onFinish,
+      });
+      expect(onFinish).toHaveBeenCalledTimes(scenario === 'current' ? 1 : 0);
+    }
+  );
 
   it('reports a native output limit instead of silently completing or automatically retrying', async () => {
     vi.mocked(acpPromptSession).mockResolvedValue({ stopReason: 'max_tokens' } as never);
@@ -1515,6 +1563,19 @@ describe('acpChatSessionController.updateMessage', () => {
         sourceTerminalMessageId: terminalMessage.id,
       }
     );
+  });
+
+  it('resends only selected original image blocks after an edit', async () => {
+    const source = userMessage();
+    source.content.push({ type: 'image', data: 'first', mimeType: 'image/png' }, { type: 'image', data: 'second', mimeType: 'image/png' });
+    const snapshot: AcpChatSessionSnapshot = { ...snapshotWithActivePrompt(null), session: loadedSession(), messages: [source] };
+    vi.mocked(acpChatSessionStore.getSnapshot).mockReturnValue(snapshot);
+    await acpChatSessionController.updateMessage(SESSION_ID, source.id, 'Use only the second image', 'edit',
+      { getCurrentSnapshot: () => snapshot, onFinish: vi.fn() }, [1]);
+    expect(acpPromptSession).toHaveBeenCalledWith(SESSION_ID, expect.objectContaining({
+      content: [{ type: 'text', text: 'Use only the second image' }, { type: 'image', data: 'second', mimeType: 'image/png' }],
+    }), undefined);
+    expect(source.content.filter(block => block.type === 'image')).toHaveLength(2);
   });
 
   it('rejects an unavailable retry mode instead of treating it as an in-place edit', async () => {

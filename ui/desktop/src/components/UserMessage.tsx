@@ -1,4 +1,4 @@
-import { Clock3, ChevronDown } from 'lucide-react';
+import { Clock3, ChevronDown, X } from 'lucide-react';
 import { nativeScheduleMessages } from './schedule/nativeScheduleMessages';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import ImagePreview from './ImagePreview';
@@ -15,6 +15,7 @@ import { isLargeText, useCompactTextInput } from './pastedText';
 import { PastedTextPreview } from './PastedTextPreview';
 
 const i18n = defineMessages({
+  removeEditedImage: { id: 'userMessage.removeEditedImage', defaultMessage: 'Remove image {number} from this resend' },
   pending: { id: 'userMessage.pending', defaultMessage: 'Waiting to send' },
   unconfirmed: { id: 'userMessage.unconfirmed', defaultMessage: 'Awaiting confirmation' },
   editPlaceholder: {
@@ -84,7 +85,7 @@ interface UserMessageProps {
   message: Message;
   sessionType?: SessionType;
   readOnly?: boolean;
-  onMessageUpdate?: (messageId: string, newContent: string, editType?: MessageEditType) => void;
+  onMessageUpdate?: (messageId: string, newContent: string, editType?: MessageEditType, retainedImageIndexes?: number[]) => void;
 }
 
 export default function UserMessage({
@@ -96,6 +97,7 @@ export default function UserMessage({
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const [isEditing, setIsEditing] = useState(false);
   const [editContent, setEditContent] = useState('');
+  const [retainedImageIndexes, setRetainedImageIndexes] = useState<number[]>([]);
   const compactEdit = useCompactTextInput(editContent);
   const [error, setError] = useState<string | null>(null);
 
@@ -107,8 +109,9 @@ export default function UserMessage({
   // Initialize edit mode with current message content
   const initializeEditMode = useCallback(() => {
     setEditContent(textContent);
+    setRetainedImageIndexes(message.content.filter(content => content.type === 'image').map((_, index) => index));
     setError(null);
-  }, [textContent]);
+  }, [textContent, message.content]);
 
   // Handle edit button click
   const handleEditClick = useCallback(() => {
@@ -150,9 +153,10 @@ export default function UserMessage({
     setIsEditing(false);
 
     if (onMessageUpdate && message.id) {
-      onMessageUpdate(message.id, editContent, 'edit');
+      if (retainedImageIndexes.length === imagePaths.length) onMessageUpdate(message.id, editContent, 'edit');
+      else onMessageUpdate(message.id, editContent, 'edit', retainedImageIndexes);
     }
-  }, [canEdit, editContent, onMessageUpdate, message.id, intl]);
+  }, [canEdit, editContent, onMessageUpdate, message.id, intl, retainedImageIndexes, imagePaths.length]);
 
   // Handle cancel action
   const handleCancel = useCallback(() => {
@@ -231,6 +235,20 @@ export default function UserMessage({
               aria-label={intl.formatMessage(i18n.editAriaLabel)}
               aria-describedby={error ? `error-${message.id}` : undefined}
             />
+            {retainedImageIndexes.length > 0 && (
+              <div className="mt-3 flex flex-wrap gap-2">
+                {retainedImageIndexes.map(index => (
+                  <div key={index} className="relative rounded-lg border border-border-primary p-1">
+                    <img src={imagePaths[index]} alt={String(index + 1)} className="h-20 w-20 rounded object-contain" />
+                    <button type="button" className="absolute right-0 top-0 rounded-full bg-background-primary p-1 text-text-primary shadow-sm"
+                      aria-label={intl.formatMessage(i18n.removeEditedImage, { number: index + 1 })}
+                      onClick={() => setRetainedImageIndexes(current => current.filter(value => value !== index))}>
+                      <X className="size-3.5" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
             {/* Error message */}
             {error && (
               <div

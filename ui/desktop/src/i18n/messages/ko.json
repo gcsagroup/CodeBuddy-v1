@@ -5,6 +5,9 @@
   "announcementModal.gotIt": {
     "defaultMessage": "알았어요!"
   },
+  "app.completionFollowUp": {
+    "defaultMessage": "후속 작업 입력…"
+  },
   "app.chooseFolder": {
     "defaultMessage": "Choose folder"
   },
@@ -7917,7 +7920,7 @@
     "defaultMessage": "시스템 설정 열기"
   },
   "settings.notifications.task.description": {
-    "defaultMessage": "창이 백그라운드에 있을 때 CodeBuddy가 작업을 완료하면 알림을 보냅니다."
+    "defaultMessage": "작업이 완료되면 창 안이나 시스템 알림으로 알려줍니다"
   },
   "settings.notifications.task.title": {
     "defaultMessage": "작업 완료 알림"

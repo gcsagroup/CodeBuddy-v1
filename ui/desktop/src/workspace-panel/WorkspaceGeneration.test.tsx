@@ -13,6 +13,22 @@ vi.mock('../acp/acpConnection', () => ({
   getAcpControlClient: async () => ({ extMethod: mediaRequest }),
 }));
 const scope = { sessionId: 'session-a', root: 'D:/fixture' };
+it('cancels only the selected job and explains an unconfirmed remote cancellation', async () => {
+  mediaRequest.mockResolvedValue({ status: 'running', cancellation_confirmed: false });
+  const view = render(<WorkspaceGeneration scope={scope} jobs={[{
+    job_id: 'job-a', kind: 'video', created_at: new Date().toISOString(), status: 'running', live: {},
+  }]} disconnected={false} />, { wrapper: IntlTestWrapper });
+  fireEvent.click(screen.getByRole('button', { name: 'Cancel generation' }));
+  await waitFor(() => expect(mediaRequest).toHaveBeenCalledWith('_codebuddy/media/jobs', {
+    sessionId: 'session-a', operation: 'cancel', kind: 'video', job_id: 'job-a',
+  }));
+  expect(await screen.findByText(/Cancellation is not confirmed/)).toBeVisible();
+  view.rerender(<WorkspaceGeneration scope={scope} jobs={[{
+    job_id: 'job-a', kind: 'video', created_at: new Date().toISOString(), status: 'cancelled', live: {},
+  }]} disconnected={false} />);
+  expect(screen.queryByText(/Cancellation is not confirmed/)).toBeNull();
+  expect(screen.getByText(/Generation cancelled.*cannot resume/)).toBeVisible();
+});
 it('resolves old remote links only through completed receipts in the selected session', () => {
   const remote = 'http://comfy.test/view?filename=clip.mp4&subfolder=CodeBuddy&type=output';
   const job: MediaJob = {

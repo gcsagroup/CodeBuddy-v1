@@ -5,6 +5,9 @@
   "announcementModal.gotIt": {
     "defaultMessage": "Capito!"
   },
+  "app.completionFollowUp": {
+    "defaultMessage": "Aggiungi una richiesta…"
+  },
   "app.chooseFolder": {
     "defaultMessage": "Choose folder"
   },
@@ -7917,7 +7920,7 @@
     "defaultMessage": "Apri le impostazioni di sistema"
   },
   "settings.notifications.task.description": {
-    "defaultMessage": "Notifica quando CodeBuddy completa un'attività mentre la finestra è in secondo piano"
+    "defaultMessage": "Avvisa al termine di un’attività nella finestra o tramite una notifica di sistema"
   },
   "settings.notifications.task.title": {
     "defaultMessage": "Notifiche di completamento attività"

@@ -6,10 +6,11 @@ export default defineConfig({
     ssr: true,
     outDir: '.vite/build',
     rollupOptions: {
-      input: 'src/preload.ts',
+      input: { preload: 'src/preload.ts', completionPopupPreload: 'src/completionPopupPreload.ts' },
       output: {
         format: 'cjs',
-        entryFileNames: 'preload.js'
+        inlineDynamicImports: false,
+        entryFileNames: '[name].js'
       },
       external: ['electron']
     }

@@ -5,6 +5,9 @@
   "announcementModal.gotIt": {
     "defaultMessage": "Entendido!"
   },
+  "app.completionFollowUp": {
+    "defaultMessage": "Adicionar uma tarefa…"
+  },
   "app.chooseFolder": {
     "defaultMessage": "Choose folder"
   },
@@ -7917,7 +7920,7 @@
     "defaultMessage": "Abrir as configurações do sistema"
   },
   "settings.notifications.task.description": {
-    "defaultMessage": "Notificar quando o CodeBuddy concluir uma tarefa enquanto a janela está em segundo plano"
+    "defaultMessage": "Avisar quando uma tarefa terminar, na janela ou por uma notificação do sistema"
   },
   "settings.notifications.task.title": {
     "defaultMessage": "Notificações de conclusão de tarefas"

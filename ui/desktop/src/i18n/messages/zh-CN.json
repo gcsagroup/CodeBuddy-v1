@@ -1,73 +1,4 @@
 {
-  "messageUsageStats.turn": {
-    "defaultMessage": "本轮累计"
-  },
-  "messageUsageStats.turnDetail": {
-    "defaultMessage": "合计本轮已上报的模型调用。每次重发的历史都会计入输入；输出可能包含工具参数和推理。"
-  },
-  "workStatus.request": {
-    "defaultMessage": "第 {number} 次模型调用 · {status}"
-  },
-  "navigationPanel.removeProject": {"defaultMessage": "移除项目"},
-  "navigationPanel.stopBeforeMove": {"defaultMessage": "请先停止当前任务，再切换工作区。"},
-  "typography.text": { "defaultMessage": "界面字号" },
-  "typography.textHint": { "defaultMessage": "调整聊天正文、输入框和界面文字。" },
-  "typography.sample": { "defaultMessage": "你的消息会以这个大小显示。" },
-  "typography.title": { "defaultMessage": "字体与缩放" },
-  "typography.zoom": { "defaultMessage": "界面缩放" },
-  "typography.zoomHint": { "defaultMessage": "同时调整对话、侧栏和按钮的大小。" },
-  "typography.size": { "defaultMessage": "代码字号" },
-  "typography.sizeHint": { "defaultMessage": "用于代码块、文件编辑器和差异对比。" },
-  "typography.font": { "defaultMessage": "界面字体" },
-  "typography.default": { "defaultMessage": "CodeBuddy 默认" },
-  "typography.system": { "defaultMessage": "系统字体" },
-  "typography.serif": { "defaultMessage": "衬线字体" },
-  "typography.less": { "defaultMessage": "减小{setting}" },
-  "typography.more": { "defaultMessage": "增大{setting}" },
-  "typography.reset": { "defaultMessage": "重置{setting}" },
-  "typography.failed": { "defaultMessage": "显示设置保存失败，请重试。" },
-  "projectEditor.edit": { "defaultMessage": "编辑项目" },
-  "projectEditor.main": { "defaultMessage": "主文件夹" },
-  "projectEditor.linked": { "defaultMessage": "附加文件夹" },
-  "projectEditor.add": { "defaultMessage": "添加文件夹" },
-  "projectEditor.reference": { "defaultMessage": "仅供参考" },
-  "projectEditor.write": { "defaultMessage": "允许修改" },
-  "projectEditor.remove": { "defaultMessage": "移除关联 {name}" },
-  "projectEditor.hint": { "defaultMessage": "对话默认在主文件夹中工作。文件编辑工具按这里的设置读写附加文件夹，终端沿用会话权限。" },
-  "projectBrief.heading": { "defaultMessage": "项目简报" },
-  "projectBrief.files": { "defaultMessage": "已修改文件（{count}）" },
-  "projectBrief.noReply": { "defaultMessage": "本轮没有留下最终文字回复。" },
-  "projectBrief.loading": { "defaultMessage": "正在读取本轮记录…" },
-  "projectBrief.unavailable": { "defaultMessage": "暂时无法读取这轮项目记录。" },
-  "projectBrief.retry": { "defaultMessage": "重试" },
-  "codeProHub.clearWorkspace": { "defaultMessage": "取消选择工作区" },
-  "messageQueue.attachments": {
-    "defaultMessage": "{count} 张图片"
-  },
-  "messageQueue.edit": {
-    "defaultMessage": "编辑消息"
-  },
-  "messageQueue.more": {
-    "defaultMessage": "更多消息操作"
-  },
-  "messageQueue.steer": {
-    "defaultMessage": "引导"
-  },
-  "navigationPanel.newWorkspaceChat": { "defaultMessage": "选择工作区并新建对话" },
-  "navigationPanel.newTaskChat": { "defaultMessage": "新建任务对话" },
-  "navigationPanel.sectionActions": { "defaultMessage": "{section}选项" },
-  "navigationPanel.collapseGroup": { "defaultMessage": "收起分组" },
-  "navigationPanel.expandGroup": { "defaultMessage": "展开分组" },
-  "composerStats.live": { "defaultMessage": "当前生成速度" },
-  "composerStats.previous": { "defaultMessage": "上次采样的生成速度" },
-  "composerStats.liveDetail": { "defaultMessage": "本次请求最近一个采样时段内每秒收到的输出 token 数。" },
-  "composerStats.speed": { "defaultMessage": "平均生成速度" },
-  "composerStats.speedDetail": { "defaultMessage": "当前会话已完成模型请求的平均生成速度。不含首字等待和工具执行时间，每次请求完成后更新。" },
-  "composerStats.speedUnknown": { "defaultMessage": "等待包含 token 用量和耗时数据的模型请求完成。" },
-  "composerStats.cache": { "defaultMessage": "缓存命中" },
-  "composerStats.cacheUnavailable": { "defaultMessage": "未上报" },
-  "composerStats.cacheDetail": { "defaultMessage": "最近一次有回执的模型请求：缓存读取 {cached} / 总输入 {prompt} tokens。缓存写入不计作命中。" },
-  "composerStats.cacheUnknown": { "defaultMessage": "最近请求暂未提供有效的缓存回执。缺少数据不代表命中率为 0%。" },
   "alertBox.compactNow": {
     "defaultMessage": "立即压缩"
   },
@@ -76,6 +7,9 @@
   },
   "app.chooseFolder": {
     "defaultMessage": "选择文件夹"
+  },
+  "app.completionFollowUp": {
+    "defaultMessage": "追加任务…"
   },
   "app.questionNotice": {
     "defaultMessage": "{title} · 去回复 Agent"
@@ -221,17 +155,26 @@
   "baseChat.goHome": {
     "defaultMessage": "回到首页"
   },
-  "baseChat.lastTool": {
-    "defaultMessage": "最近返回结果的工具：{action}"
-  },
   "baseChat.lastStage": {
     "defaultMessage": "最近进度说明：{stage}"
+  },
+  "baseChat.lastTool": {
+    "defaultMessage": "最近返回结果的工具：{action}"
   },
   "baseChat.latest": {
     "defaultMessage": "回到最新"
   },
   "baseChat.mainCode": {
     "defaultMessage": "写代码与排错"
+  },
+  "baseChat.mainConversationExample": {
+    "defaultMessage": "你可以直接问我：“帮我查一下项目进度。”"
+  },
+  "baseChat.mainConversationHeading": {
+    "defaultMessage": "你好，我是 CodeBuddy，你的项目助手。"
+  },
+  "baseChat.mainConversationHelp": {
+    "defaultMessage": "我可以帮你查项目进度、找回之前提过的要求，也可以单独调整某个对话的权限。要做新项目时，我可以建好文件夹，把任务交给项目对话，等它做完再回来向你汇报。"
   },
   "baseChat.mainData": {
     "defaultMessage": "整理文档与数据"
@@ -241,15 +184,6 @@
   },
   "baseChat.mainTasks": {
     "defaultMessage": "规划、执行与验证"
-  },
-  "baseChat.mainConversationHeading": {
-    "defaultMessage": "你好，我是 CodeBuddy，你的项目助手。"
-  },
-  "baseChat.mainConversationHelp": {
-    "defaultMessage": "我可以帮你查项目进度、找回之前提过的要求，也可以单独调整某个对话的权限。要做新项目时，我可以建好文件夹，把任务交给项目对话，等它做完再回来向你汇报。"
-  },
-  "baseChat.mainConversationExample": {
-    "defaultMessage": "你可以直接问我：“帮我查一下项目进度。”"
   },
   "baseChat.mainWelcome": {
     "defaultMessage": "我是 CodeBuddy，一起把事情做好。"
@@ -356,17 +290,20 @@
   "cardButtons.launch": {
     "defaultMessage": "启动"
   },
-  "chat.notification.taskComplete.body": {
-    "defaultMessage": "点击这里让 CodeBuddy 窗口回到前台。"
-  },
   "chat.notification.executionEnded.title": {
     "defaultMessage": "CodeBuddy 本轮执行已结束。"
+  },
+  "chat.notification.taskComplete.body": {
+    "defaultMessage": "点击这里让 CodeBuddy 窗口回到前台。"
   },
   "chatInput.attachFile": {
     "defaultMessage": "添加附件"
   },
   "chatInput.contextWindow": {
     "defaultMessage": "上下文窗口"
+  },
+  "chatInput.continueTask": {
+    "defaultMessage": "继续任务"
   },
   "chatInput.dictationError": {
     "defaultMessage": "语音输入错误"
@@ -378,7 +315,7 @@
     "defaultMessage": "读取图片文件失败"
   },
   "chatInput.imageLimit": {
-    "defaultMessage": "每条消息最多可添加 {count} 张图片。"
+    "defaultMessage": "当前已有 {current} 张图片，本次要添加 {incoming} 张，每条消息最多 {count} 张。本批尚未添加或发送，原有附件和已生成的文件均保留。请减少本次选择，或分批发送并说明每批用途。"
   },
   "chatInput.listening": {
     "defaultMessage": "正在聆听"
@@ -412,9 +349,6 @@
   },
   "chatInput.send": {
     "defaultMessage": "发送"
-  },
-  "chatInput.continueTask": {
-    "defaultMessage": "继续任务"
   },
   "chatInput.stop": {
     "defaultMessage": "停止"
@@ -976,6 +910,9 @@
   },
   "codeProHub.chooseProjectFolder": {
     "defaultMessage": "请选择项目文件夹以继续"
+  },
+  "codeProHub.clearWorkspace": {
+    "defaultMessage": "取消选择工作区"
   },
   "codeProHub.directoryChooserFailed": {
     "defaultMessage": "无法选择项目文件夹，请重试。"
@@ -1913,6 +1850,36 @@
   "composerGoalBar.unavailable": {
     "defaultMessage": "暂未读取到目标状态，可用 /goal status 重试。"
   },
+  "composerStats.cache": {
+    "defaultMessage": "缓存命中"
+  },
+  "composerStats.cacheDetail": {
+    "defaultMessage": "最近一次有回执的模型请求：缓存读取 {cached} / 总输入 {prompt} tokens。缓存写入不计作命中。"
+  },
+  "composerStats.cacheUnavailable": {
+    "defaultMessage": "未上报"
+  },
+  "composerStats.cacheUnknown": {
+    "defaultMessage": "最近请求暂未提供有效的缓存回执。缺少数据不代表命中率为 0%。"
+  },
+  "composerStats.live": {
+    "defaultMessage": "当前生成速度"
+  },
+  "composerStats.liveDetail": {
+    "defaultMessage": "本次请求最近一个采样时段内每秒收到的输出 token 数。"
+  },
+  "composerStats.previous": {
+    "defaultMessage": "上次采样的生成速度"
+  },
+  "composerStats.speed": {
+    "defaultMessage": "平均生成速度"
+  },
+  "composerStats.speedDetail": {
+    "defaultMessage": "当前会话已完成模型请求的平均生成速度。不含首字等待和工具执行时间，每次请求完成后更新。"
+  },
+  "composerStats.speedUnknown": {
+    "defaultMessage": "等待包含 token 用量和耗时数据的模型请求完成。"
+  },
   "configureApproveMode.cancel": {
     "defaultMessage": "取消"
   },
@@ -1949,17 +1916,17 @@
   "confirmationModal.processing": {
     "defaultMessage": "处理中…"
   },
-  "conversation.turnStoppedAfter": {
-    "defaultMessage": "已停止，用时 {duration}"
-  },
-  "conversation.turnWorkingFor": {
-    "defaultMessage": "已处理 {duration}"
-  },
   "conversation.turnDuration": {
     "defaultMessage": "用时 {minutes} 分钟 {seconds} 秒"
   },
   "conversation.turnRecord": {
     "defaultMessage": "本轮记录 {count} 项操作"
+  },
+  "conversation.turnStoppedAfter": {
+    "defaultMessage": "已停止，用时 {duration}"
+  },
+  "conversation.turnWorkingFor": {
+    "defaultMessage": "已处理 {duration}"
   },
   "conversationBranch.action": {
     "defaultMessage": "从此轮创建对话分支"
@@ -2623,6 +2590,45 @@
   },
   "defaultProviderSetupForm.showOptions": {
     "defaultMessage": "显示 {count} 项选项"
+  },
+  "diagnosticExport.cancel": {
+    "defaultMessage": "取消"
+  },
+  "diagnosticExport.detailed": {
+    "defaultMessage": "详细日志"
+  },
+  "diagnosticExport.detailedHint": {
+    "defaultMessage": "增加工具输出片段，可在预览中检查要导出的内容。"
+  },
+  "diagnosticExport.failed": {
+    "defaultMessage": "无法生成或保存日志，请重试。"
+  },
+  "diagnosticExport.loading": {
+    "defaultMessage": "正在生成日志…"
+  },
+  "diagnosticExport.notice": {
+    "defaultMessage": "保存预览中的这份日志，本机原始日志不变。"
+  },
+  "diagnosticExport.preview": {
+    "defaultMessage": "文件预览"
+  },
+  "diagnosticExport.retry": {
+    "defaultMessage": "重试"
+  },
+  "diagnosticExport.save": {
+    "defaultMessage": "保存这份预览"
+  },
+  "diagnosticExport.saved": {
+    "defaultMessage": "日志已保存"
+  },
+  "diagnosticExport.standard": {
+    "defaultMessage": "标准日志"
+  },
+  "diagnosticExport.standardHint": {
+    "defaultMessage": "保留模型路由、预算、调用顺序和错误信息，不含对话与思考正文。"
+  },
+  "diagnosticExport.title": {
+    "defaultMessage": "导出日志"
   },
   "diagnosticsModal.attachHint": {
     "defaultMessage": "分享报告前，请检查并删除敏感信息。"
@@ -4706,6 +4712,9 @@
   "messageCopyLink.retry": {
     "defaultMessage": "重试"
   },
+  "messageQueue.attachments": {
+    "defaultMessage": "{count} 张图片"
+  },
   "messageQueue.cancel": {
     "defaultMessage": "取消"
   },
@@ -4733,6 +4742,9 @@
   "messageQueue.continueSending": {
     "defaultMessage": "消息已保留，点击立即发送可继续。"
   },
+  "messageQueue.edit": {
+    "defaultMessage": "编辑消息"
+  },
   "messageQueue.expandDrafts": {
     "defaultMessage": "展开已保留的草稿"
   },
@@ -4741,6 +4753,9 @@
   },
   "messageQueue.messageCount": {
     "defaultMessage": "{count,plural,one{# 条消息 {status}} other{# 条消息 {status}}}"
+  },
+  "messageQueue.more": {
+    "defaultMessage": "更多消息操作"
   },
   "messageQueue.next": {
     "defaultMessage": "下一条"
@@ -4774,6 +4789,9 @@
   },
   "messageQueue.sendTogether": {
     "defaultMessage": "将所有待发送消息一并发送"
+  },
+  "messageQueue.steer": {
+    "defaultMessage": "引导"
   },
   "messageQueue.storageConflict": {
     "defaultMessage": "另一窗口已修改此队列。为避免覆盖，已暂停发送和保存。请保持本窗口打开并核对两边的待发消息。"
@@ -4835,6 +4853,12 @@
   "messageUsageStats.totalTime": {
     "defaultMessage": "总用时"
   },
+  "messageUsageStats.turn": {
+    "defaultMessage": "本轮累计"
+  },
+  "messageUsageStats.turnDetail": {
+    "defaultMessage": "合计本轮已上报的模型调用。每次重发的历史都会计入输入；输出可能包含工具参数和推理。"
+  },
   "microphoneSelector.chooseDescription": {
     "defaultMessage": "选择用于语音输入的麦克风"
   },
@@ -4892,9 +4916,6 @@
   "modelAndProviderContext.credentialsRejected": {
     "defaultMessage": "模型服务需要凭据或拒绝了当前凭据，请在设置中检查该提供商。"
   },
-  "modelAndProviderContext.stopBeforeSwitching": {
-    "defaultMessage": "请先停止当前执行，再切换模型。"
-  },
   "modelAndProviderContext.endpointUnreachable": {
     "defaultMessage": "连接不到模型服务，请检查服务地址及网络后重试。"
   },
@@ -4909,6 +4930,9 @@
   },
   "modelAndProviderContext.selectModel": {
     "defaultMessage": "选择模型"
+  },
+  "modelAndProviderContext.stopBeforeSwitching": {
+    "defaultMessage": "请先停止当前执行，再切换模型。"
   },
   "modelAndProviderContext.unknownProviderMsg": {
     "defaultMessage": "配置中存在未知提供商 —— 请检查你的 config.yaml"
@@ -5258,8 +5282,14 @@
   "modelsAndRuntime.visionDescription": {
     "defaultMessage": "选择负责识别图片和截图的模型。"
   },
+  "modelsBottomBar.cachedList": {
+    "defaultMessage": "当前显示上次保存的模型。"
+  },
   "modelsBottomBar.empty": {
     "defaultMessage": "暂无已配置模型"
+  },
+  "modelsBottomBar.inventoryReadFailed": {
+    "defaultMessage": "无法读取刷新后的模型列表。菜单仍显示刷新前的内容。"
   },
   "modelsBottomBar.loadFailed": {
     "defaultMessage": "模型列表加载失败。"
@@ -5273,20 +5303,11 @@
   "modelsBottomBar.noMatches": {
     "defaultMessage": "没有匹配的模型"
   },
-  "modelsBottomBar.refresh": {
-    "defaultMessage": "刷新模型"
-  },
-  "modelsBottomBar.cachedList": {
-    "defaultMessage": "当前显示上次保存的模型。"
-  },
-  "modelsBottomBar.inventoryReadFailed": {
-    "defaultMessage": "无法读取刷新后的模型列表。菜单仍显示刷新前的内容。"
-  },
   "modelsBottomBar.noSavedList": {
     "defaultMessage": "没有已保存的模型可显示。"
   },
-  "modelsBottomBar.unknownReason": {
-    "defaultMessage": "未收到具体错误原因。"
+  "modelsBottomBar.refresh": {
+    "defaultMessage": "刷新模型"
   },
   "modelsBottomBar.refreshFailed": {
     "defaultMessage": "共 {total} 个连接，{failed} 个未能更新模型列表。"
@@ -5323,6 +5344,9 @@
   },
   "modelsBottomBar.switching": {
     "defaultMessage": "正在切换模型…"
+  },
+  "modelsBottomBar.unknownReason": {
+    "defaultMessage": "未收到具体错误原因。"
   },
   "nativeSchedule.active": {
     "defaultMessage": "已开启"
@@ -5570,11 +5594,26 @@
   "navigationPanel.chats": {
     "defaultMessage": "任务"
   },
+  "navigationPanel.collapseGroup": {
+    "defaultMessage": "收起分组"
+  },
+  "navigationPanel.expandGroup": {
+    "defaultMessage": "展开分组"
+  },
   "navigationPanel.newProjectChat": {
     "defaultMessage": "在项目中新建对话"
   },
+  "navigationPanel.newTaskChat": {
+    "defaultMessage": "新建任务对话"
+  },
+  "navigationPanel.newWorkspaceChat": {
+    "defaultMessage": "选择工作区并新建对话"
+  },
   "navigationPanel.noChats": {
     "defaultMessage": "没有最近的任务"
+  },
+  "navigationPanel.noWorkspace": {
+    "defaultMessage": "未关联工作区"
   },
   "navigationPanel.pendingPermission": {
     "defaultMessage": "待授权"
@@ -5591,11 +5630,29 @@
   "navigationPanel.projectName": {
     "defaultMessage": "项目名称"
   },
+  "navigationPanel.removeProject": {
+    "defaultMessage": "移除项目"
+  },
+  "navigationPanel.sectionActions": {
+    "defaultMessage": "{section}选项"
+  },
+  "navigationPanel.stopBeforeMove": {
+    "defaultMessage": "请先停止当前任务，再切换工作区。"
+  },
+  "navigationPanel.unknownTime": {
+    "defaultMessage": "时间未知"
+  },
   "navigationPanel.unpinProject": {
     "defaultMessage": "取消项目置顶"
   },
   "navigationPanel.untitledSession": {
     "defaultMessage": "未命名会话"
+  },
+  "navigationPanel.updatedAt": {
+    "defaultMessage": "最近更新"
+  },
+  "navigationPanel.workspaceChats": {
+    "defaultMessage": "{count} 个最近对话 · {active} 个运行中"
   },
   "navigationPanel.workspaces": {
     "defaultMessage": "工作区"
@@ -6133,6 +6190,48 @@
   },
   "progressiveMessageList.turnProcessDuration": {
     "defaultMessage": "本轮用时 {minutes} 分 {seconds} 秒"
+  },
+  "projectBrief.files": {
+    "defaultMessage": "已修改文件（{count}）"
+  },
+  "projectBrief.heading": {
+    "defaultMessage": "项目简报"
+  },
+  "projectBrief.loading": {
+    "defaultMessage": "正在读取本轮记录…"
+  },
+  "projectBrief.noReply": {
+    "defaultMessage": "本轮没有留下最终文字回复。"
+  },
+  "projectBrief.retry": {
+    "defaultMessage": "重试"
+  },
+  "projectBrief.unavailable": {
+    "defaultMessage": "暂时无法读取这轮项目记录。"
+  },
+  "projectEditor.add": {
+    "defaultMessage": "添加文件夹"
+  },
+  "projectEditor.edit": {
+    "defaultMessage": "编辑项目"
+  },
+  "projectEditor.hint": {
+    "defaultMessage": "对话默认在主文件夹中工作。文件编辑工具按这里的设置读写附加文件夹，终端沿用会话权限。"
+  },
+  "projectEditor.linked": {
+    "defaultMessage": "附加文件夹"
+  },
+  "projectEditor.main": {
+    "defaultMessage": "主文件夹"
+  },
+  "projectEditor.reference": {
+    "defaultMessage": "仅供参考"
+  },
+  "projectEditor.remove": {
+    "defaultMessage": "移除关联 {name}"
+  },
+  "projectEditor.write": {
+    "defaultMessage": "允许修改"
   },
   "projectMemoryApproval.confidence": {
     "defaultMessage": "置信度"
@@ -7986,7 +8085,7 @@
     "defaultMessage": "打开系统设置"
   },
   "settings.notifications.task.description": {
-    "defaultMessage": "窗口在后台时，CodeBuddy 完成任务后通知你"
+    "defaultMessage": "任务完成时，在当前窗口或系统通知中提醒你"
   },
   "settings.notifications.task.title": {
     "defaultMessage": "任务完成通知"
@@ -8735,6 +8834,18 @@
   "thinkingEffortPicker.context": {
     "defaultMessage": "上下文窗口"
   },
+  "thinkingEffortPicker.default": {
+    "defaultMessage": "服务默认"
+  },
+  "thinkingEffortPicker.useDefault": {
+    "defaultMessage": "使用模型默认值"
+  },
+  "thinkingEffortPicker.defaultNotice": {
+    "defaultMessage": "由模型决定思考强度，这不代表关闭思考。"
+  },
+  "thinkingEffortPicker.cannotDisable": {
+    "defaultMessage": "该模型不支持关闭思考，最低档位为“{level}”。"
+  },
   "thinkingEffortPicker.error": {
     "defaultMessage": "思考强度保存失败，请重试。"
   },
@@ -8768,11 +8879,29 @@
   "thinkingEffortPicker.readFailed": {
     "defaultMessage": "读取未成功"
   },
+  "thinkingEffortPicker.refresh": {
+    "defaultMessage": "重新检测模型能力"
+  },
+  "thinkingEffortPicker.schemaControls": {
+    "defaultMessage": "档位由接口声明；对当前模型的实际效果尚未验证。"
+  },
+  "thinkingEffortPicker.stale": {
+    "defaultMessage": "之前选择的档位已不可用，已回退至当前显示的档位。可选择受支持的档位替换旧设置。"
+  },
+  "thinkingEffortPicker.templateControls": {
+    "defaultMessage": "已通过当前模型的分词模板校验，未执行生成；尚未评估思考效果。"
+  },
   "thinkingEffortPicker.title": {
     "defaultMessage": "思考强度"
   },
   "thinkingEffortPicker.unavailable": {
     "defaultMessage": "未提供"
+  },
+  "thinkingEffortPicker.unknown": {
+    "defaultMessage": "尚未确认可调档位，使用服务默认。"
+  },
+  "thinkingEffortPicker.unsupported": {
+    "defaultMessage": "此模型不支持调节思考强度。"
   },
   "thinkingEffortPicker.xhigh": {
     "defaultMessage": "超高"
@@ -9557,6 +9686,54 @@
   "toolbox.usage": {
     "defaultMessage": "已成功使用 {count} 次"
   },
+  "typography.default": {
+    "defaultMessage": "CodeBuddy 默认"
+  },
+  "typography.failed": {
+    "defaultMessage": "显示设置保存失败，请重试。"
+  },
+  "typography.font": {
+    "defaultMessage": "界面字体"
+  },
+  "typography.less": {
+    "defaultMessage": "减小{setting}"
+  },
+  "typography.more": {
+    "defaultMessage": "增大{setting}"
+  },
+  "typography.reset": {
+    "defaultMessage": "重置{setting}"
+  },
+  "typography.sample": {
+    "defaultMessage": "你的消息会以这个大小显示。"
+  },
+  "typography.serif": {
+    "defaultMessage": "衬线字体"
+  },
+  "typography.size": {
+    "defaultMessage": "代码字号"
+  },
+  "typography.sizeHint": {
+    "defaultMessage": "用于代码块、文件编辑器和差异对比。"
+  },
+  "typography.system": {
+    "defaultMessage": "系统字体"
+  },
+  "typography.text": {
+    "defaultMessage": "界面字号"
+  },
+  "typography.textHint": {
+    "defaultMessage": "调整聊天正文、输入框和界面文字。"
+  },
+  "typography.title": {
+    "defaultMessage": "字体与缩放"
+  },
+  "typography.zoom": {
+    "defaultMessage": "界面缩放"
+  },
+  "typography.zoomHint": {
+    "defaultMessage": "同时调整对话、侧栏和按钮的大小。"
+  },
   "userMessage.cancel": {
     "defaultMessage": "取消"
   },
@@ -9605,6 +9782,9 @@
   "userMessage.pending": {
     "defaultMessage": "待发送"
   },
+  "userMessage.removeEditedImage": {
+    "defaultMessage": "从本次重发中移除第 {number} 张图片"
+  },
   "userMessage.unconfirmed": {
     "defaultMessage": "待确认"
   },
@@ -9632,9 +9812,6 @@
   "workStatus.first": {
     "defaultMessage": "等待新的执行状态"
   },
-  "workStatus.requestElapsed": {
-    "defaultMessage": "· 本次调用已用 {minutes, plural, =0 {} other {# 分 }}{seconds} 秒"
-  },
   "workStatus.minutes": {
     "defaultMessage": "· 当前状态已持续 {minutes} 分 {seconds} 秒"
   },
@@ -9643,6 +9820,12 @@
   },
   "workStatus.question": {
     "defaultMessage": "需要你的回复或确认"
+  },
+  "workStatus.request": {
+    "defaultMessage": "第 {number} 次模型调用 · {status}"
+  },
+  "workStatus.requestElapsed": {
+    "defaultMessage": "· 本次调用已用 {minutes, plural, =0 {} other {# 分 }}{seconds} 秒"
   },
   "workStatus.responseRead": {
     "defaultMessage": "正在接收模型输出"
@@ -9806,6 +9989,12 @@
   "workspacePanel.browser": {
     "defaultMessage": "浏览器"
   },
+  "workspacePanel.browserActionFailed": {
+    "defaultMessage": "{action}失败"
+  },
+  "workspacePanel.browserControl": {
+    "defaultMessage": "网页控制"
+  },
   "workspacePanel.browserHint": {
     "defaultMessage": "浏览网页"
   },
@@ -9881,8 +10070,6 @@
   "workspacePanel.fileDenied": {
     "defaultMessage": "Windows 拒绝访问此文件，请检查权限或选择可读取的副本。"
   },
-  "workspacePanel.browserActionFailed": { "defaultMessage": "{action}失败" },
-  "workspacePanel.browserControl": { "defaultMessage": "网页控制" },
   "workspacePanel.fileMissing": {
     "defaultMessage": "文件已移动或删除，请确认位置后重新打开链接。"
   },
@@ -10104,56 +10291,5 @@
   },
   "workspaceSubagents.unknownState": {
     "defaultMessage": "状态未知 · {count}"
-  },
-  "navigationPanel.workspaceChats": {
-    "defaultMessage": "{count} 个最近对话 · {active} 个运行中"
-  },
-  "navigationPanel.noWorkspace": {
-    "defaultMessage": "未关联工作区"
-  },
-  "navigationPanel.updatedAt": {
-    "defaultMessage": "最近更新"
-  },
-  "navigationPanel.unknownTime": {
-    "defaultMessage": "时间未知"
-  },
-  "diagnosticExport.cancel": {
-    "defaultMessage": "取消"
-  },
-  "diagnosticExport.detailed": {
-    "defaultMessage": "详细日志"
-  },
-  "diagnosticExport.detailedHint": {
-    "defaultMessage": "增加工具输出片段，可在预览中检查要导出的内容。"
-  },
-  "diagnosticExport.failed": {
-    "defaultMessage": "无法生成或保存日志，请重试。"
-  },
-  "diagnosticExport.loading": {
-    "defaultMessage": "正在生成日志…"
-  },
-  "diagnosticExport.notice": {
-    "defaultMessage": "保存预览中的这份日志，本机原始日志不变。"
-  },
-  "diagnosticExport.preview": {
-    "defaultMessage": "文件预览"
-  },
-  "diagnosticExport.retry": {
-    "defaultMessage": "重试"
-  },
-  "diagnosticExport.save": {
-    "defaultMessage": "保存这份预览"
-  },
-  "diagnosticExport.saved": {
-    "defaultMessage": "日志已保存"
-  },
-  "diagnosticExport.standard": {
-    "defaultMessage": "标准日志"
-  },
-  "diagnosticExport.standardHint": {
-    "defaultMessage": "保留模型路由、预算、调用顺序和错误信息，不含对话与思考正文。"
-  },
-  "diagnosticExport.title": {
-    "defaultMessage": "导出日志"
   }
 }

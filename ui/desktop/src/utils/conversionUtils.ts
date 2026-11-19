@@ -54,25 +54,34 @@ export function formatErrorForLogging(error: unknown): string {
   return String(error);
 }
 
-export async function compressImageDataUrl(dataUrl: string): Promise<string> {
+export async function compressImageDataUrl(dataUrl: string, preserveScreenshotDetail = false): Promise<string> {
   return new Promise((resolve, reject) => {
     const img = new globalThis.Image();
     img.onload = () => {
-      const maxDim = 1024;
-      const scale = Math.min(1, maxDim / Math.max(img.width, img.height));
-      const width = Math.floor(img.width * scale);
-      const height = Math.floor(img.height * scale);
-
       const canvas = document.createElement('canvas');
-      canvas.width = width;
-      canvas.height = height;
       const ctx = canvas.getContext('2d');
       if (!ctx) {
         reject(new Error('Failed to get canvas context'));
         return;
       }
-      ctx.drawImage(img, 0, 0, width, height);
-
+      const longest = Math.max(img.width, img.height);
+      // Keep text and thin field borders legible. Re-encode pixels to omit source metadata.
+      const pngBudget = 4 * Math.ceil((1024 * 1024) / 3) + 'data:image/png;base64,'.length;
+      if (preserveScreenshotDetail && dataUrl.startsWith('data:image/png;base64,') &&
+          dataUrl.length <= pngBudget && longest <= 2560) {
+        canvas.width = img.width;
+        canvas.height = img.height;
+        ctx.drawImage(img, 0, 0);
+        const png = canvas.toDataURL('image/png');
+        if (png.startsWith('data:image/png;base64,') && png.length <= pngBudget) {
+          resolve(png);
+          return;
+        }
+      }
+      const scale = Math.min(1, 1024 / longest);
+      canvas.width = Math.max(1, Math.floor(img.width * scale));
+      canvas.height = Math.max(1, Math.floor(img.height * scale));
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
       resolve(canvas.toDataURL('image/jpeg', 0.85));
     };
     img.onerror = () => reject(new Error('Failed to load image'));

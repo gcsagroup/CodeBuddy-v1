@@ -168,7 +168,7 @@ export const useFileDrop = (initialFiles: DroppedFile[] = []) => {
             const dataUrl = event.target?.result as string;
             try {
               // Compress the image
-              const compressedDataUrl = await compressImageDataUrl(dataUrl);
+              const compressedDataUrl = await compressImageDataUrl(dataUrl, true);
               setDroppedFiles((prev) =>
                 prev.map((f) =>
                   f.id === droppedFile.id

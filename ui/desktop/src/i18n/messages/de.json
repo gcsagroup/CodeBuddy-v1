@@ -5,6 +5,9 @@
   "announcementModal.gotIt": {
     "defaultMessage": "Verstanden!"
   },
+  "app.completionFollowUp": {
+    "defaultMessage": "Folgeauftrag eingeben…"
+  },
   "app.chooseFolder": {
     "defaultMessage": "Choose folder"
   },
@@ -7917,7 +7920,7 @@
     "defaultMessage": "Systemeinstellungen öffnen"
   },
   "settings.notifications.task.description": {
-    "defaultMessage": "Benachrichtigen, wenn CodeBuddy eine Aufgabe abschließt, während sich das Fenster im Hintergrund befindet"
+    "defaultMessage": "Bei Aufgabenabschluss im Fenster oder per Systembenachrichtigung informieren"
   },
   "settings.notifications.task.title": {
     "defaultMessage": "Benachrichtigungen bei Aufgabenabschluss"

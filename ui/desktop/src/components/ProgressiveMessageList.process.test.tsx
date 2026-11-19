@@ -162,6 +162,11 @@ describe('processes between public replies', () => {
     render(show([user, answer, terminal, unbound]), { wrapper: IntlTestWrapper });
     expect(screen.getByText('Output 16')).toBeVisible();
     expect(screen.queryByText('Output 543')).not.toBeInTheDocument();
+    expect(screen.getByText(/Time spent/)).toBeVisible();
+    expect(screen.queryByRole('button', { name: /Time spent/ })).toBeNull();
+    expect(screen.queryByText(/1970.*2026/)).toBeNull();
+    expect(screen.queryByRole('button', { name: /Thinking/ })).toBeNull();
+    expect(screen.getByText('899')).toBeVisible();
   });
 
   it('keeps a length-limited terminal and its continuation outside collapsed process history', () => {

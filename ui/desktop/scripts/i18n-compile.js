@@ -14,14 +14,10 @@ const compiledDir = path.join(projectDir, 'src', 'i18n', 'compiled');
 
 fs.mkdirSync(compiledDir, { recursive: true });
 
-const files = fs.readdirSync(messagesDir).filter((f) => f.endsWith('.json'));
-
-for (const file of files) {
-  const locale = path.basename(file, '.json');
-  const inFile = path.join(messagesDir, file).split(path.sep).join('/');
-  const outFile = path.join(compiledDir, `${locale}.json`);
-  execFileSync(process.execPath, [formatjs, 'compile', inFile, '--out-file', outFile], {
-    stdio: 'inherit',
-    cwd: projectDir,
-  });
-}
+// One compiler process validates all locales; starting its bundled CLI once per
+// locale adds several seconds to every preview launch on Windows.
+execFileSync(
+  process.execPath,
+  [formatjs, 'compile-folder', messagesDir.split(path.sep).join('/'), compiledDir],
+  { stdio: 'inherit', cwd: projectDir }
+);

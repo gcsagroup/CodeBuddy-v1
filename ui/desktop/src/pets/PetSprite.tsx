@@ -9,14 +9,17 @@ export function PetSprite({
   gazeFrame,
   playbackKey,
   onAlphaMap,
+  onTopInset,
 }: {
   pet: PetAsset;
   animation?: PetAnimation;
   reducedMotion?: boolean;
   gazeFrame?: number;
   playbackKey?: string | number;
+  onTopInset?: (imageUrl: string, rows: number) => void;
   onAlphaMap?: (alpha: Uint8ClampedArray) => void;
 }) {
+  const topInsets = useRef(new Map<PetAnimation, number>());
   const canvas = useRef<HTMLCanvasElement>(null);
   const [image, setImage] = useState<HTMLImageElement | null>(null);
   const [pose, setPose] = useState({ animation, frame: 0 });
@@ -25,7 +28,9 @@ export function PetSprite({
     let active = true;
     const img = new Image();
     img.onload = () => {
-      if (active) setImage(img);
+      if (!active) return;
+      topInsets.current.clear();
+      setImage(img);
     };
     img.onerror = () => {
       if (active) setImage(null);
@@ -62,6 +67,26 @@ export function PetSprite({
     const ctx = canvas.current?.getContext('2d', { willReadFrequently: Boolean(onAlphaMap) });
     if (!ctx || !image) return;
     const displayedAnimation = animation === 'look' && hasGazeFrame ? 'look' : pose.animation;
+    // Use one silhouette envelope per action. Ear movement within a loop must
+    // not move the notification; include every column so props remain clear.
+    if (onTopInset) {
+      let inset = topInsets.current.get(displayedAnimation);
+      if (inset === undefined) {
+        const strip = document.createElement('canvas');
+        strip.width = image.naturalWidth;
+        strip.height = pet.cellHeight;
+        const stripCtx = strip.getContext('2d');
+        if (stripCtx && strip.width > 0) {
+          const row = petStates.indexOf(displayedAnimation) * strip.height;
+          stripCtx.drawImage(image, 0, -row);
+          const rgba = stripCtx.getImageData(0, 0, strip.width, strip.height).data;
+          const first = rgba.findIndex((alpha, i) => i % 4 === 3 && alpha > 24);
+          inset = first < 0 ? 0 : Math.floor(first / (4 * strip.width));
+          topInsets.current.set(displayedAnimation, inset);
+        }
+      }
+      if (inset !== undefined) onTopInset(pet.imageUrl, inset);
+    }
     const column = reducedMotion
       ? 0
       : displayedAnimation === 'look'
@@ -80,7 +105,7 @@ export function PetSprite({
       208
     );
     onAlphaMap?.(ctx.getImageData(0, 0, 192, 208).data);
-  }, [image, pose, animation, reducedMotion, gazeFrame, hasGazeFrame, onAlphaMap]);
+  }, [image, pose, animation, reducedMotion, gazeFrame, hasGazeFrame, onAlphaMap, onTopInset, pet.imageUrl, pet.cellHeight]);
   return (
     <canvas
       ref={canvas}

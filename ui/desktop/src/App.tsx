@@ -19,6 +19,7 @@ import { ExtensionInstallModal } from './components/ExtensionInstallModal';
 import RecipeParamsModalContainer from './components/RecipeParamsModalContainer';
 import { isRecipeParamsCancelled } from './acp/errors';
 import { toast, ToastContainer } from 'react-toastify';
+import { CompletionReminderCard } from './components/CompletionReminderCard';
 import AnnouncementModal from './components/AnnouncementModal';
 import TelemetryConsentPrompt from './components/TelemetryConsentPrompt';
 import OnboardingGuard from './components/onboarding/OnboardingGuard';
@@ -40,10 +41,8 @@ interface PairRouteState {
 }
 import type { SettingsViewOptions } from './components/settings/SettingsView';
 import { parsePetMessage, parsePetComposerAction } from './pets/petMessage';
-import ProviderSettings from './components/settings/providers/ProviderSettingsPage';
 import { AppLayout } from './components/Layout/AppLayout';
 import { ChatProvider, DEFAULT_CHAT_TITLE } from './contexts/ChatContext';
-import LauncherView from './components/LauncherView';
 
 import 'react-toastify/dist/ReactToastify.css';
 import './components/extension-toast.css';
@@ -51,9 +50,7 @@ import { useConfig } from './components/ConfigContext';
 import { ModelAndProviderProvider } from './components/ModelAndProviderContext';
 import { ThemeProvider } from './contexts/ThemeContext';
 import { FeaturesProvider } from './contexts/FeaturesContext';
-import PermissionSettingsView from './components/settings/permission/PermissionSetting';
 
-import StandaloneAppView from './components/apps/StandaloneAppView';
 import {
   getWorkspaceModeFromPath,
   View,
@@ -77,6 +74,10 @@ import { CodeProRouteGuard } from './codepro/CodeProRouteGuard';
 import { getLegacyToolboxRedirect } from './utils/toolboxRouting';
 
 const SettingsView = lazy(() => import('./components/settings/SettingsView'));
+const ProviderSettings = lazy(() => import('./components/settings/providers/ProviderSettingsPage'));
+const PermissionSettingsView = lazy(() => import('./components/settings/permission/PermissionSetting'));
+const LauncherView = lazy(() => import('./components/LauncherView'));
+const StandaloneAppView = lazy(() => import('./components/apps/StandaloneAppView'));
 const SessionsView = lazy(() => import('./components/sessions/SessionsView'));
 const SchedulesView = lazy(() => import('./components/schedule/NativeSchedulesView'));
 const RecipesView = lazy(() => import('./components/recipes/RecipesView'));
@@ -459,6 +460,24 @@ export function AppInner() {
       navigate(`${pairPath}?resumeSessionId=${encodeURIComponent(sessionId)}`, { state: null });
     };
     window.electron.on('pet-open-session', openPetSession);
+    const unsubscribeCompletion = window.electron.on('task-completion-notice', (event, payload) => {
+      const { sessionId, title, body, messageId, reply } = payload as {
+        sessionId: string; title: string; body: string; messageId: string; reply?: string;
+      };
+      const open = () => openPetSession(event, sessionId);
+      const submit = (text: string) => {
+        open();
+        return deliverMainConversationMessage(sessionId, { msg: text, images: [], messageId });
+      };
+      const showCard = (initialError?: string) => toast(({ closeToast }) => (
+        <CompletionReminderCard title={title} body={body} draft={reply} initialError={initialError}
+          onExpire={closeToast} open={() => { open(); closeToast(); }}
+          send={async text => { await submit(text); closeToast(); }} />
+      ), { toastId: messageId, position: 'bottom-right', autoClose: false, closeOnClick: false,
+        draggable: false, className: 'completion-notice' });
+      if (reply) void submit(reply).catch(error => showCard(String(error)));
+      else showCard();
+    });
     const unsubscribeQuestion = window.electron.on('agent-question-notice', (_event, payload) => {
       const { sessionId, title, questionId } = payload as { sessionId: string; title: string; questionId: string };
       toast.info(
@@ -514,6 +533,7 @@ export function AppInner() {
     });
     return () => {
       window.electron.off('pet-open-session', openPetSession);
+      unsubscribeCompletion?.();
       unsubscribeQuestion?.();
       window.electron.off('pet-pause-session', pausePetSession);
       window.electron.off('pet-create-session', createPetSession);

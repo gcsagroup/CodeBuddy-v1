@@ -40,6 +40,8 @@ import {
   Tray,
 } from 'electron';
 import { pathToFileURL, format as formatUrl, URLSearchParams } from 'node:url';
+import { showCompletionPopup } from './completionPopupMain';
+import { previewToastActivator, registerPreviewShortcut } from './utils/previewShortcut';
 import { Buffer } from 'node:buffer';
 import fs from 'node:fs/promises';
 import fsSync from 'node:fs';
@@ -71,12 +73,7 @@ import { defaultTypography, readTypography, zoomRange, type Typography } from '.
 import * as crypto from 'crypto';
 import * as yaml from 'yaml';
 import windowStateKeeper from 'electron-window-state';
-import {
-  getUpdateAvailable,
-  setAutoDownloadDisabled,
-  setTrayRef,
-  updateTrayMenu,
-} from './utils/autoUpdater';
+import { configureTray, setAutoDownloadDisabled } from './utils/autoUpdater';
 import './utils/recipeHash';
 import type { GooseApp } from './types/apps';
 import installExtension, { REACT_DEVELOPER_TOOLS } from 'electron-devtools-installer';
@@ -187,6 +184,7 @@ log.info('Desktop startup preflight', {
 app.setName(distro.productName);
 if (process.platform === 'win32') {
   app.setAppUserModelId(windowsAppUserModelId(app.isPackaged));
+  if (!app.isPackaged) app.setToastActivatorCLSID(previewToastActivator);
 }
 
 function findSupportedDeepLink(args: string[]): string | undefined {
@@ -1881,7 +1879,9 @@ const attachTrayLifecycle = registerTrayLifecycle(
   () => windowMap.size === 1
 );
 
+let refreshTrayMenu: (() => void) | undefined;
 const destroyTray = () => {
+  refreshTrayMenu = undefined;
   if (tray) {
     tray.destroy();
     tray = null;
@@ -1917,8 +1917,19 @@ const createTray = () => {
   try {
     tray = new Tray(iconPath);
     tray.setToolTip(trayTooltip);
-    setTrayRef(tray);
-    updateTrayMenu(getUpdateAvailable());
+    refreshTrayMenu = configureTray(tray, iconPath, {
+      translate: nativeT,
+      open: showWindow,
+      newWindow: () => { void createNewWindow(app); },
+      settings: (section) => {
+        const win = revealChatOnActivate(applicationWindows());
+        if (win && reactReadyWindows.has(win.id) && !win.webContents.isLoadingMainFrame()) {
+          win.webContents.send('set-view', 'settings', section);
+        } else {
+          void createChat(app, { viewType: 'settings', settingsSection: section });
+        }
+      },
+    });
 
     if (process.platform === 'win32') {
       tray.on('click', showWindow);
@@ -1931,37 +1942,7 @@ const createTray = () => {
 };
 
 const showWindow = async () => {
-  const windows = applicationWindows();
-
-  if (windows.length === 0) {
-    log.info('No windows are open, creating a new one...');
-    await createChat(app);
-    return;
-  }
-
-  const initialOffsetX = 30;
-  const initialOffsetY = 30;
-
-  // Iterate over all windows
-  windows.forEach((win, index) => {
-    const currentBounds = win.getBounds();
-    const newX = currentBounds.x + initialOffsetX * index;
-    const newY = currentBounds.y + initialOffsetY * index;
-
-    win.setBounds({
-      x: newX,
-      y: newY,
-      width: currentBounds.width,
-      height: currentBounds.height,
-    });
-
-    if (!win.isVisible()) {
-      win.show();
-    }
-
-    if (win.isMinimized()) win.restore();
-    win.focus();
-  });
+  if (!revealChatOnActivate(applicationWindows())) await createChat(app);
 };
 
 async function openDirectoryInCurrentWindow(
@@ -2384,6 +2365,7 @@ ipcMain.handle('set-setting', (_event, key: SettingKey, value: unknown) => {
   if (key === 'enableWakelock') taskWakelock.setEnabled(value === true);
   if (key === 'language') {
     appConfig.GOOSE_LOCALE = getConfiguredGooseLocale();
+    refreshTrayMenu?.();
   }
 
   // Re-register shortcuts if keyboard shortcuts changed
@@ -3408,25 +3390,31 @@ async function appMain() {
         return;
       }
 
-      // Remove any HTML tags for security
-      const sanitizeText = (text: string) => text.replace(/<[^>]*>/g, '');
-
-      const notification = new Notification({
-        title: sanitizeText(data.title),
-        body: sanitizeText(data.body),
-      });
-
-      // Add click handler to focus the window
+      const owner = BrowserWindow.fromWebContents(event.sender);
+      const sessionId = typeof data.sessionId === 'string' ? data.sessionId : undefined;
+      const focused = BrowserWindow.getFocusedWindow();
+      const notice = { sessionId, title: data.title, body: data.body, messageId: crypto.randomUUID() };
+      if (sessionId && owner && process.platform === 'win32' && applicationWindows().includes(owner)) {
+        void showCompletionPopup(owner, { ...notice, sessionId }, data.locale || detectMenuLocale(), getAppUrl())
+          .catch(error => {
+            log.warn('Completion popup unavailable', error);
+            if (!owner.isDestroyed()) owner.webContents.send('task-completion-notice', notice);
+          });
+        return;
+      }
+      if (sessionId && focused && applicationWindows().includes(focused)) {
+        focused.webContents.send('task-completion-notice', notice);
+        return;
+      }
+      const notification = new Notification({ title: data.title, body: data.body });
       notification.on('click', () => {
-        const window = BrowserWindow.fromWebContents(event.sender);
-        if (window) {
-          if (window.isMinimized()) {
-            window.restore();
-          }
-          window.show();
-          window.focus();
-        }
+        if (!owner || owner.isDestroyed()) return;
+        if (owner.isMinimized()) owner.restore();
+        owner.show();
+        owner.focus();
+        if (sessionId) owner.webContents.send('pet-open-session', sessionId);
       });
+      notification.on('failed', (_event, reason) => log.warn('Completion notification failed', reason));
 
       notification.show();
     } catch (error) {
@@ -3640,6 +3628,22 @@ async function appMain() {
 
 app.whenReady().then(async () => {
   try {
+    if (process.platform === 'win32' && !app.isPackaged && !started) {
+      try {
+        const register = () => registerPreviewShortcut(shell, app.getPath('appData'), process.cwd(), process.execPath);
+        register();
+        // Initializing Electron's Windows presenter asynchronously creates an extra Electron.lnk.
+        // Reconcile the newly generated preview-owned shortcut before the first user notification.
+        if (Notification.isSupported()) {
+          for (let attempt = 0; attempt < 20; attempt++) {
+            await new Promise(resolve => setTimeout(resolve, 100));
+            if (register()) break;
+          }
+        }
+      } catch (error) {
+        log.warn('Could not register the CodeBuddy preview notification identity', error);
+      }
+    }
     const maintainCaches = async () => {
       for (const target of [session.defaultSession, session.fromPartition(localProfilePartition)]) {
         try {

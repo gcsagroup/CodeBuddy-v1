@@ -185,7 +185,15 @@ function MediaJobPreview({
   const [media, setMedia] = useState<PanelMedia>();
   const [error, setError] = useState(false);
   const [now, setNow] = useState(Date.now);
+  const [cancelling, setCancelling] = useState(false);
+  const [cancelNotice, setCancelNotice] = useState('');
   const terminal = ['completed', 'failed', 'cancelled'].includes(job.status);
+  const cancelledNotice = mediaText('Generation cancelled. This service cannot resume from an intermediate frame; generating again starts a new job.', '生成已取消。当前服务不支持从中间进度恢复；再次生成会创建新任务。', '生成已取消。目前服務不支援從中間進度恢復；再次生成會建立新任務。');
+  const completedNotice = mediaText('Already completed; the saved result is kept.', '任务已经完成，已保留结果。', '任務已經完成，已保留結果。');
+  // A later server receipt supersedes the immediate cancellation response.
+  const currentCancelNotice = job.status === 'cancelled' ? cancelledNotice
+    : job.status === 'completed' ? (cancelNotice ? completedNotice : '')
+      : job.status === 'failed' ? '' : cancelNotice;
   const statusName =
     !terminal && (disconnected || job.observation_error) ? 'unavailable' : job.status;
   const active = ['preparing', 'queued', 'running'].includes(statusName);
@@ -246,6 +254,28 @@ function MediaJobPreview({
         </span>
       </div>
       {job.workflow && <p className="mb-2 text-xs text-text-secondary">{job.workflow.label}</p>}
+      {!terminal && (
+        <div className="mb-3 flex flex-col items-start gap-2 text-xs text-text-secondary">
+          <button type="button" disabled={cancelling} className="rounded-md border border-border-primary px-3 py-1.5" onClick={async () => {
+            setCancelling(true);
+            try {
+              const client = await getAcpControlClient();
+              const receipt = await client.extMethod('_codebuddy/media/jobs', {
+                sessionId: scope.sessionId, operation: 'cancel', kind: job.kind, job_id: job.job_id,
+              }) as { status?: string; cancellation_confirmed?: boolean };
+              setCancelNotice(receipt.status === 'completed'
+                ? completedNotice
+                : receipt.cancellation_confirmed
+                  ? cancelledNotice
+                  : mediaText('Cancellation is not confirmed. The service may still be generating; continue checking this task instead of submitting another one.', '尚未确认服务端停止，任务可能仍在生成。请继续查看此任务，不要重复提交。', '尚未確認服務端停止，任務可能仍在生成。請繼續查看此任務，不要重複提交。'));
+            } catch {
+              setCancelNotice(mediaText('Could not confirm cancellation. Keep this task and check its status again.', '未能确认取消，请保留此任务并稍后查看状态。', '未能確認取消，請保留此任務並稍後查看狀態。'));
+            } finally { setCancelling(false); }
+          }}>{cancelling ? mediaText('Cancelling…', '正在取消…', '正在取消…') : mediaText('Cancel generation', '取消生成', '取消生成')}</button>
+          <span>{mediaText('This panel keeps checking submitted jobs. Continue here to retrieve the same result.', '此面板持续跟踪已提交任务，继续查看即可取回原任务结果。', '此面板持續追蹤已提交任務，繼續查看即可取回原任務結果。')}</span>
+        </div>
+      )}
+      {currentCancelNotice && <p role="status" className="mb-3 text-sm text-text-secondary">{currentCancelNotice}</p>}
       {active && (
         <p className="mb-3 text-xs text-text-secondary">
           {mediaText('Elapsed', '已等待', '已等待')} {elapsedText(now - Date.parse(job.created_at))}

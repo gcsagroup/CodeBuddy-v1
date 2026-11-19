@@ -37,6 +37,53 @@
   }
 }
 /* Shared surface for every app notification, including direct toast.* callers. */
+.Toastify__toast-container.codebuddy-toasts.Toastify__toast-container--bottom-right {
+  top: auto;
+  bottom: max(12px, env(safe-area-inset-bottom));
+}
+.completion-popup {
+  position: relative;
+  padding: 15px 16px;
+  border: 1px solid var(--color-border-primary);
+  border-radius: 12px;
+  background: var(--color-background-primary);
+  color: var(--color-text-primary);
+  font: 14px/1.45 var(--font-sans);
+}
+.completion-popup .completion-card-meta { padding-inline-end: 24px; }
+.completion-popup-close { position: absolute; inset: 9px 9px auto auto; padding: 2px 6px; font-size: 18px; color: var(--color-text-secondary); }
+.completion-card {
+  display: grid;
+  gap: 5px;
+  text-align: start;
+  width: 100%;
+  min-width: 0;
+}
+.completion-card-result { text-align: start; color: inherit; cursor: pointer; }
+.completion-card-reply { display: flex; gap: 6px; margin-top: 8px; }
+.completion-card-reply input, .completion-card-reply button {
+  border: 1px solid var(--color-border-primary); border-radius: 7px; padding: 5px 9px;
+}
+.completion-card-reply input { min-width: 0; flex: 1; background: var(--color-background-primary); }
+.completion-card-reply button { background: var(--color-background-secondary); cursor: pointer; }
+.completion-card-reply button:disabled { opacity: .5; cursor: default; }
+.completion-card-meta {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin-bottom: 3px;
+  font-size: 12px;
+}
+.completion-card-mark { width: 20px; height: 20px; object-fit: contain; }
+.completion-card-status { margin-inline-start: auto; color: var(--color-text-secondary); }
+.completion-card-title { font-size: 15px; line-height: 1.4; }
+.completion-card-title, .completion-card-preview {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+}
+.completion-card-preview { color: var(--color-text-secondary); }
 .Toastify__toast-container.codebuddy-toasts {
   width: min(380px, calc(100vw - 24px));
   top: max(48px, env(safe-area-inset-top));

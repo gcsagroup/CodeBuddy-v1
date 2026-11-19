@@ -267,7 +267,7 @@ const selectionsFromDefault = (
 });
 
 const CONFIGURE_PROVIDER_VALUE = '__configure_provider__';
-const DEFAULT_IMAGE_MODEL = distributionModel.modelId;
+const DEFAULT_IMAGE_MODEL = distributionModel.visionModelId;
 
 export function CodeProModelModal({
   onClose,
@@ -376,7 +376,7 @@ export function CodeProModelModal({
     ? { ...visionRoute, enabled: true, mode: 'auto' }
     : {
         enabled: true,
-        mode: 'auto',
+        mode: 'always',
         providerId: defaultVisionModel?.providerId,
         modelId: defaultVisionModel?.id,
       };

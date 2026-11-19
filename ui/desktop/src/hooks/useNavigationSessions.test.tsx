@@ -3,7 +3,14 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { setSessionPinned } from '../utils/sessionPins';
 import { AppEvents } from '../constants/events';
 
-const mocks = vi.hoisted(() => ({ list: vi.fn(), navigate: vi.fn(), get: vi.fn(), location: { pathname: '/codepro', search: '' } }));
+const mocks = vi.hoisted(() => ({
+  list: vi.fn(),
+  navigate: vi.fn(),
+  load: vi.fn().mockResolvedValue(undefined),
+  get: vi.fn(),
+  location: { pathname: '/codepro', search: '' },
+}));
+vi.mock('../acp/chatSessionController', () => ({ acpChatSessionController: { loadSession: mocks.load } }));
 vi.mock('react-router-dom', () => ({
   useNavigate: () => mocks.navigate,
   useLocation: () => mocks.location,
@@ -17,6 +24,19 @@ vi.mock('../acp/sessions', () => ({
   sessionTypeMatchesWorkspace: () => true,
 }));
 import { useNavigationSessions } from './useNavigationSessions';
+
+it('starts restoring a clicked chat before navigation without waiting for replay', () => {
+  mocks.list.mockResolvedValue([]);
+  mocks.load.mockClear();
+  mocks.navigate.mockClear();
+  mocks.load.mockReturnValueOnce(new Promise(() => {}));
+  const hook = renderHook(() => useNavigationSessions());
+  act(() => hook.result.current.handleSessionClick('old-chat'));
+  expect(mocks.load).toHaveBeenCalledWith('old-chat');
+  expect(mocks.navigate).toHaveBeenCalledWith('/codepro/pair?resumeSessionId=old-chat');
+  expect(mocks.load.mock.invocationCallOrder[0]).toBeLessThan(mocks.navigate.mock.invocationCallOrder[0]);
+  hook.unmount();
+});
 
 it('reorders the owning project immediately after its existing conversation is pinned', async () => {
   localStorage.clear();

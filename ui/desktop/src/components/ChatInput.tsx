@@ -107,7 +107,7 @@ interface PastedImage {
 const removeQueuedMessage = (messages: QueuedMessage[], messageId: string): QueuedMessage[] =>
   messages.filter((msg) => msg.id !== messageId);
 
-const MAX_IMAGES_PER_MESSAGE = 10;
+const MAX_IMAGES_PER_MESSAGE = 8;
 
 // Manual compact trigger message - must match backend constant
 const MANUAL_COMPACT_TRIGGER = '/compact';
@@ -185,7 +185,7 @@ const i18n = defineMessages({
   },
   imageLimit: {
     id: 'chatInput.imageLimit',
-    defaultMessage: 'You can attach up to {count} images to one message.',
+    defaultMessage: 'This message already has {current} images; you are adding {incoming}, but the limit is {count}. This batch was not added or sent. Existing attachments and generated files are kept. Choose fewer images or send separate batches, explaining each batch’s purpose.',
   },
   viewEditRecipe: {
     id: 'chatInput.viewEditRecipe',
@@ -406,7 +406,7 @@ export default function ChatInput({
   const [attachmentNotice, setAttachmentNotice] = useState<{ text: string } | null>(null);
   useEffect(() => {
     if (!attachmentNotice) return;
-    const timer = window.setTimeout(() => setAttachmentNotice(null), 4000);
+    const timer = window.setTimeout(() => setAttachmentNotice(null), 12000);
     return () => window.clearTimeout(timer);
   }, [attachmentNotice]);
   const commandControlInFlight = useRef<symbol | null>(null);
@@ -909,7 +909,9 @@ export default function ChatInput({
     return receiveMainConversationMessages(sessionId, (input) => {
       if (input.composerAction) {
         if (attachmentCountRef.current + input.images.length > MAX_IMAGES_PER_MESSAGE)
-          throw new Error('主对话附件过多，请先处理现有附件');
+          throw new Error(attachmentIntlRef.current.formatMessage(i18n.imageLimit, {
+            count: MAX_IMAGES_PER_MESSAGE, current: attachmentCountRef.current, incoming: input.images.length,
+          }));
         // Reserve before publishing state: several cross-window deliveries can arrive in one render.
         attachmentCountRef.current += input.images.length;
         inputRevisionRef.current += 1;
@@ -1016,6 +1018,7 @@ export default function ChatInput({
         setAttachmentNotice({
           text: attachmentIntlRef.current.formatMessage(i18n.imageLimit, {
             count: MAX_IMAGES_PER_MESSAGE,
+            current: attachmentCountRef.current, incoming: 1,
           }),
         });
         return;
@@ -1028,7 +1031,7 @@ export default function ChatInput({
         { id, sourceSessionId: image.sessionId, dataUrl: image.dataUrl, isLoading: true },
       ]);
       // Use the same normalization as pasted/uploaded images; never submit automatically.
-      void compressImageDataUrl(image.dataUrl)
+      void compressImageDataUrl(image.dataUrl, true)
         .then((dataUrl) => {
           if (disposed || attachmentSessionRef.current !== image.sessionId) return;
           setPastedImages((current) =>
@@ -1351,7 +1354,7 @@ export default function ChatInput({
     inputRevisionRef.current += 1;
 
     // Check if adding these images would exceed the limit
-    if (pastedImages.length + imageFiles.length > MAX_IMAGES_PER_MESSAGE) {
+    if (attachmentCountRef.current + imageFiles.length > MAX_IMAGES_PER_MESSAGE) {
       // Show error message to user
       setPastedImages((prev) => [
         ...prev,
@@ -1359,7 +1362,7 @@ export default function ChatInput({
           id: `error-${Date.now()}`,
           dataUrl: '',
           isLoading: false,
-          error: `Cannot paste ${imageFiles.length} image(s). Maximum ${MAX_IMAGES_PER_MESSAGE} images per message allowed. Currently have ${pastedImages.length}.`,
+          error: intl.formatMessage(i18n.imageLimit, { count: MAX_IMAGES_PER_MESSAGE, current: attachmentCountRef.current, incoming: imageFiles.length }),
         },
       ]);
 
@@ -1367,7 +1370,7 @@ export default function ChatInput({
       const timeoutId = setTimeout(() => {
         setPastedImages((prev) => prev.filter((img) => !img.id.startsWith('error-')));
         timeoutRefsRef.current.delete(timeoutId);
-      }, 5000);
+      }, 12000);
       timeoutRefsRef.current.add(timeoutId);
 
       return;
@@ -1393,7 +1396,7 @@ export default function ChatInput({
       reader.onload = async (e) => {
         const dataUrl = e.target?.result as string;
         if (dataUrl) {
-          const compressedDataUrl = await compressImageDataUrl(dataUrl);
+          const compressedDataUrl = await compressImageDataUrl(dataUrl, true);
           setPastedImages((prev) =>
             prev.map((img) =>
               img.id === imageId ? { ...img, dataUrl: compressedDataUrl, isLoading: false } : img
@@ -1870,17 +1873,18 @@ export default function ChatInput({
     const files = Array.from(picker.files ?? []);
     if (!files.length) return;
     inputRevisionRef.current += 1;
-    let imageSlots = Math.max(0, MAX_IMAGES_PER_MESSAGE - attachmentCountRef.current);
-    const accepted = files.filter((file) => !file.type.startsWith('image/') || imageSlots-- > 0);
-    if (accepted.length !== files.length) {
+    const incoming = files.filter((file) => file.type.startsWith('image/')).length;
+    if (attachmentCountRef.current + incoming > MAX_IMAGES_PER_MESSAGE) {
       setAttachmentNotice({
-        text: intl.formatMessage(i18n.imageLimit, { count: MAX_IMAGES_PER_MESSAGE }),
+        text: intl.formatMessage(i18n.imageLimit, { count: MAX_IMAGES_PER_MESSAGE, current: attachmentCountRef.current, incoming }),
       });
+      picker.value = '';
+      return;
     }
     setIsFilePickerOpen(true);
     try {
-      accepted.forEach(() => trackFileAttached('file'));
-      await addLocalFiles(accepted);
+      files.forEach(() => trackFileAttached('file'));
+      await addLocalFiles(files);
     } finally {
       picker.value = '';
       setIsFilePickerOpen(false);
@@ -2250,7 +2254,17 @@ export default function ChatInput({
         disableAnimation ? '' : 'page-transition'
       } z-10`}
       data-drop-zone="true"
-      onDrop={handleLocalDrop}
+      onDrop={(event) => {
+        const incoming = Array.from(event.dataTransfer.files).filter((file) => file.type.startsWith('image/')).length;
+        if (attachmentCountRef.current + incoming > MAX_IMAGES_PER_MESSAGE) {
+          event.preventDefault();
+          setAttachmentNotice({ text: intl.formatMessage(i18n.imageLimit, {
+            count: MAX_IMAGES_PER_MESSAGE, current: attachmentCountRef.current, incoming,
+          }) });
+          return;
+        }
+        void handleLocalDrop(event);
+      }}
       onDragOver={handleLocalDragOver}
     >
       <input

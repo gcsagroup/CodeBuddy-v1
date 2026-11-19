@@ -5,6 +5,9 @@
   "announcementModal.gotIt": {
     "defaultMessage": "Понятно!"
   },
+  "app.completionFollowUp": {
+    "defaultMessage": "Добавить задачу…"
+  },
   "app.chooseFolder": {
     "defaultMessage": "Choose folder"
   },
@@ -7917,7 +7920,7 @@
     "defaultMessage": "Открыть настройки системы"
   },
   "settings.notifications.task.description": {
-    "defaultMessage": "Уведомлять, когда CodeBuddy завершает задачу, пока окно в фоне"
+    "defaultMessage": "Уведомлять о завершении задачи в окне или через системное уведомление"
   },
   "settings.notifications.task.title": {
     "defaultMessage": "Уведомления о завершении задач"

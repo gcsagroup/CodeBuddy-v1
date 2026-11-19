@@ -195,7 +195,7 @@ interface ProgressiveMessageListProps {
   planRunning?: boolean;
   activeToolCallIds?: string[];
   thinkingActivity?: { messageId?: string; receivedAt: number };
-  onMessageUpdate?: (messageId: string, newContent: string, editType?: MessageEditType) => void;
+  onMessageUpdate?: (messageId: string, newContent: string, editType?: MessageEditType, retainedImageIndexes?: number[]) => void;
   onRenderingComplete?: () => void; // Callback when all messages are rendered
   onHistoryRendered?: (sessionId: string) => void;
   submitElicitationResponse?: (

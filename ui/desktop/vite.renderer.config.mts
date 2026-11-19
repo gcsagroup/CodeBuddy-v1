@@ -23,6 +23,7 @@ export default defineConfig({
   },
 
   build: {
-    target: 'esnext'
+    target: 'esnext',
+    rollupOptions: { input: ['index.html', 'completion-popup.html'] },
   },
 });

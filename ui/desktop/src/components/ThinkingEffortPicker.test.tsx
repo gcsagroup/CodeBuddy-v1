@@ -42,7 +42,7 @@ describe('ThinkingEffortPicker', () => {
     expect(screen.getByRole('status')).toHaveTextContent('Thinking effort');
     expect(screen.getByRole('status')).toHaveTextContent('Not provided');
     expect(screen.getAllByText('Thinking effort')).toHaveLength(1);
-    expect(screen.queryByRole('button')).toBeNull();
+    expect(screen.getByRole('button', { name: 'Recheck model capabilities' })).toBeVisible();
     expect(screen.getByText('Current budget; model capacity unconfirmed')).toBeVisible();
   });
   it('renders preloaded details immediately and publishes the saved snapshot', async () => {
@@ -72,7 +72,7 @@ describe('ThinkingEffortPicker', () => {
     await waitFor(() =>
       expect(changed).toHaveBeenCalledWith({
         ...initialSettings,
-        thinking: { ...initialSettings.thinking, value: 'off' },
+        thinking: { ...initialSettings.thinking, value: 'off', stalePreference: false },
       })
     );
   });
@@ -113,7 +113,7 @@ describe('ThinkingEffortPicker', () => {
     });
     expect(await screen.findByText('262,144 tokens')).toBeVisible();
     expect(screen.getByText('No verified controls')).toBeVisible();
-    expect(screen.queryByRole('button')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Recheck model capabilities' })).toBeVisible();
   });
   it('does not offer a disclosure for a single supported level or a non-reasoning model', () => {
     const view = render(
@@ -183,6 +183,20 @@ describe('ThinkingEffortPicker', () => {
     );
     expect(await screen.findByRole('button', { name: 'Thinking effort: None' })).toBeVisible();
   });
+  it('labels API-declared controls without claiming verified model behavior', async () => {
+    render(<ThinkingEffortPicker settings={{ options: ['low', 'high'], value: 'high', toggle: false, source: 'openapi' }} onChange={vi.fn()} />, { wrapper: IntlTestWrapper });
+    await userEvent.click(screen.getByRole('button', { name: 'Thinking effort: High' }));
+    expect(screen.getByText('Options declared by the API; their effect on this model has not been verified.')).toBeVisible();
+  });
+
+  it('shows only template-validated levels and labels the validation boundary', async () => {
+    render(<ThinkingEffortPicker settings={{ options: ['off', 'low', 'medium', 'xhigh'], value: 'xhigh', toggle: false, source: 'tokenize' }} onChange={vi.fn()} />, { wrapper: IntlTestWrapper });
+    await userEvent.click(screen.getByRole('button', { name: 'Thinking effort: Extra high' }));
+    expect(screen.getByText('Validated with this model’s tokenizer template, without generation. Reasoning quality has not been measured.')).toBeVisible();
+    expect(screen.queryByRole('radio', { name: /^High$/ })).toBeNull();
+    expect(screen.queryByRole('radio', { name: /^Maximum$/ })).toBeNull();
+  });
+
   it('keeps a failed save open without changing the confirmed selection', async () => {
     vi.mocked(acpReadModelDisplaySettings).mockResolvedValue({
       thinking: {
@@ -201,4 +215,24 @@ describe('ThinkingEffortPicker', () => {
     expect(await screen.findByRole('alert')).not.toHaveTextContent('private');
     expect(screen.getByRole('radio', { name: 'High' })).toBeChecked();
   });
+});
+
+
+it('ignores a late previous-model response and refreshes only on explicit recheck', async () => {
+  const a = deferred<ModelDisplaySettings>();
+  const b = { thinking: { options: ['off', 'medium'] as const, value: 'off', toggle: true, state: 'supported' }, contextWindow: 32768, contextSource: 'service' } as unknown as ModelDisplaySettings;
+  const read = vi.fn().mockImplementation((_provider, model) => model === 'A' ? a.promise : Promise.resolve(b));
+  const view = render(<ModelThinkingMenu provider="p" model="A" readSettings={read} showLabel />, { wrapper: IntlTestWrapper });
+  view.rerender(<ModelThinkingMenu provider="p" model="B" readSettings={read} showLabel />);
+  await waitFor(() => expect(screen.getByRole('button', { name: 'Thinking effort: None' })).toBeVisible());
+  a.resolve({ thinking: { options: ['low', 'high'], value: 'high', toggle: false }, contextWindow: 65536, contextSource: 'service' });
+  fireEvent.mouseEnter(screen.getByRole('button', { name: 'Thinking effort: None' }));
+  expect(screen.queryByRole('radio', { name: 'High' })).not.toBeInTheDocument();
+  expect(screen.queryByRole('radio', { name: 'Service default' })).not.toBeInTheDocument();
+  expect(screen.getByRole('radio', { name: 'None' })).toBeChecked();
+  expect(screen.getByRole('radio', { name: 'On' })).toBeVisible();
+  await userEvent.click(screen.getByRole('button', { name: 'Recheck model capabilities' }));
+  await waitFor(() => expect(read).toHaveBeenLastCalledWith('p', 'B', true));
+  view.rerender(<ModelThinkingMenu provider="p" model="C" readSettings={read} showLabel />);
+  await waitFor(() => expect(read).toHaveBeenLastCalledWith('p', 'C', false));
 });

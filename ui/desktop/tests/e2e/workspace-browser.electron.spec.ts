@@ -77,7 +77,8 @@ test('native embedded browser observes, types, clicks, rejects covered targets a
     const auto = (target: Record<string, string>) => call({ operation: 'open', reuseAutomationTab: true, ...target });
     const [first, second] = await Promise.all([auto({ htmlPath: 'index.html' }), auto({ htmlPath: './index.html' })]);
     expect(first.id).not.toBe(id);
-    expect(second.result).toEqual(first.result);
+    expect(second.result).toMatchObject({id:first.result.id,url:first.result.url,view:'controls'});
+    expect(second.result.observationId).not.toBe(first.result.observationId);
     const variant = await auto({ url: first.result.url + '?mode=boss' });
     expect(variant.id).toBe(first.id);
     expect((await call({ operation: 'observe', id: first.id })).result.url).toBe(variant.result.url);
@@ -95,7 +96,7 @@ test('native embedded browser observes, types, clicks, rejects covered targets a
     expect((await call({ operation: 'observe', id })).result.url).toBe(opened.result.url);
     await call({ operation: 'close', id: first.id });
     await expect(fetch(other.result.url)).rejects.toThrow();
-    await page.evaluate(
+    const showBrowser = (tabId: string) => page.evaluate(
       ({ scope, id }) =>
         (window as unknown as { panel: (r: unknown) => Promise<unknown> }).panel({
           action: 'browser-bounds',
@@ -103,8 +104,9 @@ test('native embedded browser observes, types, clicks, rejects covered targets a
           id,
           bounds: { x: 0, y: 80, width: 980, height: 600 },
         }),
-      { scope, id }
+      { scope, id: tabId }
     );
+    await showBrowser(id);
     const win = await application.browserWindow(page);
     await win.evaluate((window) => window.minimize());
     await expect.poll(() => win.evaluate((window) => window.isMinimized())).toBe(true);
@@ -243,6 +245,7 @@ test('native embedded browser observes, types, clicks, rejects covered targets a
     ).node;
     await call({ operation: 'click', id, node: cover });
     await expect(call({ operation: 'click', id, node: verify })).rejects.toThrow('covered');
+    await expect(call({ operation: 'type', id, node: name, text: '不得写入' })).rejects.toThrow('covered');
     await expect(call({ operation: 'click', id, node: pro.node })).rejects.toThrow('covered');
     await expect(call({ operation: 'click', id, node: shadowSearch.node })).rejects.toThrow(
       'covered'
@@ -257,6 +260,117 @@ test('native embedded browser observes, types, clicks, rejects covered targets a
       'no usable tab ID was returned'
     );
     expect(await win.evaluate((window) => window.contentView.children.length)).toBe(0);
+    await fs.copyFile(
+      path.resolve('../../examples/computer-use/customer-draft.html'),
+      path.join(root, 'crm.html')
+    );
+    const crmOpened = await call({operation: 'open', htmlPath: 'crm.html'});
+    const crm = crmOpened.id;
+    await showBrowser(crm);
+    const observeCrm = async (view: 'page' | 'controls' = 'page') => (await call({operation: 'observe', id: crm, view,
+      textValues: [{id:'公司',text:'海风测试'}, {id:'工作邮箱',text:'qa@example.test'}]})).result;
+    const form = await observeCrm();
+    expect(form.truncated).toBe(true);
+    const company = form.candidates.find((item: any) => item.operation === 'type' && item.name === '公司');
+    await application.evaluate(async ({webContents}, url) => {
+      const guest = webContents.getAllWebContents().find(wc => wc.getURL() === url)!;
+      await guest.executeJavaScript(`document.querySelector('input').setAttribute('aria-label', '其他公司')`);
+    }, crmOpened.result.url);
+    await expect(call({operation: 'type', id: crm, observationId: form.observationId, candidateId: company.id})).rejects.toThrow('changed');
+    await application.evaluate(async ({webContents}, url) => {
+      const guest = webContents.getAllWebContents().find(wc => wc.getURL() === url)!;
+      await guest.executeJavaScript(`document.querySelector('input').removeAttribute('aria-label')`);
+    }, crmOpened.result.url);
+    const beforeFocus = await observeCrm();
+    const focusCandidate = beforeFocus.candidates.find((c: any) => c.operation === 'type' && c.name === '公司' && c.valueId === '公司');
+    await application.evaluate(async ({webContents}, url) => {
+      const guest = webContents.getAllWebContents().find(wc => wc.getURL() === url)!;
+      await guest.executeJavaScript(`document.querySelector('input').addEventListener('focus', function() { this.setAttribute('aria-label', '账单公司'); }, {once:true})`);
+    }, crmOpened.result.url);
+    await expect(call({operation:'type', id:crm, observationId:beforeFocus.observationId, candidateId:focusCandidate.id})).rejects.toThrow('changed');
+    expect(await application.evaluate(async ({webContents}, url) => {
+      const guest = webContents.getAllWebContents().find(wc => wc.getURL() === url)!;
+      return guest.executeJavaScript(`(() => { const input=document.querySelector('input');input.removeAttribute('aria-label');return input.value; })()`);
+    }, crmOpened.result.url)).toBe('');
+    let current = await observeCrm('controls');
+    for (const name of ['公司', '工作邮箱']) {
+      const field = current.nodes.find((item: {role: string; name: string}) => item.role === 'textbox' && item.name === name);
+      expect(field).toBeDefined();
+      const candidate = current.candidates.find((item: { operation: string; name: string; valueId: string }) => item.operation === 'type' && item.name === name && item.valueId === name);
+      expect(candidate).toBeDefined();
+      const action = {operation: 'type', id: crm, observationId: current.observationId, candidateId: candidate.id};
+      current = (await call(action)).result;
+      expect(current.view).toBe('controls');
+      expect(current.nodes.length).toBeLessThan(20);
+      expect(current.nodes.find((n: any) => n.name === name).value).toBe(name === '公司' ? '海风测试' : 'qa@example.test');
+      await expect(call(action)).rejects.toThrow('stale');
+    }
+    expect((await observeCrm()).nodes).toEqual(expect.arrayContaining([
+      ...Object.entries({'公司': '海风测试', '工作邮箱': 'qa@example.test', '账单邮箱': 'billing@example.test', '备注': '保留原备注', '提交次数': '0'})
+        .map(([name, value]) => expect.objectContaining({role: 'textbox', name, value})),
+    ]));
+    const crmScreenshot = (await call({ operation: 'screenshot', id: crm })).result.content[0];
+    const crmPng = Buffer.from(crmScreenshot.data, 'base64');
+    expect(crmPng.length).toBeGreaterThan(100);
+    await fs.writeFile(test.info().outputPath('customer-draft.png'), crmPng);
+    await call({operation: 'close', id: crm});
+    await fs.copyFile(path.resolve('../../examples/computer-use/dynamic-search.html'), path.join(root, 'search.html'));
+    const searchOpened = await call({operation: 'open', htmlPath: 'search.html', textValues:[{id:'query',text:'海风'}]});
+    const search = searchOpened.id;
+    await showBrowser(search);
+    const beforeSearch = searchOpened.result;
+    const oldChoice = beforeSearch.candidates.find((c: any) => c.name === '旧客户');
+    const query = beforeSearch.candidates.find((c: any) => c.operation === 'type');
+    expect(query.valueId).toBe('query');
+    const suggestions = (await call({operation: 'type', id: search, observationId: beforeSearch.observationId, candidateId: query.id})).result;
+    await expect(call({operation: 'click', id: search, observationId: beforeSearch.observationId, candidateId: oldChoice.id})).rejects.toThrow('stale');
+    expect(suggestions.candidates.some((c: any) => c.name === '海风测试')).toBe(true);
+    const chosen = suggestions.candidates.find((c: any) => c.name === '海风测试');
+    const selected = (await call({operation: 'click', id: search, observationId: suggestions.observationId, candidateId: chosen.id})).result;
+    expect(selected.nodes).toEqual(expect.arrayContaining([expect.objectContaining({role:'status',name:'已选客户',text:'海风测试'})]));
+    const capture = (await call({operation:'screenshot',id:search})).result;
+    expect(capture.browserObservation).toMatchObject({schemaVersion:1,webContentsId:expect.any(Number),navigationRevision:expect.any(Number)});
+    expect(await application.evaluate(async ({webContents}, url) => {
+      const guest = webContents.getAllWebContents().find(wc => wc.getURL() === url)!;
+      return guest.executeJavaScript(`document.querySelector('#chosen').textContent`);
+    }, searchOpened.result.url)).toBe('海风测试');
+    await call({operation:'close',id:search});
+    await fs.copyFile(path.resolve('../../examples/computer-use/candidate-boundaries.html'), path.join(root, 'boundaries.html'));
+    const boundaries = await call({operation:'open',htmlPath:'boundaries.html'});
+    await showBrowser(boundaries.id);
+    let boundary = (await call({operation:'observe',id:boundaries.id})).result;
+    expect(boundary.candidates.some((c: any) => c.name === '展开客户表单')).toBe(false);
+    while (boundary.nextCandidateOffset !== null && !boundary.candidates.some((c: any) => c.name === '展开客户表单'))
+      boundary = (await call({operation:'observe',id:boundaries.id,candidateOffset:boundary.nextCandidateOffset})).result;
+    const expand = boundary.candidates.find((c: any) => c.name === '展开客户表单');
+    expect(expand, JSON.stringify(boundary.nodes.filter((n: any) => n.name === '展开客户表单'))).toBeDefined();
+    await call({operation:'click',id:boundaries.id,observationId:boundary.observationId,candidateId:expand.id});
+    boundary = (await call({operation:'observe',id:boundaries.id})).result;
+    expect(boundary.nodes.some((n: any) => n.name === '客户公司' && n.role === 'textbox')).toBe(true);
+    const blocked = boundary.nodes.find((n: any) => n.name === '被遮挡字段' && n.role === 'textbox');
+    await expect(call({operation:'type',id:boundaries.id,node:blocked.node,text:'不得写入'})).rejects.toThrow('covered');
+    const disabledField = boundary.nodes.find((n: any) => n.name === '停用工作邮箱' && n.role === 'textbox');
+    await expect(call({operation:'type',id:boundaries.id,node:disabledField.node,text:'不得写入'})).rejects.toThrow('disabled');
+    const readOnly = boundary.nodes.find((n: any) => n.name === '只读账单邮箱' && n.role === 'textbox');
+    await expect(call({operation:'type',id:boundaries.id,node:readOnly.node,text:'不得写入'})).rejects.toThrow('editable');
+    await call({operation:'close',id:boundaries.id});
+    await fs.writeFile(path.join(root, 'pagination.html'), `<!doctype html><meta charset="utf-8">
+      <table><tr><td id="city">杭州 · 有效</td></tr></table>
+      <button onclick="document.querySelector('#city').textContent='苏州 · 有效'">下一页</button>`);
+    const pagination = await call({operation:'open',htmlPath:'pagination.html',view:'page'});
+    await showBrowser(pagination.id);
+    const next = pagination.result.candidates.find((c: any) => c.name === '下一页');
+    const pageAfter = (await call({operation:'click',id:pagination.id,
+      observationId:pagination.result.observationId,candidateId:next.id})).result;
+    expect(pageAfter.view).toBe('page');
+    expect(JSON.stringify(pageAfter.nodes)).toContain('苏州 · 有效');
+    const compact = (await call({operation:'observe',id:pagination.id,view:'controls'})).result;
+    const compactNext = compact.candidates.find((c: any) => c.name === '下一页');
+    const compactAfter = (await call({operation:'click',id:pagination.id,
+      observationId:compact.observationId,candidateId:compactNext.id})).result;
+    expect(compactAfter.view).toBe('controls');
+    expect(JSON.stringify(compactAfter.nodes)).not.toContain('苏州 · 有效');
+    await call({operation:'close',id:pagination.id});
     await fs.writeFile(path.join(root, 'report.md'), '# Verified report');
     await expect(call({ operation: 'open', htmlPath: 'report.md' })).rejects.toThrow(
       'no usable tab ID was returned'

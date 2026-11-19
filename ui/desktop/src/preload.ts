@@ -55,8 +55,10 @@ function parseLocalStorageValue<K extends SettingKey>(
 }
 
 interface NotificationData {
+  locale?: string;
   title: string;
   body: string;
+  sessionId?: string;
 }
 
 interface MessageBoxOptions {

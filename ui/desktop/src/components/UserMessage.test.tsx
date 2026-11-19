@@ -86,6 +86,18 @@ describe('UserMessage', () => {
     expect(screen.queryByRole('status')).toBeNull();
     expect(screen.getByRole('button', { name: /Edit message/ })).toBeVisible();
   });
+  it('lets a failed request remove attachments before resending while keeping the original message intact', async () => {
+    const update = vi.fn();
+    const source: Message = { ...message, content: [{ type: 'text', text: 'Edit this' },
+      { type: 'image', data: 'first', mimeType: 'image/png' }, { type: 'image', data: 'second', mimeType: 'image/png' }] };
+    render(<UserMessage message={source} onMessageUpdate={update} />, { wrapper: IntlTestWrapper });
+    await userEvent.click(screen.getByRole('button', { name: 'Edit message: Edit this' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Remove image 1 from this resend' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Edit and resend message' }));
+    expect(update).toHaveBeenCalledWith(message.id, 'Edit this', 'edit', [1]);
+    expect(source.content.filter(block => block.type === 'image')).toHaveLength(2);
+  });
+
   it('renders incoming message updates without a second draft-state commit', async () => {
     const commits = vi.fn();
     const view = (text: string) => (

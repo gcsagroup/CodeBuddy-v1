@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef } from 'react';
-import { defineMessages, useIntl } from '../i18n';
+import { currentMessageLocale, defineMessages, useIntl } from '../i18n';
 import { AppEvents } from '../constants/events';
 import { ChatState } from '../types/chatState';
 
@@ -9,6 +9,8 @@ import { getTurnTerminalRecord, type MessageEditType } from '../types/turnTermin
 
 import {
   createUserMessage,
+  getTextAndImageContent,
+  isConversationTurnStart,
   insertPresentedUserMessage,
   type Message,
   type NotificationEvent,
@@ -149,7 +151,9 @@ export function useChatSession({
 
   const onFinish = useCallback(
     async (error?: string): Promise<void> => {
-      const latestTerminal = [...(getCurrentSnapshot()?.messages ?? [])]
+      const snapshot = acpChatSessionStore.getSnapshot(sessionId);
+      const messages = snapshot?.messages ?? [];
+      const latestTerminal = [...messages]
         .reverse()
         .map(getTurnTerminalRecord)
         .find((terminal) => terminal !== undefined);
@@ -159,14 +163,20 @@ export function useChatSession({
           (latestTerminal.report === undefined || latestTerminal.report.outcome === 'completed'));
       if (!error && terminalConfirmsCompletion) {
         try {
-          const [notificationsEnabled, anyWindowFocused] = await Promise.all([
-            window.electron.getSetting('enableNotifications'),
-            window.electron.isAnyWindowFocused(),
-          ]);
-          if (notificationsEnabled === true && !anyWindowFocused) {
+          if (await window.electron.getSetting('enableNotifications') === true) {
+            let preview = '';
+            for (let index = messages.length - 1; index >= 0; index--) {
+              const message = messages[index];
+              if (isConversationTurnStart(message)) break;
+              if (message.role !== 'assistant' || message.metadata?.userVisible === false) continue;
+              preview = getTextAndImageContent(message).textContent.replace(/\s+/g, ' ').trim();
+              if (preview) break;
+            }
             window.electron.showNotification({
-              title: intl.formatMessage(i18n.notificationTitle),
-              body: intl.formatMessage(i18n.notificationBody),
+              locale: currentMessageLocale,
+              sessionId,
+              title: snapshot?.session?.name?.trim().slice(0, 100) || intl.formatMessage(i18n.notificationTitle),
+              body: preview.length > 180 ? preview.slice(0, 179) + '…' : preview || intl.formatMessage(i18n.notificationBody),
             });
           }
         } catch (notifyError) {
@@ -176,7 +186,7 @@ export function useChatSession({
 
       onStreamFinish();
     },
-    [getCurrentSnapshot, intl, onStreamFinish]
+    [sessionId, intl, onStreamFinish]
   );
 
   // Load session on mount or sessionId change
@@ -388,12 +398,12 @@ export function useChatSession({
   }, [sessionId]);
 
   const onMessageUpdate = useCallback(
-    async (messageId: string, newContent: string, editType: MessageEditType = 'edit') => {
+    async (messageId: string, newContent: string, editType: MessageEditType = 'edit', retainedImageIndexes?: number[]) => {
       try {
         await acpChatSessionController.updateMessage(sessionId, messageId, newContent, editType, {
           getCurrentSnapshot,
           onFinish,
-        });
+        }, retainedImageIndexes);
       } catch (error) {
         const errorMsg = errorMessage(error);
         console.error('Failed to edit message:', error);

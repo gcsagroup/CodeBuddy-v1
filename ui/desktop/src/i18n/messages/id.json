@@ -5,6 +5,9 @@
   "announcementModal.gotIt": {
     "defaultMessage": "Mengerti!"
   },
+  "app.completionFollowUp": {
+    "defaultMessage": "Tambahkan tugas…"
+  },
   "app.chooseFolder": {
     "defaultMessage": "Choose folder"
   },
@@ -7917,7 +7920,7 @@
     "defaultMessage": "Buka pengaturan sistem"
   },
   "settings.notifications.task.description": {
-    "defaultMessage": "Beri tahu saat CodeBuddy menyelesaikan tugas selagi jendela berada di latar belakang"
+    "defaultMessage": "Beri tahu saat tugas selesai di jendela atau melalui notifikasi sistem"
   },
   "settings.notifications.task.title": {
     "defaultMessage": "Notifikasi penyelesaian tugas"

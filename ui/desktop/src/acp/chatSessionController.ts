@@ -94,7 +94,8 @@ export interface AcpChatSessionController {
     messageId: string,
     newContent: string,
     editType: MessageEditType | undefined,
-    options: AcpSubmitMessageOptions
+    options: AcpSubmitMessageOptions,
+    retainedImageIndexes?: number[]
   ): Promise<void>;
 }
 
@@ -260,6 +261,12 @@ async function createSession(
 async function loadSession(sessionId: string, options: AcpLoadSessionOptions = {}): Promise<void> {
   ensureSessionLoadTiming(sessionId);
   const cached = acpChatSessionStore.getSnapshot(sessionId);
+  // An eager navigation restore may reach this gate before the chat mounts.
+  // Keep the owner's pending confirmation instead of submitting it again.
+  if (cached?.workspaceReconfirmation) {
+    finishSessionLoadTiming(sessionId, 'workspace_reconfirmation');
+    return;
+  }
   if (cached?.session) {
     traceSessionLoad(sessionId, 'cache_hit', { messages: cached.messages.length });
     restoreAcpPermissionRequestsForSession(sessionId);
@@ -504,6 +511,18 @@ async function submitMessage(
       return;
     }
     if (!acpChatSessionActions.finishPromptAttemptIfCurrent(sessionId, promptAttemptId, undefined, response.stopReason)) {
+      // A streamed terminal can seal the display before the prompt RPC resolves.
+      // Only deliver the finish callback for the still-owned request and its new terminal.
+      const settled = acpChatSessionStore.getSnapshot(sessionId);
+      if (response.stopReason === 'end_turn' && settled?.promptRequestId === promptAttemptId &&
+          !settled.activePromptAttemptId && !settled.pendingCancelPromptAttemptId) {
+        const terminal = [...settled.messages].reverse().map(getTurnTerminalRecord).find(Boolean);
+        if (terminal?.status === 'completed' &&
+            terminal.source_user_message_id === (turnRetry?.sourceUserMessageId ?? userMessage.id) &&
+            !existingTerminalIds.has(terminal.terminal_message_id)) {
+          void options.onFinish();
+        }
+      }
       return;
     }
 
@@ -676,7 +695,8 @@ async function updateMessage(
   messageId: string,
   newContent: string,
   editType: MessageEditType | undefined,
-  options: AcpSubmitMessageOptions
+  options: AcpSubmitMessageOptions,
+  retainedImageIndexes?: number[]
 ): Promise<void> {
   assertNoPendingPromptCancellation(sessionId);
 
@@ -853,6 +873,12 @@ async function updateMessage(
     throw new Error('Messages can only be edited after the current response has stopped');
   }
 
+  const originalImages = message.content.filter(content => content.type === 'image');
+  if (retainedImageIndexes && (new Set(retainedImageIndexes).size !== retainedImageIndexes.length ||
+    retainedImageIndexes.some(index => !Number.isInteger(index) || index < 0 || index >= originalImages.length))) {
+    throw new Error('Invalid edited image selection');
+  }
+  const editedImages = retainedImageIndexes ? originalImages.filter((_, index) => retainedImageIndexes.includes(index)) : originalImages;
   acpChatSessionActions.setChatState(sessionId, ChatState.Thinking);
 
   try {
@@ -861,11 +887,7 @@ async function updateMessage(
     const truncatedMessages = currentMessages.slice(0, currentMessages.indexOf(message));
     const updatedUserMessage = createUserMessage(newContent);
 
-    for (const content of message.content) {
-      if (content.type === 'image') {
-        updatedUserMessage.content.push(content);
-      }
-    }
+    updatedUserMessage.content.push(...editedImages);
 
     const messagesForUI = [...truncatedMessages, updatedUserMessage];
     acpChatSessionActions.setMessages(sessionId, messagesForUI);

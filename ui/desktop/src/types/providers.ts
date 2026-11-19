@@ -1,11 +1,14 @@
 export type ProviderType = 'Preferred' | 'Builtin' | 'Declarative' | 'Custom';
 
-export type ThinkingEffort = 'off' | 'minimal' | 'low' | 'medium' | 'high' | 'xhigh' | 'max';
+export type ThinkingEffort = 'default' | 'off' | 'minimal' | 'low' | 'medium' | 'high' | 'xhigh' | 'max';
 
 export type ModelThinkingSettings = {
   options: ThinkingEffort[];
   value: ThinkingEffort | null;
   toggle: boolean;
+  source?: 'models' | 'openapi' | 'tokenize';
+  state?: 'supported' | 'unsupported' | 'unknown';
+  stalePreference?: boolean;
 };
 
 export type ConfigKey = {

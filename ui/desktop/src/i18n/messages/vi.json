@@ -5,6 +5,9 @@
   "announcementModal.gotIt": {
     "defaultMessage": "Đã hiểu!"
   },
+  "app.completionFollowUp": {
+    "defaultMessage": "Thêm yêu cầu…"
+  },
   "app.chooseFolder": {
     "defaultMessage": "Choose folder"
   },
@@ -7917,7 +7920,7 @@
     "defaultMessage": "Mở cài đặt hệ thống"
   },
   "settings.notifications.task.description": {
-    "defaultMessage": "Thông báo khi CodeBuddy hoàn thành một tác vụ trong khi cửa sổ đang ở chế độ nền"
+    "defaultMessage": "Thông báo khi tác vụ hoàn tất trong cửa sổ hoặc qua thông báo hệ thống"
   },
   "settings.notifications.task.title": {
     "defaultMessage": "Thông báo hoàn thành tác vụ"

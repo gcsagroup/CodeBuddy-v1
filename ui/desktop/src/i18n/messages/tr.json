@@ -5,6 +5,9 @@
   "announcementModal.gotIt": {
     "defaultMessage": "Anladım!"
   },
+  "app.completionFollowUp": {
+    "defaultMessage": "Yeni görev ekle…"
+  },
   "app.chooseFolder": {
     "defaultMessage": "Choose folder"
   },
@@ -7917,7 +7920,7 @@
     "defaultMessage": "Sistem ayarlarını aç"
   },
   "settings.notifications.task.description": {
-    "defaultMessage": "Pencere arka plandayken CodeBuddy bir görevi tamamladığında bildirim al"
+    "defaultMessage": "Görev tamamlandığında pencerede veya sistem bildirimiyle haber ver"
   },
   "settings.notifications.task.title": {
     "defaultMessage": "Görev tamamlama bildirimleri"

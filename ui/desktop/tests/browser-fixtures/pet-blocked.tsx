@@ -42,7 +42,7 @@ Object.assign(window, {
   },
 });
 function publish(state: PetTaskState) {
-  snapshot.task = { ...snapshot.task!, state };
+  snapshot.task = { ...snapshot.task!, state, activity: state === 'working' ? { kind: 'waiting' } : undefined };
   callbacks.get('pet-changed')?.({}, { ...snapshot });
 }
 createRoot(document.getElementById('root')!).render(

@@ -7,11 +7,11 @@
     sans-serif;
 }
 .pet-task-panel {
-  border: 1px solid #e3e7e4;
-  border-radius: 20px;
-  background: #fcfdfc;
+  border: 1px solid rgb(72 91 83 / 18%);
+  border-radius: 14px;
+  background: rgb(250 252 251 / 77%);
   box-shadow:
-    0 4px 10px #172a2018,
+    0 2px 6px #172a2012,
     0 1px 2px #172a2010;
   overflow: hidden;
 }
@@ -41,8 +41,11 @@
   padding: 12px 14px 6px;
   background: transparent;
 }
+.pet-task-panel:not(.pet-compose-panel):is(:hover, :focus-within) {
+  background: rgb(250 252 251 / 94%);
+}
 .pet-task-open:hover {
-  background: #f2f6f3;
+  background: rgb(119 142 130 / 8%);
 }
 .pet-task-heading {
   display: flex;
@@ -82,7 +85,7 @@
 }
 .pet-task-detail {
   margin: 4px 0 0 25px;
-  color: #69756f;
+  color: #4d5b54;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -123,6 +126,35 @@
 }
 .pet-task-actions button:hover {
   background: #dce9e0;
+}
+.pet-task-card[data-compact] {
+  display: flex;
+  align-items: center;
+}
+.pet-task-card[data-compact] .pet-task-open {
+  flex: 1;
+  min-width: 0;
+  padding: 7px 10px;
+}
+.pet-task-card[data-compact] .pet-task-heading strong {
+  -webkit-line-clamp: 1;
+}
+.pet-task-card[data-compact] .pet-task-detail {
+  margin-top: 1px;
+}
+.pet-task-card[data-compact] .pet-task-actions {
+  padding: 0;
+}
+.pet-task-card[data-compact] .pet-task-actions button {
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  margin-right: 7px;
+  border-radius: 50%;
+  background: rgb(87 110 98 / 9%);
+}
+.pet-task-card[data-compact] .pet-task-actions button:hover {
+  background: rgb(87 110 98 / 20%);
 }
 .pet-task-toggle {
   display: flex;

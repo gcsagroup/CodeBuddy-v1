@@ -211,6 +211,20 @@ describe('large pasted drafts', () => {
     await waitFor(() => expect(submit).toHaveBeenCalledWith(expect.objectContaining({ msg: 'keep this draft C:/picker-fixture/first.txt C:/picker-fixture/second.pdf' }), expect.anything()));
     window.electron.getPathForFile = originalPathForFile;
   });
+  it('rejects an overflowing picker batch without silently retaining a subset or submitting the draft', async () => {
+    const submit = vi.fn();
+    const view = setup(submit);
+    view.changeState(ChatState.Idle);
+    const input = screen.getByTestId('chat-input');
+    fireEvent.change(input, { target: { value: 'keep this draft' } });
+    const picker = view.container.querySelector('input[type="file"]') as HTMLInputElement;
+    fireEvent.change(picker, { target: { files: Array.from({ length: 9 }, (_, i) => new File(['image'], `${i}.png`, { type: 'image/png' })) } });
+    expect(await screen.findByText(/already has 0 images; you are adding 9, but the limit is 8/)).toBeVisible();
+    expect(screen.getByText(/This batch was not added or sent/)).toBeVisible();
+    expect(input).toHaveValue('keep this draft');
+    expect(screen.queryByRole('button', { name: 'Remove file' })).toBeNull();
+    expect(submit).not.toHaveBeenCalled();
+  });
   it('keeps selected insertion and later edits exact without putting the payload in the textarea', async () => {
     const submit = vi.fn((_input: UserInput, lifecycle?: MessageSubmissionLifecycle) => lifecycle?.onAccepted());
     const view = setup(submit);
@@ -396,14 +410,14 @@ describe('workspace images added to the composer', () => {
             })
           );
       });
-      expect(screen.getAllByRole('button', { name: 'Remove image' })).toHaveLength(10);
-      expect(screen.getByText('You can attach up to 10 images to one message.')).toBeVisible();
+      expect(screen.getAllByRole('button', { name: 'Remove image' })).toHaveLength(8);
+      expect(screen.getByText(/already has 8 images; you are adding 1, but the limit is 8/)).toBeVisible();
       vi.useFakeTimers();
       try {
         // Repeated attempts restart the short notice without leaving a sticky banner.
         act(() => window.dispatchEvent(new CustomEvent(ATTACH_WORKSPACE_IMAGE, { detail: { sessionId: 'queue-test', name: 'extra.png', dataUrl: 'data:image/png;base64,aGVsbG8=' } })));
-        act(() => vi.advanceTimersByTime(4000));
-        expect(screen.queryByText('You can attach up to 10 images to one message.')).toBeNull();
+        act(() => vi.advanceTimersByTime(12000));
+        expect(screen.queryByText(/already has 8 images; you are adding 1, but the limit is 8/)).toBeNull();
       } finally { vi.useRealTimers(); }
       expect(submit).not.toHaveBeenCalled();
     } finally {

@@ -323,8 +323,17 @@ async function openBrowserTarget(
     browser.automation = request.reuseAutomationTab;
     browser.preview = preview;
     if (previous && previous !== preview) previous.close();
+    let observation;
+    try {
+      observation = await browser.controller.run({ operation: 'observe', view: request.view ?? 'controls', textValues: request.textValues });
+    } catch (error) {
+      // Navigation succeeded. Missing accessibility must not turn that receipt
+      // into an open failure or cause the same navigation to be replayed.
+      observation = { observationError: error instanceof Error ? error.message : String(error),
+        next: 'The page opened, but its controls could not be read. Observe this id; do not reopen solely to retry observation.' };
+    }
     return { id, browser: browserState(id, browser),
-      result: { id, url: browser.view.webContents.getURL(), target: 'embedded', localPreview: Boolean(preview) } };
+      result: { id, ...observation, url: browser.view.webContents.getURL(), target: 'embedded', localPreview: Boolean(preview) } };
   } catch (error) {
     freshPreview?.close();
     if (createdId && owner.browsers.has(createdId))

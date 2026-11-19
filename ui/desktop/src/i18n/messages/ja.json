@@ -5,6 +5,9 @@
   "announcementModal.gotIt": {
     "defaultMessage": "了解しました"
   },
+  "app.completionFollowUp": {
+    "defaultMessage": "追加の依頼を入力…"
+  },
   "app.chooseFolder": {
     "defaultMessage": "Choose folder"
   },
@@ -7917,7 +7920,7 @@
     "defaultMessage": "システム設定を開く"
   },
   "settings.notifications.task.description": {
-    "defaultMessage": "ウィンドウがバックグラウンドにある間にCodeBuddyがタスクを完了したら通知します"
+    "defaultMessage": "タスクが完了したら、ウィンドウ内またはシステム通知で知らせます"
   },
   "settings.notifications.task.title": {
     "defaultMessage": "タスク完了通知"

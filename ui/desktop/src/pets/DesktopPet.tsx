@@ -41,7 +41,7 @@ const labels = {
   input: t('Waiting for you · click to view', '等待你处理 · 点击查看', '等待你處理 · 點擊查看'),
 };
 const activityLabels = {
-  waiting: t('Waiting for model response', '等待模型响应', '等待模型回應'),
+  waiting: t('Waiting for a reply', '等待模型回复', '等待模型回覆'),
   thinking: t('Receiving model activity', '正在思考', '正在思考'),
   responding: t('Writing a response', '正在撰写回复', '正在撰寫回覆'),
   tool: t('Running tool', '正在执行工具', '正在執行工具'),
@@ -72,11 +72,12 @@ function TaskCard({ task }: { task: PetTask }) {
           ? t('Confirm workspace', '等待确认工作区', '等待確認工作區')
           : null;
   const question = task.questions?.[0];
+  const compact = task.state === 'working' && !question && !task.inputRequest;
   const detail = question ? t('Awaiting reply', '待回复', '待回覆') : activity
     ? `${activityLabels[activity.kind]}${activity.toolName ? ` · ${activity.toolName}` : ''}`
     : inputLabel || labels[task.state];
   return (
-    <div className="pet-task-card" data-state={question ? 'input' : task.state}>
+    <div className="pet-task-card" data-compact={compact || undefined} data-state={question ? 'input' : task.state}>
       <button
         type="button"
         aria-label={`${task.title} · ${detail}`}
@@ -109,15 +110,17 @@ function TaskCard({ task }: { task: PetTask }) {
         {task.state === 'working' && activity && activity.kind !== 'stopping' && (
           <button
             type="button"
+            title={t('Pause', '暂停', '暫停')}
+            aria-label={t('Pause', '暂停', '暫停')}
             onClick={() =>
               void window.electron.desktopPet({ action: 'pause-task', sessionId: task.sessionId })
             }
           >
             <Pause size={11} aria-hidden="true" />
-            {t('Pause', '暂停', '暫停')}
+            {!compact && t('Pause', '暂停', '暫停')}
           </button>
         )}
-        <button
+        {!compact && <button
           type="button"
           className="pet-task-follow"
           onClick={() =>
@@ -126,9 +129,9 @@ function TaskCard({ task }: { task: PetTask }) {
         >
           {question ? t('Reply', '去回复', '去回覆') : task.state === 'input'
             ? t('Reply', '去处理', '去處理')
-            : t('Follow up', '继续跟进', '繼續跟進')}
+            : t('Open chat', '查看对话', '查看對話')}
           <ArrowUpRight size={12} aria-hidden="true" />
-        </button>
+        </button>}
       </div>
       {permission && <details className="pet-approval-details"><summary>审批详情</summary><pre>{permission.details}</pre></details>}
       {approvalError && <div role="alert" className="pet-approval-details">{approvalError}</div>}
@@ -157,6 +160,11 @@ export default function DesktopPet() {
   const panel = useRef<HTMLDivElement>(null);
   const spriteContainer = useRef<HTMLDivElement>(null);
   const [cursor, setCursor] = useState({ x: 0, y: 0, reducedMotion: false });
+  const [spriteInset, setSpriteInset] = useState({ imageUrl: '', rows: 0 });
+  const onTopInset = useCallback((imageUrl: string, rows: number) => {
+    setSpriteInset(previous => previous.imageUrl === imageUrl && previous.rows === rows
+      ? previous : { imageUrl, rows });
+  }, []);
   const alpha = useRef<Uint8ClampedArray | null>(null);
   const pointer = useRef<{ x: number; y: number } | null>(null);
   const release = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
@@ -350,6 +358,9 @@ export default function DesktopPet() {
           : task?.state === 'working'
             ? 'working'
             : 'idle';
+  const visibleTop = spriteInset.imageUrl === pet.imageUrl
+    ? Math.round(spriteInset.rows * snapshot.preferences.size / pet.cellWidth)
+    : 0;
   const dx = cursor.x - petPanelWidth / 2;
   const dy = cursor.y - petPanelHeight - snapshot.preferences.size / 2;
   const angle = ((Math.atan2(dx, -dy) * 180) / Math.PI + 360) % 360;
@@ -383,9 +394,10 @@ export default function DesktopPet() {
           className={`pet-task-panel${composing ? ' pet-compose-panel' : ''}`}
           style={{
             position: 'absolute',
-            bottom: Math.round((snapshot.preferences.size * 208) / 192) + 8,
-            left: composing ? 24 : 10,
-            right: composing ? 24 : 10,
+            bottom: Math.round((snapshot.preferences.size * 208) / 192) + 5 - visibleTop,
+            zIndex: 1,
+            left: composing ? 24 : 30,
+            right: composing ? 24 : 30,
           }}
         >
           {composing ? (
@@ -661,6 +673,7 @@ export default function DesktopPet() {
             reducedMotion={reducedMotion}
             gazeFrame={gazeFrame}
             onAlphaMap={onAlphaMap}
+            onTopInset={onTopInset}
           />
         </div>
       </div>

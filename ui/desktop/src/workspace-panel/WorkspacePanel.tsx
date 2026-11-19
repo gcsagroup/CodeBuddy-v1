@@ -533,7 +533,9 @@ export function WorkspacePanelContent({
               scope.root
             ) === fileIdentity(entry.path, scope.root)
         );
-      if (existing) {
+      // Read-only references have no draft to preserve. Reopening a result link
+      // must read its current contents instead of retaining an earlier snapshot.
+      if (existing && existing.kind !== 'reference') {
         update((s) => ({
           ...s,
           active: existing.id,
@@ -545,6 +547,7 @@ export function WorkspacePanelContent({
         }));
         return;
       }
+      const refreshingReferenceId = existing && existing.kind === 'reference' ? existing.id : undefined;
       setBusy(true);
       setError('');
       try {
@@ -581,6 +584,8 @@ export function WorkspacePanelContent({
         if (reply.reference && alive.current) {
           const reference = reply.reference;
           update((s) => {
+            if (refreshingReferenceId && !s.tabs.some((t) => t.id === refreshingReferenceId))
+              return s;
             const existing = s.tabs.find(
               (t) =>
                 t.kind === 'reference' &&

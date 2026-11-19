@@ -21,7 +21,122 @@ const initial = (thinking: ModelThinkingSettings) => ({
   contextWindow: 272000,
   contextSource: 'catalog' as const,
 });
+
+it('keeps a saved effort visible when the endpoint has no verified controls', () => {
+  render(
+    <ModelThinkingMenu
+      provider="p"
+      model="m"
+      presentation="slider"
+      modelLabel="Custom Qwen"
+      triggerContent={<span>Custom Qwen</span>}
+      initialSettings={initial({ options: [], value: 'xhigh', toggle: false })}
+    />,
+    { wrapper: IntlTestWrapper }
+  );
+  expect(screen.getByRole('button', { name: 'Custom Qwen' })).toHaveTextContent('Extra high');
+  expect(screen.getByText(/No verified controls/)).toBeVisible();
+  expect(screen.queryByRole('slider')).not.toBeInTheDocument();
+});
 const slider = () => screen.getByRole('slider', { name: 'Thinking effort' });
+it('keeps service default outside the strength scale and explains that it is not off', async () => {
+  render(
+    <ModelThinkingMenu
+      provider="p"
+      model="always-on"
+      presentation="slider"
+      initialSettings={initial({
+        options: ['default', 'low', 'medium', 'high'],
+        value: 'default',
+        toggle: false,
+      })}
+    />,
+    { wrapper: IntlTestWrapper }
+  );
+  fireEvent.click(screen.getByRole('button', { name: 'Thinking effort: Service default' }));
+  expect(screen.queryByRole('slider')).not.toBeInTheDocument();
+  expect(screen.getByText(/This does not turn thinking off/)).toBeVisible();
+  expect(screen.getByText(/does not offer an off setting.*Low/)).toBeVisible();
+  expect(screen.queryByRole('button', { name: 'None' })).not.toBeInTheDocument();
+  fireEvent.click(screen.getByRole('button', { name: 'Low' }));
+  await waitFor(() =>
+    expect(acpSaveThinkingEffort).toHaveBeenCalledExactlyOnceWith('low', 'p', 'always-on')
+  );
+  expect(slider()).toHaveAttribute('max', '2');
+  expect(slider()).toHaveAttribute('aria-valuetext', 'Low');
+  fireEvent.click(screen.getByRole('button', { name: 'Use model default' }));
+  await waitFor(() =>
+    expect(acpSaveThinkingEffort).toHaveBeenLastCalledWith('default', 'p', 'always-on')
+  );
+  expect(screen.queryByRole('slider')).not.toBeInTheDocument();
+});
+
+it('the leftmost point sends low, not default or off, when off is unavailable', async () => {
+  render(
+    <ModelThinkingMenu
+      provider="p"
+      model="graded"
+      presentation="slider"
+      initialSettings={initial({
+        options: ['default', 'low', 'medium', 'high'],
+        value: 'high',
+        toggle: false,
+      })}
+    />,
+    { wrapper: IntlTestWrapper }
+  );
+  fireEvent.click(screen.getByRole('button', { name: 'Thinking effort: High' }));
+  fireEvent.keyDown(slider(), { key: 'Home' });
+  fireEvent.keyUp(slider(), { key: 'Home' });
+  await waitFor(() =>
+    expect(acpSaveThinkingEffort).toHaveBeenCalledExactlyOnceWith('low', 'p', 'graded')
+  );
+});
+
+it('the leftmost point remains a real None control for off-capable models', async () => {
+  render(
+    <ModelThinkingMenu
+      provider="p"
+      model="off-capable"
+      presentation="slider"
+      initialSettings={initial({
+        options: ['off', 'low', 'medium'],
+        value: 'medium',
+        toggle: false,
+      })}
+    />,
+    { wrapper: IntlTestWrapper }
+  );
+  fireEvent.click(screen.getByRole('button', { name: 'Thinking effort: Medium' }));
+  fireEvent.keyDown(slider(), { key: 'Home' });
+  fireEvent.keyUp(slider(), { key: 'Home' });
+  await waitFor(() =>
+    expect(acpSaveThinkingEffort).toHaveBeenCalledExactlyOnceWith('off', 'p', 'off-capable')
+  );
+  expect(slider()).toHaveAttribute('aria-valuetext', 'None');
+  expect(screen.queryByText(/does not offer an off setting/)).not.toBeInTheDocument();
+});
+
+it('shows None for a model explicitly without thinking and does not invent a slider', () => {
+  render(
+    <ModelThinkingMenu
+      provider="p"
+      model="plain"
+      presentation="slider"
+      modelLabel="Plain model"
+      triggerContent={<span>Plain model</span>}
+      initialSettings={initial({
+        options: ['off'],
+        value: 'off',
+        toggle: false,
+        state: 'unsupported',
+      })}
+    />,
+    { wrapper: IntlTestWrapper }
+  );
+  expect(screen.getByRole('button', { name: 'Plain model' })).toHaveTextContent('None');
+  expect(screen.queryByRole('slider')).not.toBeInTheDocument();
+});
 const release = (value: number) => {
   fireEvent.pointerDown(slider(), { pointerId: 1, buttons: 1 });
   fireEvent.change(slider(), { target: { value: String(value) } });
@@ -30,8 +145,15 @@ const release = (value: number) => {
 
 it('rotates the model and effort chevron clockwise when opening and closing', async () => {
   const user = userEvent.setup();
-  render(<ModelThinkingMenu provider="p" model="m" presentation="slider" initialSettings={initial(five)} />,
-    { wrapper: IntlTestWrapper });
+  render(
+    <ModelThinkingMenu
+      provider="p"
+      model="m"
+      presentation="slider"
+      initialSettings={initial(five)}
+    />,
+    { wrapper: IntlTestWrapper }
+  );
   const trigger = screen.getByRole('button', { name: 'Thinking effort: High' });
   const chevron = trigger.querySelector('.lucide-chevron-down');
   expect(chevron).toHaveStyle({ transform: 'rotate(0deg)' });

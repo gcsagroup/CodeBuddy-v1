@@ -1,6 +1,14 @@
-import { useEffect, useId, useRef, useState, type CSSProperties, type ReactNode } from 'react';
+import {
+  useEffect,
+  useId,
+  useMemo,
+  useRef,
+  useState,
+  type CSSProperties,
+  type ReactNode,
+} from 'react';
 import * as Popover from '@radix-ui/react-popover';
-import { Check, ChevronRight, LoaderCircle } from 'lucide-react';
+import { Check, ChevronRight, LoaderCircle, RefreshCw } from 'lucide-react';
 import { DropdownChevron } from './ui/DropdownChevron';
 import './ThinkingEffortSlider.css';
 import { defineMessages, useIntl } from '../i18n';
@@ -14,6 +22,30 @@ import {
 import type { ModelThinkingSettings, ThinkingEffort } from '../types/providers';
 
 const i18n = defineMessages({
+  default: { id: 'thinkingEffortPicker.default', defaultMessage: 'Service default' },
+  useDefault: { id: 'thinkingEffortPicker.useDefault', defaultMessage: 'Use model default' },
+  defaultNotice: {
+    id: 'thinkingEffortPicker.defaultNotice',
+    defaultMessage: 'The model chooses its thinking level. This does not turn thinking off.',
+  },
+  cannotDisable: {
+    id: 'thinkingEffortPicker.cannotDisable',
+    defaultMessage: 'This model does not offer an off setting. Its lowest level is {level}.',
+  },
+  refresh: { id: 'thinkingEffortPicker.refresh', defaultMessage: 'Recheck model capabilities' },
+  unknown: {
+    id: 'thinkingEffortPicker.unknown',
+    defaultMessage: 'Adjustable levels have not been confirmed. Using the service default.',
+  },
+  unsupported: {
+    id: 'thinkingEffortPicker.unsupported',
+    defaultMessage: 'This model does not support adjustable thinking.',
+  },
+  stale: {
+    id: 'thinkingEffortPicker.stale',
+    defaultMessage:
+      'Your previous level is no longer available. Using the current fallback; choose a supported level to replace it.',
+  },
   title: { id: 'thinkingEffortPicker.title', defaultMessage: 'Thinking effort' },
   off: { id: 'thinkingEffortPicker.off', defaultMessage: 'None' },
   on: { id: 'thinkingEffortPicker.on', defaultMessage: 'On' },
@@ -35,9 +67,19 @@ const i18n = defineMessages({
   context: { id: 'thinkingEffortPicker.context', defaultMessage: 'Context window' },
   unavailable: { id: 'thinkingEffortPicker.unavailable', defaultMessage: 'Not provided' },
   noControls: { id: 'thinkingEffortPicker.noControls', defaultMessage: 'No verified controls' },
+  schemaControls: {
+    id: 'thinkingEffortPicker.schemaControls',
+    defaultMessage:
+      'Options declared by the API; their effect on this model has not been verified.',
+  },
   budget: {
     id: 'thinkingEffortPicker.budget',
     defaultMessage: 'Current budget; model capacity unconfirmed',
+  },
+  templateControls: {
+    id: 'thinkingEffortPicker.templateControls',
+    defaultMessage:
+      'Validated with this model’s tokenizer template, without generation. Reasoning quality has not been measured.',
   },
 });
 
@@ -54,6 +96,7 @@ type ThinkingEffortPickerProps = {
   onSelectModel?: () => void;
   triggerContent?: ReactNode;
   modelMenuOpen?: boolean;
+  capabilityFooter?: ReactNode;
 };
 
 export function ThinkingEffortPicker(props: ThinkingEffortPickerProps) {
@@ -77,10 +120,16 @@ function ThinkingEffortSlider({
   onSelectModel,
   triggerContent,
   modelMenuOpen = false,
+  capabilityFooter,
 }: ThinkingEffortPickerProps) {
   const intl = useIntl();
+  // Omission is a mode, not an effort below Low or a synonym for Off.
+  const levels = useMemo(
+    () => settings.options.filter((effort) => effort !== 'default'),
+    [settings.options]
+  );
   const [open, setOpen] = useState(false);
-  const [rangeValue, setRangeValue] = useState(() => effortIndex(settings.options, settings.value));
+  const [rangeValue, setRangeValue] = useState(() => effortIndex(levels, settings.value));
   const [dragging, setDragging] = useState(false);
   const [saving, setSaving] = useState(false);
   const alive = useRef(true);
@@ -101,14 +150,16 @@ function ThinkingEffortSlider({
   useEffect(() => {
     confirmed.current = settings.value;
     if (!inFlight.current && !draggingNow.current)
-      setRangeValue(effortIndex(settings.options, settings.value));
-  }, [settings.value, settings.options]);
+      setRangeValue(effortIndex(levels, settings.value));
+  }, [settings.value, levels]);
   useEffect(() => {
-    if (!open && !inFlight.current) setRangeValue(effortIndex(settings.options, confirmed.current));
-  }, [open, settings.options]);
+    if (!open && !inFlight.current) setRangeValue(effortIndex(levels, confirmed.current));
+  }, [open, levels]);
 
   const label = (effort: ThinkingEffort) =>
-    intl.formatMessage(settings.toggle && effort !== 'off' ? i18n.on : i18n[effort]);
+    intl.formatMessage(
+      settings.toggle && effort !== 'off' && effort !== 'default' ? i18n.on : i18n[effort]
+    );
   const commit = (effort: ThinkingEffort) => {
     if (disabled) return;
     queued.current = effort;
@@ -126,7 +177,7 @@ function ThinkingEffortSlider({
             confirmed.current = next;
           } catch {
             if (alive.current && queued.current === null && !draggingNow.current)
-              setRangeValue(effortIndex(settings.options, confirmed.current));
+              setRangeValue(effortIndex(levels, confirmed.current));
           }
         }
       } finally {
@@ -143,15 +194,16 @@ function ThinkingEffortSlider({
         {label(settings.value)}
       </span>
     );
-  const index = Math.min(settings.options.length - 1, Math.max(0, Math.round(rangeValue)));
-  const fraction = Math.min(1, Math.max(0, rangeValue / (settings.options.length - 1)));
+  const index = Math.min(levels.length - 1, Math.max(0, Math.round(rangeValue)));
+  const fraction = Math.min(1, Math.max(0, rangeValue / Math.max(1, levels.length - 1)));
+  const usesDefault = settings.value === 'default';
   // Match the native range's 20px thumb so the visual handle follows the pointer.
   const position = `calc(${fraction * 100}% + ${10 - fraction * 20}px)`;
   const release = (value: string) => {
     draggingNow.current = false;
     setDragging(false);
     const at = Math.round(Number(value));
-    const effort = settings.options[at];
+    const effort = levels[at];
     if (effort) setRangeValue(at);
     if (effort) commit(effort);
   };
@@ -202,11 +254,13 @@ function ThinkingEffortSlider({
       <Popover.Portal>
         <Popover.Content
           data-thinking-effort-card
-          data-effort={settings.options[index]}
-          style={{
-            '--effort-lightness': `${60 - fraction * 17}%`,
-            '--effort-flow-opacity': 0.4 + fraction * 0.4,
-          } as CSSProperties}
+          data-effort={usesDefault ? 'default' : levels[index]}
+          style={
+            {
+              '--effort-lightness': `${60 - fraction * 17}%`,
+              '--effort-flow-opacity': 0.4 + fraction * 0.4,
+            } as CSSProperties
+          }
           updatePositionStrategy="always"
           side="top"
           align="start"
@@ -231,7 +285,7 @@ function ThinkingEffortSlider({
                 />
               )}
               <span className="thinking-effort-level rounded-md px-1.5 py-0.5 font-medium">
-                {label(settings.options[index])}
+                {label(usesDefault ? 'default' : levels[index])}
               </span>
             </div>
           </div>
@@ -255,87 +309,142 @@ function ThinkingEffortSlider({
                 {modelLabel}
               </p>
             ))}
-          <div className="thinking-effort-track" data-dragging={dragging || undefined}>
-            <div aria-hidden="true" className="thinking-effort-rail" />
-            <div aria-hidden="true" className="thinking-effort-fill" style={{ width: position }} />
-            {settings.options.map((effort, at) => {
-              const part = at / (settings.options.length - 1);
-              return (
-                <span
+          {settings.source === 'openapi' && (
+            <p className="mt-2 text-xs leading-4 text-text-secondary">
+              {intl.formatMessage(i18n.schemaControls)}
+            </p>
+          )}
+          {settings.source === 'tokenize' && (
+            <p className="mt-2 text-xs leading-4 text-text-secondary">
+              {intl.formatMessage(i18n.templateControls)}
+            </p>
+          )}
+          {usesDefault && (
+            <p className="mt-2 text-xs leading-4 text-text-secondary">
+              {intl.formatMessage(i18n.defaultNotice)}
+            </p>
+          )}
+          {levels.length > 0 && !levels.includes('off') && (
+            <p className="mt-2 text-xs leading-4 text-text-secondary">
+              {intl.formatMessage(i18n.cannotDisable, { level: label(levels[0]) })}
+            </p>
+          )}
+          {usesDefault || levels.length === 1 ? (
+            <div className="mt-2 flex flex-wrap gap-1" role="group" aria-label={title}>
+              {levels.map((effort) => (
+                <button
                   key={effort}
-                  aria-hidden="true"
-                  className="thinking-effort-stop"
-                  data-active={at <= index || undefined}
-                  style={{ left: `calc(${part * 100}% + ${10 - part * 20}px)` }}
-                />
-              );
-            })}
-            <div aria-hidden="true" className="thinking-effort-thumb" style={{ left: position }} />
-            <input
-              type="range"
-              min={0}
-              max={settings.options.length - 1}
-              step="any"
-              value={rangeValue}
-              aria-label={title}
-              aria-valuetext={label(settings.options[index])}
-              aria-busy={saving}
-              disabled={disabled}
-              className="thinking-effort-input"
-              onPointerDown={() => {
-                draggingNow.current = true;
-                setDragging(true);
-              }}
-              onChange={(event) => {
-                setRangeValue(Number(event.target.value));
-              }}
-              onPointerUp={(event) => release(event.currentTarget.value)}
-              onPointerCancel={() => {
-                draggingNow.current = false;
-                setDragging(false);
-                setRangeValue(effortIndex(settings.options, confirmed.current));
-              }}
-              onKeyDown={(event) => {
-                const delta = ['ArrowLeft', 'ArrowDown', 'PageDown'].includes(event.key)
-                  ? -1
-                  : ['ArrowRight', 'ArrowUp', 'PageUp'].includes(event.key)
-                    ? 1
-                    : 0;
-                if (!delta && event.key !== 'Home' && event.key !== 'End') return;
-                event.preventDefault();
-                setRangeValue(
-                  event.key === 'Home'
-                    ? 0
-                    : event.key === 'End'
-                      ? settings.options.length - 1
-                      : Math.min(
-                          settings.options.length - 1,
-                          Math.max(0, Math.round(Number(event.currentTarget.value)) + delta)
-                        )
+                  type="button"
+                  disabled={disabled || saving}
+                  className="rounded-md border border-border-primary px-2 py-1 text-xs hover:bg-background-secondary disabled:opacity-60"
+                  onClick={() => commit(effort)}
+                >
+                  {label(effort)}
+                </button>
+              ))}
+            </div>
+          ) : (
+            <div className="thinking-effort-track" data-dragging={dragging || undefined}>
+              <div aria-hidden="true" className="thinking-effort-rail" />
+              <div
+                aria-hidden="true"
+                className="thinking-effort-fill"
+                style={{ width: position }}
+              />
+              {levels.map((effort, at) => {
+                const part = at / (levels.length - 1);
+                return (
+                  <span
+                    key={effort}
+                    aria-hidden="true"
+                    className="thinking-effort-stop"
+                    data-active={at <= index || undefined}
+                    style={{ left: `calc(${part * 100}% + ${10 - part * 20}px)` }}
+                  />
                 );
-              }}
-              onKeyUp={(event) => {
-                if (
-                  [
-                    'ArrowLeft',
-                    'ArrowRight',
-                    'ArrowUp',
-                    'ArrowDown',
-                    'Home',
-                    'End',
-                    'PageUp',
-                    'PageDown',
-                  ].includes(event.key)
-                )
-                  release(event.currentTarget.value);
-              }}
-            />
-          </div>
+              })}
+              <div
+                aria-hidden="true"
+                className="thinking-effort-thumb"
+                style={{ left: position }}
+              />
+              <input
+                type="range"
+                min={0}
+                max={levels.length - 1}
+                step="any"
+                value={rangeValue}
+                aria-label={title}
+                aria-valuetext={label(levels[index])}
+                aria-busy={saving}
+                disabled={disabled}
+                className="thinking-effort-input"
+                onPointerDown={() => {
+                  draggingNow.current = true;
+                  setDragging(true);
+                }}
+                onChange={(event) => {
+                  setRangeValue(Number(event.target.value));
+                }}
+                onPointerUp={(event) => release(event.currentTarget.value)}
+                onPointerCancel={() => {
+                  draggingNow.current = false;
+                  setDragging(false);
+                  setRangeValue(effortIndex(levels, confirmed.current));
+                }}
+                onKeyDown={(event) => {
+                  const delta = ['ArrowLeft', 'ArrowDown', 'PageDown'].includes(event.key)
+                    ? -1
+                    : ['ArrowRight', 'ArrowUp', 'PageUp'].includes(event.key)
+                      ? 1
+                      : 0;
+                  if (!delta && event.key !== 'Home' && event.key !== 'End') return;
+                  event.preventDefault();
+                  setRangeValue(
+                    event.key === 'Home'
+                      ? 0
+                      : event.key === 'End'
+                        ? levels.length - 1
+                        : Math.min(
+                            levels.length - 1,
+                            Math.max(0, Math.round(Number(event.currentTarget.value)) + delta)
+                          )
+                  );
+                }}
+                onKeyUp={(event) => {
+                  if (
+                    [
+                      'ArrowLeft',
+                      'ArrowRight',
+                      'ArrowUp',
+                      'ArrowDown',
+                      'Home',
+                      'End',
+                      'PageUp',
+                      'PageDown',
+                    ].includes(event.key)
+                  )
+                    release(event.currentTarget.value);
+                }}
+              />
+            </div>
+          )}
+          {!usesDefault && settings.options.includes('default') && (
+            <button
+              type="button"
+              disabled={disabled || saving}
+              onClick={() => commit('default')}
+              className="mt-2 text-xs text-text-secondary underline-offset-2 hover:underline disabled:opacity-60"
+            >
+              {intl.formatMessage(i18n.useDefault)}
+            </button>
+          )}
           {error && (
             <p role="alert" className="pt-2 text-xs text-text-danger">
               {intl.formatMessage(i18n.error)}
             </p>
           )}
+          {capabilityFooter}
         </Popover.Content>
       </Popover.Portal>
     </Popover.Root>
@@ -350,6 +459,7 @@ function ThinkingEffortMenu({
   showLabel = false,
   openOnHover = false,
   popupSide = 'top',
+  capabilityFooter,
 }: ThinkingEffortPickerProps) {
   const intl = useIntl();
   const name = useId();
@@ -372,7 +482,9 @@ function ThinkingEffortMenu({
       </div>
     ) : null;
   const label = (effort: ThinkingEffort) =>
-    intl.formatMessage(settings.toggle && effort !== 'off' ? i18n.on : i18n[effort]);
+    intl.formatMessage(
+      settings.toggle && effort !== 'off' && effort !== 'default' ? i18n.on : i18n[effort]
+    );
   const title = intl.formatMessage(i18n.title);
   const canChoose = settings.options.length > 1;
   const select = async (effort: ThinkingEffort) => {
@@ -440,6 +552,16 @@ function ThinkingEffortMenu({
           sideOffset={6}
           className="z-[110] w-40 max-h-[var(--radix-popover-content-available-height)] overflow-y-auto rounded-xl border border-border-primary bg-background-primary p-1.5 text-text-primary shadow-md"
         >
+          {settings.source === 'openapi' && (
+            <p className="px-3 py-2 text-xs text-text-secondary">
+              {intl.formatMessage(i18n.schemaControls)}
+            </p>
+          )}
+          {settings.source === 'tokenize' && (
+            <p className="px-3 py-2 text-xs text-text-secondary">
+              {intl.formatMessage(i18n.templateControls)}
+            </p>
+          )}
           <fieldset disabled={disabled || saving} className="grid gap-1">
             <legend className="sr-only">{title}</legend>
             {settings.options.map((effort) => (
@@ -464,6 +586,7 @@ function ThinkingEffortMenu({
               </label>
             ))}
           </fieldset>
+          {capabilityFooter}
           {error && (
             <p role="alert" className="px-3 pt-2 text-xs text-text-danger">
               {intl.formatMessage(i18n.error)}
@@ -518,60 +641,133 @@ export function ModelThinkingMenu({
   } | null>(() => (initialSettings ? { identity, details: initialSettings } : null));
   const [error, setError] = useState(false);
   const [readFailed, setReadFailed] = useState(false);
+  const [refreshAttempt, setRefreshAttempt] = useState(0);
+  const [reading, setReading] = useState(false);
+  const forceRefresh = useRef<string | null>(null);
   const current = useRef(identity);
   current.current = identity;
   useEffect(() => {
     current.current = identity;
-    setLoaded(initialSettings ? { identity, details: initialSettings } : null);
+    setLoaded((previous) =>
+      previous?.identity === identity
+        ? previous
+        : initialSettings
+          ? { identity, details: initialSettings }
+          : null
+    );
     setError(false);
     setReadFailed(false);
     let active = true;
     let latestEffort: ThinkingEffort | undefined;
     const onEffortChanged = (event: Event) => {
-      const changed = (event as CustomEvent<{ provider: string; model: string; effort: ThinkingEffort }>).detail;
+      const changed = (
+        event as CustomEvent<{ provider: string; model: string; effort: ThinkingEffort }>
+      ).detail;
       if (changed.provider !== provider || changed.model !== model) return;
       const effort = changed.effort;
       latestEffort = effort;
-      setLoaded(previous => previous?.identity === identity
-        ? { identity, details: { ...previous.details, thinking: { ...previous.details.thinking, value: effort } } }
-        : previous);
+      setLoaded((previous) =>
+        previous?.identity === identity
+          ? {
+              identity,
+              details: {
+                ...previous.details,
+                thinking: { ...previous.details.thinking, value: effort },
+              },
+            }
+          : previous
+      );
     };
     window.addEventListener('codebuddy:thinking-effort-changed', onEffortChanged);
-    if (provider && model && !initialSettings)
-      void readSettings(provider, model)
+    if (provider && model && (!initialSettings || refreshAttempt > 0)) {
+      setReading(true);
+      const force = forceRefresh.current === identity;
+      forceRefresh.current = null;
+      void readSettings(provider, model, force)
         .then((value) => {
           // A settings read started before a save must not restore the old slider value.
-          if (active) setLoaded({ identity, details: latestEffort
-            ? { ...value, thinking: { ...value.thinking, value: latestEffort } } : value });
+          if (active)
+            setLoaded({
+              identity,
+              details:
+                latestEffort && value.thinking.options.includes(latestEffort)
+                  ? { ...value, thinking: { ...value.thinking, value: latestEffort } }
+                  : value,
+            });
         })
         .catch(() => {
           if (active) setReadFailed(true);
+        })
+        .finally(() => {
+          if (active) setReading(false);
         });
+    }
     return () => {
       active = false;
       window.removeEventListener('codebuddy:thinking-effort-changed', onEffortChanged);
       if (current.current === identity) current.current = '';
     };
-  }, [provider, model, identity, initialSettings, readSettings]);
+  }, [provider, model, identity, initialSettings, readSettings, refreshAttempt]);
   const details = loaded?.identity === identity ? loaded.details : null;
-  const draft = deferUntilSubmit && provider && model ? readThinkingDraft(provider, model) : undefined;
-  const settings = details?.thinking && draft && details.thinking.options.includes(draft)
-    ? { ...details.thinking, value: draft } : details?.thinking;
+  const draft =
+    deferUntilSubmit && provider && model ? readThinkingDraft(provider, model) : undefined;
+  const settings =
+    details?.thinking && draft && details.thinking.options.includes(draft)
+      ? { ...details.thinking, value: draft }
+      : details?.thinking;
   const unresolved = settings?.options.length === 0 && details?.contextSource === 'fallback';
   if (!provider || !model) return null;
-  if (triggerContent && (!settings?.value || settings.options.length < 2 || unresolved))
-    return (
+  const capabilityFooter = (
+    <div className="flex items-center gap-2 pt-2 text-xs text-text-secondary">
+      <span className="flex-1" aria-live="polite">
+        {readFailed
+          ? intl.formatMessage(i18n.readFailed)
+          : settings?.stalePreference
+            ? intl.formatMessage(i18n.stale)
+            : settings?.state === 'unknown'
+              ? intl.formatMessage(i18n.unknown)
+              : settings?.state === 'unsupported'
+                ? intl.formatMessage(i18n.unsupported)
+                : null}
+      </span>
       <button
         type="button"
-        onClick={onSelectModel}
-        disabled={disabled}
-        title={readFailed ? intl.formatMessage(i18n.readFailed) : modelLabel}
-        aria-label={modelLabel}
-        className="flex h-8 min-w-0 max-w-full cursor-default items-center gap-1 rounded-md px-1.5 text-xs text-text-secondary transition-colors hover:bg-background-secondary hover:text-text-primary disabled:opacity-60"
+        disabled={reading || disabled}
+        title={intl.formatMessage(i18n.refresh)}
+        aria-label={intl.formatMessage(i18n.refresh)}
+        onClick={() => {
+          forceRefresh.current = identity;
+          setRefreshAttempt((value) => value + 1);
+        }}
+        className="rounded p-1 hover:bg-background-secondary disabled:opacity-50"
       >
-        {triggerContent}
-        <DropdownChevron open={modelMenuOpen} className="size-3" />
+        <RefreshCw className={`size-3 ${reading ? 'animate-spin' : ''}`} />
       </button>
+    </div>
+  );
+  if (triggerContent && (!settings?.value || settings.options.length < 2 || unresolved))
+    return (
+      <>
+        <button
+          type="button"
+          onClick={onSelectModel}
+          disabled={disabled}
+          title={readFailed ? intl.formatMessage(i18n.readFailed) : modelLabel}
+          aria-label={modelLabel}
+          className="flex h-8 min-w-0 max-w-full cursor-default items-center gap-1 rounded-md px-1.5 text-xs text-text-secondary transition-colors hover:bg-background-secondary hover:text-text-primary disabled:opacity-60"
+        >
+          {triggerContent}
+          {settings?.state === 'unsupported' && <span>{intl.formatMessage(i18n.off)}</span>}
+          {settings && settings.options.length === 0 && (
+            <span className="shrink-0 text-xs" title={intl.formatMessage(i18n.noControls)}>
+              {settings.value ? `${intl.formatMessage(i18n[settings.value])} · ` : ''}
+              {intl.formatMessage(i18n.noControls)}
+            </span>
+          )}
+          <DropdownChevron open={modelMenuOpen} className="size-3" />
+        </button>
+        {settings && capabilityFooter}
+      </>
     );
   return (
     <>
@@ -592,6 +788,7 @@ export function ModelThinkingMenu({
         <ThinkingEffortPicker
           key={identity}
           settings={settings}
+          capabilityFooter={capabilityFooter}
           presentation={presentation}
           modelLabel={modelLabel}
           onSelectModel={onSelectModel}
@@ -613,7 +810,10 @@ export function ModelThinkingMenu({
                 if (current.current === identity) setError(true);
                 throw failure;
               }
-              const updated = { ...details, thinking: { ...settings, value } };
+              const updated = {
+                ...details,
+                thinking: { ...settings, value, stalePreference: false },
+              };
               if (current.current === identity) setLoaded({ identity, details: updated });
               await onEffortChanged?.(updated);
             } finally {
@@ -622,6 +822,7 @@ export function ModelThinkingMenu({
           }}
         />
       )}
+      {settings && settings.options.length < 2 && !triggerContent && capabilityFooter}
       {showContextWindow && (
         <div className="flex min-h-9 items-center justify-between gap-3 px-2 text-sm text-text-secondary">
           <span>{intl.formatMessage(i18n.context)}</span>

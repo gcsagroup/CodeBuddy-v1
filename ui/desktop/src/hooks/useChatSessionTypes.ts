@@ -58,6 +58,7 @@ export interface UseChatSessionResult {
   onMessageUpdate: (
     messageId: string,
     newContent: string,
-    editType?: MessageEditType
+    editType?: MessageEditType,
+    retainedImageIndexes?: number[]
   ) => Promise<void>;
 }

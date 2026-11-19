@@ -16,12 +16,13 @@ it.each(['codebuddy:open-workspace-file', 'codebuddy:open-conversation-change'])
   'opens an external source in a read-only right-panel tab through %s',
   async (eventName) => {
     const previous = window.electron.workspacePanel;
+    let diskContent = 'const first = 1;\nexport const readonlyReference = true;';
     const ipc = vi.fn(async (request: PanelRequest) =>
       request.action === 'read-reference'
         ? {
             reference: {
               path: 'C:/outside/source.mjs',
-              content: 'const first = 1;\nexport const readonlyReference = true;',
+              content: diskContent,
             },
           }
         : { entries: [] }
@@ -63,6 +64,7 @@ it.each(['codebuddy:open-workspace-file', 'codebuddy:open-conversation-change'])
       expect(ipc).toHaveBeenCalledWith(
         expect.objectContaining({ action: 'read-reference', path: '../outside/source.mjs' })
       );
+      diskContent = 'const first = 2;\nexport const refreshedReference = true;';
       fireEvent(
         window,
         new CustomEvent('codebuddy:open-workspace-file', {
@@ -74,8 +76,19 @@ it.each(['codebuddy:open-workspace-file', 'codebuddy:open-conversation-change'])
         })
       );
       expect(screen.getAllByRole('tab', { name: 'source.mjs' })).toHaveLength(1);
+      await waitFor(() => expect(preview).toHaveTextContent('refreshedReference'));
+      expect(preview).not.toHaveTextContent('readonlyReference');
+      expect(within(preview).queryByRole('textbox')).toBeNull();
       expect(preview.querySelector('[data-source-line="2"]')).toHaveClass('wb-code-line-selected');
+      let finishRefresh!: (reply: { reference: { path: string; content: string } }) => void;
+      ipc.mockImplementationOnce(() => new Promise((resolve) => { finishRefresh = resolve; }));
+      fireEvent(window, new CustomEvent('codebuddy:open-workspace-file', {
+        detail: { sessionId: `read-reference-test-${eventName}`, filePath: 'C:/outside/source.mjs' },
+      }));
       fireEvent.click(screen.getByRole('button', { name: 'Close source.mjs' }));
+      await act(async () => finishRefresh({
+        reference: { path: 'C:/outside/source.mjs', content: 'late refresh must not reopen' },
+      }));
       expect(screen.queryByRole('region', { name: 'C:/outside/source.mjs' })).toBeNull();
     } finally {
       window.electron.workspacePanel = previous;

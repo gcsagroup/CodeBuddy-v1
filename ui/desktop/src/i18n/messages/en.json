@@ -8,6 +8,9 @@
   "app.chooseFolder": {
     "defaultMessage": "Choose folder"
   },
+  "app.completionFollowUp": {
+    "defaultMessage": "Add a follow-up…"
+  },
   "app.questionNotice": {
     "defaultMessage": "{title} · Reply to agent"
   },
@@ -312,7 +315,7 @@
     "defaultMessage": "Failed to read image file"
   },
   "chatInput.imageLimit": {
-    "defaultMessage": "You can attach up to {count} images to one message."
+    "defaultMessage": "This message already has {current} images; you are adding {incoming}, but the limit is {count}. This batch was not added or sent. Existing attachments and generated files are kept. Choose fewer images or send separate batches, explaining each batch’s purpose."
   },
   "chatInput.listening": {
     "defaultMessage": "Listening"
@@ -8082,7 +8085,7 @@
     "defaultMessage": "Open system settings"
   },
   "settings.notifications.task.description": {
-    "defaultMessage": "Notify when CodeBuddy finishes a task while the window is in the background"
+    "defaultMessage": "Show a reminder when a task finishes, in the app or in the background"
   },
   "settings.notifications.task.title": {
     "defaultMessage": "Task completion notifications"
@@ -8828,8 +8831,17 @@
   "thinkingEffortPicker.budget": {
     "defaultMessage": "Current budget; model capacity unconfirmed"
   },
+  "thinkingEffortPicker.cannotDisable": {
+    "defaultMessage": "This model does not offer an off setting. Its lowest level is {level}."
+  },
   "thinkingEffortPicker.context": {
     "defaultMessage": "Context window"
+  },
+  "thinkingEffortPicker.default": {
+    "defaultMessage": "Service default"
+  },
+  "thinkingEffortPicker.defaultNotice": {
+    "defaultMessage": "The model chooses its thinking level. This does not turn thinking off."
   },
   "thinkingEffortPicker.error": {
     "defaultMessage": "Could not save thinking effort. Try again."
@@ -8864,11 +8876,32 @@
   "thinkingEffortPicker.readFailed": {
     "defaultMessage": "Could not read model settings"
   },
+  "thinkingEffortPicker.refresh": {
+    "defaultMessage": "Recheck model capabilities"
+  },
+  "thinkingEffortPicker.schemaControls": {
+    "defaultMessage": "Options declared by the API; their effect on this model has not been verified."
+  },
+  "thinkingEffortPicker.stale": {
+    "defaultMessage": "Your previous level is no longer available. Using the current fallback; choose a supported level to replace it."
+  },
+  "thinkingEffortPicker.templateControls": {
+    "defaultMessage": "Validated with this model’s tokenizer template, without generation. Reasoning quality has not been measured."
+  },
   "thinkingEffortPicker.title": {
     "defaultMessage": "Thinking effort"
   },
   "thinkingEffortPicker.unavailable": {
     "defaultMessage": "Not provided"
+  },
+  "thinkingEffortPicker.unknown": {
+    "defaultMessage": "Adjustable levels have not been confirmed. Using the service default."
+  },
+  "thinkingEffortPicker.unsupported": {
+    "defaultMessage": "This model does not support adjustable thinking."
+  },
+  "thinkingEffortPicker.useDefault": {
+    "defaultMessage": "Use model default"
   },
   "thinkingEffortPicker.xhigh": {
     "defaultMessage": "Extra high"
@@ -9748,6 +9781,9 @@
   },
   "userMessage.pending": {
     "defaultMessage": "Waiting to send"
+  },
+  "userMessage.removeEditedImage": {
+    "defaultMessage": "Remove image {number} from this resend"
   },
   "userMessage.unconfirmed": {
     "defaultMessage": "Awaiting confirmation"

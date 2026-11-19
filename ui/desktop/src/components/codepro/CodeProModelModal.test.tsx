@@ -756,8 +756,8 @@ it('uses the LAN image default with the switch off, distinguishes equal ids and 
   vi.mocked(acpListProviderModels).mockResolvedValue([
     { id: 'shared', name: 'shared' },
     {
-      id: 'gemma-4-26B-A4B-it-uncensored-FP8-W8A16',
-      name: 'gemma-4-26B-A4B-it-uncensored-FP8-W8A16',
+      id: 'CUA-S1-Qwen3.5-4B',
+      name: 'CUA-S1-Qwen3.5-4B',
     },
   ]);
   vi.mocked(resolveModelCapability).mockImplementation(async (providerId, modelId) => ({
@@ -779,16 +779,16 @@ it('uses the LAN image default with the switch off, distinguishes equal ids and 
   );
   expect(screen.queryByRole('radio')).not.toBeInTheDocument();
   expect(screen.getByText('Uses the default image model')).toBeVisible();
-  expect(screen.queryByText(/Default: gemma-4-26B-A4B-it-uncensored-FP8-W8A16/)).toBeNull();
+  expect(screen.queryByText(/Default: CUA-S1-Qwen3.5-4B/)).toBeNull();
   fireEvent.click(screen.getByRole('button', { name: 'Save vision settings' }));
   await waitFor(() =>
     expect(saveCodeProModelRouting).toHaveBeenCalledWith({
       ...saved,
       visionRoute: {
         enabled: true,
-        mode: 'auto',
+        mode: 'always',
         providerId: 'custom_codebuddy_lan',
-        modelId: 'gemma-4-26B-A4B-it-uncensored-FP8-W8A16',
+        modelId: 'CUA-S1-Qwen3.5-4B',
       },
     })
   );

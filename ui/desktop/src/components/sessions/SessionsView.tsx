@@ -2,6 +2,7 @@ import React, { useCallback } from 'react';
 import SessionListView from './SessionListView';
 import { useNavigation } from '../../hooks/useNavigation';
 import { beginSessionLoadTiming } from '../../acp/sessionLoadTiming';
+import { acpChatSessionController } from '../../acp/chatSessionController';
 
 const SessionsView: React.FC = () => {
   const setView = useNavigation();
@@ -9,6 +10,7 @@ const SessionsView: React.FC = () => {
   const handleSelectSession = useCallback(
     async (sessionId: string) => {
       beginSessionLoadTiming(sessionId, 'history');
+      void acpChatSessionController.loadSession(sessionId);
       setView('pair', {
         disableAnimation: true,
         resumeSessionId: sessionId,

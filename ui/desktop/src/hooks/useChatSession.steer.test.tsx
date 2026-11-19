@@ -266,7 +266,7 @@ describe('useChatSession steering acceptance', () => {
   it.each([
     ['interrupted', 'paused', true, false, false],
     ['completed', 'completed', true, false, true],
-    ['completed', 'completed', true, true, false],
+    ['completed', 'completed', true, true, true],
     ['completed', 'completed', false, false, false],
   ] as const)(
     'shows a completion notification only for terminal evidence: %s',
@@ -282,7 +282,13 @@ describe('useChatSession steering acceptance', () => {
         activeRunId: null,
         activePromptAttemptId: null,
         chatState: ChatState.Idle,
-        messages: [terminalMessage(status, outcome)],
+        messages: [
+          { role: 'assistant', created: 1, metadata: { userVisible: true, agentVisible: true },
+            content: [{ type: 'text', text: '本轮实收 531 元' }] },
+          { role: 'assistant', created: 2, metadata: { userVisible: false, agentVisible: true },
+            content: [{ type: 'text', text: '内部记录' }] },
+          terminalMessage(status, outcome),
+        ],
       };
       vi.mocked(acpChatSessionController.submitMessage).mockImplementation(
         async (_sessionId, _message, options) => {
@@ -297,6 +303,8 @@ describe('useChatSession steering acceptance', () => {
       expect(showNotification).toHaveBeenCalledTimes(expectedNotification ? 1 : 0);
       if (expectedNotification) expect(showNotification).toHaveBeenCalledWith(expect.objectContaining({
         title: 'CodeBuddy finished this execution turn.',
+        body: '本轮实收 531 元',
+        sessionId: 'session-1',
       }));
     }
   );

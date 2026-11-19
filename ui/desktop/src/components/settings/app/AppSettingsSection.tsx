@@ -45,7 +45,7 @@ const i18n = defineMessages({
   },
   taskNotificationsDesc: {
     id: 'settings.notifications.task.description',
-    defaultMessage: 'Notify when CodeBuddy finishes a task while the window is in the background',
+    defaultMessage: 'Show a reminder when a task finishes, in the app or in the background',
   },
   menuBarIcon: { id: 'settings.menuBarIcon.title', defaultMessage: 'Menu bar icon' },
   menuBarIconDesc: {

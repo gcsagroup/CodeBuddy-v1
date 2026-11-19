@@ -39,6 +39,70 @@ public static class OcuDesktop {
     [DllImport("user32.dll")] static extern bool EnumChildWindows(IntPtr parent, EnumWindowProc callback, IntPtr data);
     [DllImport("user32.dll")] static extern bool IsWindowVisible(IntPtr window);
     [DllImport("user32.dll")] static extern int GetWindowLong(IntPtr window, int index);
+    [StructLayout(LayoutKind.Sequential)] struct GuiThreadInfo {
+        public int Size, Flags;
+        public IntPtr Active, Focus, Capture, MenuOwner, MoveSize, Caret;
+        public Rect CaretRect;
+    }
+    [DllImport("user32.dll")] static extern bool GetGUIThreadInfo(uint thread, ref GuiThreadInfo info);
+    public static IntPtr FocusedChild(IntPtr window) {
+        if (GetForegroundWindow()!=window) return IntPtr.Zero;
+        uint pid;
+        uint thread=GetWindowThreadProcessId(window,out pid);
+        var info=new GuiThreadInfo {Size=Marshal.SizeOf(typeof(GuiThreadInfo))};
+        if (thread==0 || !GetGUIThreadInfo(thread,ref info) || info.Focus==IntPtr.Zero ||
+            GetAncestor(info.Focus,2)!=window || WindowProcessId(info.Focus)!=pid) return IntPtr.Zero;
+        return info.Focus;
+    }
+    [DllImport("user32.dll", CharSet=CharSet.Unicode)] static extern int GetClassName(IntPtr window, StringBuilder name, int size);
+    [DllImport("user32.dll", CharSet=CharSet.Unicode)] static extern IntPtr SendMessageTimeout(IntPtr window, uint message,
+        UIntPtr wparam, IntPtr lparam, uint flags, uint timeout, out UIntPtr result);
+    [DllImport("user32.dll", CharSet=CharSet.Unicode)] static extern IntPtr SendMessageTimeout(IntPtr window, uint message,
+        UIntPtr wparam, StringBuilder text, uint flags, uint timeout, out UIntPtr result);
+    // UIA can expose a WinForms EDIT as a generic pane without ValuePattern.
+    // Read only short visible standard edit controls belonging to this exact window.
+    public static string ReadEditText(IntPtr root, IntPtr child) {
+        if (child==IntPtr.Zero || root==child || GetAncestor(child,2)!=root ||
+            WindowProcessId(root)!=WindowProcessId(child) || !IsWindowVisible(child)) return null;
+        var cls=new StringBuilder(256);
+        if (GetClassName(child,cls,cls.Capacity)==0) return null;
+        string name=cls.ToString();
+        if (!name.Equals("Edit",StringComparison.OrdinalIgnoreCase) &&
+            !name.StartsWith("WindowsForms10.EDIT.",StringComparison.OrdinalIgnoreCase)) return null;
+        UIntPtr result;
+        if ((GetWindowLong(child,-16)&0x20)!=0 ||
+            SendMessageTimeout(child,0x00D2,UIntPtr.Zero,IntPtr.Zero,2,80,out result)==IntPtr.Zero ||
+            result!=UIntPtr.Zero) return null;
+        var text=new StringBuilder(502);
+        if (SendMessageTimeout(child,0x000D,(UIntPtr)text.Capacity,text,2,80,out result)==IntPtr.Zero ||
+            result.ToUInt64()>=501) return null;
+        return text.ToString();
+    }
+    [DllImport("user32.dll")] static extern bool IsWindowEnabled(IntPtr window);
+    public static bool CanSetEditText(IntPtr root, IntPtr child) {
+        return IsWindowEnabled(root) && IsWindowEnabled(child) && (GetWindowLong(child,-16)&0x800)==0 && ReadEditText(root,child)!=null;
+    }
+    // Use the existing tagged input and takeover gate, not an unguarded background write.
+    public static void SetEditText(IntPtr root, IntPtr child, string expected, string value) {
+        if(value==null || value.Length>500 || value.IndexOfAny(new char[]{'\r','\n','\0'})>=0)
+            throw new InvalidOperationException("Native edit replacement requires a short single-line value; no input dispatched.");
+        RequireForeground(root);
+        if(!CanSetEditText(root,child) || ReadEditText(root,child)!=expected)
+            throw new InvalidOperationException("Native edit changed or is not writable; observe again. No input dispatched.");
+        Rect rect;
+        if(!GetWindowRect(child,out rect)) throw new InvalidOperationException("Native edit bounds unavailable.");
+        int x=(rect.Left+rect.Right)/2,y=(rect.Top+rect.Bottom)/2;
+        if(WindowFromPoint(new Point{X=x,Y=y})!=child)
+            throw new InvalidOperationException("Native edit is covered; no input dispatched.");
+        Click(root,x,y,"left",1);
+        for(int attempt=0;attempt<20 && FocusedChild(root)!=child;attempt++) { OcuControl.Check(); Thread.Sleep(10); }
+        if(FocusedChild(root)!=child || ReadEditText(root,child)!=expected)
+            throw new InvalidOperationException("Native edit focus or value changed; no text dispatched.");
+        Chord(root,new ushort[]{0x11},0x41);
+        if(FocusedChild(root)!=child) throw new InvalidOperationException("Native edit lost focus; no text dispatched.");
+        if(value.Length==0) Chord(root,new ushort[]{},0x08);
+        else Type(root,value);
+    }
     [DllImport("user32.dll", CharSet=CharSet.Unicode)] static extern int GetWindowText(IntPtr window, StringBuilder text, int size);
 
     public static IntPtr[] VisibleWindows() {
@@ -134,7 +198,7 @@ public static class OcuDesktop {
             }
         }
         for (int i=0; i<10 && GetForegroundWindow()!=window; i++) { OcuControl.Check(); Thread.Sleep(30); }
-        if (GetForegroundWindow()!=window) throw new InvalidOperationException("Target activation was denied; no input dispatched. Re-observe before retrying.");
+        if (GetForegroundWindow()!=window) throw new InvalidOperationException("Target activation was denied; no input dispatched. Ask the user to bring the exact target window to the foreground. Do not retry input, Raise, shortcuts, or alternative activation methods while it remains in the background. Continue only after a fresh observation confirms that target is foreground.");
     }
     static void RequireReleasedModifiers() {
         foreach (int key in new int[] {0x10,0x11,0x12,0x5B,0x5C})

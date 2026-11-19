@@ -35,6 +35,30 @@ struct NativeWindow {
     var selector: String { "window:\(pid):\(id)" }
 }
 
+func validateValueWriteFocus(role: String, inWebContent: Bool, matchesFocusedElement: Bool) throws {
+    // WebKit can apply AXValue to the focused editor instead of the addressed
+    // text element. Refuse before dispatch rather than repairing another field.
+    // Native PDF annotations need not be the app's focused editor to accept
+    // AXValue. Limit this additional requirement to web accessibility content.
+    if inWebContent && ["AXTextField", "AXTextArea", "AXComboBox"].contains(role) && !matchesFocusedElement {
+        throw RuntimeFailure("The requested web text field is not the verified focused element. Click that field, inspect the returned focus, then set its value.")
+    }
+}
+
+// Focus can run application handlers. Revalidate the observation and lease after
+// it yields, before checking the actual focus or dispatching the value change.
+@MainActor
+func performVerifiedValueWrite(focus: (() async throws -> Void)?, validate: () throws -> Void,
+                               verifyFocus: () throws -> Void, write: () throws -> Void) async throws {
+    try validate()
+    if let focus {
+        try await focus()
+        try validate()
+    }
+    try verifyFocus()
+    try write()
+}
+
 // Quartz uses top-left desktop coordinates; AppKit mouse hit-testing uses
 // bottom-left coordinates relative to the primary display, even on other screens.
 func appKitHitPoint(_ quartzPoint: CGPoint, primaryDisplayTop: Double) -> CGPoint {
@@ -67,8 +91,12 @@ func confirmedForegroundPID(accessibilityPID: pid_t?, workspacePID: pid_t?, focu
 
 // Window stacking and keyboard focus differ when an app shows a nonactivating popover.
 func matchFocusedWindow(_ candidates: [NativeWindow], pid: pid_t, frame: WindowFrame, title: String) -> NativeWindow? {
-    let matches = candidates.filter { $0.pid == pid && $0.bounds.matches(frame) && $0.title == title }
-    return matches.count == 1 ? matches.first : nil
+    let geometryMatches = candidates.filter { $0.pid == pid && $0.bounds.matches(frame) }
+    let titleMatches = geometryMatches.filter { $0.title == title }
+    if titleMatches.count == 1 { return titleMatches.first }
+    // AX may append document metadata (Preview adds its page count) that CG
+    // does not expose. Only a unique same-process geometry can bridge that gap.
+    return geometryMatches.count == 1 ? geometryMatches.first : nil
 }
 
 struct WindowFrame: Codable, Equatable {
@@ -104,6 +132,18 @@ struct NativeElement: Codable {
     var frame: WindowFrame?
     var actions: [String]
 
+    var treeLine: String {
+        // Keep every index and all nonempty evidence, without repeating empty
+        // properties on the many structural nodes in PDF accessibility trees.
+        var parts = ["\(index)", controlType]
+        if !name.isEmpty { parts.append(name.debugDescription) }
+        if !value.isEmpty || ["AXTextField", "AXTextArea", "AXComboBox"].contains(controlType) {
+            parts.append("value=\(value.debugDescription)")
+        }
+        if !actions.isEmpty { parts.append("actions=\(actions)") }
+        return parts.joined(separator: " ")
+    }
+
     func matches(_ current: NativeElement) -> Bool {
         runtimeId == current.runtimeId && automationId == current.automationId
             && name == current.name && controlType == current.controlType
@@ -111,7 +151,74 @@ struct NativeElement: Codable {
     }
 }
 
+struct NativeFormEntity: Decodable {
+    let label: String
+    let value: String
+}
+
+struct NativeFormFieldLabel: Decodable {
+    let element: NativeElement
+    let label: String
+}
+
+struct NativeFormLabels: Decodable {
+    let title: String?
+    let fields: [NativeFormFieldLabel]
+    let entities: [String]
+    let observedElements: [NativeElement]
+    let observedTitle: String
+    let observedBounds: WindowFrame
+}
+
+func validateFormLabels(_ labels: NativeFormLabels, title: String, bounds: WindowFrame?, elements: [NativeElement], entities: [NativeFormEntity]) throws -> [Int: String] {
+    func valid(_ text: String) -> Bool {
+        !text.trimmingCharacters(in: .whitespaces).isEmpty && text.utf8.count <= 64 && text.utf8.allSatisfy { $0 >= 32 && $0 <= 126 }
+    }
+    // Safari adds/removes anonymous decoration groups between otherwise identical
+    // observations. They carry no translation context. Keep every named/value node
+    // and editable field, including unlabelled/empty fields; native paths, geometry
+    // and old values of those nodes still have to match exactly.
+    func context(_ nodes: [NativeElement]) -> [NativeElement] {
+        nodes.filter { !$0.name.isEmpty || !$0.value.isEmpty ||
+            ["AXTextField", "AXTextArea", "AXComboBox"].contains($0.controlType) }
+    }
+    let before = context(labels.observedElements), current = context(elements)
+    guard labels.observedTitle == title, bounds?.matches(labels.observedBounds) == true,
+          !elements.isEmpty, before.count == current.count,
+          zip(before, current).allSatisfy({ pair in pair.0.matches(pair.1) }) else {
+        throw RuntimeFailure("Form label projection expired: window, labels, controls or values changed. Use the fresh observation to translate again; no projected scoring occurred.")
+    }
+    guard labels.entities.count == entities.count, !entities.isEmpty,
+          labels.entities.allSatisfy(valid), labels.title.map(valid) ?? true,
+          Set(labels.entities.map { $0.trimmingCharacters(in: .whitespaces).lowercased() }).count == labels.entities.count,
+          labels.fields.count <= 400 else {
+        throw RuntimeFailure("Invalid or ambiguous English scoring labels. Original observation remains usable.")
+    }
+    var result: [Int: String] = [:]
+    for projected in labels.fields {
+        let matches = elements.filter { projected.element.matches($0) }
+        guard valid(projected.label), matches.count == 1, let element = matches.first,
+              ["AXTextField", "AXTextArea", "AXComboBox"].contains(element.controlType), result[element.index] == nil else {
+            throw RuntimeFailure("Projected field no longer identifies one observed editable control. Observe again.")
+        }
+        result[element.index] = projected.label
+    }
+    return result
+}
+
+func validateFormEntities(_ entities: [NativeFormEntity]) throws {
+    // The model has 32 options, including check, click and skip.
+    guard !entities.isEmpty, entities.count <= 29,
+          entities.allSatisfy({ !$0.label.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+              && !$0.value.isEmpty && $0.label.utf8.count <= 4096 && $0.value.utf8.count <= 16384 }) else {
+        throw RuntimeFailure("form_entities requires 1–29 labeled, nonempty values; label limit 4096 UTF-8 bytes, value limit 16384 bytes.")
+    }
+}
+
 struct NativeRequest: Decodable {
+	var focus: Bool?
+    var formLabels: NativeFormLabels?
+    var formEntities: [NativeFormEntity]?
     var windowTitle: String?
     var controlDirectory: String?
     var controlIdentity: String?

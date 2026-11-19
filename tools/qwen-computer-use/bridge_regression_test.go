@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -8,6 +9,77 @@ import (
 	"strings"
 	"testing"
 )
+
+func TestWindowsSnapshotFocusHandleDecodesInBothViews(t *testing.T) {
+	if runtime.GOOS != "windows" {
+		t.Skip("Windows PowerShell")
+	}
+	path := filepath.Join(t.TempDir(), "runtime.ps1")
+	if err := os.WriteFile(path, []byte(windowsRuntimeScript), 0600); err != nil {
+		t.Fatal(err)
+	}
+	script := `$ErrorActionPreference='Stop'
+Add-Type 'public static class OcuDesktop { public static System.IntPtr FocusedChild(System.IntPtr window){return new System.IntPtr(33);} }'
+$ast=[System.Management.Automation.Language.Parser]::ParseFile('` + strings.ReplaceAll(path, "'", "''") + `',[ref]$null,[ref]$null)
+$ast.FindAll({param($n) $n -is [System.Management.Automation.Language.FunctionDefinitionAst] -and $n.Name -eq 'Build-Snapshot'},$true) | ForEach-Object {Invoke-Expression $_.Extent.Text}
+function Resolve-ObservedApp { [pscustomobject]@{Id=7; MainWindowHandle=11; ProcessName='demo'} }
+function Resolve-App { throw 'no foreground window' }
+function Get-MainElement { return $null }
+function Get-WindowBounds { return $null }
+function Render-Tree { @{lines=@();records=@()} }
+function Capture-WindowPngBase64 { return $null }
+function Get-FocusedSummary { return $null }
+function Get-SelectedText { return $null }
+foreach ($operation in @(@{},@{fieldView=$true})) { (Build-Snapshot 'demo') | ConvertTo-Json -Compress }
+`
+	raw, err := exec.Command("powershell.exe", "-NoProfile", "-NonInteractive", "-Command", script).CombinedOutput()
+	if err != nil {
+		t.Fatalf("%v: %s", err, raw)
+	}
+	dec := json.NewDecoder(strings.NewReader(string(raw)))
+	for _, want := range []int64{0, 33} {
+		var s appSnapshot
+		if err := dec.Decode(&s); err != nil || s.FocusedHandle != want {
+			t.Fatalf("focus %d: %v, got %s", want, err, raw)
+		}
+	}
+}
+
+func TestWindowsTreeShowsAvailableActionsAndToggleState(t *testing.T) {
+	if runtime.GOOS != "windows" {
+		t.Skip("Windows UI Automation")
+	}
+	path := filepath.Join(t.TempDir(), "runtime.ps1")
+	if err := os.WriteFile(path, []byte(windowsRuntimeScript), 0600); err != nil {
+		t.Fatal(err)
+	}
+	script := `$ErrorActionPreference='Stop'
+Add-Type -AssemblyName UIAutomationClient
+Add-Type -AssemblyName UIAutomationTypes
+$ast=[System.Management.Automation.Language.Parser]::ParseFile('` + strings.ReplaceAll(path, "'", "''") + `',[ref]$null,[ref]$null)
+$ast.FindAll({param($n) $n -is [System.Management.Automation.Language.FunctionDefinitionAst] -and $n.Name -eq 'Render-Tree'},$true) | ForEach-Object {Invoke-Expression $_.Extent.Text}
+function Get-ElementRecord { @{localizedControlType='checkbox';actions=@('Toggle','SetValue');value='';writableField=$false} }
+function Get-ElementTitle { 'Priority' }
+$node=[pscustomobject]@{state=$null}
+$node | Add-Member ScriptMethod GetCurrentPattern {param($p) if($null -eq $this.state){throw 'Pattern unavailable'}; @{Current=@{ToggleState=$this.state}}}
+foreach($state in @([Windows.Automation.ToggleState]::Off,[Windows.Automation.ToggleState]::On,[Windows.Automation.ToggleState]::Indeterminate,$null)){
+    $node.state=$state
+    $line=(Render-Tree $node $null).lines[0]
+    if($null -eq $state){if($line.Contains('ToggleState:')){throw 'Missing state reported as known'}}
+    elseif(!$line.Contains("ToggleState: $state ")){throw "Wrong state: $line"}
+}
+if(!$line.Contains('SetValue')){throw 'Full view lost the provider action'}
+$operation=@{fieldView=$true}
+$line=(Render-Tree $node $null).lines[0]
+if($line.Contains('SetValue') -or !$line.Contains('Direct write unavailable.') -or !$line.Contains('Secondary Actions: Toggle')){
+    throw "Invalid field-view actions: $line"
+}`
+	cmd := exec.Command("powershell.exe", "-NoProfile", "-NonInteractive", "-Command", script)
+	hideRuntimeWindow(cmd)
+	if out, err := cmd.CombinedOutput(); err != nil {
+		t.Fatalf("%v: %s", err, out)
+	}
+}
 
 func TestWindowsKeyboardBridgeTypesAndModifiers(t *testing.T) {
 	if runtime.GOOS != "windows" {

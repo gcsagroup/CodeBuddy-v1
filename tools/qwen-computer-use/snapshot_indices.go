@@ -27,6 +27,7 @@ func (s *service) stabilizeElementIndices(snapshot *appSnapshot) {
 		}
 	}
 	remap := map[int]int{}
+	writeTokens := map[int]string{}
 	for i := range snapshot.Elements {
 		e := &snapshot.Elements[i]
 		key := elementIdentity(*e)
@@ -36,8 +37,12 @@ func (s *service) stabilizeElementIndices(snapshot *appSnapshot) {
 			s.nextElementIndex++
 		}
 		remap[e.Index] = index
+		if snapshot.fieldCapture != "" && e.WritableField {
+			writeTokens[e.Index] = snapshot.fieldToken(index)
+		}
 		e.Index = index
 	}
+	remapFormRecommendations(snapshot.FormMatching, remap)
 	for i, line := range snapshot.TreeLines {
 		content := strings.TrimLeft(line, " \t")
 		prefix := line[:len(line)-len(content)]
@@ -50,7 +55,11 @@ func (s *service) stabilizeElementIndices(snapshot *appSnapshot) {
 			continue
 		}
 		if index, ok := remap[old]; ok {
-			snapshot.TreeLines[i] = prefix + strconv.Itoa(index) + " " + tail
+			line := prefix + strconv.Itoa(index) + " " + tail
+			if token, writable := writeTokens[old]; writable {
+				line += " | set_value element_index=" + strconv.Quote(token)
+			}
+			snapshot.TreeLines[i] = line
 		}
 	}
 }

@@ -152,6 +152,38 @@ func TestCrossAppResultIdentifiesForegroundWithoutRelabelingImage(t *testing.T) 
 	}
 }
 
+func TestForegroundReceiptRequiresMatchingProcessAndWindow(t *testing.T) {
+	snapshot := &appSnapshot{App: appDescriptor{Name: "Preview", PID: 10}, WindowHandle: 100}
+	for _, active := range []*foregroundWindow{nil, {PID: 20, WindowHandle: 100}, {PID: 10, WindowHandle: 200}, {PID: 10, WindowHandle: 100}} {
+		snapshot.Foreground = active
+		confirmed := strings.Contains(snapshot.renderedText(), "Confirmed foreground window:")
+		want := active != nil && active.PID == 10 && active.WindowHandle == 100
+		if confirmed != want {
+			t.Fatalf("incorrect foreground confirmation for %#v: %s", active, snapshot.renderedText())
+		}
+	}
+}
+
+func TestPDFDiskReceiptDoesNotReplaceUnsavedUIValues(t *testing.T) {
+	snapshot := &appSnapshot{App: appDescriptor{Name: "Preview", PID: 10}, WindowHandle: 100,
+		ScreenshotPNGBase64: "image", TreeLines: []string{`18 AXTextField value="新公司"`},
+		PDFDocument: map[string]any{"status": "read", "fields": []any{map[string]any{"name": "公司", "value": "旧公司"}}}}
+	text := snapshot.renderedText()
+	for _, want := range []string{"新公司", "旧公司", "read-only snapshot, not UI values or permission"} {
+		if !strings.Contains(text, want) {
+			t.Fatalf("Missing separate disk/UI evidence %q: %s", want, text)
+		}
+	}
+	observation := snapshot.result().StructuredContent["desktop_observation"].(map[string]any)
+	if observation["pdf_document"].(map[string]any)["status"] != "read" {
+		t.Fatal("Disk receipt lost")
+	}
+	snapshot.PDFDocument = map[string]any{"status": "unavailable", "reason": "file changed"}
+	if strings.Contains(snapshot.renderedText(), "旧公司") {
+		t.Fatal("Stale disk values survived an unavailable observation")
+	}
+}
+
 func TestPopupObservationKeepsTargetAndCoordinateSpaceDistinct(t *testing.T) {
 	snapshot := &appSnapshot{
 		App: appDescriptor{Name: "WeChat", PID: 76632}, WindowHandle: 575,

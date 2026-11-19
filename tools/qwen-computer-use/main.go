@@ -2,7 +2,9 @@ package main
 
 import (
 	"context"
+	"crypto/rand"
 	_ "embed"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -18,7 +20,7 @@ import (
 	"time"
 )
 
-var version = "0.2.3-local.20"
+var version = "0.2.3-local.24"
 
 //go:embed runtime.ps1
 var windowsRuntimeScript string
@@ -73,6 +75,8 @@ func (f frame) renderedLocalFrame() string {
 }
 
 type elementRecord struct {
+	NativeEditText       *string  `json:"nativeEditText,omitempty"`
+	WritableField        bool     `json:"writableField,omitempty"`
 	Index                int      `json:"index"`
 	RuntimeID            []int    `json:"runtimeId,omitempty"`
 	AutomationID         string   `json:"automationId,omitempty"`
@@ -94,6 +98,12 @@ type foregroundWindow struct {
 }
 
 type appSnapshot struct {
+	PDFDocument         map[string]any `json:"pdfDocument,omitempty"`
+	FormMatching        map[string]any `json:"formMatching,omitempty"`
+	FocusedHandle       int64          `json:"focusedHandle,omitempty"`
+	fieldCapture        string
+	fieldView           bool
+	scopeTitle          string            // Original title matched by this snapshot's window identity.
 	InputVersion        string            `json:"inputVersion,omitempty"`
 	Foreground          *foregroundWindow `json:"foreground,omitempty"`
 	App                 appDescriptor     `json:"app"`
@@ -131,9 +141,11 @@ func (s *appSnapshot) renderedText() string {
 		lines = append(lines, fmt.Sprintf("Observed window position in screen coordinates: x %.1f, y %.1f. Compare fresh observations to verify window movement; do not use these screen coordinates as input coordinates.", s.WindowBounds.X, s.WindowBounds.Y))
 		lines = append(lines, fmt.Sprintf("Input coordinate space: window-local, width %.0f, height %.0f, origin (0,0) at this window's top-left. Use this tool's current screenshot; external screenshots may have different shadows, scaling or bounds.", s.WindowBounds.Width, s.WindowBounds.Height))
 	}
-	if active := s.Foreground; active != nil && active.WindowHandle != s.WindowHandle {
+	if active := s.Foreground; active != nil && (active.WindowHandle != s.WindowHandle || active.PID != s.App.PID) {
 		lines = append(lines, fmt.Sprintf("Foreground is now %s (pid %d), title %q. This screenshot still belongs to %s. Observe get_app_state(app=foreground) before acting in the newly active window; do not infer that a shortcut failed from the old window's image.", active.Name, active.PID, active.Title, s.App.Name))
 		lines = append(lines, fmt.Sprintf("Active target: window:%d:%d. The screenshot above is not an observation of this target.", active.PID, active.WindowHandle))
+	} else if active != nil && active.PID > 0 && active.WindowHandle != 0 {
+		lines = append(lines, fmt.Sprintf("Confirmed foreground window: window:%d:%d (this observed target). This confirms focus, not document persistence.", active.PID, active.WindowHandle))
 	}
 	if s.Foreground == nil {
 		lines = append(lines, "Current keyboard focus was not confirmed. This image only describes the observed target; it does not prove that target receives typing. Observe the foreground window before typing after a shortcut or window transition.")
@@ -141,7 +153,37 @@ func (s *appSnapshot) renderedText() string {
 	if s.ScreenshotPNGBase64 == "" {
 		lines = append(lines, "Screenshot unavailable (hidden or minimized). Do not infer visual state from an old image. Use root Raise in foreground mode, then observe. If this window cannot be activated, inspect list_apps for its visible host window.")
 	}
+	if s.fieldCapture != "" {
+		lines = append(lines, "Writable fields for set_value (replaces the whole field). Copy the exact element_index shown for the intended field in THIS observation. Plain tree numbers are click targets. For an editor without a write token, use its editing controls or confirmed keyboard focus.")
+		fields := 0
+		for _, element := range s.Elements {
+			if element.WritableField {
+				fields++
+				lines = append(lines, fmt.Sprintf("set_value element_index=%q name=%q automation_id=%q value=%q", s.fieldToken(element.Index), element.Name, element.AutomationID, element.Value))
+			}
+		}
+		if fields == 0 {
+			lines = append(lines, "No eligible fields in this observation. Native edit values below are read-only evidence; click the matching element and confirm its keyboard focus before type_text.")
+		}
+		for _, e := range s.Elements {
+			if e.NativeEditText != nil {
+				focused := s.Foreground != nil && s.Foreground.WindowHandle == s.WindowHandle && s.Foreground.PID == s.App.PID &&
+					e.NativeWindowHandle != 0 && e.NativeWindowHandle == s.FocusedHandle
+				lines = append(lines, fmt.Sprintf("Native edit element %d value=%q keyboard_focus=%t", e.Index, *e.NativeEditText, focused))
+			}
+		}
+	}
+	// Field candidates constrain writes, not reads. Omitting the existing tree
+	// hides document values and actions and forces unnecessary visual inference.
 	lines = append(lines, s.TreeLines...)
+	if s.PDFDocument != nil {
+		document, _ := json.Marshal(s.PDFDocument)
+		lines = append(lines, "PDF disk fields (read-only snapshot, not UI values or permission): "+string(document))
+	}
+	if s.FormMatching != nil {
+		matching, _ := json.Marshal(formMatchingText(s.FormMatching))
+		lines = append(lines, "Local FluidUse field recommendations (not execution or authorization): "+string(matching))
+	}
 	if strings.TrimSpace(s.SelectedText) != "" {
 		lines = append(lines, "", fmt.Sprintf("Selected text: [%s]", s.SelectedText))
 	} else if strings.TrimSpace(s.FocusedSummary) != "" {
@@ -155,10 +197,39 @@ func (s *appSnapshot) result() toolCallResult {
 		Content: []contentItem{{Type: "text", Text: s.renderedText()}},
 	}
 	if s != nil && s.ScreenshotPNGBase64 != "" {
-		result.StructuredContent = map[string]any{"desktop_observation": map[string]any{
+		observation := map[string]any{
 			"schema_version": 1, "pid": s.App.PID, "window_handle": s.WindowHandle,
 			"app_name": s.App.Name, "bundle_identifier": s.App.BundleIdentifier, "window_title": s.WindowTitle,
-		}}
+		}
+		if s.fieldView {
+			observation["view"] = "fields"
+		}
+		if s.fieldCapture != "" {
+			observation["view"] = "fields"
+			fields := []map[string]any{}
+			for _, e := range s.Elements {
+				if e.WritableField || e.NativeEditText != nil {
+					observation["has_field_readback"] = true
+				}
+				if e.WritableField {
+					fields = append(fields, map[string]any{
+						"id": s.fieldToken(e.Index), "operation": "set_value",
+						"element_index": s.fieldToken(e.Index), "name": e.Name,
+						"automation_id": e.AutomationID, "value": e.Value,
+					})
+				}
+			}
+			observation["capture_id"] = s.fieldCapture
+			observation["field_candidates"] = fields
+			observation["alternatives"] = []string{"reobserve", "abstain"}
+		}
+		result.StructuredContent = map[string]any{"desktop_observation": observation}
+		if s.FormMatching != nil {
+			observation["form_matching"] = s.FormMatching
+		}
+		if s.PDFDocument != nil {
+			observation["pdf_document"] = s.PDFDocument
+		}
 		result.Content = append(result.Content, contentItem{
 			Type:     "image",
 			Data:     s.ScreenshotPNGBase64,
@@ -169,6 +240,13 @@ func (s *appSnapshot) result() toolCallResult {
 }
 
 type psRequest struct {
+	Focus            bool         `json:"focus,omitempty"`
+	FormLabels       *formLabels  `json:"formLabels,omitempty"`
+	FormEntities     []formEntity `json:"formEntities,omitempty"`
+	scopeTitle       string
+	controlView      bool           // Native control evidence without Windows field-write tokens.
+	FieldView        bool           `json:"fieldView,omitempty"`
+	BoundField       bool           `json:"boundField,omitempty"`
 	WindowTitle      string         `json:"windowTitle,omitempty"`
 	InputVersion     string         `json:"inputVersion,omitempty"`
 	ControlDirectory string         `json:"controlDirectory,omitempty"`
@@ -241,7 +319,9 @@ func newService() *service {
 func (s *service) close() { s.bridge.close() }
 
 func (s *service) runRuntime(request psRequest) (*psResponse, error) {
-	request.WindowTitle = s.windowTitle
+	if s.windowTitle == "" || request.scopeTitle != s.windowTitle || request.ExpectedWindow == 0 || request.ExpectedPID <= 0 || request.WindowTitle == "" {
+		request.WindowTitle = s.windowTitle
+	}
 	request.ControlDirectory, request.ControlIdentity = s.controlDirectory, s.controlIdentity
 	if runtime.GOOS == "windows" || runtime.GOOS == "darwin" {
 		return s.bridge.call(context.Background(), request)
@@ -272,7 +352,23 @@ func (s *service) callTool(name string, args map[string]any) toolCallResult {
 	case "list_apps":
 		return s.listApps()
 	case "get_app_state":
-		return s.getAppState(app)
+		var entities []formEntity
+		if value, supplied := args["form_entities"]; supplied {
+			if runtime.GOOS != "darwin" {
+				return textResult("Local FORMS matching is available on macOS only", true)
+			}
+			var err error
+			entities, err = parseFormEntities(value)
+			if err != nil {
+				return textResult(err.Error(), true)
+			}
+		}
+		view := optionalString(args, "view")
+		if view != "" && view != "full" && !((runtime.GOOS == "windows" || runtime.GOOS == "darwin") && view == "fields") {
+			return textResult("Unsupported observation view", true)
+		}
+		labels, hasLabels := args["form_labels"]
+		return s.getAppStateWithLabels(app, (runtime.GOOS == "windows" || runtime.GOOS == "darwin") && view != "full", entities, labels, hasLabels)
 	case "click":
 		if value, exists := args["mouse_button"]; exists {
 			button, ok := value.(string)
@@ -321,11 +417,19 @@ func (s *service) callTool(name string, args map[string]any) toolCallResult {
 	case "press_key":
 		return s.pressKey(app, requiredString(args, "key"))
 	case "set_value":
+		focus := false
+		if raw, supplied := args["focus"]; supplied {
+			var valid bool
+			focus, valid = raw.(bool)
+			if !valid || runtime.GOOS != "darwin" {
+				return textResult("focus must be a boolean and is supported only on macOS; no input dispatched", true)
+			}
+		}
 		value, valid := args["value"].(string)
 		if !valid {
 			return textResult("Missing or invalid string argument: value", true)
 		}
-		return s.setValue(app, requiredString(args, "element_index"), value)
+		return s.setValue(app, requiredString(args, "element_index"), value, focus)
 	default:
 		return textResult(fmt.Sprintf("unsupportedTool(%q)", name), true)
 	}
@@ -346,15 +450,37 @@ func (s *service) listApps() toolCallResult {
 	return textResult(response.Text, false)
 }
 
-func (s *service) getAppState(app string) toolCallResult {
+func (s *service) getAppState(app string, fields bool, formEntities ...[]formEntity) toolCallResult {
+	var entities []formEntity
+	if len(formEntities) > 0 {
+		entities = formEntities[0]
+	}
+	return s.getAppStateWithLabels(app, fields, entities, nil, false)
+}
+
+func (s *service) getAppStateWithLabels(app string, fields bool, entities []formEntity, labels any, hasLabels bool) toolCallResult {
 	if app == "" {
 		return textResult("Missing required argument: app", true)
 	}
-	request := psRequest{Tool: "get_app_state", App: app}
+	request := psRequest{Tool: "get_app_state", App: app,
+		FieldView: fields && runtime.GOOS != "darwin", controlView: fields && runtime.GOOS == "darwin"}
+	request.FormEntities = entities
+	var labelError error
+	if hasLabels {
+		prior := s.currentSnapshot(app)
+		if strings.EqualFold(app, "foreground") {
+			prior = nil
+		}
+		request.FormLabels, labelError = bindFormLabels(labels, prior, entities)
+		if labelError != nil {
+			request.FormEntities = nil
+		}
+	}
 	if prior := s.currentSnapshot(app); prior != nil && !strings.EqualFold(app, "foreground") {
 		request.InputVersion = prior.InputVersion
 		request.ExpectedWindow = prior.WindowHandle
 		request.ExpectedPID = prior.App.PID
+		request.scopeTitle, request.WindowTitle = prior.scopeTitle, prior.WindowTitle
 	}
 	// A new observation can acknowledge intervening human input. Other windows'
 	// cached elements must not regain validity through that acknowledgement.
@@ -362,6 +488,9 @@ func (s *service) getAppState(app string) toolCallResult {
 	snapshot, result := s.refreshSnapshot(app, request)
 	if result.IsError {
 		return result
+	}
+	if labelError != nil {
+		snapshot.FormMatching = map[string]any{"status": "unavailable", "execution": "not_run", "model": "CUA-S1-FORMS", "error": labelError.Error()}
 	}
 	return snapshot.result()
 }
@@ -503,7 +632,7 @@ func (s *service) pressKey(app, key string) toolCallResult {
 	return s.actionResult(app, psRequest{Tool: "press_key", App: app, Key: key})
 }
 
-func (s *service) setValue(app, elementIndex, value string) toolCallResult {
+func (s *service) setValue(app, elementIndex, value string, focus ...bool) toolCallResult {
 	if app == "" {
 		return textResult("Missing required argument: app", true)
 	}
@@ -514,11 +643,32 @@ func (s *service) setValue(app, elementIndex, value string) toolCallResult {
 	if snapshot == nil {
 		return textResult("No app state is available for "+app+". Run get_app_state before action tools.", true)
 	}
+	bound := snapshot.fieldCapture != ""
+	if bound {
+		prefix := "field-" + snapshot.fieldCapture + "/"
+		if !strings.HasPrefix(elementIndex, prefix) {
+			if record, err := lookupElement(snapshot, elementIndex); err == nil {
+				if record.WritableField {
+					return textResult(fmt.Sprintf("No input dispatched. %q is a tree number. The current set_value field %q has element_index=%q; verify the target before writing.", elementIndex, record.Name, snapshot.fieldToken(record.Index)), true)
+				}
+				return textResult("No input dispatched. This control has no direct write token. Use the editor's controls or confirm keyboard focus before typing.", true)
+			}
+			return textResult("Field selection expired or missing. Choose a field token from the current observation; no input dispatched.", true)
+		}
+		elementIndex = strings.TrimPrefix(elementIndex, prefix)
+	}
 	record, err := lookupElement(snapshot, elementIndex)
 	if err != nil {
 		return textResult(err.Error(), true)
 	}
-	return s.actionResult(app, psRequest{Tool: "set_value", App: app, Element: record, Value: value})
+	if bound && !record.WritableField {
+		return textResult("This element was not offered as a writable field; no input dispatched.", true)
+	}
+	return s.actionResult(app, psRequest{Tool: "set_value", App: app, Element: record, Value: value, BoundField: bound, Focus: len(focus) > 0 && focus[0]})
+}
+
+func (s *appSnapshot) fieldToken(index int) string {
+	return fmt.Sprintf("field-%s/%d", s.fieldCapture, index)
 }
 
 func (s *service) actionResult(app string, request psRequest) toolCallResult {
@@ -527,8 +677,13 @@ func (s *service) actionResult(app string, request psRequest) toolCallResult {
 		return textResult("Observe the target before acting.", true)
 	}
 	request.InputVersion = prior.InputVersion
+	// An explicit full observation resolves one visual question. Windows action
+	// receipts resume control readback instead of making every later frame visual.
+	request.FieldView = runtime.GOOS == "windows" || (runtime.GOOS != "darwin" && prior.fieldView)
+	request.controlView = runtime.GOOS == "darwin"
 	request.ExpectedWindow = prior.WindowHandle
 	request.ExpectedPID = prior.App.PID
+	request.scopeTitle, request.WindowTitle = prior.scopeTitle, prior.WindowTitle
 	request.WindowBounds = prior.WindowBounds
 	snapshot, result := s.refreshSnapshot(app, request)
 	if result.IsError || snapshot == nil {
@@ -588,6 +743,25 @@ func (s *service) acceptSnapshotResponse(app string, request psRequest, response
 		if active := response.Snapshot.Foreground; active != nil &&
 			active.PID == response.Snapshot.App.PID && active.WindowHandle == response.Snapshot.WindowHandle {
 			observedQuery = "foreground"
+		}
+	}
+	// A minimized window has no image or field tokens, but must retain the
+	// requested view when Raise returns the same window's fresh after-state.
+	response.Snapshot.fieldView = (request.FieldView || request.controlView) &&
+		(request.ExpectedWindow == 0 || (response.Snapshot.WindowHandle == request.ExpectedWindow && response.Snapshot.App.PID == request.ExpectedPID))
+	// The original title is matched before initial observation. Only a successful
+	// action's same-window receipt may carry a changed caption (e.g. unsaved text).
+	// Never broaden the title match or transfer that scope to a new HWND/PID.
+	if runtime.GOOS == "windows" && s.windowTitle != "" && (response.Snapshot.WindowTitle == s.windowTitle ||
+		(request.scopeTitle == s.windowTitle && request.ExpectedWindow != 0 &&
+			response.Snapshot.WindowHandle == request.ExpectedWindow && response.Snapshot.App.PID == request.ExpectedPID &&
+			(response.Snapshot.WindowTitle == request.WindowTitle || (response.ActionDispatched && !response.InputConflict)))) {
+		response.Snapshot.scopeTitle = s.windowTitle
+	}
+	if response.Snapshot.fieldView && !request.controlView && response.Snapshot.ScreenshotPNGBase64 != "" {
+		var nonce [8]byte
+		if _, err := rand.Read(nonce[:]); err == nil {
+			response.Snapshot.fieldCapture = hex.EncodeToString(nonce[:])
 		}
 	}
 	s.rememberSnapshot(observedQuery, response.Snapshot)
@@ -864,10 +1038,26 @@ func toolDefinitions() []toolDefinition {
 		})
 	}
 	for i := range definitions {
+		if runtime.GOOS == "windows" && definitions[i].Name == "set_value" {
+			definitions[i].Description = "Replace one whole field. In the default Windows view, only fields explicitly offered for set_value are writable with this tool. For a document without a write token, use its editing controls or focused keyboard input."
+			definitions[i].InputSchema["properties"].(map[string]any)["element_index"] = stringProperty("Copy the entire element_index of the named set_value field from the latest after-state. Never construct a token or copy the number on an accessibility tree row. Only an explicit full-view observation uses ordinary element indices.")
+		}
+		if runtime.GOOS == "windows" && definitions[i].Name == "get_app_state" {
+			definitions[i].InputSchema["properties"].(map[string]any)["view"] = enumStringProperty("Windows defaults to fields: read text controls directly, with snapshot-bound set_value tokens for editable fields or the control tree for button-based apps. Request full explicitly when control evidence cannot resolve a visual target or detail; full includes image interpretation.", []string{"full", "fields"})
+		}
+		if runtime.GOOS == "darwin" && definitions[i].Name == "set_value" {
+			definitions[i].InputSchema["properties"].(map[string]any)["focus"] = map[string]any{"type": "boolean", "description": "Optional: focus this exact observed editable field, recheck window, field, focus and human takeover, then replace its value. Prefer true for web fields instead of a separate click. Failure stops before writing; no keyboard fallback. Omitted/false preserves the existing focus requirement."}
+		}
+		if runtime.GOOS == "darwin" && definitions[i].Name == "get_app_state" {
+			definitions[i].InputSchema["properties"].(map[string]any)["view"] = enumStringProperty("macOS defaults to fields: read the native control tree, values and local form recommendations. Request full when controls cannot resolve a visual target or detail; full includes image interpretation. Native element indices remain valid input targets in either view.", []string{"full", "fields"})
+			definitions[i].InputSchema["properties"].(map[string]any)["form_labels"] = formLabelsSchema()
+			definitions[i].Description += " For form filling on macOS, provide form_entities with exact original labeled values. For Chinese or unsupported labels, observe indices first, then use form_labels with English scoring labels (Company, Email, Full name) bound to that observation. Recommendations can skip or be wrong; the main model still chooses the action and verifies readback."
+			definitions[i].InputSchema["properties"].(map[string]any)["form_entities"] = formEntitiesSchema()
+		}
 		switch definitions[i].Name {
 		case "list_apps", "get_app_state", "open_path":
 			schema := definitions[i].InputSchema
-			schema["properties"].(map[string]any)["window_title"] = stringProperty("Before first discovery, copy the exact window title explicitly specified by the user. Use empty string if no window title was specified. Keep this scope for the turn.")
+			schema["properties"].(map[string]any)["window_title"] = stringProperty("Immutable exact-caption restriction, NOT a search query. Normally use an empty string, including current customer form, invoice, app, contact, folder or open file descriptions. Discover actual windows, select a returned window:PID:HWND and verify its content before input. Use a nonempty string only when the user explicitly requires that complete window caption; never invent, translate or shorten a caption from the task description. A nonempty restriction cannot be changed during this turn.")
 			if definitions[i].Name == "list_apps" {
 				schema["required"] = []string{"window_title"}
 			}

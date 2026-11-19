@@ -1,8 +1,24 @@
 # Standalone Computer Use MCP
 
+After a successful action, a changed caption in the same PID/HWND receipt (such as an unsaved document marker) is used for subsequent exact title matching. The original user scope remains fixed. External renames, conflicting input and cross-window receipts cannot establish this continuation.
+
+Windows field views retain the current control tree, document values, buttons, selection and focus. Field candidates constrain write targets, not read evidence. Explicit full applies to that observation only; subsequent actions in the same Windows window return control-first receipts. Request full again for unresolved visual details. Window transitions still invalidate old targets; original frames and input-conflict checks remain.
+
+Windows retains the requested control-readback view across minimization and restoration of the same window. Hidden windows receive no image evidence or field tokens; their fresh restored receipts continue control readback without repeated vision calls. Explicit `view=full` still provides visual observation. A transition to another window does not inherit the previous window's field observation.
+
 When a completed input closes its launcher or dialog, observe the verified new foreground window as its after-state. Do not replay input or rebind the old window name or ID to the new application. If the new window cannot be verified, retain the uncertain-result outcome.
 
 On macOS, a nonactivating system panel can receive keyboard focus while AppKit still reports the underlying application. Accept the panel only when system-wide AX application focus, focused-element ownership and a visible focused window corroborate it. Missing evidence still rejects input. An old window image cannot remain a valid observation under the dynamic foreground alias after a transition. Like Windows, macOS returns a fresh target observation after a brief external input burst, without dispatching or replaying the stale action. This still counts as an input conflict. See [Apple nonactivating panels](https://developer.apple.com/documentation/appkit/nswindow/stylemask-swift.struct/nonactivatingpanel).
+
+## Snapshot-bound field candidates
+
+`get_app_state(view="fields")` returns `capture_id` and `field_candidates` for writable fields. Pass a candidate ID to `set_value`. Candidates reuse the tool's window, element and original-value snapshot. Observe again after input; do not replay old IDs. Existing tree text and element-index clients remain compatible.
+
+Windows now defaults to the `fields` control view. Apps without writable fields return their button/readout control tree; subsequent actions retain this mode. The host consumes the structured `desktop_observation.view` and sends control evidence directly to the main model, retaining the original frame in the receipt. Request `view="full"` explicitly for appearance, canvas content or information missing from controls. Older clients requiring full observations must specify `full`; the macOS default is unchanged.
+
+When standard Windows EDIT or WinForms EDIT controls lack UIA ValuePattern, replacement is available only for visible, enabled, non-password, non-read-only fields with at most 500 characters. Before dispatch, verify window ownership, original value, occlusion and focus. Use the existing tagged mouse and keyboard input with desktop-lease and human-takeover checks. Replacement values must be single-line and at most 500 characters; other controls retain their existing path. Field observations retain adjacent labels for unnamed controls.
+
+The main model decides actions; CUA only describes images. Read controls directly when sufficient, avoiding repeated image inference. A dispatch receipt does not prove task completion: verify actual field values and submission count.
 
 ## Windows control feedback
 
@@ -73,3 +89,4 @@ Messages queued before Escape can continue independent work, but automatic deliv
 After three consecutive native input conflicts, including refresh-only outcomes with no dispatch, the host fences the desktop episode and existing queued desktop requests. Independent task work continues. Only successful input resets the streak; observations and unrelated failures do not. No resume prompt or automatic replay is added. New explicit input starts a new episode without reviving older queued messages. Upgrade the host and native tool together; legacy receipts are never inferred from prose.
 
 Mac retains a Quartz event monitor across requests. Plain pointer movement and tagged tool-generated events preserve observations; external clicks, drags, scrolling and key presses invalidate them and produce a structured input-conflict receipt. Escape is armed only while the host owns control and does not cancel the overall task. Text characters, drag steps and repeated clicks recheck the lease, clean up held input when interrupted, and never replay automatically. Chat navigation preserves feedback and Escape; document reloads and transport disconnects clear them.
+[Foreground handoff] When Windows refuses target activation before input dispatch, ask the user to bring that exact window forward. A new background observation does not prove foreground recovery. Verify the intended foreground and existing values before continuing; do not cycle through clicks, shortcuts, or scripts to force activation.

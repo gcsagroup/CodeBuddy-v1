@@ -13,6 +13,20 @@ func textAttribute(_ element: AXUIElement, _ name: String) -> String {
     return ""
 }
 
+func isWebContent(_ element: AXUIElement) -> Bool {
+    var current = element
+    for _ in 0..<32 {
+        let role = textAttribute(current, kAXRoleAttribute)
+        if role == "AXWebArea" { return true }
+        if role == "AXWindow" || role == "AXApplication" { return false }
+        guard let parent = attribute(current, kAXParentAttribute), CFGetTypeID(parent) == AXUIElementGetTypeID(),
+              !CFEqual(parent, current) else { return true }
+        current = parent as! AXUIElement
+    }
+    // An unresolvable ancestry must not relax the web focus guard.
+    return true
+}
+
 func elementRect(_ element: AXUIElement) -> CGRect? {
     guard let p = attribute(element, kAXPositionAttribute), let s = attribute(element, kAXSizeAttribute),
           CFGetTypeID(p) == AXValueGetTypeID(), CFGetTypeID(s) == AXValueGetTypeID() else { return nil }
@@ -136,21 +150,34 @@ func resolve(_ request: NativeRequest) throws -> NativeWindow {
     return selected
 }
 
+@MainActor
 func accessibilityWindow(_ window: NativeWindow) throws -> AXUIElement {
     let app = AXUIElementCreateApplication(window.pid)
     AXUIElementSetMessagingTimeout(app, 1)
-    let candidates = (attribute(app, kAXWindowsAttribute) as? [AXUIElement] ?? []).filter {
-        guard let rect = elementRect($0) else { return false }
-        return WindowFrame(rect).matches(window.bounds) && textAttribute($0, kAXTitleAttribute) == window.title
+    var windowValue: CFTypeRef?
+    let status = AXUIElementCopyAttributeValue(app, kAXWindowsAttribute as CFString, &windowValue)
+    guard status == .success, let appWindows = windowValue as? [AXUIElement] else {
+        throw RuntimeFailure("Cannot read target accessibility windows (AX error \(status.rawValue), pid \(window.pid)).")
     }
-    guard candidates.count == 1, let root = candidates.first else {
-        throw RuntimeFailure("Accessibility window identity is ambiguous or unavailable; re-observe after the app is ready.")
+    let candidates = appWindows.enumerated().compactMap { index, item -> NativeWindow? in
+        guard let rect = elementRect(item) else { return nil }
+        return NativeWindow(id: UInt32(index + 1), pid: window.pid, name: window.name, bundle: window.bundle,
+            title: textAttribute(item, kAXTitleAttribute), bounds: WindowFrame(rect))
     }
-    return root
+    // Require the mapping in both directions. Overlapping same-process windows
+    // with differing AX/CG titles must remain ambiguous, never use list order.
+    guard let selected = matchFocusedWindow(candidates, pid: window.pid, frame: window.bounds, title: window.title),
+          matchFocusedWindow(windows(), pid: window.pid, frame: selected.bounds, title: selected.title)?.id == window.id else {
+        let observed = appWindows.map { item in
+            "title=\(textAttribute(item, kAXTitleAttribute).debugDescription) frame=\(elementRect(item).map(String.init(describing:)) ?? "unavailable")"
+        }.joined(separator: "; ")
+        throw RuntimeFailure("Accessibility window identity is ambiguous or unavailable. Expected title=\(window.title.debugDescription) frame=\(window.bounds.rect); actual windows: \(observed)")
+    }
+    return appWindows[Int(selected.id) - 1]
 }
 
 @MainActor
-func snapshot(_ window: NativeWindow) async throws -> [String: Any] {
+func snapshot(_ window: NativeWindow, formEntities: [NativeFormEntity]? = nil, formLabels: NativeFormLabels? = nil) async throws -> [String: Any] {
     let inputVersion = NativeRuntime.monitor.version
     if AXIsProcessTrusted() {
         let app = AXUIElementCreateApplication(window.pid)
@@ -179,22 +206,31 @@ func snapshot(_ window: NativeWindow) async throws -> [String: Any] {
     }
     var elements: [NativeElement] = []
     var lines: [String] = []
-    if let root = try? accessibilityWindow(window) {
+    var pdfDocument: [String: Any]?
+    do {
+        let root = try accessibilityWindow(window)
+        let document = textAttribute(root, kAXDocumentAttribute)
+        if !document.isEmpty { lines.append("Document URL (Accessibility): \(document.debugDescription)") }
         let deadline = Date().addingTimeInterval(3)
         func visit(_ item: AXUIElement, path: [Int], depth: Int) {
             guard depth < 20, elements.count < 400, Date() < deadline else { return }
             let node = record(item, path: path, index: elements.count, window: window)
             elements.append(node)
-            lines.append("\(node.index) \(node.controlType) \(node.name.debugDescription) value=\(node.value.debugDescription) actions=\(node.actions)")
+            lines.append(node.treeLine)
             for (index, child) in (attribute(item, kAXChildrenAttribute) as? [AXUIElement] ?? []).enumerated() {
                 visit(child, path: path + [index], depth: depth + 1)
             }
         }
         visit(root, path: [0], depth: 0)
         if elements.count >= 400 || Date() >= deadline { lines.append("Accessibility tree truncated; use visible image coordinates where needed.") }
-    } else {
+        pdfDocument = PDFDiskObservation.read(documentURL: document)
+        if pdfDocument != nil && textAttribute(root, kAXDocumentAttribute) != document {
+            pdfDocument = ["source": "local_pdf_disk", "status": "unavailable",
+                "reason": "The observed window changed documents during disk verification; observe again."]
+        }
+    } catch {
         if AXIsProcessTrusted() {
-            lines.append("Accessibility tree unavailable for this app. Inspect the actual screenshot before choosing coordinates.")
+            lines.append("Accessibility tree unavailable for this app: \(error) Inspect the actual screenshot before choosing coordinates.")
         } else {
             lines.append("Accessibility permission is missing. Screen capture alone does not grant input. Authorize the responsible application identified by macOS; development launches may belong to Terminal. Reopen that application if requested and recheck access. Do not substitute shell UI automation.")
         }
@@ -212,15 +248,28 @@ func snapshot(_ window: NativeWindow) async throws -> [String: Any] {
         "screenshotPngBase64": png.base64EncodedString(), "treeLines": lines,
         "elements": try JSONSerialization.jsonObject(with: encoded)
     ]
+    if let pdfDocument { result["pdfDocument"] = pdfDocument }
     if let pid = frontmostPID(),
-       let front = focusedWindow(pid: pid, candidates: windows()) ?? windows().first(where: { $0.pid == pid }) {
+       let front = focusedWindow(pid: pid, candidates: windows()) {
         result["foreground"] = ["name": front.name, "pid": front.pid, "windowHandle": front.id, "title": front.title]
+    }
+    if let formEntities {
+        do {
+            result["formMatching"] = try await NativeFormMatching.match(title: window.title, elements: elements, entities: formEntities, labels: formLabels, bounds: window.bounds)
+        } catch {
+            result["formMatching"] = ["status": "unavailable", "model": "CUA-S1-FORMS", "error": String(describing: error)]
+        }
+        // Scoring can take time. Bind its suggestions to the same native facts.
+        guard windows().contains(where: { $0.id == window.id && $0.pid == window.pid && $0.bounds.matches(window.bounds) }) else {
+            throw RuntimeFailure("Window changed during field matching; re-observe.")
+        }
     }
     guard inputVersion == NativeRuntime.monitor.version else { throw DesktopInputConflict() }
     if NativeRuntime.monitor.available { result["inputVersion"] = inputVersion }
     return result
 }
 
+@MainActor
 func lookup(_ expected: NativeElement, in window: NativeWindow) throws -> AXUIElement {
     guard expected.runtimeId.first == 0 else { throw RuntimeFailure("Unknown accessibility element identity.") }
     var current = try accessibilityWindow(window)
@@ -262,7 +311,18 @@ struct NativeRuntime {
     @MainActor static func main() {
         // AppKit focus/activation state needs its event loop to receive changes.
         NSApplication.shared.setActivationPolicy(.prohibited)
-        if CommandLine.arguments.contains("--watch-escape") {
+        if CommandLine.arguments.contains("--prepare-forms") {
+            Task {
+                do {
+                    try await NativeFormMatching.prepare()
+                    print("Local CUA-S1-FORMS model ready.")
+                    exit(0)
+                } catch {
+                    fputs("FORMS preparation failed: \(error)\n", stderr)
+                    exit(1)
+                }
+            }
+        } else if CommandLine.arguments.contains("--watch-escape") {
             let escape = NativeInputMonitor(escapeWorker: true)
             guard escape.start() else { fputs("Escape monitor unavailable\n", stderr); exit(1) }
             print("ready"); fflush(stdout)
@@ -357,7 +417,7 @@ struct NativeRuntime {
             if request.isInput { try monitor.validate(request) }
             let after: [String: Any]
             do {
-                after = try await snapshot(resolve(request))
+                after = try await snapshot(resolve(request), formEntities: request.tool == "get_app_state" ? request.formEntities : nil, formLabels: request.tool == "get_app_state" ? request.formLabels : nil)
             } catch {
                 // Launchers and dialogs close after successful input. Their
                 // disappearance is not evidence that the input failed. Observe
@@ -491,11 +551,47 @@ struct NativeRuntime {
             }
         case "set_value":
             guard let element else { throw RuntimeFailure("set_value requires an observed element.") }
+            let app = AXUIElementCreateApplication(window.pid)
             var settable = DarwinBoolean(false)
             guard AXUIElementIsAttributeSettable(element, kAXValueAttribute as CFString, &settable) == .success, settable.boolValue else { throw RuntimeFailure("The observed element has no settable value.") }
             let typed = try request.accessibilityValue(isNumeric: attribute(element, kAXValueAttribute) is NSNumber)
-            let result = receipt.perform { AXUIElementSetAttributeValue(element, kAXValueAttribute as CFString, typed) }
-            guard result == .success else { throw RuntimeFailure("Setting value failed: \(result.rawValue)") }
+            func matchesFocus() -> Bool {
+                guard let focused = attribute(app, kAXFocusedUIElementAttribute), CFGetTypeID(focused) == AXUIElementGetTypeID() else { return false }
+                return CFEqual(focused, element)
+            }
+            let shouldFocus = request.focus == true
+            var focus: (() async throws -> Void)?
+            if shouldFocus {
+                guard ["AXTextField", "AXTextArea", "AXComboBox"].contains(textAttribute(element, kAXRoleAttribute)) else {
+                    throw RuntimeFailure("focus=true requires an observed editable text field.")
+                }
+                if !matchesFocus() {
+                    guard AXUIElementIsAttributeSettable(element, kAXFocusedAttribute as CFString, &settable) == .success, settable.boolValue else {
+                        throw RuntimeFailure("This field cannot be focused through Accessibility; observe before choosing a separate action.")
+                    }
+                    focus = {
+                        let result = receipt.perform { AXUIElementSetAttributeValue(element, kAXFocusedAttribute as CFString, kCFBooleanTrue) }
+                        guard result == .success else { throw RuntimeFailure("Focusing field failed: \(result.rawValue)") }
+                        try await Task.sleep(nanoseconds: 50_000_000)
+                    }
+                }
+            }
+            try await performVerifiedValueWrite(focus: focus, validate: {
+                try monitor.validate(request)
+                try assertForeground(window, keyboard: shouldFocus)
+                let current = try resolve(request)
+                try request.validateBinding(pid: current.pid, window: current.id, bounds: current.bounds)
+                guard let expected = request.element, CFEqual(try lookup(expected, in: current), element) else {
+                    throw RuntimeFailure("Field identity changed while focusing; observe again.")
+                }
+            }, verifyFocus: {
+                if shouldFocus && !matchesFocus() { throw RuntimeFailure("The observed field did not receive verified focus. Value was not written.") }
+                try validateValueWriteFocus(role: textAttribute(element, kAXRoleAttribute), inWebContent: isWebContent(element), matchesFocusedElement: matchesFocus())
+            }, write: {
+                try monitor.validate(request)
+                let result = receipt.perform { AXUIElementSetAttributeValue(element, kAXValueAttribute as CFString, typed) }
+                guard result == .success else { throw RuntimeFailure("Setting value failed: \(result.rawValue)") }
+            })
         case "perform_secondary_action":
             guard let element, let requested = request.action else { throw RuntimeFailure("An observed element and advertised action are required.") }
             let action = requested == "Raise" ? kAXRaiseAction : requested

@@ -30,6 +30,11 @@ for($i=0;$i -lt $expected.Count;$i++) {
  if($down.data.key.scan -ne $expected[$i] -or $up.data.key.scan -ne $expected[$i] -or $down.data.key.flags -ne 4 -or $up.data.key.flags -ne 6){throw 'Unicode packet mismatch'};
 };
 if($method.Invoke($null,@('')).Count -ne 0){throw 'Empty input dispatched'};
+if([OcuDesktop]::CanSetEditText([IntPtr]::Zero,[IntPtr]::Zero)){throw 'Unknown edit offered for replacement'};
+foreach($invalid in @(('x'*501),('a'+[char]10+'b'),('a'+[char]13+'b'),('a'+[char]0+'b'))) {
+ $rejected=$false;try {[OcuDesktop]::SetEditText([IntPtr]::Zero,[IntPtr]::Zero,'',$invalid)}catch{$rejected=$_.Exception.Message.Contains('short single-line')};
+ if(-not $rejected){throw 'Invalid native replacement reached input dispatch'};
+};
 foreach($newline in @(([string][char]10),([string][char]13+[char]10),([string][char]13))) {
  $rejected=$false;try {$method.Invoke($null,@('prefix'+$newline+'suffix'))|Out-Null}catch{$rejected=$true};
  if(-not $rejected){throw 'Lossy multiline input accepted'};

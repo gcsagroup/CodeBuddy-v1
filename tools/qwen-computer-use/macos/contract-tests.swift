@@ -11,6 +11,45 @@ struct ContractTests {
         throw RuntimeFailure("Invalid input was accepted")
     }
     @MainActor static func main() async throws {
+        var compactField = NativeElement(index: 18, runtimeId: [0, 2], automationId: "", name: "工作邮箱", controlType: "AXTextField", value: "", frame: nil, actions: [])
+        try require(compactField.treeLine == "18 AXTextField \"工作邮箱\" value=\"\"", "Compact tree hid an empty writable value or changed its target")
+        compactField.value = " 旧值\n保留 "; compactField.actions = ["AXPress"]
+        try require(compactField.treeLine.contains(compactField.value.debugDescription) && compactField.treeLine.contains("AXPress"), "Compact tree altered draft text or actions")
+        let source = [NativeFormEntity(label: "工作邮箱", value: "qa@example.test"), NativeFormEntity(label: "公司", value: " 海风测试 ")]
+        let projectionBounds = WindowFrame(CGRect(x: 0, y: 0, width: 600, height: 400))
+        let labelNode = NativeElement(index: 17, runtimeId: [0,1], automationId: "", name: "", controlType: "AXStaticText", value: "工作邮箱", frame: nil, actions: [])
+        compactField.value = ""
+        let observedProjection = [labelNode, compactField]
+        let projection = NativeFormLabels(title: "Customer Form", fields: [NativeFormFieldLabel(element: compactField, label: "Email")], entities: ["Email", "Company"], observedElements: observedProjection, observedTitle: "客户表单", observedBounds: projectionBounds)
+        try require(try validateFormLabels(projection, title: "客户表单", bounds: projectionBounds, elements: observedProjection, entities: source)[18] == "Email", "Projection lost the observed field")
+        for position in observedProjection.indices {
+            var changed = observedProjection; changed[position].value = "changed"
+            try rejects { _ = try validateFormLabels(projection, title: "客户表单", bounds: projectionBounds, elements: changed, entities: source) }
+        }
+        try rejects { _ = try validateFormLabels(projection, title: "another window", bounds: projectionBounds, elements: observedProjection, entities: source) }
+        try rejects { _ = try validateFormLabels(projection, title: "客户表单", bounds: nil, elements: observedProjection, entities: source) }
+        var remapped = observedProjection; remapped[1].index = 118
+        try require(try validateFormLabels(projection, title: "客户表单", bounds: projectionBounds, elements: remapped, entities: source)[118] == "Email", "Display index remapping changed native identity")
+        let decoration = NativeElement(index: 60, runtimeId: [0,9], automationId: "", name: "", controlType: "AXGroup", value: "", frame: nil, actions: [])
+        let decorated = observedProjection + [decoration]
+        try require(try validateFormLabels(projection, title: "客户表单", bounds: projectionBounds, elements: decorated, entities: source)[18] == "Email", "Anonymous Safari decoration invalidated unchanged field context")
+        var newLabel = decoration; newLabel.value = "账单邮箱"
+        try rejects { _ = try validateFormLabels(projection, title: "客户表单", bounds: projectionBounds, elements: observedProjection + [newLabel], entities: source) }
+        var newEmptyField = decoration; newEmptyField.controlType = "AXTextField"
+        try rejects { _ = try validateFormLabels(projection, title: "客户表单", bounds: projectionBounds, elements: observedProjection + [newEmptyField], entities: source) }
+        var rebound = observedProjection; rebound[1].runtimeId = [0,3]
+        try rejects { _ = try validateFormLabels(projection, title: "客户表单", bounds: projectionBounds, elements: rebound, entities: source) }
+        print("Form label projection: original labels, values, window bounds and native identity verified; stale evidence rejected.")
+        try validateFormEntities(source)
+        try require(source[1].value == " 海风测试 ", "Form source value changed")
+        try rejects { try validateFormEntities([]) }
+        try rejects { try validateFormEntities(Array(repeating: source[0], count: 30)) }
+        try rejects { try validateFormEntities([NativeFormEntity(label: " ", value: "x")]) }
+        try rejects { try validateFormEntities([NativeFormEntity(label: "Email", value: "")]) }
+        let legacy = try JSONDecoder().decode(NativeRequest.self, from: Data(#"{"tool":"get_app_state"}"#.utf8))
+        try require(legacy.formEntities == nil, "Legacy observations require forms")
+        let formRequest = try JSONDecoder().decode(NativeRequest.self, from: Data(#"{"tool":"get_app_state","formEntities":[{"label":"工作邮箱","value":"qa@example.test"}]}"#.utf8))
+        try validateFormEntities(formRequest.formEntities!)
         let inactiveMonitor = NativeInputMonitor()
         let observation = try JSONDecoder().decode(NativeRequest.self, from: Data(#"{"tool":"get_app_state","app":"foreground"}"#.utf8))
         let observationReady = try await inactiveMonitor.prepare(observation)
@@ -47,6 +86,44 @@ struct ContractTests {
         try require(!enableTargetAccessibility(read: { _ in false }, enable: { _ in false }), "Failed attribute writes reported enabled accessibility")
         print("Target accessibility: optional capabilities, existing grants and failed writes preserved.")
         let input = InputDispatchReceipt()
+        for role in ["AXTextField", "AXTextArea", "AXComboBox"] {
+            try rejects {
+                try validateValueWriteFocus(role: role, inWebContent: true, matchesFocusedElement: false)
+                input.perform { fatalError("An unfocused text write reached dispatch") }
+            }
+            try require(!input.dispatched, "An unfocused field write was dispatched")
+            try validateValueWriteFocus(role: role, inWebContent: true, matchesFocusedElement: true)
+            try validateValueWriteFocus(role: role, inWebContent: false, matchesFocusedElement: false)
+        }
+        try validateValueWriteFocus(role: "AXSlider", inWebContent: true, matchesFocusedElement: false)
+        print("Value-write focus: unfocused web text rejected before dispatch; focused web fields, native PDF annotations and numeric controls accepted.")
+        for failure in ["none", "focus", "lease", "identity", "foreground", "actual-focus"] {
+            var phases: [String] = []
+            var focused = false, wrote = false
+            do {
+                try await performVerifiedValueWrite(focus: {
+                    phases.append("focus")
+                    if failure == "focus" { throw RuntimeFailure("AX focus rejected") }
+                    focused = true
+                }, validate: {
+                    phases.append("validate")
+                    if focused && ["lease", "identity", "foreground"].contains(failure) { throw RuntimeFailure(failure) }
+                }, verifyFocus: {
+                    phases.append("verify")
+                    if failure == "actual-focus" { throw RuntimeFailure("focus moved to popup") }
+                }, write: { phases.append("write"); wrote = true })
+                try require(failure == "none", "Invalid focused write succeeded: \(failure)")
+            } catch is RuntimeFailure {
+                try require(failure != "none", "Valid focused write rejected")
+            }
+            try require(wrote == (failure == "none"), "Focus-stage failure wrote a value: \(failure)")
+            if wrote { try require(phases == ["validate", "focus", "validate", "verify", "write"], "Missing focus revalidation") }
+        }
+        var legacyPhases: [String] = []
+        try await performVerifiedValueWrite(focus: nil, validate: { legacyPhases.append("validate") },
+            verifyFocus: { legacyPhases.append("verify") }, write: { legacyPhases.append("write") })
+        try require(legacyPhases == ["validate", "verify", "write"], "Legacy write acquired focus")
+        print("Focused write: unsupported focus, revoked lease, changed identity/window and wrong actual focus all prevent writing; legacy behavior preserved.")
         try rejects { throw RuntimeFailure("Foreground window changed") }
         try require(!input.dispatched, "Preflight failure was reported as input")
         try require(input.failureDescription(RuntimeFailure("Covered point")).contains("No requested input was dispatched"), "Known non-dispatch reported as uncertain")
@@ -92,6 +169,17 @@ struct ContractTests {
         try require(matchFocusedWindow([popover, mainWindow], pid: 76632, frame: popover.bounds, title: "")?.id == 772, "A genuinely focused popup was ignored")
         try require(matchFocusedWindow([mainWindow, mainWindow], pid: 76632, frame: mainWindow.bounds, title: "微信") == nil, "Ambiguous focus identity was accepted")
         try require(matchFocusedWindow([mainWindow], pid: 123, frame: mainWindow.bounds, title: "微信") == nil, "Focus crossed process identity")
+        let pdfWindow = NativeWindow(id: 1107, pid: 95721, name: "预览", bundle: "com.apple.Preview",
+            title: "haifeng-form.pdf", bounds: WindowFrame(CGRect(x: -13, y: 86, width: 1091, height: 797)))
+        try require(matchFocusedWindow([pdfWindow], pid: 95721, frame: pdfWindow.bounds,
+            title: "haifeng-form.pdf – 1页")?.id == 1107, "Preview AX page-count metadata hid the real window")
+        let overlappingPDF = NativeWindow(id: 1108, pid: 95721, name: "预览", bundle: "com.apple.Preview",
+            title: "other.pdf", bounds: pdfWindow.bounds)
+        try require(matchFocusedWindow([pdfWindow, overlappingPDF], pid: 95721, frame: pdfWindow.bounds,
+            title: "haifeng-form.pdf – 1页") == nil, "Title mismatch guessed between overlapping windows")
+        try require(matchFocusedWindow([pdfWindow], pid: 95721,
+            frame: WindowFrame(CGRect(x: -13, y: 86, width: 1091, height: 798)), title: pdfWindow.title) == nil,
+            "Matching title bypassed changed geometry")
         let trackingSurface = NativeWindow(id: 70, pid: 39855, name: "Compositor", bundle: "", title: "",
             bounds: WindowFrame(CGRect(x: 0, y: 0, width: 1470, height: 956)))
         try require(matchFocusedWindow([trackingSurface, mainWindow], pid: mainWindow.pid,

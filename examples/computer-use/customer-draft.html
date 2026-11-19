@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="zh-CN">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>海风 CRM · 客户资料草稿</title>
+<style>
+  * { box-sizing: border-box }
+  body { margin: 0; background: #f3f5f6; color: #172c32; font: 16px/1.55 "Microsoft YaHei UI", sans-serif }
+  main { max-width: 760px; margin: 36px auto; padding: 0 20px }
+  h1 { margin: 0 0 22px; font-size: 28px }
+  h2 { font-size: 16px; margin: 0 0 12px }
+  section, form { padding: 20px 24px; margin: 0 0 16px; background: white; border: 1px solid #d5dee0; border-radius: 12px }
+  #records { overflow: auto; max-height: 80px; color: #4d6167 }
+  #records p { margin: 0 0 4px }
+  label { display: grid; gap: 4px; margin-bottom: 12px; font-weight: 600 }
+  input, textarea { width: 100%; padding: 8px 10px; border: 1px solid #9aaeb3; border-radius: 6px; font: inherit }
+  button { background: #12595d; color: white; border: 0; border-radius: 6px; padding: 8px 24px; font: inherit }
+  footer { display: flex; align-items: center; justify-content: space-between; gap: 12px }
+  footer label { margin: 0; display: flex; align-items: center; gap: 8px }
+  footer input { width: 4em; text-align: center }
+</style>
+<main>
+  <h1>客户资料草稿</h1>
+  <section><h2>历史记录</h2><div id="records" tabindex="0" aria-label="历史记录列表"></div></section>
+  <form>
+    <label>公司<input name="company"></label>
+    <label>工作邮箱<input type="email" name="workEmail"></label>
+    <label>账单邮箱<input type="email" name="billingEmail" value="billing@example.test"></label>
+    <label>备注<textarea name="notes">保留原备注</textarea></label>
+    <footer><label>提交次数<input name="counter" value="0" readonly></label><button>提交</button></footer>
+  </form>
+</main>
+<script>
+  const records = document.querySelector('#records');
+  for (let index = 1; index <= 450; index++) {
+    const entry = document.createElement('p');
+    entry.textContent = '客户记录 ' + index;
+    records.append(entry);
+  }
+  document.querySelector('form').addEventListener('submit', event => {
+    event.preventDefault();
+    event.currentTarget.elements.counter.value++;
+  });
+</script>
+</html>

@@ -11,13 +11,13 @@ const { macArtifactFiles } = require('../runtime/builtin-artifacts.mjs');
 const { writeMacArtifacts, verifyMacArtifacts } = require('./macos-tool-artifacts.cjs');
 const { signingPlan, inspectSignature } = require('../ui/desktop/scripts/macos-signing.cjs');
 
-function replaceMacExecutable(source, destination) {
+function replaceMacArtifact(source, destination, mode = 0o755) {
   // macOS caches signing information by inode: never overwrite executed code.
   const temporary = fs.mkdtempSync(path.join(path.dirname(destination), '.replace-'));
   try {
     const staged = path.join(temporary, path.basename(destination));
     fs.copyFileSync(source, staged);
-    fs.chmodSync(staged, 0o755);
+    fs.chmodSync(staged, mode);
     fs.renameSync(staged, destination);
   } finally {
     fs.rmSync(temporary, { recursive: true, force: true });
@@ -66,6 +66,8 @@ function buildMacTools(repo, arch, verifiedSource) {
   const licenses = [
     ['Apache-2.0', path.join(repo, 'LICENSE'), 'codebuddy-tools-Apache-2.0.txt'],
     ['MIT', path.join(repo, 'tools/qwen-computer-use/LICENSE'), 'qwen-computer-use-macos-MIT.txt'],
+    ['Apache-2.0', path.join(repo, 'tools/qwen-computer-use/macos/.build/checkouts/FluidUse/LICENSE'), 'FluidUse-Apache-2.0.txt'],
+    ['Apache-2.0', path.join(repo, 'tools/qwen-computer-use/macos/.build/checkouts/FluidAudio/LICENSE'), 'FluidAudio-Apache-2.0.txt'],
   ].map(([license, original, file]) => {
     const destination = path.join(output, 'licenses', file);
     fs.copyFileSync(original, destination);
@@ -104,9 +106,14 @@ function main() {
   const destination = path.join(repo, 'runtime/tools');
   fs.mkdirSync(path.join(destination, 'bin'), { recursive: true });
   for (const file of Object.values(macArtifactFiles)) {
-    replaceMacExecutable(path.join(output, 'bin', file), path.join(destination, 'bin', file));
+    replaceMacArtifact(path.join(output, 'bin', file), path.join(destination, 'bin', file));
   }
-  fs.cpSync(path.join(output, 'licenses'), path.join(destination, 'licenses'), { recursive: true });
+  fs.mkdirSync(path.join(destination, 'licenses'), { recursive: true });
+  for (const file of fs.readdirSync(path.join(output, 'licenses'))) {
+    // SwiftPM checkouts are read-only. Replace old copies by inode as well, so
+    // a second preparation never tries to truncate a read-only license file.
+    replaceMacArtifact(path.join(output, 'licenses', file), path.join(destination, 'licenses', file), 0o644);
+  }
   fs.copyFileSync(path.join(output, 'provenance.json'), path.join(destination, 'provenance.macos.json'));
   // Commit the manifest last: partially copied artifacts stay unavailable.
   const temporary = path.join(destination, `.artifacts-${process.pid}.json`);
@@ -116,7 +123,7 @@ function main() {
   console.log(`Prepared native preview tools from ${output}`);
 }
 
-module.exports = { buildMacTools, replaceMacExecutable };
+module.exports = { buildMacTools, replaceMacArtifact, replaceMacExecutable: replaceMacArtifact };
 if (require.main === module) {
   try { main(); } catch (error) { console.error(error.message); process.exitCode = 1; }
 }

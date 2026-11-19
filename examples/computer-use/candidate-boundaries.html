@@ -1,0 +1,17 @@
+<!doctype html>
+<html lang="zh-CN">
+<meta charset="utf-8">
+<title>候选边界验收</title>
+<style>body{font:18px/1.6 system-ui;max-width:760px;margin:30px auto}button,input{font:inherit;padding:8px;margin:5px}#history{max-height:100px;overflow:auto}label{display:block}#covered{position:relative;width:450px}#shield{position:absolute;inset:0;background:#ddd;display:grid;place-items:center}</style>
+<h1>候选边界验收</h1>
+<p>本机测试，不会发送资料。</p>
+<div id="history" aria-label="历史操作"></div>
+<details><summary>展开客户表单</summary><label>客户公司<input name="company"></label></details>
+<label>只读账单邮箱<input name="billing" readonly value="billing@example.test"></label>
+<label>停用工作邮箱<input name="disabled" disabled value="保留停用值"></label>
+<div id="covered"><label>被遮挡字段<input name="covered" value="保留遮挡值"></label><div id="shield">遮挡层：本轮不可编辑</div></div>
+<label>无关按钮点击次数<input name="clicks" readonly value="0"></label>
+<script>
+ for(let i=1;i<=35;i++){const b=document.createElement('button');b.textContent='查看历史 '+i;b.onclick=()=>document.querySelector('[name=clicks]').value++;document.querySelector('#history').append(b)}
+</script>
+</html>

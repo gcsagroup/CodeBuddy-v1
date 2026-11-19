@@ -9,7 +9,21 @@ const { distributionTarget, assertOfficeTarget } = require('./stage-harness-dist
 const { verifyHarnessBundle } = require('../ui/desktop/scripts/bundle-macos.cjs');
 const { writeMacArtifacts, verifyMacArtifacts, macSigningOptionsForFile, ignoreNonMacCode } = require('./macos-tool-artifacts.cjs');
 const { macArtifactFiles } = require('../runtime/builtin-artifacts.mjs');
-const { replaceMacExecutable } = require('./prepare-harness-macos-tools.cjs');
+const { replaceMacExecutable, replaceMacArtifact } = require('./prepare-harness-macos-tools.cjs');
+
+test('repeat preparation replaces read-only SwiftPM licenses with writable regular copies', { skip: process.platform === 'win32' }, t => {
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'codebuddy-mac-license-'));
+  t.after(() => fs.rmSync(directory, { recursive: true, force: true }));
+  const source = path.join(directory, 'upstream-LICENSE');
+  const destination = path.join(directory, 'FluidUse-Apache-2.0.txt');
+  fs.writeFileSync(source, 'current Apache license', { mode: 0o444 });
+  fs.writeFileSync(destination, 'previous license', { mode: 0o444 });
+  replaceMacArtifact(source, destination, 0o644);
+  replaceMacArtifact(source, destination, 0o644);
+  assert.equal(fs.readFileSync(destination, 'utf8'), 'current Apache license');
+  assert.equal(fs.statSync(destination).mode & 0o777, 0o644);
+  assert.equal(fs.statSync(source).mode & 0o777, 0o444);
+});
 
 test('replacing executed Mac tools leaves the previous inode untouched', t => {
   const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'codebuddy-mac-replace-'));

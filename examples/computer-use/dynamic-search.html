@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="zh-CN"><meta charset="utf-8"><title>异步客户搜索验收</title>
+<style>body{font:16px system-ui;max-width:720px;margin:48px auto;color:#25344a}input,button,select{font:inherit;padding:12px;margin:8px;border:1px solid #ccd5e0;border-radius:8px}output{display:block;padding:16px;background:#eff4fa}</style>
+<h1>客户搜索</h1>
+<label>搜索客户<input id="query" autocomplete="off"></label>
+<div id="results"><button>旧客户</button></div>
+<output id="chosen" aria-label="已选客户">尚未选择</output>
+<script>
+  const query = document.querySelector('#query');
+  const results = document.querySelector('#results');
+  const chosen = document.querySelector('#chosen');
+  let pending;
+  query.addEventListener('input', () => {
+    clearTimeout(pending);
+    pending = setTimeout(() => {
+      results.replaceChildren();
+      for (const name of ['海风测试', '海风账单', '山川测试'].filter(name => name.includes(query.value))) {
+        const button = document.createElement('button');
+        button.textContent = name;
+        button.addEventListener('click', () => { chosen.textContent = name; });
+        results.append(button);
+      }
+    }, 160);
+  });
+</script></html>

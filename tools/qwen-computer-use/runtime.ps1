@@ -531,11 +531,31 @@ function Get-ElementValue($element) {
     }
 }
 
+function Test-WritableField($element) {
+    try {
+        $current = $element.Current
+        if ($current.ControlType -ne [Windows.Automation.ControlType]::Edit -or
+            -not $current.IsEnabled -or $current.IsOffscreen -or $current.IsPassword) { return $false }
+        $value = $element.GetCurrentPattern([Windows.Automation.ValuePattern]::Pattern).Current
+        # Only offer fields whose full previous value can be compared at dispatch.
+        return (-not $value.IsReadOnly -and $value.Value.Length -le 500)
+    } catch { return $false }
+}
+
 function Get-ElementRecord($element, [int]$index, $windowBounds) {
     $frame = Get-ElementFrame $element $windowBounds
+    $hwnd = Get-ElementInt64 $element "NativeWindowHandle"
+    $nativeEditText = $null
+    if ($operation.fieldView -and $hwnd -and $null -ne $frame -and !$element.Current.IsPassword -and !$element.Current.IsOffscreen) {
+        $nativeEditText = [OcuDesktop]::ReadEditText($script:formRoot, [IntPtr]$hwnd)
+    }
+    $nativeWritable = $null -ne $nativeEditText -and (Test-EnvFlagEnabled 'OPEN_COMPUTER_USE_WINDOWS_FOREGROUND_INPUT') -and
+        [OcuDesktop]::CanSetEditText($script:formRoot, [IntPtr]$hwnd)
     $runtimeId = @()
     try { $runtimeId = @($element.GetRuntimeId()) } catch {}
     [pscustomobject]@{
+        writableField = ($operation.fieldView -and $runtimeId.Count -gt 0 -and
+            $null -ne $frame -and $frame.width -gt 0 -and $frame.height -gt 0 -and ($nativeWritable -or (Test-WritableField $element)))
         index = $index
         runtimeId = $runtimeId
         automationId = Get-ElementString $element "AutomationId"
@@ -543,8 +563,9 @@ function Get-ElementRecord($element, [int]$index, $windowBounds) {
         controlType = Get-ElementControlTypeName $element
         localizedControlType = Get-ElementString $element "LocalizedControlType"
         className = Get-ElementString $element "ClassName"
-        value = Get-ElementValue $element
-        nativeWindowHandle = Get-ElementInt64 $element "NativeWindowHandle"
+        value = $(if ($nativeWritable) { $nativeEditText } else { Get-ElementValue $element })
+        nativeWindowHandle = $hwnd
+        nativeEditText = $nativeEditText
         frame = $frame
         actions = @($(if ($index -eq 0) { 'Raise' }); Get-PatternNames $element)
     }
@@ -587,19 +608,33 @@ function Render-Tree($element, $windowBounds) {
         }
         $title = Get-ElementTitle $record
         $actionsSegment = ""
-        if ($record.actions.Count -gt 0) {
-            $actionsSegment = " Secondary Actions: " + ($record.actions -join ", ")
+        $actions = $record.actions
+        if ($operation.fieldView -and $actions -contains 'SetValue') {
+            # ValuePattern also exists on documents and read-only controls.
+            # The current observation publishes actual write tokens separately.
+            $actions = @($actions -ne 'SetValue')
+            if (!$record.writableField) { $actionsSegment = " Direct write unavailable." }
+        }
+        if ($actions.Count -gt 0) {
+            $actionsSegment += " Secondary Actions: " + ($actions -join ", ")
         }
         $valueSegment = ""
         if (-not [string]::IsNullOrWhiteSpace($record.value) -and $record.value -ne $title) {
             $safeValue = (($record.value -replace "`r", "\\r") -replace "`n", "\\n")
             $valueSegment = " Value: $safeValue"
         }
+        $stateSegment = ""
+        if ($record.actions -contains 'Toggle') {
+            try {
+                $toggleState = $node.GetCurrentPattern([Windows.Automation.TogglePattern]::Pattern).Current.ToggleState
+                if ($null -ne $toggleState) { $stateSegment = " ToggleState: $toggleState" }
+            } catch { } # A provider can lose the pattern during enumeration.
+        }
         $frameSegment = ""
         if ($null -ne $record.frame) {
             $frameSegment = " Frame: {{x: {0}, y: {1}, width: {2}, height: {3}}}" -f [int][math]::Round($record.frame.x), [int][math]::Round($record.frame.y), [int][math]::Round($record.frame.width), [int][math]::Round($record.frame.height)
         }
-        $script:lines.Add(("`t" * ($depth + 1)) + "$index $role $title$valueSegment$actionsSegment$frameSegment")
+        $script:lines.Add(("`t" * ($depth + 1)) + "$index $role $title$valueSegment$stateSegment$actionsSegment$frameSegment")
 
         try {
             $children = $node.FindAll([Windows.Automation.TreeScope]::Children, [Windows.Automation.Condition]::TrueCondition)
@@ -690,6 +725,7 @@ function Build-Snapshot([string]$query, [int64]$expectedWindow=0, [int]$expected
     $process = Resolve-ObservedApp $query $expectedWindow $expectedPid $strict
     $element = Get-MainElement $process
     $bounds = Get-WindowBounds $process $element
+    $script:formRoot = [IntPtr]$process.MainWindowHandle
     $rendered = Render-Tree $element $bounds
     $foreground = $null
     try {
@@ -709,6 +745,7 @@ function Build-Snapshot([string]$query, [int64]$expectedWindow=0, [int]$expected
         screenshotPngBase64 = Capture-WindowPngBase64 ([IntPtr]$process.MainWindowHandle) $bounds
         treeLines = @($rendered.lines)
         focusedSummary = Get-FocusedSummary $process.Id ([IntPtr]$process.MainWindowHandle)
+        focusedHandle = $(if ($operation.fieldView) { [OcuDesktop]::FocusedChild($script:formRoot).ToInt64() } else { [int64]0 })
         selectedText = Get-SelectedText $process.Id ([IntPtr]$process.MainWindowHandle)
         elements = @($rendered.records)
     }
@@ -1169,6 +1206,28 @@ try {
             }
             "set_value" {
                 if ($null -eq $element) { throw "unknown element_index '$($operation.element.index)'" }
+                $nativeField = $operation.boundField -and $null -ne $operation.element.nativeEditText
+                if ($operation.boundField) {
+                    $observed = $operation.element
+                    $currentValue = Get-ElementValue $element
+                    $writable = Test-WritableField $element
+                    if ($nativeField) {
+                        $child = [IntPtr]$element.Current.NativeWindowHandle
+                        $writable = $foreground -and $child -eq [IntPtr]$observed.nativeWindowHandle -and [OcuDesktop]::CanSetEditText($hwnd, $child)
+                        $currentValue = [OcuDesktop]::ReadEditText($hwnd, $child)
+                    }
+                    if (-not $writable -or
+                        -not (Same-RuntimeId @($element.GetRuntimeId()) @($observed.runtimeId)) -or
+                        $element.Current.Name -cne [string]$observed.name -or
+                        $element.Current.AutomationId -cne [string]$observed.automationId -or
+                        $currentValue -cne [string]$observed.value) {
+                        throw 'The observed field changed. Observe again before choosing a field; no input dispatched.'
+                    }
+                }
+                if ($nativeField) {
+                    [OcuDesktop]::SetEditText($hwnd, $child, [string]$observed.value, [string]$operation.value)
+                    break
+                }
                 $valuePattern = Get-CurrentPatternOrNull $element ([Windows.Automation.ValuePattern]::Pattern)
                 if ($null -eq $valuePattern) {
                     throw "Cannot set a value for an element that is not settable"

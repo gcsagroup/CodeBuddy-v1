@@ -8,10 +8,11 @@ let browser: Browser, server: ViteDevServer, cache: string;
 test.beforeAll(async () => {
   cache = await mkdtemp(resolve(tmpdir(), 'codebuddy-loading-'));
   server = await createServer({ configFile: resolve('vite.renderer.config.mts'), cacheDir: cache,
-    optimizeDeps: { entries: ['tests/browser-fixtures/conversation-loading.html'] },
+    optimizeDeps: { entries: ['tests/browser-fixtures/conversation-loading.html'], holdUntilCrawlEnd: false },
     server: { host: '127.0.0.1', port: 0, hmr: false } });
   await server.listen();
   browser = await chromium.launch({ channel: process.platform === 'win32' ? 'msedge' : undefined });
+  browser.on('page', page => page.on('pageerror', error => console.error(error.message)));
 });
 test.afterAll(async () => {
   await browser?.close(); await server?.close();

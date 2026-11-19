@@ -8,10 +8,10 @@ it('retains compact chat screenshots at native resolution while large images and
     set src(_url: string) { this.onload?.(); }
   });
   const dimensions: number[][] = [];
-  const drawingContext = { drawImage: vi.fn() } satisfies Pick<CanvasRenderingContext2D, 'drawImage'>;
+  const drawingContext = { drawImage: vi.fn() } satisfies Pick<globalThis.CanvasRenderingContext2D, 'drawImage'>;
   const context = vi
     .spyOn(HTMLCanvasElement.prototype, 'getContext')
-    .mockReturnValue(drawingContext as unknown as CanvasRenderingContext2D);
+    .mockReturnValue(drawingContext as unknown as globalThis.CanvasRenderingContext2D);
   const encode = vi.spyOn(HTMLCanvasElement.prototype, 'toDataURL').mockImplementation(function (this: HTMLCanvasElement, type) {
     dimensions.push([this.width, this.height]);
     return 'data:' + type + ';base64,YQ==';

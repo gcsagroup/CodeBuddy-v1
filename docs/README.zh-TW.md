@@ -4,6 +4,12 @@
 
 目前執行核心為 DeepSeek Harness，桌面為 Electron/TypeScript，Rust 僅用於獨立 MCP 工具。版本以桌面 package.json 為準；測試結論必須對應具體原始碼與產物。
 
+## 目前更新與協作
+
+- [2026-11-20 原始碼更新與驗證範圍](updates-20261120.zh-TW.md)
+- [安全與漏洞回報](security.zh-TW.md)
+- [貢獻指南](contributing.zh-TW.md)
+
 ## 開發入口
 
 - [安裝、依賴、啟動、建構與測試](../documentation/codebuddy/GITHUB_OVERVIEW_ZH_TW.md)

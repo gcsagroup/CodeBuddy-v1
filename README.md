@@ -4,7 +4,7 @@
 
 # CodeBuddy
 
-**面向 Windows 的桌面 AI 开发助手：分析项目、修改代码、运行测试、检查 Git 变更。**
+**基于 DeepSeek Harness 的桌面 AI 助手：开发项目、处理文档、调用工具、验证结果。**
 
 [简体中文](README.md) · [繁體中文](documentation/codebuddy/GITHUB_OVERVIEW_ZH_TW.md) · [English](documentation/codebuddy/GITHUB_OVERVIEW_EN.md)
 
@@ -12,9 +12,13 @@
 
 ## 当前版本
 
-2026-11-04 本地累计改进、提交关系、Windows 启动问题复盘及验证边界见[远端合并说明](docs/reconstruction/2026-11-04-merge-preparation.zh-CN.md)。
+文档更新：**2026-11-20**。最新已记录源码基线为 [`25cbb9815`](https://github.com/erjinyi-bool/CodeBuddy-v1/commit/25cbb9815f304f35583bf3e7fa716e299cba060c)，桌面 manifest 版本仍为 **1.43.18**。源码提交不代表已发布新的安装包。
 
-CodeBuddy 将项目分析、代码修改、命令执行、Git 审查、项目记忆和工具扩展放在同一个桌面工作区。应用版本以 [ui/desktop/package.json](ui/desktop/package.json) 为准；近期图片操作、历史加载、滚动、插话与相关验证见[桌面交互开发说明](docs/reconstruction/2026-10-25-desktop-ux-and-history.zh-CN.md)。源码构建、自动测试和实际产品验收分别记录，不代表所有功能或平台均已通过。
+CodeBuddy 将项目分析、代码修改、命令执行、Git 审查、Office、媒体和工具扩展放在同一个桌面工作区。DeepSeek Harness 负责 Agent 执行、子 Agent、权限及上下文压缩；Electron/TypeScript 提供桌面，Rust 仅用于独立 MCP 工具。应用版本以 [ui/desktop/package.json](ui/desktop/package.json) 为准。
+
+本批包含长对话历史性能、运行中导出、MCP/技能刷新、新聊天草稿、工具箱分组和浏览器交互改进；相关自动化与浏览器/Electron 检查共 689 项通过。具体范围和未覆盖项见[2026-11-20 更新记录](docs/updates-20261120.zh-CN.md)。这些结果不代表全仓库、所有平台或安装包均已验收。
+
+[快速开始](#第一次使用) · [文档索引](docs/README.zh-CN.md) · [安全说明](SECURITY.md) · [贡献指南](CONTRIBUTING.md) · [问题反馈](https://github.com/erjinyi-bool/CodeBuddy-v1/issues)
 
 Windows 使用仓库根目录的 `start-preview.ps1` 启动开发版。开发版和安装版默认数据根统一为 `~/.CodeBuddy`，默认新工作区位于其中的 `workspaces`；模型、历史、宠物、日志和缓存均保存在数据根下。文件菜单提供“打开 CodeBuddy 数据目录”。`CODEBUDDY_HOME` 可指定整个数据根，`CODEBUDDY_WORKSPACE_ROOT` 可单独指定工作区；自动化测试必须显式使用隔离数据目录。历史 `.preview-data` 和 `.CodeBuddy-Harness` 不会在启动时自动导入或覆盖，迁移须先退出应用、备份并校验。安装版首次启动空数据目录时预置 `http://192.168.9.101:8001` 的 Gemma-4 和 `http://192.168.9.120:8001` 的 Qwen Flash、FP4 与 CyberSecurity 局域网模型，用户仍可在设置中添加自己的模型；已有配置不被覆盖。详见[安装版默认模型](docs/installation-model-defaults.zh-CN.md)。详见[存储目录说明](docs/storage-layout.zh-CN.md)。
 

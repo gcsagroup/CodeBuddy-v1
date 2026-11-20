@@ -4,6 +4,12 @@
 
 当前执行核心为 DeepSeek Harness，桌面为 Electron/TypeScript，Rust 仅用于独立 MCP 工具。版本以桌面 package.json 为准；测试结论必须对应具体源码和产物。
 
+## 当前更新与协作
+
+- [2026-11-20 源码更新与验证范围](updates-20261120.zh-CN.md)
+- [安全与漏洞反馈](../SECURITY.md)
+- [贡献指南](../CONTRIBUTING.md)
+
 ## 开发入口
 
 - [安装、依赖、启动、构建与测试](../README.md)

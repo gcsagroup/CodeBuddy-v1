@@ -2,7 +2,13 @@
 
 [简体中文](../../README.md) · 繁體中文 · [English](GITHUB_OVERVIEW_EN.md)
 
-CodeBuddy 是桌面 AI 開發助手，整合專案分析、程式修改、命令執行、Git 審查、記憶、技能與 MCP 工具。應用版本以 [ui/desktop/package.json](../../ui/desktop/package.json) 為準；圖片操作、歷史載入、捲動、插話與驗證範圍見[桌面互動開發說明](../../docs/reconstruction/2026-10-25-desktop-ux-and-history.zh-TW.md)。建構、自動測試與實際產品驗收分開記錄，不代表所有流程或平台均通過。
+CodeBuddy 是用於專案開發、文件處理、工具呼叫與結果驗證的桌面 AI 助手。DeepSeek Harness 負責 Agent 執行、子 Agent、權限及上下文壓縮；Electron/TypeScript 提供桌面，Rust 僅用於獨立 MCP 工具。
+
+文件更新：**2026-11-20**。最新已記錄原始碼基線為 [`25cbb9815`](https://github.com/erjinyi-bool/CodeBuddy-v1/commit/25cbb9815f304f35583bf3e7fa716e299cba060c)，[桌面 manifest](../../ui/desktop/package.json) 仍為 **1.43.18**；原始碼提交不代表新安裝包發布。
+
+本批包含長對話效能、執行中匯出、MCP/技能刷新、新聊天草稿、工具箱分組及瀏覽器互動改進，相關自動化與瀏覽器/Electron 檢查共 689 項通過。範圍及未覆蓋項見[本批更新](../../docs/updates-20261120.zh-TW.md)，不代表所有流程、平台或安裝包均通過。
+
+[文件索引](../../docs/README.zh-TW.md) · [安全說明](../../docs/security.zh-TW.md) · [貢獻指南](../../docs/contributing.zh-TW.md) · [問題回報](https://github.com/erjinyi-bool/CodeBuddy-v1/issues)
 
 ## 原始碼啟動
 

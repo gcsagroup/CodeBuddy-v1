@@ -46,7 +46,9 @@ We agree to restrict the following behaviors in our community. Instances, threat
 
 Tensions can occur between community members even when they are trying their best to collaborate. Not every conflict represents a code of conduct violation, and this Code of Conduct reinforces encouraged behaviors and norms that can help avoid conflicts and minimize harm.
 
-When an incident does occur, it is important to report it promptly. To report a possible violation, **Send a message to @goose-admin**
+When an incident occurs, contact the CodeBuddy maintainer [@erjinyi-bool](https://github.com/erjinyi-bool) through an existing private channel. If none is available, request a contact channel in this repository without disclosing personal information or incident details. The upstream Goose moderators do not maintain this repository.
+
+简体：通过已有私密渠道联系 CodeBuddy 维护者；没有渠道时先请求联系方式，不公开个人信息或事件细节。繁體：透過既有私密管道聯絡 CodeBuddy 維護者；沒有管道時先請求聯絡方式，不公開個人資訊或事件細節。
 
 Community Moderators take reports of violations seriously and will make every effort to respond in a timely manner. They will investigate all reports of code of conduct violations, reviewing messages, logs, and recordings, or interviewing witnesses and other participants. Community Moderators will keep investigation and enforcement actions as transparent as possible while prioritizing safety and confidentiality. In order to honor these values, enforcement actions are carried out in private with the involved parties, but communicating to the whole community may be part of a mutually agreed upon resolution.
 

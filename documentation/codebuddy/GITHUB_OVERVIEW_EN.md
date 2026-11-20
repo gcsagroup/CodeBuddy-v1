@@ -2,7 +2,13 @@
 
 [简体中文](../../README.md) · [繁體中文](GITHUB_OVERVIEW_ZH_TW.md) · English
 
-CodeBuddy is a desktop AI development assistant for project analysis, code changes, commands, Git review, memory, skills and MCP tools. The application version is defined in [ui/desktop/package.json](../../ui/desktop/package.json). See the [desktop UX development notes](../../docs/reconstruction/2026-10-25-desktop-ux-and-history.en.md) for image actions, history loading, scrolling, queued input and validation scope. Build, automated-test and real-product results are separate and do not establish universal workflow or platform acceptance.
+CodeBuddy is a desktop AI assistant for project development, document processing, tools and verification. DeepSeek Harness owns Agent execution, subagents, permissions and context compaction. Electron/TypeScript provides the desktop; Rust supplies independent MCP tools.
+
+Updated **2026-11-20**. The latest documented source baseline is [`25cbb9815`](https://github.com/erjinyi-bool/CodeBuddy-v1/commit/25cbb9815f304f35583bf3e7fa716e299cba060c). The [desktop manifest](../../ui/desktop/package.json) remains at **1.43.18**; a source commit is not a new installer release.
+
+Recent changes cover long-chat performance, live export, MCP/skill refresh, new-chat drafts, grouped tools and browser interaction. The batch passed 689 relevant automated and browser/Electron cases; see [changes and validation limits](../../docs/updates-20261120.en.md). This does not establish acceptance of every workflow, platform or installer.
+
+[Documentation](../../docs/README.en.md) · [Security](../../docs/security.en.md) · [Contributing](../../docs/contributing.en.md) · [Issues](https://github.com/erjinyi-bool/CodeBuddy-v1/issues)
 
 ## Start from source
 

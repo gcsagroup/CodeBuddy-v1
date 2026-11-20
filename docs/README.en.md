@@ -4,6 +4,12 @@
 
 DeepSeek Harness owns execution, Electron/TypeScript provides the desktop, and Rust provides independent MCP tools. Read the version from the desktop package.json. Test results apply to a specific source revision and artifact.
 
+## Current update and collaboration
+
+- [2026-11-20 source changes and validation scope](updates-20261120.en.md)
+- [Security and vulnerability reporting](security.en.md)
+- [Contributing](contributing.en.md)
+
 ## Development
 
 - [Installation, dependencies, launch, builds and tests](../documentation/codebuddy/GITHUB_OVERVIEW_EN.md)

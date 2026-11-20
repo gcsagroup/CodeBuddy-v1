@@ -2,6 +2,7 @@ import { act, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, expect, it, vi } from 'vitest';
 import { WindowsTitleBar } from './WindowsTitleBar';
+import { IntlTestWrapper } from '../../i18n/test-utils';
 
 vi.mock('../../contexts/ThemeContext', () => ({
   useTheme: () => ({ resolvedTheme: 'light' }),
@@ -35,7 +36,7 @@ it('uses the host menu labels and native index, and tracks the native popup life
         closeMenu = resolve;
       })
   );
-  render(<WindowsTitleBar />);
+  render(<WindowsTitleBar />, { wrapper: IntlTestWrapper });
   const help = await screen.findByRole('menuitem', { name: 'Ayuda' });
   vi.spyOn(help, 'getBoundingClientRect').mockReturnValue({ left: 64, bottom: 40 } as DOMRect);
 
@@ -47,7 +48,7 @@ it('uses the host menu labels and native index, and tracks the native popup life
 });
 
 it('supports moving between menus and opening a native menu with the keyboard', async () => {
-  render(<WindowsTitleBar />);
+  render(<WindowsTitleBar />, { wrapper: IntlTestWrapper });
   const file = await screen.findByRole('menuitem', { name: 'Archivo' });
   file.focus();
   await userEvent.keyboard('{ArrowRight}');
@@ -62,7 +63,8 @@ it('keeps the input focus when opening a menu with the mouse so editing commands
     <>
       <textarea aria-label="Draft" />
       <WindowsTitleBar />
-    </>
+    </>,
+    { wrapper: IntlTestWrapper }
   );
   const file = await screen.findByRole('menuitem', { name: 'Archivo' });
   const draft = screen.getByRole('textbox', { name: 'Draft' });

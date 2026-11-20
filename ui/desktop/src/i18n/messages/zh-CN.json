@@ -10267,5 +10267,8 @@
   },
   "workspaceSubagents.unknownState": {
     "defaultMessage": "状态未知 · {count}"
+  },
+  "windowMenu.label": {
+    "defaultMessage": "应用菜单"
   }
 }

@@ -270,7 +270,7 @@ describe('direct model selection', () => {
     fireEvent.mouseEnter(target);
     fireEvent.mouseMove(target);
     expect(document.querySelector('[data-model-picker-details]')).toBeNull();
-    expect(acpReadModelDisplaySettings).toHaveBeenCalledExactlyOnceWith('p', 'model-A');
+    expect(acpReadModelDisplaySettings).toHaveBeenCalledExactlyOnceWith('p', 'model-A', false);
     expect(mocks.change).not.toHaveBeenCalled();
   });
   it('keeps the clicked list open after pointer movement and closes on an outside click', async () => {

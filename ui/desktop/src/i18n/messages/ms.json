@@ -10267,5 +10267,8 @@
   },
   "userMessage.removeEditedImage": {
     "defaultMessage": "Alih keluar imej {number} daripada penghantaran semula ini"
+  },
+  "windowMenu.label": {
+    "defaultMessage": "Menu aplikasi"
   }
 }

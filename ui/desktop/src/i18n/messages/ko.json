@@ -10267,5 +10267,8 @@
   },
   "userMessage.removeEditedImage": {
     "defaultMessage": "이번 재전송에서 이미지 {number} 제거"
+  },
+  "windowMenu.label": {
+    "defaultMessage": "애플리케이션 메뉴"
   }
 }

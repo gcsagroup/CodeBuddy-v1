@@ -10267,5 +10267,8 @@
   },
   "userMessage.removeEditedImage": {
     "defaultMessage": "Xóa ảnh {number} khỏi lần gửi lại này"
+  },
+  "windowMenu.label": {
+    "defaultMessage": "Menu ứng dụng"
   }
 }

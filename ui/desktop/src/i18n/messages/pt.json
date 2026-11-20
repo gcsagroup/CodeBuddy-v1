@@ -10267,5 +10267,8 @@
   },
   "userMessage.removeEditedImage": {
     "defaultMessage": "Remover a imagem {number} deste reenvio"
+  },
+  "windowMenu.label": {
+    "defaultMessage": "Menu do aplicativo"
   }
 }

@@ -9764,6 +9764,9 @@
   "userMessage.unconfirmed": {
     "defaultMessage": "Awaiting confirmation"
   },
+  "windowMenu.label": {
+    "defaultMessage": "Application menu"
+  },
   "workStatus.approval": {
     "defaultMessage": "Please approve: {action}"
   },

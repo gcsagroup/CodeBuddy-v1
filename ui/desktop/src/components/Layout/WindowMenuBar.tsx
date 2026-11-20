@@ -1,7 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
 import { useTheme } from '../../contexts/ThemeContext';
+import { useIntl } from '../../i18n';
 
 export function WindowMenuBar() {
+  const intl = useIntl();
   const { resolvedTheme } = useTheme();
   const [items, setItems] = useState<Array<{ index: number; label: string; enabled: boolean }>>([]);
   const [open, setOpen] = useState<number | null>(null);
@@ -47,7 +49,7 @@ export function WindowMenuBar() {
       <nav
         ref={bar}
         role="menubar"
-        aria-label="Application menu"
+        aria-label={intl.formatMessage({ id: 'windowMenu.label', defaultMessage: 'Application menu' })}
         onKeyDown={(event) => {
           const buttons = Array.from(
             bar.current?.querySelectorAll<HTMLButtonElement>('button:not(:disabled)') ?? []

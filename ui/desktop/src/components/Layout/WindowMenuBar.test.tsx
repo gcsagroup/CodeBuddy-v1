@@ -1,6 +1,7 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { expect, it, vi } from 'vitest';
 import { WindowMenuBar } from './WindowMenuBar';
+import { IntlProvider } from 'react-intl';
 vi.mock('../../contexts/ThemeContext', () => ({ useTheme: () => ({ resolvedTheme: 'light' }) }));
 
 it('shows only menus, opens native entries and supports keyboard focus without taking composer input', async () => {
@@ -15,12 +16,13 @@ it('shows only menus, opens native entries and supports keyboard focus without t
     setTitlebarTheme: vi.fn().mockResolvedValue(undefined),
   });
   render(
-    <>
+    <IntlProvider locale="zh-CN" messages={{ 'windowMenu.label': '应用菜单' }}>
       <input aria-label="Message" />
       <WindowMenuBar />
-    </>
+    </IntlProvider>
   );
   const file = await screen.findByRole('menuitem', { name: '文件' });
+  expect(screen.getByRole('menubar', { name: '应用菜单' })).toBeInTheDocument();
   expect(screen.queryByText('CodeBuddy')).toBeNull();
   const input = screen.getByLabelText('Message');
   input.focus();

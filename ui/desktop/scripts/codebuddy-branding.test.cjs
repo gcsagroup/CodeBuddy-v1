@@ -51,7 +51,7 @@ test('error and skills views expose only implemented CodeBuddy actions', () => {
   assert.doesNotMatch(skillsView, /comingSoon|addSkill/);
 });
 
-test('CodePro unified mode hides the workspace switcher while preserving titlebar clearance and rollback support', () => {
+test('unified navigation preserves titlebar clearance and legacy session routes without a workspace switcher', () => {
   const appLayout = readDesktopSource('src/components/Layout/AppLayout.tsx');
   const navigationPanel = readDesktopSource('src/components/Layout/NavigationPanel.tsx');
   const unifiedMode = readDesktopSource('src/codepro/unifiedMode.ts');
@@ -60,14 +60,11 @@ test('CodePro unified mode hides the workspace switcher while preserving titleba
 
   assert.doesNotMatch(appLayout, /left-1\/2 top-\[10px\]/);
   assert.match(navigationPanel, /data-testid="navigation-header-slot"/);
-  assert.match(navigationPanel, /needsTrafficLightInset && 'pl-\[92px\]'/);
-  assert.match(navigationPanel, /flex h-10 items-center/);
-  assert.match(navigationPanel, /\{!unifiedMode && \(/);
-  assert.match(navigationPanel, /<WorkspaceSwitcher/);
-  assert.match(navigationPanel, /unifiedMode=\{codeProUnifiedMode\}/);
-  assert.match(unifiedMode, /value !== false/);
+  assert.match(navigationPanel, /needsTrafficLightInset && 'pt-10'/);
+  assert.match(navigationPanel, /flex h-10 min-w-0 items-center/);
+  assert.doesNotMatch(navigationPanel, /<WorkspaceSwitcher/);
   assert.match(unifiedMode, /'\/': '\/codepro'/);
-  assert.match(app, /import Hub from '.\/components\/Hub'/);
+  assert.match(app, /<Route index element=\{<CodeProHub \/>\}/);
   assert.match(app, /path="pair"/);
   assert.match(sessions, /'code' \| 'codepro' \| 'unified'/);
   assert.match(sessions, /\['user', 'scheduled'\]/);

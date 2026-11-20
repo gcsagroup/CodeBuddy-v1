@@ -10267,5 +10267,8 @@
   },
   "userMessage.removeEditedImage": {
     "defaultMessage": "今回の再送信から画像 {number} を削除"
+  },
+  "windowMenu.label": {
+    "defaultMessage": "アプリケーションメニュー"
   }
 }

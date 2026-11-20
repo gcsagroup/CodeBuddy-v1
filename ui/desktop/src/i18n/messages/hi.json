@@ -10267,5 +10267,8 @@
   },
   "userMessage.removeEditedImage": {
     "defaultMessage": "दोबारा भेजे जा रहे संदेश से चित्र {number} हटाएँ"
+  },
+  "windowMenu.label": {
+    "defaultMessage": "एप्लिकेशन मेन्यू"
   }
 }

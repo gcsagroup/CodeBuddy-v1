@@ -10267,5 +10267,8 @@
   },
   "userMessage.removeEditedImage": {
     "defaultMessage": "Bu yeniden gönderimden {number} numaralı resmi kaldır"
+  },
+  "windowMenu.label": {
+    "defaultMessage": "Uygulama menüsü"
   }
 }

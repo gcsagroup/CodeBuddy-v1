@@ -1064,7 +1064,7 @@ it('opens read targets through the existing file tab and reuses absolute and rel
     })
   );
   expect(screen.getAllByRole('tab', { name: 'note.txt' })).toHaveLength(1);
-  expect(invoke).not.toHaveBeenCalled();
+  expect(invoke).toHaveBeenCalledWith({ scope, action: 'read', path: 'note.txt' });
 });
 
 it('rejects an unknown call or a mismatched path instead of opening an arbitrary current file', () => {
@@ -1103,6 +1103,58 @@ async function edit() {
     target: { value: 'local draft' },
   });
 }
+it('rereads a clean workspace file when reopening its result link without duplicating the tab', async () => {
+  const { scope } = panel();
+  const reopen = () => fireEvent(window, new CustomEvent('codebuddy:open-workspace-file', {
+    detail: { sessionId: scope.sessionId, filePath: 'note.txt' },
+  }));
+  reopen();
+  await screen.findByText('original');
+  invoke.mockResolvedValueOnce({
+    document: { path: 'note.txt', content: 'changed by the Agent', version: 'v2' },
+  });
+  reopen();
+  await screen.findByText('changed by the Agent');
+  expect(screen.queryByText('original')).toBeNull();
+  expect(screen.getAllByRole('tab', { name: 'note.txt' })).toHaveLength(1);
+  fireEvent.click(screen.getByRole('button', { name: 'Edit' }));
+  fireEvent.change(screen.getByRole('textbox', { name: 'File editor' }), {
+    target: { value: 'unsaved user edit' },
+  });
+  const calls = invoke.mock.calls.length;
+  reopen();
+  expect(invoke).toHaveBeenCalledTimes(calls);
+  fireEvent.click(screen.getByRole('button', { name: 'Edit' }));
+  expect(screen.getByRole('textbox', { name: 'File editor' })).toHaveValue('unsaved user edit');
+});
+
+it.each(['edit', 'close'] as const)('does not overwrite or resurrect a file after %s during refresh', async (action) => {
+  const { scope } = panel();
+  const reopen = () => fireEvent(window, new CustomEvent('codebuddy:open-workspace-file', {
+    detail: { sessionId: scope.sessionId, filePath: 'note.txt' },
+  }));
+  reopen();
+  await screen.findByText('original');
+  let finish!: (reply: unknown) => void;
+  invoke.mockImplementationOnce(() => new Promise((resolve) => { finish = resolve; }));
+  reopen();
+  if (action === 'edit') {
+    fireEvent.click(screen.getByRole('button', { name: 'Edit' }));
+    fireEvent.change(screen.getByRole('textbox', { name: 'File editor' }), {
+      target: { value: 'new edit while loading' },
+    });
+  } else {
+    fireEvent.click(screen.getByRole('button', { name: 'Close note.txt' }));
+  }
+  await act(async () => finish({
+    document: { path: 'note.txt', content: 'late disk response', version: 'v2' },
+  }));
+  if (action === 'edit') {
+    expect(screen.getByRole('textbox', { name: 'File editor' })).toHaveValue('new edit while loading');
+  } else {
+    expect(screen.queryByRole('tab', { name: 'note.txt' })).toBeNull();
+  }
+});
 it('opens only this parent child in the existing panel and reuses its tab', async () => {
   const { scope } = panel();
   fireEvent(

@@ -537,8 +537,6 @@ export function WorkspacePanelContent({
               scope.root
             ) === fileIdentity(entry.path, scope.root)
         );
-      // Read-only references have no draft to preserve. Reopening a result link
-      // must read its current contents instead of retaining an earlier snapshot.
       if (existing && existing.kind !== 'reference') {
         update((s) => ({
           ...s,
@@ -549,6 +547,29 @@ export function WorkspacePanelContent({
               : t
           ),
         }));
+        // A result link may point to a file changed by the Agent since it was
+        // opened. Refresh clean tabs, but never replace an unsaved user draft.
+        if (existing.kind === 'file' && existing.draft === existing.document.content) {
+          try {
+            const { document } = await window.electron.workspacePanel({
+              scope,
+              action: existing.document.reference ? 'read-reference' : 'read',
+              path: existing.document.path,
+            });
+            if (!document || !alive.current) return;
+            update((s) => ({
+              ...s,
+              tabs: s.tabs.map((t) =>
+                t.id === existing.id && t.kind === 'file' &&
+                t.document === existing.document && t.draft === existing.draft
+                  ? { ...t, document, draft: document.content }
+                  : t
+              ),
+            }));
+          } catch (error) {
+            fail(error);
+          }
+        }
         return;
       }
       const refreshingReferenceId = existing && existing.kind === 'reference' ? existing.id : undefined;

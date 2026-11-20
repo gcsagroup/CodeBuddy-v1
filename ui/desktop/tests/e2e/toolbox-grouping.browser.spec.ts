@@ -42,7 +42,7 @@ test.beforeAll(async () => {
           ];
           export const loadToolbox = async () => ({ model: buildToolboxModel({ extensions, apps: [], skills: [
             { type: 'builtinSkill', name: 'modern-web-guidance', description: 'Web guidance', path: '/builtin/modern-web-guidance' },
-            ...['code-navigation', 'versioned-docs', 'media-quality', 'web-acceptance'].map(name => ({ type: 'builtinSkill', name, description: name, path: '/builtin/' + name })),
+            ...['code-navigation', 'versioned-docs', 'media-quality', 'web-acceptance', 'office-docx'].map(name => ({ type: 'builtinSkill', name, description: name, path: '/builtin/' + name })),
             { type: 'builtinSkill', name: 'computer-use', description: 'Desktop guide', path: '/builtin/computer-use' }
           ] }), errors: {}, warnings: [] });
           const config = { extensionsList: [], setExtensionEnabled: async (name, enabled) => { extensions.find(e => e.name === name).enabled = enabled; } };
@@ -76,6 +76,20 @@ test('grouped toolbox supports search, tabs and independent tool toggles at wide
     await page.goto(server.resolvedUrls!.local[0] + 'tests/browser-fixtures/toolbox-grouping.html');
     await expect(page.getByRole('region', { name: '内置能力', exact: true })).toBeVisible();
     await expect(page.getByRole('button', { name: '桌面操作指南', exact: true })).toBeVisible();
+    const general = page.locator('summary').filter({ hasText: '通用技能' });
+    await general.click();
+    await expect(page.getByRole('button', { name: '桌面操作指南', exact: true })).toBeHidden();
+    await page.getByPlaceholder('搜索工具').fill('computer-use');
+    await expect(page.getByRole('button', { name: '桌面操作指南', exact: true })).toBeVisible();
+    await page.getByPlaceholder('搜索工具').fill('');
+    await expect(page.getByRole('button', { name: '桌面操作指南', exact: true })).toBeHidden();
+    await general.focus();
+    await page.keyboard.press('Enter');
+    await expect(page.getByRole('button', { name: '桌面操作指南', exact: true })).toBeVisible();
+    const office = page.locator('.toolbox-group').filter({ has: page.locator('summary').filter({ hasText: 'Office' }) });
+    await expect(office).toHaveAttribute('open', '');
+    await office.locator('summary').click();
+    await expect(office).not.toHaveAttribute('open');
     await expect(page.getByRole('button', { name: '代码仓库', exact: true })).toHaveCount(1);
     await expect(page.getByRole('button', { name: '本地 Git', exact: true })).toHaveCount(0);
     await expect(page.getByRole('button', { name: 'GitHub', exact: true })).toHaveCount(0);
@@ -109,7 +123,7 @@ test('grouped toolbox supports search, tabs and independent tool toggles at wide
     await page.screenshot({ path: test.info().outputPath('toolbox-wide.png'), fullPage: true });
     await page.setViewportSize({ width: 650, height: 1000 });
     await expect(page.getByRole('button', { name: '桌面操作指南', exact: true })).toBeVisible();
-    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(
       true
     );
     await page.screenshot({ path: test.info().outputPath('toolbox-narrow.png'), fullPage: true });

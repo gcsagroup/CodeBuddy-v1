@@ -1061,3 +1061,21 @@ it('groups built-in development skills and expands matching search results', asy
   await userEvent.type(screen.getByRole('searchbox'), 'Semantic references');
   expect(await screen.findByRole('button', { name: /Code definitions and references/ })).toBeVisible();
 });
+
+it('lets general skills collapse and restores that choice after search', async () => {
+  vi.mocked(loadToolbox).mockResolvedValue({
+    model: buildToolboxModel({ skills: [
+      { type: 'builtinSkill', name: 'computer-use', description: 'Desktop guide', content: '', global: true, path: 'builtin://skills/computer-use' },
+    ], apps: [], extensions: [] }), errors: {}, warnings: [],
+  });
+  renderView('/toolbox');
+  const heading = await screen.findByText('General skills');
+  const group = heading.closest('details')!;
+  expect(group).toHaveAttribute('open');
+  await userEvent.click(heading);
+  expect(group).not.toHaveAttribute('open');
+  await userEvent.type(screen.getByRole('searchbox'), 'computer-use');
+  expect(group).toHaveAttribute('open');
+  await userEvent.clear(screen.getByRole('searchbox'));
+  expect(group).not.toHaveAttribute('open');
+});

@@ -173,6 +173,25 @@ function managedSkillFor(item: ToolboxItem): ManagedSkill | undefined {
   return item.skillSource;
 }
 
+function ToolboxGroup({ title, count, icon, searching, defaultOpen = false, children }: {
+  title: string; count: number; icon: ReactNode; searching: boolean;
+  defaultOpen?: boolean; children: ReactNode;
+}) {
+  const [expanded, setExpanded] = useState(defaultOpen);
+  return (
+    <details className="toolbox-group mt-4" open={searching || expanded}>
+      <summary className="cursor-pointer text-sm font-medium" onClick={(event) => {
+        event.preventDefault();
+        if (!searching) setExpanded(value => !value);
+      }}>
+        {icon}<span>{title}</span><span className="toolbox-group-count">{count}</span>
+        <ChevronRight className="toolbox-group-chevron size-4" aria-hidden="true" />
+      </summary>
+      <section className="mt-3" aria-label={title}>{children}</section>
+    </details>
+  );
+}
+
 function ItemCard({
   item,
   onOpen,
@@ -670,36 +689,35 @@ export default function ToolboxView() {
       isBuiltInSkill(item) && group.names.includes(item.skillSource?.name ?? '')) }));
     const grouped = new Set(groups.flatMap(group => group.items));
     const basic = entries.filter((item) => !advanced.includes(item) && !office.includes(item) && !grouped.has(item));
+    const basicSkills = basic.filter(item => item.kind === 'skill' || item.repositoryMembers);
+    const basicTools = basic.filter(item => !basicSkills.includes(item));
     return (
       <>
-        {renderGrid(basic)}
+        {renderGrid(basicTools)}
+        {basicSkills.length > 0 && (
+          <ToolboxGroup title={selectNativeText(intl.locale, 'General skills', '通用技能', '通用技能')}
+            count={basicSkills.length} icon={<BookOpenCheck className="size-4" aria-hidden="true" />}
+            searching={Boolean(query.trim())} defaultOpen>
+            {renderGrid(basicSkills)}
+          </ToolboxGroup>
+        )}
         {groups.filter(group => group.items.length > 0).map(group => (
-          <details key={group.title} className="toolbox-group mt-5"
-            open={query.trim() ? true : undefined}>
-            <summary className="cursor-pointer text-sm font-medium">
-              <group.icon className="size-4" aria-hidden="true" />
-              <span>{group.title}</span><span className="toolbox-group-count">{group.items.length}</span>
-              <ChevronRight className="toolbox-group-chevron size-4" aria-hidden="true" />
-            </summary>
-            <div className="mt-4">{renderGrid(group.items)}</div>
-          </details>
+          <ToolboxGroup key={group.title} title={group.title} count={group.items.length}
+            icon={<group.icon className="size-4" aria-hidden="true" />} searching={Boolean(query.trim())}>
+            {renderGrid(group.items)}
+          </ToolboxGroup>
         ))}
         {office.length > 0 && (
-          <section className="mt-5" aria-label={intl.formatMessage(i18n.office)}>
-            <h2 className="mb-3 text-sm font-medium">{intl.formatMessage(i18n.office)}</h2>
+          <ToolboxGroup title={intl.formatMessage(i18n.office)} count={office.length}
+            icon={<BookOpenCheck className="size-4" aria-hidden="true" />} searching={Boolean(query.trim())} defaultOpen>
             {renderGrid(office)}
-          </section>
+          </ToolboxGroup>
         )}
         {advanced.length > 0 && (
-          <details
-            className="mt-5 rounded-lg border border-border-secondary p-4"
-            open={query.trim() ? true : undefined}
-          >
-            <summary className="cursor-pointer text-sm font-medium">
-              {intl.formatMessage(i18n.advanced)} ({advanced.length})
-            </summary>
-            <div className="mt-4">{renderGrid(advanced)}</div>
-          </details>
+          <ToolboxGroup title={intl.formatMessage(i18n.advanced)} count={advanced.length}
+            icon={<MonitorCog className="size-4" aria-hidden="true" />} searching={Boolean(query.trim())}>
+            {renderGrid(advanced)}
+          </ToolboxGroup>
         )}
       </>
     );

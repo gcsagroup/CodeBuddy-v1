@@ -814,6 +814,60 @@ test('all six native mode transitions round-trip the execution owner selection',
   }
 });
 
+test('session export includes the first prompt and completed tool result before the turn ends', async t => {
+  const toolFinished = Promise.withResolvers();
+  const finishTurn = Promise.withResolvers();
+  const titleStarted = Promise.withResolvers();
+  const finishTitle = Promise.withResolvers();
+  const driver = controlledDriver(async (sessionId, _content, { onEvent }) => {
+    const emit = event => onEvent({ sessionId, ...event });
+    await emit({ type: 'tool_call', id: 'live-read', name: 'read_file', arguments: { path: 'fixture.txt' } });
+    await emit({ type: 'tool_result', id: 'live-read', result: [{ type: 'text', text: 'Fixture receipt' }], isError: false });
+    toolFinished.resolve();
+    await finishTurn.promise;
+    await emit({ type: 'text_delta', text: 'Final answer' });
+    return { stopReason: 'end_turn' };
+  });
+  driver.generateTitle = async () => {
+    titleStarted.resolve();
+    await finishTitle.promise;
+  };
+  const { client, dataDir } = await setup(t, driver);
+  await configure(client);
+  const sessionId = await newSession(client, dataDir);
+  const prompt = 'Read the synthetic fixture';
+  const pending = client.request('session/prompt', { sessionId, prompt: [{ type: 'text', text: prompt }] });
+  const exportSession = async () => JSON.parse((await client.request(ext('session/export'), { sessionId })).data);
+  let settling;
+  try {
+    const endedTooSoon = pending.then(() => assert.fail('Turn ended before export'));
+    await Promise.race([toolFinished.promise, endedTooSoon]);
+    const live = await exportSession();
+    assert.equal(live.conversation[0]?.role, 'user');
+    assert.deepEqual(live.conversation[0].content, [{ type: 'text', text: prompt }]);
+    const blocks = live.conversation.flatMap(message => message.content);
+    assert.equal(blocks.filter(block => block.type === 'toolRequest' && block.id === 'live-read').length, 1);
+    const results = blocks.filter(block => block.type === 'toolResponse');
+    assert.equal(results.length, 1);
+    assert.equal(results[0].id, 'live-read');
+    assert.equal(results[0].toolResult.status, 'success');
+    assert.deepEqual(results[0].toolResult.value.content, [{ type: 'text', text: 'Fixture receipt' }]);
+
+    finishTurn.resolve();
+    // Title generation holds the active turn open after the transcript commit.
+    await Promise.race([titleStarted.promise, endedTooSoon]);
+    settling = await exportSession();
+    assert.deepEqual(settling.conversation.slice(0, -1), live.conversation);
+    assert.deepEqual(settling.conversation.at(-1).content, [{ type: 'text', text: 'Final answer' }]);
+  } finally {
+    finishTurn.resolve();
+    finishTitle.resolve();
+    assert.equal((await pending).stopReason, 'end_turn');
+  }
+  const settled = await exportSession();
+  assert.deepEqual(settled.conversation, settling.conversation);
+});
+
 test('stream and exported messages retain observation times instead of the whole turn start', async t => {
   const time = 1793849482000;
   const driver = controlledDriver(async (sessionId, _content, { onEvent }) => {

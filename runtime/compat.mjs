@@ -43,7 +43,7 @@ import { SUBAGENT_TEMPLATES_KEY, validateSubagentTemplates, resolveSubagentModel
 import { SUBAGENT_LIMITS_KEY, DEFAULT_SUBAGENT_LIMITS, validateSubagentLimits } from './subagent-limits.mjs';
 import { COMPACTION_FALLBACKS_KEY, COMPACTION_MODEL_KEY, validateCompactionFallbacks, validateCompactionFallbackModel, resolveCompactionFallbacks } from './compaction-settings.mjs';
 import { codeproInstructions } from "./task-tools.mjs";
-import { openTranscriptJournal } from "./transcripts.mjs";
+import { openTranscriptJournal, withLiveTranscript } from "./transcripts.mjs";
 import { ProjectMemory } from "./memory.mjs";
 import {
   publicToolName,
@@ -1948,33 +1948,10 @@ export class Compat {
         if (current.cwd !== s.cwd || (current.nativeSessionId ?? current.id) !== (s.nativeSessionId ?? s.id))
           throw invalid("Session changed while image previews were being prepared; retry");
         const liveReplay = this.active.get(s.id)?.replay;
-        // Journal projection is committed at turn end. Include already-published
-        // live updates until that same turn has reached the persisted high water mark.
-        const includeLive =
-          liveReplay &&
-          !Object.values(current.transcriptTurns ?? {}).some(
-            (turn) => turn.turnId === liveReplay.turnId,
-          );
         const transcript = replayTranscript(
           legacy
-            ? {
-                ...current,
-                updates: legacy,
-              }
-            : includeLive
-              ? {
-                  ...current,
-                  updates: [
-                    ...(current.updates ?? []),
-                    ...liveReplay.users,
-                    ...liveReplay.updates,
-                  ],
-                  usageUpdates: [
-                    ...(current.usageUpdates ?? []),
-                    ...liveReplay.usageUpdates,
-                  ],
-                }
-              : current,
+            ? { ...current, updates: legacy }
+            : withLiveTranscript(current, liveReplay),
         );
         if (historicalTerminals.length && !liveReplay &&
             current.updates.findLast(u => u.sessionUpdate === 'user_message_chunk')?.messageId === lastInputId) {
@@ -2355,7 +2332,7 @@ export class Compat {
     if (name === "subagent/catalog/list")
       return listSubagentCatalog(this.session(p.sessionId, { fields: ['id'] }), p, this.driver);
     if (["session/import", "session/export"].includes(name))
-      return this.history.request(name, p);
+      return this.history.request(name, p, this.active.get(p.sessionId)?.replay);
     if (name.startsWith('native-schedules/')) {
       if (!this.nativeScheduling) throw unsupported('native scheduling');
       const action = name.slice('native-schedules/'.length);

@@ -5,6 +5,16 @@ import { createHash, randomUUID } from 'node:crypto';
 const version = 1;
 const identity = (sessionId, turnId) => createHash('sha256').update(JSON.stringify([sessionId, turnId])).digest('hex');
 
+export function withLiveTranscript(session, live) {
+  // The active turn can outlive its projection into the store while it settles.
+  if (!live || Object.values(session.transcriptTurns ?? {}).some(turn => turn.turnId === live.turnId)) return session;
+  return {
+    ...session,
+    updates: [...(session.updates ?? []), ...live.users, ...live.updates],
+    usageUpdates: [...(session.usageUpdates ?? []), ...live.usageUpdates],
+  };
+}
+
 function requireId(value, field) {
   if (typeof value !== 'string' || !value.length) throw new TypeError(`${field} is required`);
 }

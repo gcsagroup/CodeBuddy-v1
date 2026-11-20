@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { loadLegacyConversation } from './legacy-migration.mjs';
+import { withLiveTranscript } from './transcripts.mjs';
 
 const MAX_IMPORT_BYTES = 32 * 1024 * 1024;
 const record = value => value !== null && typeof value === 'object' && !Array.isArray(value);
@@ -12,10 +13,11 @@ const timestamp = (value, fallback) => typeof value === 'string' && Number.isFin
 export class HistoryService {
   constructor(store) { this.store = store; }
 
-  async request(method, params = {}) {
+  async request(method, params = {}, liveReplay) {
     if (method === 'session/export') {
-      const session = this.store.read().sessions.find(item => item.id === params.sessionId);
-      if (!session) throw invalid('Session not found');
+      const saved = this.store.readSession(params.sessionId);
+      if (!saved) throw invalid('Session not found');
+      const session = withLiveTranscript(saved, liveReplay);
       const conversation = session.legacyHistory ? await loadLegacyConversation(this.store.directory, session.legacyHistory) : session.historyConversation ?? conversationFromUpdates(session.updates ?? [], session.createdAt);
       const usageByMessage = new Map(), accumulated = {};
       for (const update of session.usageUpdates ?? []) {

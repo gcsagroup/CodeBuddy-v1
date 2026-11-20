@@ -102,6 +102,10 @@ const prefix = "_goose/unstable/";
 const sessionInfoFields = ['id', 'cwd', 'title', 'updatedAt', 'createdAt', 'messageCount',
   'providerId', 'modelId', 'type', 'agentProfile', 'agentSelection', 'workspaceBinding', 'projectId', 'scheduleId',
   'readonlyHistory', 'userSetName', 'archivedAt', 'sidebarPlacement', 'workspaceOrigin', 'managementRequestId', 'globalConversation'];
+// Tool policy needs the current agent profile and extension selection, which
+// also supplies the identity checked by the extension snapshot.
+const toolPolicySessionFields = ['id', 'type', 'globalConversation', 'agentProfile',
+  'extensions', 'extensionSelection', 'extensionDefinitions', 'protectedMcpServers', 'mcpServers'];
 
 function imageDisplayBlock(item) {
   if (item?.type !== "image") return item;
@@ -1156,7 +1160,7 @@ export class Compat {
   }
   async toolPolicy(s, tool, signal = tool.signal) {
     const extensions = {};
-    const denied = () => !this.store.readSession(s.id) ||
+    const denied = () => !this.store.readSession(s.id, { fields: ['id'] }) ||
       this.store.read(['toolPermissions']).toolPermissions?.[publicToolName(tool.name)] === 'never_allow' ||
       this.store.read(['toolPermissions']).toolPermissions?.[tool.name] === 'never_allow' ||
       (tool.sessionApproval && !tool.sessionApproval.isCurrent());
@@ -1209,7 +1213,7 @@ export class Compat {
     return { kind: 'ask', reason: 'This operation runs outside the native file and command sandbox.' };
   }
   async toolAvailable(s, tool, operation = {}) {
-    const current = this.store.readSession(s.id);
+    const current = this.store.readSession(s.id, { fields: toolPolicySessionFields });
     if (!current) return false;
     // Reuse decryption only inside this policy/approval operation. Every check
     // still validates the live registry and selection, including after a reply.
@@ -1244,7 +1248,7 @@ export class Compat {
     const currentPolicy = () => {
       // Rechecking a permission must not clone every chat and tool receipt.
       const state = this.store.read(['toolPermissions']);
-      const session = this.store.readSession(s.id);
+      const session = this.store.readSession(s.id, { fields: ['id'] });
       return {
         permission: state.toolPermissions?.[publicToolName(tool.name)] ?? state.toolPermissions?.[tool.name],
         missing: !session,

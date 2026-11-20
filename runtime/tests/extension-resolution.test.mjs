@@ -74,7 +74,16 @@ async function fixture(t) {
 test('tool policy and approval each resolve credentials once while rechecking live selections', async t => {
   const { store, settings } = await fixture(t);
   const session = { id: 'approval-resolution', ...(await sealSessionExtensions(null, [extension('remote').server])) };
-  await store.update(state => state.sessions.push(session));
+  await store.update(state => state.sessions.push({
+    ...session,
+    updates: [{ sessionUpdate: 'agent_message_chunk', content: { type: 'text', text: 'Previous turn' } }],
+  }));
+  const readSession = store.readSession;
+  t.mock.method(store, 'readSession', (id, options) => {
+    const current = readSession(id, options);
+    assert.equal(Object.hasOwn(current ?? {}, 'updates'), false, 'permission checks must not copy the chat history');
+    return current;
+  });
   const host = Object.assign(Object.create(Compat.prototype), {
     store, settings, active: new Map(),
     safety: { async inspect() { return { requiresApproval: false }; } },

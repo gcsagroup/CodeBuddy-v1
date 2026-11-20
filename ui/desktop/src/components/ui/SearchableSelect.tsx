@@ -24,7 +24,7 @@ interface Choice {
 // Accept the same option and optgroup markup for both the short and searchable views.
 function collectOptions(children: ReactNode, group = '', disabled = false): Choice[] {
   return Children.toArray(children).flatMap((child) => {
-    if (!isValidElement<React.OptionHTMLAttributes<HTMLOptionElement>>(child)) return [];
+    if (!isValidElement<React.OptionHTMLAttributes<globalThis.HTMLOptionElement>>(child)) return [];
     const props = child.props;
     if (child.type === 'optgroup') {
       return collectOptions(props.children, props.label, disabled || props.disabled);

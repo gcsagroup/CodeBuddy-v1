@@ -166,3 +166,6 @@ gooseselftest/
 # Explicitly approved shared distribution credentials; packaged locally, never committed
 /runtime/distribution-credentials.json
 /.artifacts
+
+# Generated platform-specific Serena Python dependencies
+/runtime/assets/serena/

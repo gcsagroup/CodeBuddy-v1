@@ -854,8 +854,18 @@ test('session export includes the first prompt and completed tool result before 
     assert.deepEqual(results[0].toolResult.value.content, [{ type: 'text', text: 'Fixture receipt' }]);
 
     finishTurn.resolve();
-    // Title generation holds the active turn open after the transcript commit.
+    // Naming can start on an early tool result. Its pending promise keeps the
+    // turn open, but only the persisted journal marker proves finalization.
     await Promise.race([titleStarted.promise, endedTooSoon]);
+    const deadline = Date.now() + 5000;
+    let persisted;
+    do {
+      const state = JSON.parse(await readFile(path.join(dataDir, 'state.json'), 'utf8'));
+      persisted = state.sessions.find(session => session.id === sessionId);
+      if (Object.keys(persisted?.transcriptTurns ?? {}).length) break;
+      await delay(5);
+    } while (Date.now() < deadline);
+    assert.equal(Object.keys(persisted?.transcriptTurns ?? {}).length, 1);
     settling = await exportSession();
     assert.deepEqual(settling.conversation.slice(0, -1), live.conversation);
     assert.deepEqual(settling.conversation.at(-1).content, [{ type: 'text', text: 'Final answer' }]);

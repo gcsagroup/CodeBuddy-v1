@@ -155,6 +155,8 @@ test('Ollama cloud details supply capacity once per model; local architectural l
   assert.equal(a.contextWindow,1048576);assert.equal(b.contextSource,'service');
   assert.deepEqual(await resolveImageCapability(p, 'kimi-k3'), {imageInput:'supported',source:'provider_metadata'});
   assert.equal(calls.filter(c=>c.url.endsWith('/api/show')).length,1);
+  assert.equal(calls.filter(c=>c.url.endsWith('/openapi.json')).length,0,
+    'known Ollama cloud uses its native capability endpoint without an unrelated compatibility-schema probe');
   assert.equal((await driverProvider({...p,contextWindows:{'kimi-k3':65536}},'kimi-k3')).contextWindow,65536);
   const local=await driverProvider({...p,apiUrl:'http://localhost:11434'},'kimi-k3');
   assert.equal(local.contextSource,'fallback');

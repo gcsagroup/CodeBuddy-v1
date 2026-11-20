@@ -18,6 +18,12 @@ function assertOfficeTarget(manifest, platform = process.platform, arch = proces
 }
 
 async function copyRuntimeSources(runtime, destination) {
+  const serena = path.join(runtime, 'assets', 'serena');
+  if (await fs.stat(serena).then(() => true, error => { if (error.code === 'ENOENT') return false; throw error; })) {
+    const manifest = JSON.parse(await fs.readFile(path.join(runtime, 'assets', 'serena-runtime.json'), 'utf8'));
+    if (manifest.platform !== process.platform || manifest.arch !== process.arch)
+      throw new Error(`Serena payload ${manifest.platform}/${manifest.arch} does not match ${process.platform}/${process.arch}; prepare dependencies for the target platform`);
+  }
   await fs.mkdir(destination, { recursive: true });
   for (const entry of await fs.readdir(runtime, { withFileTypes: true })) {
     // Legacy local distribution keys must never be shipped, even if left on disk.

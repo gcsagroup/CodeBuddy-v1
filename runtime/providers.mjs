@@ -325,10 +325,11 @@ async function providerFailureDetails(response) {
 
 async function requestJson(
   url,
-  { headers, method = "GET", payload, models = false, timeoutMs = REQUEST_TIMEOUT_MS },
+  { headers, method = "GET", payload, models = false, timeoutMs = REQUEST_TIMEOUT_MS, metadataStage },
 ) {
   if (!desktopNetworkAllowed()) throw providerError('network_permission_required', 'Network access requires permission.');
   let response;
+  const requestStarted = performance.now();
   try {
     response = await fetch(url, {
       method,
@@ -342,6 +343,10 @@ async function requestJson(
       "endpoint_unreachable",
       "Could not reach the model endpoint.",
     );
+  } finally {
+    if (metadataStage) console.info('[Provider metadata request]', JSON.stringify({
+      stage: metadataStage, headersMs: Math.round(performance.now() - requestStarted), status: response?.status ?? null,
+    }));
   }
   if (response.status === 401) {
     await response.body?.cancel();
@@ -415,6 +420,7 @@ export async function discover(input, stored, { timeoutMs, authPending, refreshM
     headers: auth.requestHeaders,
     models: true,
     timeoutMs,
+    metadataStage: 'inventory',
   });
   const ollama = endpoint.discovery.pathname.endsWith('/api/tags');
   const rawModels = ollama ? body.models : body.data;
@@ -476,10 +482,14 @@ async function resolveContext(provider, model, authPending, retryAfterRefresh = 
       try {
         let capacity, source;
         const base = new URL(provider.apiUrl);
+        const ollamaCloud = base.protocol === 'https:' && base.hostname === 'ollama.com';
+        const ollamaMetadata = ollamaCloud || engineName(provider.engine) === 'ollama_compatible';
         let schemaProfile;
-        if (!catalogProviderId && !Object.hasOwn(cached.thinking ?? {}, model) && endpoints(provider).completion.pathname.endsWith('/chat/completions') && engineName(provider.engine) !== 'ollama_compatible') {
+        // The OpenAI-compatible transport does not make Ollama an unknown
+        // backend: /api/show already owns its capabilities and thinking profile.
+        if (!ollamaMetadata && !catalogProviderId && !Object.hasOwn(cached.thinking ?? {}, model) && endpoints(provider).completion.pathname.endsWith('/chat/completions')) {
           const auth = await (authPending ?? credentials(provider, provider));
-          cached.openapi ??= requestJson(schemaUrl(provider), { headers: auth.requestHeaders, timeoutMs: 2000 }).catch(() => undefined);
+          cached.openapi ??= requestJson(schemaUrl(provider), { headers: auth.requestHeaders, timeoutMs: 2000, metadataStage: 'schema' }).catch(() => undefined);
           schemaProfile = schemaThinking(await cached.openapi, provider);
           const backend = schemaTemplateBackend(await cached.openapi, provider);
           if (backend) { cached.templateBackends ??= {}; cached.templateBackends[model] = backend; }
@@ -500,7 +510,7 @@ async function resolveContext(provider, model, authPending, retryAfterRefresh = 
             cached.thinkingBudgetField = await cached.budgetSupport ? 'thinking_token_budget' : undefined;
           }
         }
-        if (!Object.hasOwn(cached.thinking ?? {}, model) && endpoints(provider).completion.pathname.endsWith('/chat/completions') && engineName(provider.engine) !== 'ollama_compatible') {
+        if (!ollamaMetadata && !Object.hasOwn(cached.thinking ?? {}, model) && endpoints(provider).completion.pathname.endsWith('/chat/completions')) {
           cached.thinking ??= {};
           // An operation-wide enum is a probe candidate list, not this model's
           // capability. Missing/failed probes must remain unknown.
@@ -508,11 +518,11 @@ async function resolveContext(provider, model, authPending, retryAfterRefresh = 
         }
         // Cloud uses its full window. Local model_info is only an architectural
         // maximum, not the running num_ctx; never adopt it as deployment capacity.
-        if (base.protocol === 'https:' && base.hostname === 'ollama.com' || engineName(provider.engine) === 'ollama_compatible') {
+        if (ollamaMetadata) {
           const auth = await (authPending ?? credentials(provider, provider));
           const body = await requestJson(new URL('/api/show', base), { method: 'POST', headers: auth.requestHeaders,
-            payload: { model }, timeoutMs: 5000 });
-          if (base.protocol === 'https:' && base.hostname === 'ollama.com')
+            payload: { model }, timeoutMs: 5000, metadataStage: 'ollama_show' });
+          if (ollamaCloud)
             capacity = Object.entries(body.model_info ?? {}).find(([k, v]) => k.endsWith('.context_length') && Number.isSafeInteger(v) && v > 0)?.[1];
           cached.thinking ??= {};
           cached.thinking[model] = ollamaThinkingProfile(body);
@@ -912,8 +922,13 @@ export function outputBudgetProfile(provider, model) {
 }
 
 export async function driverProvider(provider, model, { legacyThinking = false } = {}) {
-  const authPending = credentials(provider, provider);
-  const [auth] = await Promise.all([authPending, resolveContext(provider, model, authPending)]);
+  const started = performance.now();
+  const metadataCached = Boolean(cachedModels(provider));
+  let credentialsMs, metadataMs;
+  const authPending = credentials(provider, provider).finally(() => { credentialsMs = Math.round(performance.now() - started); });
+  const metadataPending = resolveContext(provider, model, authPending).finally(() => { metadataMs = Math.round(performance.now() - started); });
+  const [auth] = await Promise.all([authPending, metadataPending]);
+  console.info('[Provider preparation timing]', JSON.stringify({ providerId: provider.id, model, metadataCached, credentialsMs, metadataMs }));
   if (cachedModels(provider)?.nonChatModels?.includes(model))
     throw providerError('model_unavailable', 'The selected model does not support chat completions.');
   if (cachedModels(provider)?.tools?.[model] === false)

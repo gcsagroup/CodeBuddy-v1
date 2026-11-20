@@ -24,8 +24,9 @@ export function proposeFirstTurnTitle(host, original, users, updates, signal, ea
   if (!user) return;
   const assistant = updates.filter(update => update.sessionUpdate === 'agent_message_chunk' && update.content?.type === 'text')
     .map(update => update.content.text).join('').trim().slice(0, 6000);
-  if (early && !assistant) return;
-  return host.driver.generateTitle(original.id, { user, assistant }, signal).catch(() => undefined);
+  // A tool turn often has no assistant prose until its final answer. Its
+  // original topic is already available; do not serialize naming after it.
+  return host.driver.generateTitle(original.id, { user, assistant, ...(early && !assistant ? { topicOnly: true } : {}) }, signal).catch(() => undefined);
 }
 
 export async function nameFirstTurn(host, original, users, updates, signal, proposal) {

@@ -39,9 +39,24 @@ test('official Office skills use the relocatable payload through Harness shell',
   for (const name of ['office-docx', 'office-xlsx', 'office-pptx']) {
     assert.ok(skills.some(skill => skill.name === name && skill.provider === 'dsh-office'));
     const loaded = await driver.callTool(sessionId, 'skill', { name }, { onPermission: () => true });
-    assert.equal(loaded.isError, false);
+    assert.equal(loaded.isError, false, JSON.stringify(loaded));
     assert.match(JSON.stringify(loaded), /Installed LibreOffice Kit/);
+    assert.match(loaded.value.content, /current model has no declared image input/);
+    assert.match(loaded.value.content, /Do not write successive verification scripts/);
+    assert.match(loaded.value.content, /Markdown link is its file delivery method/);
+    assert.doesNotMatch(loaded.value.content, /Call `present\(/);
+    assert.ok(loaded.value.resourceBase.path.endsWith(name), 'upstream resource ownership is preserved');
+    assert.match(loaded.value.content, /SKILL.md/,'advanced guidance stays discoverable');
+    assert.match(loaded.value.content, /Do not embed a long script inside shell JSON/);
+    assert.match(loaded.value.content, /-I -B -X utf8/);
+    assert.ok(loaded.value.content.length < 5200,'common instructions must remain bounded');
   }
+  const imageSession = await driver.createSession({ cwd: root,
+    provider: { id: 'vision', protocol: 'openai-completions', baseUrl: 'http://127.0.0.1:1/v1', inputModalities: ['text', 'image'] }, model: 'fixture' });
+  const imageSkill = await driver.callTool(imageSession.sessionId, 'skill', { name: 'office-xlsx' }, { onPermission: () => true });
+  assert.equal(imageSkill.isError, false);
+  assert.match(imageSkill.value.content, /current model accepts images/);
+  assert.doesNotMatch(imageSkill.value.content, /current model has no declared image input/);
   const denied = await driver.callTool(sessionId, 'load_workspace_dependencies', {}, { onToolPolicy: () => ({ kind: 'ask' }), onPermission: () => false });
   assert.equal(denied.isError, true);
   const result = await driver.callTool(sessionId, 'load_workspace_dependencies', {}, { onPermission: () => true });
@@ -49,6 +64,7 @@ test('official Office skills use the relocatable payload through Harness shell',
   const payload = result.value;
   assert.ok(payload.python.startsWith(fileURLToPath(new URL('../../py/', import.meta.url))));
   const script = path.join(root, 'office_roundtrip.py');
+  await writeFile(path.join(root, 'inspect.py'), 'raise RuntimeError("workspace must not shadow Python inspect")\n');
   await writeFile(script, `import json
 from pathlib import Path
 from docx import Document
@@ -104,4 +120,10 @@ assert load_workbook(root/'original.xlsx')['Data']['A1'].value==5
   }, { onPermission: () => true });
   assert.equal(shell.isError, false, JSON.stringify(shell));
   assert.deepEqual(JSON.parse(await readFile(path.join(root, 'receipt.json'), 'utf8')), { docx: true, xlsx: true });
+  const checker = fileURLToPath(new URL('../../office/scripts/check_office.py', import.meta.url));
+  await driver.callTool(sessionId, process.platform === 'win32' ? 'pwsh' : 'bash', {
+    description: 'Check the documented Office CLI count and text arguments',
+    command: `${process.platform === 'win32' ? '& ' : ''}${quote(payload.python)} -I -B -X utf8 ${quote(checker)} ${quote(path.join(root, 'edited.xlsx'))} --count 2 --contains 'Find Me' --out ${quote(path.join(root, 'checks.json'))}`,
+  }, { onPermission: () => true });
+  assert.equal(JSON.parse(await readFile(path.join(root, 'checks.json'), 'utf8')).verdict, 'pass');
 });

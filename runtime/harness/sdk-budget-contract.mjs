@@ -7,6 +7,7 @@ import { compactionPatch } from './sdk-budget/compaction-patch.mjs';
 import { retryPatch } from './sdk-budget/retry-patch.mjs';
 import { runtimeContextSessionPatch, runtimeContextMeterPatch, runtimeContextImageOffloadPatch } from './sdk-budget/runtime-context-patch.mjs';
 import { patchChatTools, piCompatSchemaPatch } from './sdk-budget/chat-tools-patch.mjs';
+import { streamCompletionPatch } from './sdk-budget/stream-completion-patch.mjs';
 
 // The adapter's estimator and 4096-token reservation belong to this exact Pi
 // release. Do not silently combine the shim with independently upgraded helpers.
@@ -59,6 +60,10 @@ if (createHash('sha256').update(compatSource).digest('hex') !== piCompatSchemaPa
 patches.unshift({ ...piCompatSchemaPatch, url: compatUrl, source: compatSource,
   replacement: piCompatSchemaPatch.transform(compatSource), applied: false });
 patches.unshift({ name: 'pi-ai chat serializer', url: completionUrl, source: completionSource, replacement: completionProjection, applied: false });
+const streamUrl = import.meta.resolve(streamCompletionPatch.name);
+const streamSource = readFileSync(new URL(streamUrl), 'utf8');
+patches.unshift({ ...streamCompletionPatch, url: streamUrl, source: streamSource,
+  replacement: streamCompletionPatch.transform(streamSource), applied: false });
 const hook = registerHooks({
   load(url, context, nextLoad) {
     const loaded = nextLoad(url, context);

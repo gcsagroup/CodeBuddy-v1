@@ -1,5 +1,11 @@
 # CodeBuddy Harness 运行时
 
+工具发现分为候选与加载：`search_mcp_tools` 的模糊 query、空查询和 servers 浏览只返回最多 5 条名称/用途摘要；选择 `names` 后才将完整 schema 加入下一次模型请求。精确工具标识和 `@code` 保持直接加载。候选排序不是语义或授权裁决，找不到合适能力时允许不选择；翻页不会加载整个服务。已有 names 调用不变，旧查询结果不重新执行，权限和注册表仍由 Harness 管理。
+
+Office 的 CodeBuddy 部署说明在既有技能读取边界提供，仅作用于内置 `dsh-office` 三种格式。常用编辑、数据校验和交付说明精简呈现；复杂格式、宏、导出和渲染通过原资源目录的 `SKILL.md` 按需读取，保留上游实现与资源路径。当前模型图片能力来自原生模型信息。任务脚本通过 `write` 落盘，已有文本脚本用 `edit` 局部修正，Shell 使用短调用，避免缺参数后重发整段代码；结构检查参数明确使用 `--count 3` 整数形式与可重复的 `--contains` 文本参数；合并业务断言与结构检查，失败或新证据仍需要复查。CodeBuddy 用 Markdown 链接交付，不提供 `present`。这些说明不会自动标记完成或扩大权限。 常用独立 Office 脚本使用 `-I -B -X utf8`：隔离脚本目录，避免 `inspect.py` 等同名文件遮蔽标准库，并明确 UTF-8 输出；显式项目环境要求仍优先，不改变项目 Python 设置。 文件名命中只提前展示读取和平台 Shell，不因路径存在就提前展示写入/编辑；显式 @code 和成功技能选择仍按原规则提供编辑能力。
+
+紧凑模式保留小型 `skill` schema，与已有技能摘要一致。成功加载内置 Office 后，仅展示当前作用域允许的 `read`、`write`、`edit`、平台 Shell 和依赖加载器，不执行它们。原生 `UNKNOWN_TOOL`/`INVALID_ARGS` 回执可触发准确名称和必填参数提示；大小写唯一匹配只用于建议，不自动改名或重试，撤销或禁用的工具不会被恢复。普通任务仍不加载整个工具箱。参考[工具定义与错误反馈](https://www.anthropic.com/engineering/writing-tools-for-agents)，采用现有 registry 与 schema，不引入模糊执行别名或新依赖。
+
 审批不可用与用户拒绝分开报告：原生 `approval:never` 且宿主仍要求审批时，返回 `APPROVAL_UNAVAILABLE`；子 Agent 应交回父 Agent 审批或执行，不扩大授权、不自动重放。`tool-error-contract.mjs` 对锁定的原生工具错误序列化做内存适配，只补充有界、去重的传输错误码（如 `ECONNREFUSED`、`CERT_HAS_EXPIRED`），不复制底层异常地址、堆栈或凭据，不改变重试与终态。远端 MCP 未提供的原因仍未知。依据：[Node.js error.cause](https://nodejs.org/api/errors.html#errorcause)。
 
 流式消息以首个片段的观察时间为创建时间，工具结果使用原生事件时间；导出与重载保留该时间，不伪造旧会话的缺失时间。桌面计划栏只消费现有宿主绑定的原生 todo 投影，折叠摘要显示完成／进行中／待处理数量，更新保持展开；成功计划工具和规划活动不再重复铺入聊天，失败与审批仍可见。两种导出使用系统桌面作为保存对话框默认目录，仅确认后写入。
@@ -73,6 +79,10 @@ AGENTS.md 读取使用官方 agent-instructions 插件。`instructionsHome` 指�
 
 官方技能根为项目 .dsh/skills／.agents/skills，以及数据根 skills／agents/skills；提供 listSkills、refreshSkills 和官方 /skill-name 显式注入。
 
+运行中工具箱热更新：每次模型请求的系统提示组装前，重新检查技能目录，并按当前会话选择解析 MCP 配置。连接协调逻辑与首次初始化共用，保留未变化的连接；不重启 Agent、不重放消息、不增加模型调用。固定版本 Harness 在组装钩子前捕获工具 schema，因此注册表变化后只重新组装一次。技能摘要增量由原生技能插件发布，正文和 MCP schema 沿用按需加载。
+
+跟随工具箱的会话在下一次模型调用时发现新增项；自定义选择、智能体能力限制、共享技能启用状态及原有审批继续生效。慢 MCP 先显示连接中，定向发现等待握手完成；热更新不等于连接成功或授予权限。已发出的请求不被改写，已结束的任务不自动重启。回归入口：仓库根目录 `node --test runtime/tests/toolbox-hot-update.test.mjs`，覆盖 HTTP/stdio、同轮新增/移除、技能摘要、共享技能禁用与审批允许/拒绝。
+
 固定版本没有独立内置 memory provider。第三方记忆走官方 MCP；CodeBuddy 本地记录复用 storage-domain／storage-json 的 codebuddy_memory。memory.get(scope,key)／list(scope) 同步读取，set(scope,key,JSONvalue)／delete(scope,key) 异步持久化。应用拥有记录 schema、项目 scope、候选激活与检索语义，不增加第二个记忆模型或数据库。
 
 ## 验证边界
@@ -94,3 +104,5 @@ node --test test/mcp-apps.test.mjs test/mcp-metadata.test.mjs test/mcp-startup.t
 输入框 `@` 按文件／对话分组，文件复用工作区面板目录与搜索，对话复用 ACP 列表。来源通过官方 `dsh-session-reference`（锁定版本、MIT）作为只读、不受信任背景捕获；最多 3 个来源，每来源预览 24 KiB。长引用会按官方策略截断并带省略提示，不能承诺全文无损；未配置 spill 时不提供全文回取。支持原生会话；不迁移旧的非原生历史。引用不恢复旧任务，也不继承旧授权。采用官方服务而非前端复制全文，避免第二套投影与持久化；无需新依赖。
 
 Gemma 响应兼容层对连续短行和较长段落采用相同的有界重复输出检查；异常属于模型响应错误，交现有原生有限重试恢复，不要求用户补发提醒。原生工具调用随附的正文在块校验通过后展示；工具调用期间、或已修复跨字段思考边界之后再次出现未引用的思考结束标记时，拒绝本次响应，不执行未确认工具，也不把模型自写内容当成真实回执。普通正文中的标记说明、代码引用及用户要求的重复正文仍保留。回归包含跨分片、完整块、HTTP 流提前关闭、重试耗尽/取消和工具只执行一次。协议依据为 [Gemma 官方格式](https://ai.google.dev/gemma/docs/core/prompt-formatting-gemma4)，沿用现有 Harness 重试，不增加解析执行路径或依赖。
+
+工具箱开发能力新增网页验收、代码定义与引用、按版本文档、媒体质检技能。对应主会话工具为 web_audit、code_navigation、library_docs、inspect_media，沿用开发工具的会话选择和审批。Serena 使用最后 MIT 修订 74c38a65，Python 依赖从 runtime/assets/serena 加载，按目标平台准备；首次语言服务初始化可能下载对应语言服务器。Context7 联网查询可遇到服务鉴权或额度限制。视频元数据依赖本机 ffprobe。图像稳定轮廓不会自动区分耳朵和伞，视觉质量需要预览。

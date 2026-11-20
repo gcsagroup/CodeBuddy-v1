@@ -4,6 +4,28 @@ import { createServer } from 'node:http';
 import { setTimeout as delay } from 'node:timers/promises';
 import { observeModelTransport } from '../transport-observation.mjs';
 
+test('connection diagnostics follow actual socket reuse and never expose request data', async t => {
+  const server = createServer((_req, res) => res.end('private response'));
+  await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
+  t.after(() => { server.closeAllConnections(); server.close(); });
+  const logs = [];
+  t.mock.method(console, 'info', (...args) => logs.push(args));
+  let handler;
+  t.after(observeModelTransport({ on(_name, callback) { handler = callback; return () => {}; } }, () => {}));
+  for (let i = 0; i < 3; i++) {
+    for await (const _ of handler({ sessionId: 'fixture-socket' }, async function* () {
+      await (await fetch(`http://127.0.0.1:${server.address().port}/private-path`, { headers: { Authorization: 'secret-token' } })).text();
+      await delay(10);
+      yield { type: 'text-delta', text: 'private answer' };
+    })) { /* unchanged stream */ }
+  }
+  const rows = logs.filter(row => row[0] === '[Harness connection timing]').map(row => JSON.parse(row[1]));
+  assert.equal(rows.length, 3);
+  assert.equal(rows[0].reused, false);
+  assert.ok(rows.some(row => row.reused === true));
+  assert.doesNotMatch(JSON.stringify(rows), /secret|private|127\.0\.0\.1|Authorization/);
+});
+
 test('transport timings separate response wait from reasoning and text without collecting secrets', async t => {
   const server = createServer(async (req, res) => {
     for await (const _ of req) { /* consume test upload */ }
@@ -50,7 +72,31 @@ test('transport timings separate response wait from reasoning and text without c
   assert.ok(timing.headersMs - timing.bodySentMs >= 100, JSON.stringify(timing));
   assert.ok(timing.sendHeadersMs >= timing.createdMs);
   assert.equal(timing.status, 200);
+  assert.ok(timing.bodyCompleteMs >= timing.headersMs);
   assert.doesNotMatch(JSON.stringify(events), /private|secret|Authorization|127\.0\.0\.1/);
+});
+
+test('tail timings distinguish consumer backpressure from stream completion without changing chunks', async t => {
+  let handler;
+  const events = [];
+  t.after(observeModelTransport({ on(_name, callback) { handler = callback; return () => {}; } }, e => events.push(e)));
+  const chunks = [{ type: 'tool-call-delta', argumentsDelta: 'private' }, { type: 'finish', reason: { kind: 'stop' } }];
+  const received = [];
+  for await (const chunk of handler({ sessionId: 'tail' }, async function* () {
+    yield chunks[0];
+    await delay(110);
+    yield chunks[1];
+    await delay(110);
+  })) {
+    received.push(chunk);
+    await delay(110);
+  }
+  const end = events.at(-1);
+  assert.deepEqual(received, chunks);
+  assert.ok(end.consumerWaitMs >= 200);
+  assert.ok(end.finishMs - end.lastContentMs >= 200);
+  assert.ok(end.elapsedMs - end.finishMs >= 200);
+  assert.doesNotMatch(JSON.stringify(events), /private/);
 });
 
 test('a tool-only stream records first arguments and wall time without exposing arguments', async t => {

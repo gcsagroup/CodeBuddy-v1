@@ -11,7 +11,7 @@ export function apply(ctx) {
   const directory = fileURLToPath(new URL('./skills/computer-use/', import.meta.url));
   const candidate = {
     name: 'computer-use',
-    description: '电脑控制：操作 Windows/macOS 桌面应用、窗口、鼠标键盘及聊天软件。Desktop computer use: observe apps, interact and verify results. Load before GUI tasks; prefer the desktop MCP over shell UI scripts.',
+    description: '电脑控制：操作 Windows/macOS 桌面应用、窗口、鼠标键盘及聊天软件。Desktop computer use: observe apps, interact and verify results. Mac FluidUse/local FORMS field matching is part of this skill’s get_app_state, not a separate tool to search for. Load before GUI tasks; prefer the desktop MCP over shell UI scripts.',
     invocation: { modelInvocable: true, userInvocable: true },
     provider: name,
     source: 'bundled',

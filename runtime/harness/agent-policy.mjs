@@ -1,5 +1,6 @@
 import { scopeChainOf } from '@deepseek-ai/dsh-scope';
 import SkillRegistry from '@deepseek-ai/dsh-skill';
+import { officeWorkflow } from './office-workflow.mjs';
 const policies = new WeakMap();
 const mainPolicies = new WeakMap();
 export function bindAgentPolicy(scope, policy) {
@@ -16,6 +17,7 @@ export function bindMainAgentPolicy(scope, policy) {
 // Override the public service interface in the host composition. The upstream
 // registry keeps discovery, invalidation and lifecycle ownership unchanged.
 export default class AgentSkillRegistry extends SkillRegistry {
+  static inject = ['llm'];
   async list(options) { return (await this.snapshot(options)).skills; }
   async snapshot(options) {
     const value = await super.snapshot(options);
@@ -24,6 +26,12 @@ export default class AgentSkillRegistry extends SkillRegistry {
   }
   async get(name, options) {
     if (agentPolicyFor(options?.scope).some(p => !p.skills.includes(name))) return undefined;
-    return super.get(name, options);
+    const skill = await super.get(name, options);
+    if (skill?.provider !== 'dsh-office') return skill;
+    const agent = options?.scope;
+    const route = agent?.session?.requestHeader()?.config ?? agent?.options;
+    const info = route?.provider && route.model
+      ? await this.ctx.llm.resolveModelInfo(route.provider, route.model, options.signal) : undefined;
+    return officeWorkflow(skill, info ? info.inputModalities?.includes('image') === true : undefined);
   }
 }

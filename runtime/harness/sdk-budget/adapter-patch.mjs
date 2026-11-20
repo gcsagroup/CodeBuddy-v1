@@ -28,6 +28,14 @@ import { normalizeContext as normalizeRequestFitContext } from "@earendil-works/
 import { estimateContextTokens as estimateRequestFitTokens } from "@earendil-works/pi-ai/utils/estimate";
 import { clampMaxTokensToContext as clampRequestFitTokens, adjustMaxTokensForThinking as adjustRequestFitThinking } from "@earendil-works/pi-ai/api/simple-options";`);
     replace('import { isContextOverflow } from "@earendil-works/pi-ai/utils/overflow";', 'import { isContextOverflow, isRecoverableLength } from "@earendil-works/pi-ai/utils/overflow";');
+    // A normally exhausted chat stream already delegated bounded body cleanup
+    // to the SDK. Aborting it here destroys the connection a second time.
+    replace('const consumer = new AbortController();',
+      'const consumer = new AbortController();\n            let streamExhausted = false, streamSucceeded = false;');
+    replace('exhausted = true;\n\t\t\t\t\t\t\treturn;',
+      'exhausted = true;\n                            streamExhausted = true;\n\t\t\t\t\t\t\treturn;');
+    replace('\t\t\t} finally {\n\t\t\t\tconsumer.abort("pi-ai stream consumer stopped");\n\t\t\t}',
+      '\t\t\t} finally {\n                if (!streamExhausted || !streamSucceeded || model.api !== "openai-completions")\n\t\t\t\t    consumer.abort("pi-ai stream consumer stopped");\n\t\t\t}');
     // A request default must not replace model capacity. Native prepareCall
     // marks this default in request/header, so clearing it survives replay.
     replace('\tmaxTokens: z.number().step(1).min(1),\n\tinput: z.array(z.union(MODALITIES)),',
@@ -151,6 +159,7 @@ ${setup.replaceAll('\t\t\t', '\t\t')}${projection.replaceAll('\t\t\t\t', '\t\t')
 \t\t\t\t\t}
 `);
     replace('yield result.value;', `const block = result.value.type === "block-end" && result.value.block;
+                        if (result.value.type === "finish") streamSucceeded = ["stop", "tool-calls", "max-tokens"].includes(result.value.reason.kind);
                         if (recovery && block?.type === "tool-call" && (!block.id?.trim() || !block.name?.trim())) recovery.rejectIncompleteCall();
                         yield result.value;`);
     replace('}), model.contextWindow, options.signal, model.id)[Symbol.asyncIterator]();', '}), model.contextWindow, options.signal, model.id, fit, reportedOutput)[Symbol.asyncIterator]();');

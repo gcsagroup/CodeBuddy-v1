@@ -13,6 +13,27 @@ const { Session } = await import('@deepseek-ai/dsh-session');
 const WARM_HISTORY = 'Recorded fixture facts with a completed receipt. '.repeat(350);
 const FINAL = 'FINAL_AFTER_REQUEST_FIT_RECOVERY';
 
+test('normal Harness completion retains the connection while early abort remains owned by the adapter', async t => {
+  const sockets = new Set();
+  const f = await fixture(t, async (_request, res) => {
+    sockets.add(res.socket);
+    res.writeHead(200, { 'content-type': 'text/event-stream' });
+    for (const chunk of [
+      { choices: [{ index: 0, delta: { content: 'Fixture answer verified.' }, finish_reason: null }] },
+      { choices: [{ index: 0, delta: {}, finish_reason: 'stop' }], usage: { prompt_tokens: 100, completion_tokens: 5, total_tokens: 105 } },
+    ]) res.write(`data: ${JSON.stringify(chunk)}\n\n`);
+    res.write('data: [DONE]\n\n');
+    await new Promise(resolve => setTimeout(resolve, 60));res.end();
+  });
+  for (let i = 0; i < 4; i++) {
+    await f.driver.prompt(f.sessionId, 'Answer the isolated fixture question.');
+    await new Promise(resolve => setTimeout(resolve, 90));
+  }
+  assert.ok(f.requests.length >= 4);
+  assert.equal(sockets.size, 1, 'normal adapter finalization must not cancel a completed response body');
+  assert.deepEqual(failures(await f.driver.history(f.sessionId)), []);
+});
+
 function reply(res, content, { finish = 'stop', output = 20, tool, usage = { prompt_tokens: 500, completion_tokens: output, total_tokens: 500 + output } } = {}) {
   res.writeHead(200, { 'content-type': 'text/event-stream' });
   const emit = (delta, finish_reason = null) => res.write(`data: ${JSON.stringify({

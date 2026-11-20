@@ -40,13 +40,13 @@ test('manual rename, cancellation and native fork during naming win the race', a
 
 test('overlap naming with tool activity once and publish only at settlement', async () => {
   const { saved, host, calls } = fixture();
-  assert.equal(proposeFirstTurnTitle(host, original, users, [], signal, true), undefined);
-  const proposed = proposeFirstTurnTitle(host, original, users, reply, signal, true);
+  const proposed = proposeFirstTurnTitle(host, original, users, [], signal, true);
   await proposed;
   assert.equal(saved.title, '新对话');
   await nameFirstTurn(host, original, users, reply, signal, proposed);
   assert.equal(saved.title, '小猫图片');
   assert.equal(calls.length, 1);
+  assert.deepEqual(calls[0], { user: users[0].content.text, assistant: '', topicOnly: true });
 });
 
 test('restart repairs only unclaimed placeholders and keeps order, including a missing native cache entry', async () => {

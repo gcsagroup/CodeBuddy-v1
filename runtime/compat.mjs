@@ -1,3 +1,5 @@
+import { webAuditTool } from './web-audit-tool.mjs';
+import { developmentTools } from './development-tools.mjs';
 import { desktopNetworkAllowed } from './desktop-network-consent.mjs';
 import { SessionDeletionCleanup } from './session-deletion-cleanup.mjs';
 import { createSessionConnection } from './session-connection.mjs';
@@ -887,15 +889,8 @@ export class Compat {
       },
     ];
   }
-  async sessionOptions(s, prepared = {}) {
-    const state = this.store.read(["preferences", "prompts", "config", "providers"]);
-    const instructions = Object.values(s.instructions ?? {});
-    const basePrompt =
-      instructions.filter((x) => x.mode === "set" && x.text).at(-1)?.text ??
-      state.prompts?.system ??
-      DEFAULT_SYSTEM_PROMPT;
-    const preferences = state.preferences;
-    const resolvedExtensions = prepared.extensions ?? await resolveSessionExtensions(s, this.settings);
+  async sessionMcpConfiguration(s, resolvedExtensions) {
+    const state = this.store.read(["config", "providers"]);
     const extensions = resolvedExtensions.selected;
     const mcpServers = await Promise.all(
       extensions
@@ -915,6 +910,40 @@ export class Compat {
         mcpServers.push(
           await prepareHarnessMcpServer({ type: "mcp", server }, state, s.cwd),
         );
+    return {
+      mcpServers,
+      mcpApprovalScopes: mcpServers.map(mcpSessionApprovalScope).filter(Boolean),
+      mcpRequestMetadata: serverName => serverName === "commonqueries" && extensions.some(e => isBuiltinMcp(e.extension) && e.extension.name === "commonqueries") ? commonQueryMetadata(this.store) : undefined,
+    };
+  }
+  async sessionOptions(s, prepared = {}) {
+    const state = this.store.read(["preferences", "prompts", "config", "providers"]);
+    const instructions = Object.values(s.instructions ?? {});
+    const basePrompt =
+      instructions.filter((x) => x.mode === "set" && x.text).at(-1)?.text ??
+      state.prompts?.system ??
+      DEFAULT_SYSTEM_PROMPT;
+    const preferences = state.preferences;
+    const resolvedExtensions = prepared.extensions ?? await resolveSessionExtensions(s, this.settings);
+    const extensions = resolvedExtensions.selected;
+    let mcpSnapshot = resolvedExtensions, mcpRevision = this.configurationRevision;
+    let mcpConfiguration = await this.sessionMcpConfiguration(s, resolvedExtensions);
+    const resolveMcpConfiguration = async () => {
+      try {
+        mcpSnapshot.assertCurrent(this.session(s.id));
+        if (mcpRevision === this.configurationRevision) return mcpConfiguration;
+      } catch (error) { if (!isExtensionSnapshotChanged(error)) throw error; }
+      return this.readCurrentExtensions(s.id, async (current, snapshot) => {
+        const revision = this.configurationRevision;
+        const configuration = await this.sessionMcpConfiguration(current, snapshot);
+        snapshot.assertCurrent(this.session(s.id));
+        if (revision !== this.configurationRevision) throw extensionSnapshotChanged('Settings changed while refreshing MCP capabilities');
+        mcpRevision = revision;
+        mcpSnapshot = snapshot;
+        mcpConfiguration = configuration;
+        return configuration;
+      });
+    };
     const memoryInstructions =
       this.driver.memory &&
       agentAllowsTool(s.agentProfile, 'project_memory') &&
@@ -932,6 +961,10 @@ export class Compat {
     const petEnabled = Boolean(process.env.CODEBUDDY_PET_DIRECTORY) && await toolEnabled(s, this.settings, PET_TOOL_NAME, resolvedExtensions);
     const imageEnabled = await toolEnabled(s, this.settings, IMAGE_TOOL_NAME, resolvedExtensions);
     const videoEnabled = await toolEnabled(s, this.settings, VIDEO_TOOL_NAME, resolvedExtensions);
+    const enabledDevelopmentTools = [];
+    for (const tool of developmentTools({ cwd: s.cwd, dataDir: this.store.directory })) {
+      if (await toolEnabled(s, this.settings, tool.name, resolvedExtensions)) enabledDevelopmentTools.push(tool);
+    }
     const browserEnabled = await toolEnabled(s, this.settings, 'browser_control', resolvedExtensions);
     const installTools = !s.agentProfile && !s.scheduleId && this.library ? chatInstallTools({
       session: s, library: this.library, settings: this.settings,
@@ -961,7 +994,8 @@ export class Compat {
       initialPermissionPreset: initialPermissionPreset(s, preferences),
       conversationLocale: this.clientLocales.get(s.id),
       ...(s.globalConversation ? { showTool: name => mainLocalToolAvailable(this.active.get(s.id), name) } : {}),
-      mcpRequestMetadata: (serverName) => serverName === "commonqueries" && extensions.some(e => isBuiltinMcp(e.extension) && e.extension.name === "commonqueries") ? commonQueryMetadata(this.store) : undefined,
+      ...mcpConfiguration,
+      resolveMcpConfiguration,
       installGuidance: enabledInstallTools.length ? [
         'When resuming an interrupted installation with an unknown outcome, repeat the same install tool proposal to check the saved settings or installed files. For a matching installation, continue with the requested use. Distinguish a saved configuration, a successful connection, and an actual tool or skill invocation.',
         `The foreground chat owns installation. For a single repository handle the dependent steps directly. ${enabledInstallTools.some(tool => tool.name === 'install_mcp_extension') ? 'For a GitHub tool, call install_mcp_extension with repository_url first. Follow the publisher manifest or linked setup guide and submit its MCP launch configuration for testing before changing dependencies.' : ''} ${enabledInstallTools.some(tool => tool.name === 'install_skill') ? 'For a skill, locate the published SKILL.md directory and use install_skill.' : ''} Work within the selected workspace. If the source lacks setup information, ask for the documented command or skill link. Report the verified result or specific missing prerequisite.`,
@@ -996,9 +1030,7 @@ export class Compat {
       ...(preferences.autoCompactThreshold != null
         ? { autoCompactThreshold: preferences.autoCompactThreshold }
         : {}),
-      mcpServers,
       backgroundMcp: true,
-      mcpApprovalScopes: mcpServers.map(mcpSessionApprovalScope).filter(Boolean),
       prefersMcpImageObserver: (modelId) => prefersVisionObserver(
         this.store.read(['modelRouting']).modelRouting?.visionRoute,
         { providerId: prepared.model?.provider.id ?? s.providerId, modelId },
@@ -1058,6 +1090,8 @@ export class Compat {
       toolFilter: { allow: nativeAllowed },
       tools: [
         ...enabledInstallTools,
+        ...enabledDevelopmentTools,
+        ...(await toolEnabled(s, this.settings, 'web_audit', resolvedExtensions) ? [webAuditTool({ cwd: s.cwd })] : []),
         ...(s.globalConversation ? managementTools(this, s) : []),
         ...(s.globalConversation && this.driver.memory ? [workspaceMemoryTool(this, s)] : []),
         ...(browserEnabled ? [browserTool({ sessionId: s.id, cwd: s.cwd, requestOwner: this,
@@ -3215,8 +3249,14 @@ export class Compat {
           this.initialized.delete(s.id);
         }
       }
-      if (!nativeObservationToken) await bindAgentInput(this.store, s.id, userId, { profile: promptEntry.agentProfile });
-      await this.ensureSession(s);
+      // Capability preparation does not consume this input. Overlap its I/O
+      // with the durable role binding, but settle both before admission or
+      // cleanup so a late initializer cannot race a retry after a save failure.
+      const preparation = await Promise.allSettled([
+        nativeObservationToken ? undefined : bindAgentInput(this.store, s.id, userId, { profile: promptEntry.agentProfile }),
+        this.ensureSession(s),
+      ]);
+      for (const step of preparation) if (step.status === 'rejected') throw step.reason;
       trace('session_ready');
       if (s.permissionOverride) await this.permissionModes(s);
       controller.signal.throwIfAborted();
@@ -3230,31 +3270,34 @@ export class Compat {
       );
       trace('content_ready');
       if (s.type === "code_pro" && !manualCompact) {
-        let run = this.runs.latest(s.id);
+        const run = this.runs.latest(s.id);
+        let attempt;
         if (
           !run ||
           ["completed", "cancelled", "failed", "fatal", "exhausted"].includes(
             run.state,
           )
-        )
-          run = await this.runs.create({
+        ) {
+          if (p._meta?.resumeRunId) throw invalid("Run changed before resume");
+          attempt = await this.runs.createWithFirstHarnessAttempt({
             sessionId: s.id,
             // This is the turn's display/audit summary, not a replacement
             // prompt. Image-only requests retain their original image blocks.
             goal: (content.filter((c) => c.type === 'text').map((c) => c.text).join('\n').trim() ||
               '图片消息（未附文字）').slice(0, 32000),
             sourceMessageId: userId,
+          });
+        } else {
+          if (p._meta?.resumeRunId && p._meta.resumeRunId !== run.runId)
+            throw invalid("Run changed before resume");
+          attempt = await this.runs.beginAttempt({
+            sessionId: s.id,
+            runId: run.runId,
+            sourceMessageId: userId,
             executionOwner: "harness",
           });
-        if (p._meta?.resumeRunId && p._meta.resumeRunId !== run.runId)
-          throw invalid("Run changed before resume");
-        active.run = run;
-        const attempt = await this.runs.beginAttempt({
-          sessionId: s.id,
-          runId: run.runId,
-          sourceMessageId: userId,
-          executionOwner: "harness",
-        });
+        }
+        active.run = attempt.snapshot;
         active.attemptId = attempt.attemptId;
         active.dispatched = new Map();
       }

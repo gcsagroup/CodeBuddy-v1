@@ -87,6 +87,9 @@ test('auxiliary title inference uses the conversation route and both sides witho
   assert.match(JSON.stringify(request.messages), /USER_FIRST_TITLE/);
   assert.match(JSON.stringify(request.messages), /ASSISTANT_TITLE_CONTEXT/);
   assert.equal(request.tools?.length ?? 0, 0);
+  assert.equal(await f.driver.generateTitle(id, { user, assistant: '', topicOnly: true }), 'FIXTURE_ANSWER');
+  assert.match(JSON.stringify(f.requests.at(-1).messages), /USER_FIRST_TITLE/);
+  assert.equal(f.requests.at(-1).tools?.length ?? 0, 0);
   const long = '长'.repeat(4000);
   await f.driver.generateTitle(id, { user: 'USER_START' + long + 'USER_END', assistant: 'ANSWER_START' + long + 'ANSWER_END' });
   const excerpts = JSON.stringify(f.requests.at(-1).messages);

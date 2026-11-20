@@ -601,6 +601,64 @@ test('readiness errors other than changed snapshots are surfaced without model e
   assert.equal(f.compat.runs.latest(f.sessionId), null, 'a rejected preparation never starts a Harness run');
 });
 
+for (const outcome of ['success', 'binding failure', 'preparation failure', 'cancel']) {
+  test(`prompt overlaps durable binding and capability preparation without early admission: ${outcome}`, { timeout: 15000 }, async t => {
+    const f = await fixture(t);
+    const bindingStarted = Promise.withResolvers(), bindingRelease = Promise.withResolvers();
+    const preparationStarted = Promise.withResolvers(), preparationRelease = Promise.withResolvers();
+    const updateSession = f.store.updateSession.bind(f.store);
+    let firstWrite = true, prompts = 0;
+    f.store.updateSession = async (...args) => {
+      if (firstWrite) {
+        firstWrite = false;
+        bindingStarted.resolve();
+        await bindingRelease.promise;
+        if (outcome === 'binding failure') throw Error('Fixture binding failed');
+      }
+      return updateSession(...args);
+    };
+    f.setInitializer(async () => {
+      preparationStarted.resolve();
+      await preparationRelease.promise;
+      if (outcome === 'preparation failure') throw Error('Fixture preparation failed');
+    });
+    f.scripts.push(async () => {
+      prompts++;
+      assert.ok(Object.keys(f.store.readSession(f.sessionId).agentInputs).length);
+      return { stopReason: 'end_turn', reason: { kind: 'completed' } };
+    });
+    let settled = false;
+    const running = f.prompt('你好').then(result => ({ result }), error => ({ error })).finally(() => { settled = true; });
+    let timer;
+    try {
+      await Promise.race([
+        Promise.all([bindingStarted.promise, preparationStarted.promise]),
+        new Promise((_, reject) => { timer = setTimeout(() => reject(Error('Preparation still serializes behind binding')), 3000); }),
+      ]);
+      clearTimeout(timer);
+      assert.equal(prompts, 0);
+      bindingRelease.resolve();
+      await new Promise(resolve => setImmediate(resolve));
+      assert.equal(settled, false, 'even a failed save must drain preparation before releasing the turn');
+      assert.equal(prompts, 0);
+      if (outcome === 'cancel') f.compat.active.get(f.sessionId).controller.abort();
+    } finally {
+      clearTimeout(timer);
+      bindingRelease.resolve();
+      preparationRelease.resolve();
+    }
+    const { result, error } = await running;
+    if (outcome.endsWith('failure')) assert.match(error?.message ?? '', /Fixture .* failed/);
+    else {
+      assert.ifError(error);
+      assert.equal(result.stopReason, outcome === 'cancel' ? 'cancelled' : 'end_turn');
+    }
+    assert.equal(prompts, outcome === 'success' ? 1 : 0);
+    assert.equal(f.compat.active.has(f.sessionId), false);
+    assert.equal(f.compat.initializing.has(f.sessionId), false);
+  });
+}
+
 test('historical verification receipts do not certify later native work in a resumed run', async t => {
   const f = await fixture(t);
   const run = await f.compat.runs.create({ sessionId: f.sessionId, goal: 'Continue existing work', sourceMessageId: 'old-message', executionOwner: 'harness' });

@@ -111,6 +111,7 @@ export async function createHarnessDriver({ dataDir, cwd = process.cwd(), instru
   const routes = new Map();
   const providers = new Map();
   const sessionSettings = new Map();
+  const mcpRefreshers = new Map();
   const contextSources = new Map();
   const outputSources = new Map();
   const streamingMeters = new Map();
@@ -975,6 +976,25 @@ export async function createHarnessDriver({ dataDir, cwd = process.cwd(), instru
     // event can follow. Preserve the actual failure after a recovery attempt.
     run?.reject(Object.assign(error, outputLimit ? { outputLimit } : {}));
   });
+  const refreshedCapabilities = Symbol('refreshed-capabilities');
+  ctx.on('system-prompt/assemble', async (_assembly, context, next) => {
+    const agent = context.agent;
+    if (!agent || context[refreshedCapabilities]) return next();
+    context.signal?.throwIfAborted();
+    // The filesystem provider is invocation-cached upstream. Observe its
+    // authoritative inventory before the native per-step catalog publication.
+    await ctx.get('codebuddySkillCatalog').inventory(ctx.workingDirectory.get(agent.session));
+    let owner = agent;
+    while (owner && !mcpRefreshers.has(owner.id)) {
+      const parent = ctx.agents.get(owner.session.header.parentSession);
+      owner = parent && ctx.agents.isOwnedBy(owner.id, parent) ? parent : undefined;
+    }
+    const changed = await mcpRefreshers.get(owner?.id)?.();
+    context.signal?.throwIfAborted();
+    // This pinned Harness captures schemas before its assembly waterfall.
+    // Reassemble only after a registry change, without adding a model step.
+    return changed ? ctx.systemPrompt.assemble({ ...context, [refreshedCapabilities]: true }) : next();
+  }, { prepend: true });
   ctx.on('agent/pre-step', async ({ agent }, next) => {
     const run = runFor(agent);
     if (run?.ready) await run.ready;
@@ -1215,26 +1235,66 @@ export async function createHarnessDriver({ dataDir, cwd = process.cwd(), instru
     // Session-owned stdio processes outlive per-turn prompt/tool configuration.
     // Keep only the same healthy connection; changed configuration/filtering
     // disposes its live definitions and therefore its approval identity.
-    const stdioConfigs = new Map(mcpServers.filter(server => !server.configurationError && server.transport !== 'streamable-http')
-      .map(server => [server.serverName, { ...server, ...(registrationFilter ? { allowedTools: registrationFilter.allow ?? null, deniedTools: registrationFilter.deny } : {}), failOnStartupError: true }]));
     let localConnections = stdioConnections.get(agent);
     if (!localConnections) { localConnections = new Map(); stdioConnections.set(agent, localConnections); }
-    for (const [name, entry] of localConnections) {
-      if (entry.fiber.state === 2 && ['ready', 'connecting'].includes(mcpPlugin.mcpConnectionStatus(capabilities.key, name)) && isDeepStrictEqual(entry.config, stdioConfigs.get(name))) continue;
-      localConnections.delete(name);
-      await entry.fiber.dispose();
-    }
     builtinApprovals.delete(agent);
     await sessionScopes.get(sessionId)?.dispose();
     sessionScopes.delete(sessionId);
     sessionSettings.delete(sessionId);
     clearPressureSpec(agent.session);
-    const connections = mcpServers.filter(server => server.configurationError).map(server => ({
-      serverName: server.serverName, status: 'error', error: server.configurationError,
-    }));
-    const remoteServers = mcpServers.filter(server => !server.configurationError && server.transport === 'streamable-http');
+    let connections = [], remoteServers;
     let shared;
     let binding = mcpBindings.get(capabilities.key);
+    // Reuse the same connection reconciliation for idle setup and a model-step
+    // boundary. Persona, compaction, inbox, grants and host tools stay installed.
+    async function synchronizeMcp(servers) {
+      const normalized = servers.map(server => ({ ...server, backgroundStart: settings.backgroundMcp === true }));
+      const names = new Set();
+      for (const server of normalized) {
+        if (!/^[A-Za-z0-9_-]{1,32}$/.test(server.serverName) || names.has(server.serverName)) throw new TypeError('MCP server names must be unique valid identifiers');
+        names.add(server.serverName);
+      }
+      const local = normalized.filter(server => !server.configurationError && server.transport !== 'streamable-http');
+      const configs = new Map(local.map(server => [server.serverName, { ...server,
+        ...(registrationFilter ? { allowedTools: registrationFilter.allow ?? null, deniedTools: registrationFilter.deny } : {}), failOnStartupError: true }]));
+      for (const [name, entry] of localConnections) {
+        if (entry.fiber.state === 2 && ['ready', 'connecting'].includes(mcpPlugin.mcpConnectionStatus(capabilities.key, name)) && isDeepStrictEqual(entry.config, configs.get(name))) continue;
+        localConnections.delete(name);
+        await entry.fiber.dispose();
+      }
+      const remote = normalized.filter(server => !server.configurationError && server.transport === 'streamable-http');
+      const [lease, statuses] = await Promise.all([
+        isDeepStrictEqual(remote, remoteServers) ? shared : mcpPresets.acquire(remote),
+        Promise.all(local.map(async server => {
+          if (localConnections.has(server.serverName)) return { serverName: server.serverName, status: mcpPlugin.mcpConnectionStatus(capabilities.key, server.serverName) };
+          const started = performance.now(), config = configs.get(server.serverName);
+          const connection = capabilityCtx.plugin(mcpPlugin, config);
+          try {
+            await connection;
+            if (connection.state !== 2) throw new Error('Connection did not activate');
+            localConnections.set(server.serverName, { config: structuredClone(config), fiber: connection });
+            return { serverName: server.serverName, status: mcpPlugin.mcpConnectionStatus(capabilities.key, server.serverName) };
+          } catch (error) {
+            await connection.dispose();
+            return { serverName: server.serverName, status: 'error', error: mcpDiagnostic(error, server) };
+          } finally {
+            console.info('[Harness MCP preparation]', JSON.stringify({ sessionId, serverName: server.serverName, elapsedMs: Math.round(performance.now() - started) }));
+          }
+        })),
+      ]);
+      if (shared !== lease) {
+        const previous = shared;
+        if (binding) binding.rebind(lease?.key);
+        else if (lease) { binding = bindScopeParent(capabilities.key, lease.key); mcpBindings.set(capabilities.key, binding); }
+        shared = lease;
+        await previous?.[Symbol.asyncDispose]();
+      }
+      remoteServers = remote;
+      connections = normalized.map(server => server.configurationError
+        ? { serverName: server.serverName, status: 'error', error: server.configurationError }
+        : [...(lease?.statuses ?? []), ...statuses].find(connection => connection.serverName === server.serverName));
+      extensionStates.set(sessionId, connections);
+    }
     const fiber = agent.ctx.isolate('compaction').isolate('codebuddyCompactionFallbacks').isolate('codebuddyCompactionRequestConfig').plugin({
       name: 'codebuddy-session-capabilities',
       inject: ['skills'],
@@ -1249,6 +1309,27 @@ export async function createHarnessDriver({ dataDir, cwd = process.cwd(), instru
           binding?.rebind(undefined);
           await shared?.[Symbol.asyncDispose]();
         }, 'codebuddy-mcp.preset-lease');
+        if (settings.resolveMcpConfiguration) {
+          let pending;
+          const synchronize = async () => {
+            const next = await settings.resolveMcpConfiguration();
+            settings.mcpApprovalScopes = next.mcpApprovalScopes ?? [];
+            if (next.mcpRequestMetadata) settings.mcpRequestMetadata = next.mcpRequestMetadata;
+            if (isDeepStrictEqual(next.mcpServers, settings.mcpServers)) return false;
+            const started = performance.now();
+            await synchronizeMcp(next.mcpServers);
+            settings.mcpServers = next.mcpServers;
+            console.info('[Harness capabilities refreshed]', JSON.stringify({ sessionId, servers: connections.map(c => ({ name: c.serverName, status: c.status })), elapsedMs: Math.round(performance.now() - started) }));
+            return true;
+          };
+          const refresh = () => {
+            // Parent/child prompt assembly may overlap; one writer owns leases.
+            if (!pending) pending = synchronize().finally(() => { pending = undefined; });
+            return pending;
+          };
+          mcpRefreshers.set(sessionId, refresh);
+          scoped.effect(() => () => { if (mcpRefreshers.get(sessionId) === refresh) mcpRefreshers.delete(sessionId); });
+        }
         if (settings.installGuidance) scoped.systemPrompt.section({
           name: 'codebuddy:install-guidance', order: 101, text: settings.installGuidance, interpolate: false,
         });
@@ -1375,36 +1456,8 @@ export async function createHarnessDriver({ dataDir, cwd = process.cwd(), instru
         // Both transports are independent. Harness still owns remote preset
         // leases and session-scoped stdio processes. Background mode admits the
         // loop after scopes exist; the bridge publishes actual readiness later.
-        const [lease, statuses] = await Promise.all([
-          mcpPresets.acquire(remoteServers).then(value => (shared = value)),
-          Promise.all(mcpServers.filter(server => !server.configurationError && server.transport !== 'streamable-http').map(async server => {
-          if (localConnections.has(server.serverName)) return { serverName: server.serverName, status: mcpPlugin.mcpConnectionStatus(capabilities.key, server.serverName) };
-          const started = performance.now();
-          const config = stdioConfigs.get(server.serverName);
-          const connection = capabilityCtx.plugin(mcpPlugin, config);
-          try {
-            await connection;
-            if (connection.state !== 2) throw new Error('Connection did not activate');
-            localConnections.set(server.serverName, { config: structuredClone(config), fiber: connection });
-            return { serverName: server.serverName, status: mcpPlugin.mcpConnectionStatus(capabilities.key, server.serverName) };
-          } catch (error) {
-            await connection.dispose();
-            return { serverName: server.serverName, status: 'error', error: mcpDiagnostic(error, server) };
-          } finally {
-            console.info('[Harness MCP preparation]', JSON.stringify({
-              sessionId, serverName: server.serverName,
-              elapsedMs: Math.round(performance.now() - started),
-            }));
-          }
-        })),
-        ]);
-        if (lease) {
-          if (binding) binding.rebind(lease.key);
-          else { binding = bindScopeParent(capabilities.key, lease.key); mcpBindings.set(capabilities.key, binding); }
-          connections.push(...lease.statuses);
-          console.info('[Harness MCP reuse]', JSON.stringify({ sessionId, reused: lease.reused, servers: lease.statuses.length }));
-        }
-        connections.push(...statuses);
+        await synchronizeMcp(mcpServers);
+        if (shared) console.info('[Harness MCP reuse]', JSON.stringify({ sessionId, reused: shared.reused, servers: shared.statuses.length }));
         if (agent.session.header.origin !== 'subagent') {
           for (const definition of installSubagentTemplates(scoped, nativeSubagent, { models: subagentModels, custom: subagentTemplates, allow: settings.toolFilter?.allow, deny: settings.toolFilter?.deny })) delegationDefinitions.add(definition);
         }
@@ -1419,7 +1472,7 @@ export async function createHarnessDriver({ dataDir, cwd = process.cwd(), instru
         if (settings.mainAgentRole && agent.session.header.origin !== 'subagent') {
           const observation = await ctx.sessionQuery.observeSession(agent.id, { projectionMode: 'none' });
           try {
-            const resourceServers = connections.filter(connection => connection.status !== 'error').map(connection => connection.serverName);
+            const resourceServers = () => connections.filter(connection => connection.status !== 'error').map(connection => connection.serverName);
             const role = installMainAgentRole(scoped, agent, capabilities.key, settings.mainAgentRole, observation.events, resourceServers);
             mainAgentRoles.set(agent, role);
             scoped.effect(() => () => { if (mainAgentRoles.get(agent) === role) mainAgentRoles.delete(agent); });
@@ -1954,7 +2007,7 @@ export async function createHarnessDriver({ dataDir, cwd = process.cwd(), instru
       const firstLine = input.user.trim();
       // A short first message that already fits the native title verbatim
       // needs no separate provider request to label this conversation.
-      if (!input.assistant || (Array.from(firstLine).length <= 16 && fallback() === firstLine)) return fallback();
+      if ((!input.assistant && !input.topicOnly) || (Array.from(firstLine).length <= 16 && fallback() === firstLine)) return fallback();
       try {
         const route = agent.session.requestHeader()?.config;
         const first = agent.session.snapshotEvents().find(event => event.type === 'user/message' && event.data.source.kind === 'user');

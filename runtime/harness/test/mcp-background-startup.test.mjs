@@ -2,7 +2,7 @@ import { replyToNoActionReview } from './review-fixture.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import http from 'node:http';
-import { mkdtemp, writeFile, access, readFile } from 'node:fs/promises';
+import { mkdtemp, mkdir, writeFile, access, readFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
@@ -67,6 +67,37 @@ test('first reply bypasses a gated MCP; targeted discovery waits, cancellation a
   assert.equal(f.calls.length, 0, 'discovery never grants execution');
   await f.driver.callTool(id, 'mcp__slow__probe', {}, { onToolPolicy: () => ({ kind: 'ask' }), onPermission: async () => true });
   assert.equal(f.calls.length, 1);
+});
+
+test('compact requests retain skill summaries and refresh the connected MCP directory without loading all schemas', { timeout: 20000 }, async t => {
+  const f = await fixture(t);
+  const folder = path.join(f.root, '.dsh', 'skills', 'inventory-review');
+  await mkdir(folder, { recursive: true });
+  await writeFile(path.join(folder, 'SKILL.md'), '---\nname: inventory-review\ndescription: Reconcile stock movements against the warehouse ledger.\n---\nPRIVATE_SKILL_BODY_ONLY_AFTER_LOADING\n');
+  const role = { baseline: () => null, input: () => null };
+  const { sessionId } = await f.create({ mainAgentRole: role });
+  await f.driver.prompt(sessionId, 'Reply without external tools');
+  assert.deepEqual(f.requests[0].tools.map(t => t.function.name).sort(), ['search_mcp_tools','skill']);
+  assert.match(JSON.stringify(f.requests[0].messages), /inventory-review/);
+  assert.match(JSON.stringify(f.requests[0].messages), /Reconcile stock movements/);
+  assert.doesNotMatch(JSON.stringify(f.requests[0].messages), /PRIVATE_SKILL_BODY_ONLY_AFTER_LOADING/);
+  f.release();
+  const result = await f.driver.callTool(sessionId, 'search_mcp_tools', { servers: ['slow'] }, { onPermission: async () => true });
+  assert.deepEqual(result.value.tools, []);
+  assert.deepEqual(result.value.candidates.map(tool => tool.name), ['mcp__slow__probe'], 'browsing only returns scoped summaries');
+  const scopedQuery = await f.driver.callTool(sessionId, 'search_mcp_tools', { servers: ['slow'], query: 'probe tool' }, { onPermission: async () => true });
+  assert.deepEqual(scopedQuery.value.tools, []);
+  assert.deepEqual(scopedQuery.value.candidates.map(tool => tool.name), ['mcp__slow__probe'], 'keywords must not broaden an explicitly scoped server search');
+  const mixed = await f.driver.callTool(sessionId, 'search_mcp_tools', { servers: ['slow'], names: ['skill'] }, { onPermission: async () => true });
+  assert.deepEqual(mixed.value.tools.map(tool => tool.name), ['skill'], 'waiting for an MCP must still allow an explicit native tool request');
+  await f.driver.prompt(sessionId, 'Explain what a warehouse ledger records in one sentence');
+  const messages = JSON.stringify(f.requests.at(-1).messages.filter(message => message.role === 'system'));
+  assert.match(messages, /Connected MCP directory/);
+  assert.match(messages, /mcp__slow__probe: Controlled probe/);
+  await f.driver.configureSession(sessionId, { backgroundMcp: true, mcpServers: [], mainAgentRole: role });
+  await f.driver.prompt(sessionId, 'Reply without external tools again');
+  assert.doesNotMatch(JSON.stringify(f.requests.at(-1).messages.filter(message => message.role === 'system')), /mcp__slow__probe/);
+  assert.equal(f.calls.length, 0, 'metadata discovery must never execute a business tool');
 });
 
 test('removed pending remote cannot reappear; other selected session retains its lease', { timeout: 20000 }, async t => {

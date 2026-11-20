@@ -11,8 +11,33 @@ import {
   sessionMcpServers,
   harnessMcpServer,
   prepareHarnessMcpServer,
+  resolveSessionExtensions,
 } from "../session-extensions.mjs";
 import { recipeExtensions } from "../recipe-execution.mjs";
+
+test('new toolbox services reach following sessions while custom selections require explicit addition', async t => {
+  const directory = await mkdtemp(path.join(tmpdir(), 'toolbox-live-selection-'));
+  t.after(() => rm(directory, { recursive: true, force: true }));
+  const store = await openStore(directory);
+  const settings = new RuntimeSettings(store);
+  await settings.initialize();
+  const service = name => ({ type: 'mcp', server: { name, type: 'http', url: `http://127.0.0.1:1/${name}` } });
+  const first = service('ledger'), added = service('inventory');
+  await settings.saveExtension({ extension: first, enabled: true });
+  const custom = { id: 'custom', extensionSelection: 'custom', ...await sealSessionExtensions([first]) };
+  const follow = { id: 'follow', extensionSelection: 'follow' };
+  const before = await resolveSessionExtensions(follow, settings);
+  await settings.saveExtension({ extension: added, enabled: true });
+  assert.throws(() => before.assertCurrent(follow), /changed/i, 'a pre-install snapshot cannot be admitted as current');
+  const names = async session => (await selectedExtensions(session, settings)).map(entry => entry.configKey);
+  assert.ok((await names(follow)).includes('inventory'));
+  assert.deepEqual(await names(custom), ['ledger']);
+  const expanded = { ...custom, ...await sealSessionExtensions([first, added]) };
+  assert.deepEqual(await names(expanded), ['ledger', 'inventory']);
+  await settings.request('config/extensions/set-enabled', { configKey: 'inventory', enabled: false });
+  assert.ok(!(await names(follow)).includes('inventory'));
+  assert.deepEqual(await names(expanded), ['ledger'], 'a saved selection cannot revive a disabled service');
+});
 
 test('official GitHub writes use host approvals instead of a deferred MCP form, including existing profiles', async () => {
   const extension={type:'mcp',server:{name:'github_official',type:'http',url:'https://api.githubcopilot.com/mcp/',headers:[{name:'x-mcp-features',value:'remote_mcp_ui_apps'}]}};

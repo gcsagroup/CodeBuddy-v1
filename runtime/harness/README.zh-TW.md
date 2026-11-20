@@ -1,5 +1,11 @@
 # CodeBuddy Harness 執行環境
 
+工具發現分為候選與載入：`search_mcp_tools` 的模糊 query、空查詢和 servers 瀏覽只回傳最多 5 條名稱/用途摘要；選擇 `names` 後才將完整 schema 加入下一次模型請求。精確工具標識和 `@code` 保持直接載入。候選排序不是語義或授權判定，沒有合適能力時可以不選；翻頁不載入整個服務。既有 names 呼叫不變，舊查詢結果不重新執行，權限與註冊表仍由 Harness 管理。
+
+Office 的部署說明只作用於內建 `dsh-office` 三種格式。常用編輯、資料校驗與交付採精簡說明；複雜格式、巨集、匯出和渲染按需讀取原目錄的 `SKILL.md`，保留上游實作與資源路徑。圖片能力取自原生模型資訊。使用 `write` 保存精簡腳本，既有文字腳本以 `edit` 局部修正，再以短 Shell 呼叫執行，避免缺參數後重發整段程式碼；結構檢查以 `--count 3` 整數和可重複 `--contains` 文字參數呼叫；合併業務斷言與結構檢查，失敗或新證據仍需複查。Markdown 連結交付取代不存在的 `present`，不改完成判定或權限。 獨立 Office 腳本使用 `-I -B -X utf8`，避免工作目錄同名檔案遮蔽標準函式庫並保留 UTF-8；顯式專案環境要求優先，不更改專案設定。 檔名命中只預先展示讀取和平台 Shell；明確 @code 或成功技能選擇仍提供對應編輯工具。
+
+緊湊模式保留小型 `skill` schema；成功載入內建 Office 才展示作用域允許的 read、write、edit、平台 Shell 與依賴載入器，不執行它們。原生 `UNKNOWN_TOOL`/`INVALID_ARGS` 回執觸發準確名稱與必填參數提示；唯一大小寫匹配只是建議，不自動改名或重試，已撤銷工具不會恢復。參考[工具定義與錯誤回饋](https://www.anthropic.com/engineering/writing-tools-for-agents)，沿用 registry/schema，不新增模糊執行別名或依賴。
+
 審批不可用與使用者拒絕分開回報：原生 `approval:never` 且宿主仍要求審批時，回傳 `APPROVAL_UNAVAILABLE`；子 Agent 應交回父 Agent 審批或執行，不擴大授權、不自動重放。`tool-error-contract.mjs` 對鎖定的原生工具錯誤序列化做記憶體適配，只補充有界、去重的傳輸錯誤碼（如 `ECONNREFUSED`、`CERT_HAS_EXPIRED`），不複製底層異常位址、堆疊或憑據，不改變重試與終態。遠端 MCP 未提供的原因仍未知。依據：[Node.js error.cause](https://nodejs.org/api/errors.html#errorcause)。
 
 串流訊息以首個片段的觀察時間為建立時間，工具結果使用原生事件時間；匯出與重新載入保留該時間，不偽造舊對話缺失的時間。桌面計畫欄只消費現有宿主綁定的原生 todo 投影，摺疊摘要顯示完成／進行中／待處理數量，更新保持展開；成功計畫工具和規劃活動不再重複鋪入聊天，失敗與審批仍可見。兩種匯出使用系統桌面作為儲存對話框預設目錄，僅確認後寫入。
@@ -69,6 +75,10 @@ AGENTS.md 讀取使用官方 agent-instructions 外掛。`instructionsHome` 指�
 
 官方技能根為專案 .dsh/skills／.agents/skills，以及資料根 skills／agents/skills；提供 listSkills、refreshSkills 與官方 /skill-name 顯式注入。
 
+執行中工具箱熱更新：每次模型請求的系統提示組裝前，重新檢查技能目錄，並按目前對話選擇解析 MCP 設定。連線協調邏輯與首次初始化共用，保留未變更的連線；不重啟 Agent、不重播訊息、不增加模型呼叫。固定版本 Harness 在組裝鉤子前擷取工具 schema，因此登錄表變更後只重新組裝一次。技能摘要增量由原生技能外掛發布，正文與 MCP schema 沿用按需載入。
+
+跟隨工具箱的對話在下一次模型呼叫時發現新增項；自訂選擇、智慧體能力限制、共享技能啟用狀態及原有審批繼續生效。慢 MCP 先顯示連線中，定向發現等待握手完成；熱更新不等於連線成功或授權。已發出的請求不被改寫，已結束的任務不自動重啟。回歸入口：儲存庫根目錄 `node --test runtime/tests/toolbox-hot-update.test.mjs`，涵蓋 HTTP/stdio、同輪新增/移除、技能摘要、共享技能停用及審批允許/拒絕。
+
 固定版本沒有獨立內建 memory provider。第三方記憶走官方 MCP；CodeBuddy 本地記錄復用 storage-domain／storage-json 的 codebuddy_memory。memory.get(scope,key)／list(scope) 同步讀取，set(scope,key,JSONvalue)／delete(scope,key) 非同步持久化。應用擁有記錄 schema、專案 scope、候選啟用與檢索語意，不增設第二個記憶模型或資料庫。
 
 ## 驗證邊界
@@ -90,3 +100,5 @@ node --test test/mcp-apps.test.mjs test/mcp-metadata.test.mjs test/mcp-startup.t
 輸入框 `@` 按檔案／對話分組，檔案重用工作區面板目錄與搜尋，對話重用 ACP 清單。來源透過官方 `dsh-session-reference`（鎖定版本、MIT）作為唯讀、不受信任背景捕獲；最多 3 個來源，每來源預覽 24 KiB。長引用會依官方策略截斷並帶省略提示，不保證全文無損；未設定 spill 時不提供全文回取。支援原生對話；不遷移舊的非原生歷史。引用不恢復舊任務，也不繼承舊授權。採用官方服務而非前端複製全文，避免第二套投影與持久化；不需新依賴。
 
 Gemma 相容層對連續短行與較長段落執行有界重複輸出檢查；異常交由既有原生有限重試恢復，不要求使用者補發提醒。原生工具呼叫隨附正文須通過區塊校驗才顯示；工具呼叫期間或修復跨欄位思考邊界後再次出現未引用的思考結束標記，會拒絕該回應，不執行未確認工具或採信模型自寫回執。一般正文標記說明、程式碼引用與刻意重複正文保留。回歸涵蓋跨分片、完整區塊、HTTP 串流提早關閉、重試耗盡/取消及工具僅執行一次。依據 [Gemma 官方格式](https://ai.google.dev/gemma/docs/core/prompt-formatting-gemma4)，沿用 Harness 重試，不增加解析執行路徑或依賴。
+
+工具箱新增網頁驗收、程式碼定義與引用、版本文件和媒體品質檢查。工具沿用開發工具的會話選擇與審批。Serena 使用最後 MIT 修訂 74c38a65，依目標平台準備 Python 依賴；首次語言服務初始化可能下載語言伺服器。Context7 需要網路並受服務額度限制。影片檢查依賴 ffprobe，視覺品質仍需預覽。

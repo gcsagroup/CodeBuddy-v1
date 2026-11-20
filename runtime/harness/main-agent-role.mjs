@@ -98,7 +98,7 @@ export function installMainAgentRole(ctx, agent, capabilities, source, events = 
     name: 'mcp-resource-servers', order: ctx.systemPrompt.getSectionOrder('MCP_SERVERS'), interpolate: false,
     text: () => {
       const profile = current();
-      const names = resourceServers.filter(name => !profile || profile.capabilities === 'inherit' || profile.mcpServers.includes(name));
+      const names = (typeof resourceServers === 'function' ? resourceServers() : resourceServers).filter(name => !profile || profile.capabilities === 'inherit' || profile.mcpServers.includes(name));
       return names.length ? `## MCP resource servers\nUse list_mcp_resources, list_mcp_resource_templates, or read_mcp_resource with one of these server names: ${JSON.stringify(names)}.` : '';
     },
   });

@@ -10,7 +10,7 @@ import {createHarnessDriver} from '../index.mjs';
 // Load native SDK consumers after the same serialized bootstrap as the driver.
 const {installToolDiscovery, projectOptionalValues} = await import('../tool-discovery.mjs');
 
-test('interactive discovery loads only scoped tools for this turn and defers only the automatic skill catalog', async () => {
+test('interactive discovery defers schemas while preserving native skill summary ownership', async () => {
   const hooks = new Map();
   const catalog = ['read', 'write', 'edit', 'skill', 'pwsh'].map(name => ({ name, description: 'usable with pwsh', parameters: { type: 'object' } }));
   const agent = { id: 'main', session: { log: [], requestHeader: () => undefined } };
@@ -23,30 +23,31 @@ test('interactive discovery loads only scoped tools for this turn and defers onl
     tools: [...catalog, search], sections: [{ name: 'codebuddy:session-instructions', text: 'Always follow the project rules.' }],
   }));
   const messages = ['user', 'skill-invocation', 'skill-catalog'].map(kind => ({ source: { kind } }));
-  const step = async () => (await hooks.get('agent/pre-step')({ agent }, async () => ({ messages }))).messages;
-  assert.deepEqual((await assemble()).tools.map(t => t.name), ['search_mcp_tools']);
+  const step = async () => hooks.has('agent/pre-step')
+    ? (await hooks.get('agent/pre-step')({ agent }, async () => ({ messages }))).messages : messages;
+  assert.deepEqual((await assemble()).tools.map(t => t.name), ['skill', 'search_mcp_tools']);
   const shell = await search.execute({ query: 'pwsh' });
   assert.deepEqual(shell.tools.map(tool => tool.name), ['pwsh']);
-  assert.deepEqual((await assemble()).tools.map(t => t.name), ['pwsh', 'search_mcp_tools']);
+  assert.deepEqual((await assemble()).tools.map(t => t.name), ['skill', 'pwsh', 'search_mcp_tools']);
   hooks.get('session/event')(agent.session, { type: 'turn/end' });
   assert.equal((await assemble()).sections[0].text, 'Always follow the project rules.');
-  assert.deepEqual(await step(), messages.slice(0, 2));
+  assert.deepEqual(await step(), messages, 'the model needs skill summaries before discovering the loader');
   const found = await search.execute({ names: ['read', 'skill', 'edit'] });
   assert.deepEqual(found.missingNames, ['edit']);
   assert.deepEqual(JSON.parse(search.output.render({}, found)[0].text).tools, ['read', 'skill']);
   assert.deepEqual((await assemble()).tools.map(t => t.name), ['read', 'skill', 'search_mcp_tools']);
   assert.deepEqual(await step(), messages);
   hooks.get('session/event')(agent.session, { type: 'turn/end' });
-  assert.deepEqual((await assemble()).tools.map(t => t.name), ['search_mcp_tools']);
+  assert.deepEqual((await assemble()).tools.map(t => t.name), ['skill', 'search_mcp_tools']);
   const group = await search.execute({ query: '@code' });
   assert.deepEqual((await search.execute({ query: '@code file shell' })).tools, group.tools);
-  const available = process.platform === 'win32' ? ['read', 'pwsh'] : ['read'];
+  const available = process.platform === 'win32' ? ['read', 'write', 'pwsh'] : ['read', 'write'];
   assert.deepEqual(group.tools.map(tool => tool.name), available);
   assert.ok(group.missingNames.includes('edit'));
   const shown = JSON.parse(search.output.render({}, group)[0].text);
   assert.deepEqual(shown.missingNames, group.missingNames);
   assert.equal(shown.pendingServers, undefined);
-  assert.deepEqual((await assemble()).tools.map(t => t.name), [...available, 'search_mcp_tools']);
+  assert.deepEqual((await assemble()).tools.map(t => t.name).sort(), [...available, 'skill', 'search_mcp_tools'].sort());
   assert.deepEqual((await search.execute({ names: ['write'] })).tools.map(t => t.name), ['write']);
 });
 
@@ -71,14 +72,110 @@ test('a named local file offers scoped coding tools without executing or exposin
   await claim('https://host/entry.ts ../entry.ts /nested/item.ts C:\\remote\\entry.ts \\\\host\\entry.ts linked/entry.ts');
   assert.deepEqual(await shown(), ['search_mcp_tools'],'external references and links cannot advertise a project file by basename');
   await claim('Explain entry.ts without changing it.');
-  const offered = ['read','edit',process.platform==='win32'?'pwsh':'bash','search_mcp_tools'];
+  const offered = ['read',process.platform==='win32'?'pwsh':'bash','search_mcp_tools'];
   assert.deepEqual(await shown(), offered);
   hooks.get('tools/result')({agent,name:'read'},{isError:true});
   assert.deepEqual(await shown(), offered);
   hooks.get('tools/result')({agent,name:'read'},{isError:false});
-  assert.deepEqual(await shown(), ['read','edit',process.platform==='win32'?'pwsh':'bash','search_mcp_tools']);
+  assert.deepEqual(await shown(), ['read',process.platform==='win32'?'pwsh':'bash','search_mcp_tools']);
   hooks.get('session/event')(agent.session,{type:'turn/end'});
   assert.deepEqual(await shown(), ['search_mcp_tools']);
+});
+
+test('discovery avoids weak keyword matches without losing exact names or pagination', async () => {
+  const catalog = [
+    { name: 'skill', description: 'Load an installed skill' },
+    { name: 'install_skill', description: 'Install a skill for Office' },
+    { name: 'generate_image', description: 'Consult the matching skill first' },
+    { name: 'ledger_summary', description: 'Quarterly invoice totals by region' },
+    { name: 'weather_summary', description: 'Weather by region' },
+    { name: 'invoice_pdf', description: 'Read invoice documents' },
+    { name: 'web_fetch', description: 'Fetch the content of a specific HTTP(S) URL and return it decoded to text.' },
+    { name: 'git_pull', description: 'Fetch the selected remote branch and fast-forward the current clean branch only.' },
+  ];
+  const agent = { id: 'owner', session: { log: [], requestHeader() {} } }, hooks = new Map();
+  let search;
+  installToolDiscovery({ tools: { schemas: () => catalog, register: t => { search = t; }, get: () => search },
+    systemPrompt: { section() {} }, on: (n, h) => hooks.set(n, h) }, agent, undefined, () => true, true);
+  assert.deepEqual((await search.execute({ query: 'skill office-xlsx' })).tools.map(t => t.name), ['skill']);
+  hooks.get('session/event')(agent.session, { type: 'turn/end' });
+  const found = await search.execute({ query: 'invoice totals region invoice' });
+  assert.deepEqual(found.tools, []);
+  assert.deepEqual(found.candidates.map(t => t.name), ['ledger_summary']);
+  const shown = await hooks.get('system-prompt/assemble')({}, {}, async () => ({ tools: [...catalog, search] }));
+  assert.deepEqual(shown.tools.map(t => t.name), ['skill', 'search_mcp_tools'], 'ranked candidates do not load schemas');
+  const rendered = JSON.parse(search.output.render({}, found)[0].text);
+  assert.equal(rendered.candidates[0].description, catalog[3].description);
+  assert.ok(!('parameters' in rendered.candidates[0]));
+  assert.deepEqual((await search.execute({ names: ['weather_summary'] })).tools.map(t => t.name), ['weather_summary']);
+  assert.deepEqual((await search.execute({ query: 'fetch webpage scrape html' })).candidates.map(t => t.name), ['web_fetch']);
+  const page = await search.execute({});
+  assert.equal(page.totalMatches, 8);
+  assert.equal((await search.execute({ offset: page.nextOffset })).candidates.length, 3);
+});
+
+test('a vague delivery search cannot silently load a browser schema', async () => {
+  const browser = { name: 'browser_control', description: 'Present a browser page to the user; open a local file for acceptance.', parameters: { type: 'object', properties: { operation: { type: 'string' } } } };
+  const hooks = new Map(); let search;
+  const agent = { id: 'owner', session: { log: [], requestHeader() {} } };
+  installToolDiscovery({ tools: { schemas: () => [browser], register: t => { search = t; }, get: () => search },
+    systemPrompt: { section() {} }, on: (n,h) => hooks.set(n,h) }, agent, undefined, () => true, true);
+  const found = await search.execute({ query: 'present final deliverable file to user' });
+  assert.deepEqual(found.tools, []);
+  assert.equal(found.candidates[0].name, browser.name);
+  const assemble = () => hooks.get('system-prompt/assemble')({}, {}, async () => ({ tools: [browser, search] }));
+  assert.deepEqual((await assemble()).tools.map(t=>t.name), ['search_mcp_tools']);
+  await search.execute({ names: [browser.name] });
+  assert.deepEqual((await assemble()).tools.map(t=>t.name), ['browser_control','search_mcp_tools']);
+});
+
+test('invalid edit recovers through write and one-call sandbox approval without widening the session', { timeout: 30000 }, async t => {
+  const requests = [];
+  const server = http.createServer(async (req, res) => {
+    let raw = ''; for await (const chunk of req) raw += chunk;
+    const body = JSON.parse(raw); if (replyToNoActionReview(body, res)) return;
+    requests.push(body);
+    const receipts = body.messages.filter(m => m.role === 'tool');
+    const proposals = [
+      ['search_mcp_tools', { query: '@code' }],
+      ['edit', { file_path: 'recovery.txt', old_string: '', new_string: 'once' }],
+      ['write', { file_path: 'recovery.txt', content: 'once' }],
+      ['write', { file_path: 'recovery.txt', content: 'once', sandbox_permissions: 'workspace-write', justification: 'Write the requested isolated output once.' }],
+    ];
+    const proposal = proposals[receipts.length];
+    const delta = proposal ? { tool_calls: [{ index: 0, id: 'repair-' + receipts.length, type: 'function', function: { name: proposal[0], arguments: JSON.stringify(proposal[1]) } }] } : { content: 'Finished checking the tool receipts.' };
+    res.writeHead(200, { 'content-type': 'text/event-stream' });
+    res.end('data: ' + JSON.stringify({ id: 'repair', object: 'chat.completion.chunk', model: body.model,
+      choices: [{ index: 0, delta, finish_reason: proposal ? 'tool_calls' : 'stop' }] }) + '\n\ndata: [DONE]\n\n');
+  });
+  await new Promise(r => server.listen(0, '127.0.0.1', r));
+  const root = await mkdtemp(path.join(tmpdir(), 'toolbox-recovery-'));
+  const driver = await createHarnessDriver({ dataDir: path.join(root, 'state'), cwd: root });
+  t.after(async () => { await driver.close(); server.closeAllConnections(); await new Promise(r => server.close(r)); });
+  for (const allow of [true, false]) {
+    const cwd = path.join(root, String(allow)); await mkdir(cwd);
+    const { sessionId } = await driver.createSession({ cwd,
+      provider: { id: 'fixture', baseUrl: `http://127.0.0.1:${server.address().port}/v1`, contextWindow: 65536 },
+      model: 'fixture', options: { mainAgentRole: { baseline: () => null, input: () => null } } });
+    await driver.permissions(sessionId, { preset: 'read-only' });
+    const approvals = [], start = requests.length;
+    await driver.prompt(sessionId, 'Create the isolated output using the appropriate file operation.', {
+      onToolPolicy: () => ({ kind: 'allow' }), onPermission: async call => {
+        approvals.push(call); await assert.rejects(readFile(path.join(cwd, 'recovery.txt')), { code: 'ENOENT' }); return allow;
+      },
+    });
+    const turns = requests.slice(start);
+    const edit = turns[1].tools.find(t => t.function.name === 'edit').function;
+    assert.equal(edit.parameters.properties.old_string.minLength, 1);
+    assert.match(edit.description, /new file use write/);
+    assert.ok(turns[1].tools.some(t => t.function.name === 'write'));
+    assert.match(JSON.stringify(turns[2].messages), /old_string must be a non-empty string/);
+    assert.match(JSON.stringify(turns[3].messages), /sandbox/);
+    assert.equal(approvals.length, 1, 'only the exact escalation requests approval');
+    assert.equal((await driver.permissions(sessionId)).preset, 'read-only');
+    if (allow) assert.equal(await readFile(path.join(cwd, 'recovery.txt'), 'utf8'), 'once');
+    else await assert.rejects(readFile(path.join(cwd, 'recovery.txt')), { code: 'ENOENT' });
+  }
 });
 
 test('first provider request can inspect a supplied workspace filename without a discovery round trip', {timeout:30000}, async t => {
@@ -101,13 +198,13 @@ test('first provider request can inspect a supplied workspace filename without a
   const session=await driver.createSession({cwd:root,provider:{id:'fixture',baseUrl:`http://127.0.0.1:${server.address().port}/v1`,contextWindow:65536},
     model:'fixture',options:{mainAgentRole:{baseline:()=>null,input:()=>null}}});
   await driver.prompt(session.sessionId,'Compare 1.0.0 to 2.0.0, 3.3.1, 4.3.1 and 5.0.0 in package/api.ts',{onPermission:()=>true});
-  assert.deepEqual(names?.sort(), ['read','edit',process.platform==='win32'?'pwsh':'bash','search_mcp_tools'].sort());
+  assert.deepEqual(names?.sort(), ['read','skill',process.platform==='win32'?'pwsh':'bash','search_mcp_tools'].sort());
   names = undefined;
   await driver.prompt(session.sessionId,'Hello',{onPermission:()=>true});
-  assert.deepEqual(names,['search_mcp_tools']);
+  assert.deepEqual(names.sort(),['search_mcp_tools','skill']);
 });
 
-test('a failed undiscovered native call exposes its schema without replaying or granting execution', {timeout:60000}, async t => {
+test('wrong tool casing and missing arguments recover without replaying or granting execution', {timeout:60000}, async t => {
  const shell=process.platform==='win32'?'pwsh':'bash', requests=[];
  const server=http.createServer(async(req,res)=>{
   let raw='';for await(const chunk of req)raw+=chunk;
@@ -117,9 +214,9 @@ test('a failed undiscovered native call exposes its schema without replaying or 
   const results=request.messages.slice(user+1).filter(message=>message.role==='tool');
   res.writeHead(200,{'content-type':'text/event-stream'});
   const emit=(delta,finish_reason=null)=>res.write(`data: ${JSON.stringify({id:'schema-repair',object:'chat.completion.chunk',created:1,model:request.model,choices:[{index:0,delta,finish_reason}]})}\n\n`);
-  if(results.length<2){
-   const args={command:'echo DISCOVERY_SCHEMA_OK >> proof.txt',...(results.length?{description:'Write the isolated regression marker once'}:{})};
-   emit({tool_calls:[{index:0,id:'shell-'+results.length,type:'function',function:{name:shell,arguments:JSON.stringify(args)}}]});emit({},'tool_calls');
+  if(results.length<3){
+   const args={command:'echo DISCOVERY_SCHEMA_OK >> proof.txt',...(results.length===2?{description:'Write the isolated regression marker once'}:{})};
+   emit({tool_calls:[{index:0,id:'shell-'+results.length,type:'function',function:{name:results.length===0?shell.toUpperCase():shell,arguments:JSON.stringify(args)}}]});emit({},'tool_calls');
   }else{emit({content:'done'});emit({},'stop');}
   res.end('data: [DONE]\n\n');
  });
@@ -136,12 +233,39 @@ test('a failed undiscovered native call exposes its schema without replaying or 
   });
   const turns=requests.slice(start);
   assert.equal(turns[0].tools.some(tool=>tool.function.name===shell),false);
-  const schema=turns[1].tools.find(tool=>tool.function.name===shell)?.function.parameters;
+  const schema=turns[2].tools.find(tool=>tool.function.name===shell)?.function.parameters;
   assert.ok(schema?.required.includes('description'),'validation failure must reveal the canonical required field on the next request');
-  assert.deepEqual(approvals,[shell,shell],'both proposals retain the normal execution approval gate');
+  if (allow) {
+    assert.match(JSON.stringify(turns[1].messages), /previous tool call was rejected/);
+    assert.match(JSON.stringify(turns[2].messages), /previous tool call was rejected/);
+  }
+  assert.deepEqual(approvals,[shell.toUpperCase(),shell,shell],'all proposals retain the normal execution approval gate');
   if(allow)assert.equal((await readFile(path.join(cwd,'proof.txt'),'utf8')).trim(),'DISCOVERY_SCHEMA_OK','invalid calls are not dispatched or replayed');
   else await assert.rejects(readFile(path.join(cwd,'proof.txt')), {code:'ENOENT'});
  }
+});
+
+test('Office selection reveals only scoped prerequisites; spelling hints never execute or restore revoked tools', async () => {
+  const hooks = new Map(), sections = new Map(); let search;
+  let catalog = ['skill','read','write','edit','pwsh','bash','load_workspace_dependencies','generate_image'].map(name=>({name,parameters:{type:'object'}}));
+  const agent={id:'owner',session:{log:[],requestHeader(){}}};
+  installToolDiscovery({tools:{schemas:()=>catalog,register:t=>{search=t},get:()=>search},
+    systemPrompt:{section:s=>sections.set(s.name,s)},on:(n,h)=>hooks.set(n,h)},agent,undefined,n=>n!=='write',true);
+  const result=(name,value,isError=false)=>hooks.get('tools/result')({agent,name},{isError,value});
+  const names=async()=>(await hooks.get('system-prompt/assemble')({}, {},async()=>({tools:[...catalog,search]}))).tools.map(t=>t.name);
+  result('skill',{provider:'third-party',name:'office-xlsx'});
+  assert.deepEqual(await names(),['skill','search_mcp_tools']);
+  result('skill',{provider:'dsh-office',name:'office-xlsx'},true);
+  assert.deepEqual(await names(),['skill','search_mcp_tools']);
+  result('skill',{provider:'dsh-office',name:'office-xlsx'});
+  assert.deepEqual((await names()).sort(),['skill','read','edit',process.platform==='win32'?'pwsh':'bash','load_workspace_dependencies','search_mcp_tools'].sort());
+  hooks.get('session/event')(agent.session,{type:'turn/end'});
+  hooks.get('tools/result')({agent,name:'Skill'},{isError:true,error:{info:{code:'UNKNOWN_TOOL'}}});
+  assert.match(sections.get('codebuddy:tool-call-correction').text(), /"name":"skill"/);
+  assert.deepEqual(await names(),['skill','search_mcp_tools']);
+  catalog=catalog.filter(t=>t.name!=='skill');
+  assert.equal(sections.get('codebuddy:tool-call-correction').text(),'');
+  assert.deepEqual(await names(),['search_mcp_tools']);
 });
 
 test('result-driven discovery respects agent and registry boundaries', async()=>{

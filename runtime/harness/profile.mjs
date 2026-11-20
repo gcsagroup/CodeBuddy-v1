@@ -71,9 +71,12 @@ export function profileEntries(dataDir, cwd, instructionsHome = dataDir, sharedS
     entry('mcp-resources', 'dsh-mcp-resources'),
     { id: 'skills', name: new URL('./agent-policy.mjs', import.meta.url).href },
     { id: 'skill-computer', name: new URL('./computer-skill.mjs', import.meta.url).href },
+    { id: 'skill-development', name: new URL('./development-skills.mjs', import.meta.url).href },
+    { id: 'skill-superpowers', name: new URL('./superpowers-skills.mjs', import.meta.url).href },
+    { id: 'skill-modern-web-guidance', name: new URL('./modern-web-guidance-skill.mjs', import.meta.url).href },
     { id: 'skill-comfyui', name: new URL('./comfyui-skill.mjs', import.meta.url).href },
     { id: 'skill-filesystem', name: new URL('./skill-catalog.mjs', import.meta.url).href, config: { dshHome: dataDir, agentsHome: join(dataDir, 'agents'), managedWorkspaceRoot, ...(sharedSkillDir ? { sharedSkillDir } : {}) } },
-    entry('tool-skill', 'dsh-tool-skill'),
+    entry('tool-skill', 'dsh-tool-skill', { catalogDescriptionMaxLength: 180 }),
     ...(officeReady ? [
       entry('skill-office', 'dsh-skill-office', { assetRoot: officeRoot, node: process.execPath }),
       entry('tool-workspace-dependencies', 'dsh-tool-workspace-dependencies', { source: pythonRoot }),

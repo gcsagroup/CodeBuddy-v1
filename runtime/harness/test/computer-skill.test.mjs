@@ -94,13 +94,23 @@ test('compact first request offers the selected pending desktop connection witho
   assert.ok(prompt.includes('search_mcp_tools({"names":["skill"],"servers":["qwen_computer"]})'));
   assert.match(prompt, /do not substitute shell UI scripts/);
   assert.equal(requests.at(-1).tools.some(tool => tool.function.name.startsWith('mcp__')), false);
+  const abort = new AbortController();
+  const loading = driver.callTool(pending.sessionId, 'skill', { name: 'computer-use' },
+    { signal: abort.signal, onPermission: async () => true });
+  setTimeout(() => abort.abort(), 50);
+  const cancelled = await loading.catch(() => ({ isError: true }));
+  assert.equal(cancelled.isError, true, 'cancelling a skill wait must not hang on the connecting desktop');
+  assert.equal(driver.extensionStatus(pending.sessionId)[0].status, 'connecting');
   const absent = await create([]);
   await driver.prompt(absent.sessionId, '请检查目标窗口。');
   assert.doesNotMatch(JSON.stringify(requests.at(-1).messages), /reveal the connected desktop tools/);
 });
 
-test('first request exposes the desktop skill; loading it preserves deferred tools and input permissions', { timeout: 60000 }, async t => {
+for (const backgroundStart of [false, true]) test(`desktop skill preserves permissions and reveals tools without another inference (background=${backgroundStart})`, { timeout: 60000 }, async t => {
   const requests = [], desktopCalls = [];
+  let release;
+  const connection = new Promise(resolve => { release = resolve; });
+  if (!backgroundStart) release();
   const server = http.createServer(async (req, res) => {
     if (req.method !== 'POST') { res.writeHead(405).end(); return; }
     let raw = ''; for await (const chunk of req) raw += chunk;
@@ -108,6 +118,7 @@ test('first request exposes the desktop skill; loading it preserves deferred too
     if (replyToNoActionReview(message, res)) return;
     if (req.url === '/mcp') {
       if (!('id' in message)) { res.writeHead(202).end(); return; }
+      if (message.method === 'initialize') await connection;
       let result = {};
       if (message.method === 'initialize') result = { protocolVersion: '2025-03-26', capabilities: { tools: {} }, serverInfo: { name: 'desktop-fixture', version: '1' } };
       if (message.method === 'tools/list') result = { tools: ['open_path', 'list_apps', 'get_app_state', 'click', 'press_key', 'type_text', 'drag', 'scroll', 'set_value', 'perform_secondary_action'].map(name => ({ name, description: 'Desktop window operation', inputSchema: name === 'drag' ? { type: 'object', properties: { app: { type: 'string' }, from_x: { type: 'number' }, from_y: { type: 'number' }, to_x: { type: 'number' }, to_y: { type: 'number' } }, required: ['app', 'from_x', 'from_y', 'to_x', 'to_y'] } : { type: 'object', properties: {} } })) };
@@ -121,15 +132,16 @@ test('first request exposes the desktop skill; loading it preserves deferred too
     if (requests.length === 1) {
       emit({ tool_calls: [{ index: 0, id: 'load-skill', type: 'function', function: { name: 'skill', arguments: JSON.stringify({ name: 'computer-use' }) } }] });
       emit({}, 'tool_calls');
+      if (backgroundStart) setTimeout(release, 100);
     } else { emit({ content: 'fixture response' }); emit({}, 'stop'); }
     res.end('data: [DONE]\n\n');
   });
   await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
   const root = await mkdtemp(path.join(tmpdir(), 'computer-skill-'));
   const driver = await createHarnessDriver({ dataDir: path.join(root, 'state'), cwd: root });
-  t.after(async () => { await driver.close(); server.closeAllConnections(); await new Promise(resolve => server.close(resolve)); await rm(root, { recursive: true, force: true }); });
+  t.after(async () => { release(); await driver.close(); server.closeAllConnections(); await new Promise(resolve => server.close(resolve)); await rm(root, { recursive: true, force: true }); });
   const baseUrl = `http://127.0.0.1:${server.address().port}`;
-  const { sessionId } = await driver.createSession({ cwd: root, provider: { id: 'fixture', baseUrl, contextWindow: 65536 }, model: 'fixture', options: { mcpServers: [{ serverName: 'qwen_computer', transport: 'streamable-http', url: `${baseUrl}/mcp` }] } });
+  const { sessionId } = await driver.createSession({ cwd: root, provider: { id: 'fixture', baseUrl, contextWindow: 65536 }, model: 'fixture', options: { backgroundMcp: backgroundStart, mcpServers: [{ serverName: 'qwen_computer', transport: 'streamable-http', url: `${baseUrl}/mcp`, backgroundStart }] } });
   const bundled = (await driver.listBuiltinSkills(root)).find(skill => skill.name === 'computer-use');
   assert.equal(bundled?.source, 'bundled');
   await driver.prompt(sessionId, '请完成当前任务。', { onPermission: async () => true });

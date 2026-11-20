@@ -344,7 +344,15 @@ export class CodeProRuns {
     if (result.row.events.length !== result.previousSequence) this.publish(result.row, result.previousSequence);
     return { snapshot: snapshot(result.row), ...result.value };
   }
-  async create({ sessionId, goal, sourceMessageId, runId = randomUUID(), policy = {}, executionOwner = 'legacy' }) {
+  async createWithFirstHarnessAttempt(params) {
+    const attemptId = randomUUID();
+    const snapshot = await this.createRun({ ...params, executionOwner: 'harness' }, attemptId);
+    return { snapshot, attemptId };
+  }
+  create(params) {
+    return this.createRun(params);
+  }
+  async createRun({ sessionId, goal, sourceMessageId, runId = randomUUID(), policy = {}, executionOwner = 'legacy' }, firstAttemptId) {
     identity(sessionId, 'sessionId'); identity(runId, 'runId'); identity(sourceMessageId, 'sourceMessageId'); text(goal, 'goal');
     if (!['legacy', 'harness'].includes(executionOwner)) throw fail('Unknown execution owner');
     const completionPolicy = executionOwner === 'harness' ? { requirePlan: false, requireEvidence: false, requireVerification: false } : { requirePlan: true, requireEvidence: true, requireVerification: true, ...policy };
@@ -355,6 +363,7 @@ export class CodeProRuns {
       if (state.codeproRuns.some((run) => run.sessionId === sessionId && !TERMINAL.has(project(run).state))) throw fail('Session already has an unfinished run');
       const next = { version: VERSION, sessionId, runId, events: [], commands: [] };
       event(next, 'run_created', { goal, sourceMessageId, policy: completionPolicy, executionOwner });
+      if (firstAttemptId) event(next, 'attempt_started', { attemptId: firstAttemptId, sourceMessageId });
       state.codeproRuns.push(next); return copy(next);
     }, ['codeproRuns']);
     this.publish(row, 0);

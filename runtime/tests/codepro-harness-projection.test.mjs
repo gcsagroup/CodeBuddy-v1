@@ -25,6 +25,27 @@ async function fixture(executionOwner = 'harness', options = {}) {
 const goal = (phase = 'active') => ({ id: 'native-goal', revision: 1, objective: 'Implement multiple modules', phase, maxGoalRounds: 12, activation: phase === 'active' ? 'armed' : 'disarmed' });
 const native = (binding, type, seq, data) => ({ ...binding, nativeSessionId: 'native-session', event: { type, seq, time: 1000 + seq, data } });
 
+test('a fresh Harness run publishes only after its first attempt is durable in the same write', async () => {
+  const f = await fixture();
+  const input = { sessionId: 'another-session', goal: '你好', sourceMessageId: 'first' };
+  const update = f.store.update.bind(f.store);
+  let commits = 0;
+  f.store.update = operation => update(draft => {
+    const result = operation(draft);
+    if (!commits++) throw new Error('fixture write failed');
+    return result;
+  });
+  const before = f.updates.length;
+  await assert.rejects(f.runs.createWithFirstHarnessAttempt(input), /fixture write failed/);
+  assert.equal(f.updates.length, before);
+  assert.equal(f.runs.latest(input.sessionId), null);
+  const { snapshot, attemptId } = await f.runs.createWithFirstHarnessAttempt(input);
+  assert.equal(commits, 2);
+  assert.equal(f.updates.length, before + 1);
+  assert.deepEqual(snapshot.recentEvents.map(e => [e.sequence, e.eventType]), [[1, 'run_created'], [2, 'attempt_started']]);
+  assert.equal(f.runs.context(snapshot).activeAttempt, attemptId);
+});
+
 test('failed native-terminal projection retries once and never revives a superseded attempt', async () => {
   for (const superseded of [false, true]) {
     const f = await fixture();

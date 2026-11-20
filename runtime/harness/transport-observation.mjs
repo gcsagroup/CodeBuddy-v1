@@ -30,7 +30,14 @@ function codesOf(error, result = new Set(), seen = new Set()) {
 export function observeModelTransport(ctx, publish, onStreamingOutput) {
   const context = new AsyncLocalStorage();
   const requests = new WeakMap();
+  const sockets = new WeakMap();
   const listeners = {
+    'codebuddy:provider-stream': ({ phase }) => {
+      if (phase === 'completion_sentinel') context.getStore()?.report?.(phase);
+    },
+    'undici:client:connected': ({ socket }) => {
+      sockets.set(socket, { uses: 0 });
+    },
     'undici:request:create': ({ request }) => {
       const scope = context.getStore();
       // The optional count request is preparation, not an inference attempt.
@@ -42,9 +49,17 @@ export function observeModelTransport(ctx, publish, onStreamingOutput) {
         scope.report?.('request_created');
       }
     },
-    'undici:client:sendHeaders': ({ request }) => {
+    'undici:client:sendHeaders': ({ request, socket }) => {
       const entry = requests.get(request);
-      if (entry) entry.timing.sendHeadersMs = Math.round(performance.now() - entry.scope.started);
+      const connection = sockets.get(socket);
+      if (entry) {
+        entry.timing.sendHeadersMs = Math.round(performance.now() - entry.scope.started);
+        // Connection events belong to pooled sockets, not the request that
+        // happened to trigger them. Attribute only the socket actually used.
+        console.info('[Harness connection timing]', JSON.stringify({ requestId: entry.scope.id,
+          sessionId: entry.scope.sessionId, reused: connection ? connection.uses > 0 : undefined }));
+      }
+      if (connection) connection.uses++;
     },
     'undici:request:bodySent': ({ request }) => {
       const entry = requests.get(request);
@@ -65,6 +80,10 @@ export function observeModelTransport(ctx, publish, onStreamingOutput) {
     'undici:request:error': ({ request, error }) => {
       const scope = requests.get(request)?.scope;
       if (scope) for (const code of codesOf(error)) scope.transportCodes.add(code);
+    },
+    'undici:request:trailers': ({ request }) => {
+      const entry = requests.get(request);
+      if (entry) entry.timing.bodyCompleteMs = Math.round(performance.now() - entry.scope.started);
     },
   };
   const budget = info => context.getStore()?.report?.('request_budget', info);
@@ -101,12 +120,17 @@ export function observeModelTransport(ctx, publish, onStreamingOutput) {
       let first = false, exhausted = false, failureCode, finishKind;
       let textDeltaChars = 0, reasoningDeltaChars = 0, toolCallBlocks = 0, toolArgumentChars = 0;
       let usage;
+      let lastContentMs, finishMs, usageMs, consumerWaitMs = 0;
       const seen = new Set();
       try {
         while (true) {
           const result = await context.run(scope, () => iterator.next());
           if (result.done) { exhausted = true; return; }
           scope.chunks += 1;
+          const elapsed = Math.round(performance.now() - scope.started);
+          if (['text-delta', 'reasoning-delta', 'tool-call-delta'].includes(result.value.type)) lastContentMs = elapsed;
+          if (result.value.type === 'finish') finishMs = elapsed;
+          if (result.value.type === 'usage') usageMs = elapsed;
           if (result.value.type === 'text-delta') textDeltaChars += result.value.text.length;
           if (result.value.type === 'reasoning-delta') reasoningDeltaChars += result.value.text.length;
           if (result.value.type === 'tool-call-delta') toolArgumentChars += result.value.argumentsDelta?.length ?? 0;
@@ -129,14 +153,18 @@ export function observeModelTransport(ctx, publish, onStreamingOutput) {
             report('first_tool_arguments');
           }
           if (result.value.type === 'finish' && result.value.reason.kind === 'error') failureCode = result.value.reason.failure.code;
-          yield result.value;
+          const yieldedAt = performance.now();
+          try { yield result.value; }
+          finally { consumerWaitMs += performance.now() - yieldedAt; }
         }
       } catch (error) {
         for (const code of codesOf(error)) scope.transportCodes.add(code);
         throw error;
       } finally {
         try { if (!exhausted) await context.run(scope, () => iterator.return?.()); }
-        finally { report('end', { textDeltaChars, reasoningDeltaChars, toolArgumentChars, toolCallBlocks, ...(usage ? { usage } : {}), ...(finishKind ? { finishKind } : {}), ...(failureCode ? { failureCode } : {}), cancelled: Boolean(options.signal?.aborted) }); }
+        finally { report('end', { textDeltaChars, reasoningDeltaChars, toolArgumentChars, toolCallBlocks,
+          lastContentMs, finishMs, usageMs, consumerWaitMs: Math.round(consumerWaitMs),
+          ...(usage ? { usage } : {}), ...(finishKind ? { finishKind } : {}), ...(failureCode ? { failureCode } : {}), cancelled: Boolean(options.signal?.aborted) }); }
       }
     })();
   });

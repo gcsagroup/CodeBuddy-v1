@@ -1,0 +1,9 @@
+{
+  "source": "https://github.com/oraios/serena",
+  "revision": "74c38a65f03fc0764d7ee4b3016ef6a07572ed64",
+  "packageVersion": "1.7.1.dev0",
+  "license": "MIT",
+  "platform": "win32",
+  "arch": "x64",
+  "python": "3.12"
+}

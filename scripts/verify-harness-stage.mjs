@@ -43,6 +43,14 @@ try {
   { cwd: evidence, windowsHide: true, encoding: 'utf8', timeout: 30000 });
   assert.equal(python.error, undefined);
   assert.equal(python.status, 0, python.stderr);
+  // Use relocated bundled Node/Python/Pyright, including after macOS signing.
+  // Neither language-service startup nor its imports may alter the signed app.
+  await writeFile(path.join(evidence, 'code-navigation-fixture.py'), 'def bundled_add(left, right):\n    return left + right\n');
+  const { developmentTools } = await import(pathToFileURL(path.join(stage, 'runtime/development-tools.mjs')));
+  const navigation = developmentTools({ cwd: evidence, dataDir: evidence }).find(tool => tool.name === 'code_navigation');
+  const symbols = await navigation.execute({ operation: 'overview', path: 'code-navigation-fixture.py' });
+  assert.notEqual(symbols.isError, true);
+  assert.match(JSON.stringify(symbols), /bundled_add/);
   const office = await driver.callTool(native.sessionId, 'skill', { name: 'office-docx' }, { onPermission: () => true });
   assert.equal(office.isError, false, JSON.stringify(office));
   assert.ok((await driver.listTools(native.sessionId)).some(tool => tool.name === 'web_fetch'));
@@ -99,7 +107,7 @@ try {
     assert.equal(protectedCredential.kind, process.platform === 'darwin' ? 'macos-keychain-aesgcm-v1' : 'windows-dpapi');
     assert.equal(await revealSecret(JSON.parse(await readFile(credentialFile, 'utf8'))), credentialFixture);
   }
-  const receipt = { passed: true, sourceDigest: manifest.sourceDigest, nodeVersion: process.versions.node, nodeExecutable: process.execPath, nativeSessionCreated: true, nativeSubprocessVerified: true, officePayloadVerified: true, builtinMcpDiscoveryVerified: true, builtinMcpCallsVerified: true, credentialProtectionVerified: true, desktopInputVerified: false, compatServiceStarted: true };
+  const receipt = { passed: true, sourceDigest: manifest.sourceDigest, nodeVersion: process.versions.node, nodeExecutable: process.execPath, nativeSessionCreated: true, nativeSubprocessVerified: true, officePayloadVerified: true, codeNavigationVerified: true, builtinMcpDiscoveryVerified: true, builtinMcpCallsVerified: true, credentialProtectionVerified: true, desktopInputVerified: false, compatServiceStarted: true };
   await writeFile(path.join(evidence, 'receipt.json'), JSON.stringify(receipt, null, 2));
   console.log(JSON.stringify({ ...receipt, evidence }));
 } finally {

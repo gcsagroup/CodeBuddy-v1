@@ -131,7 +131,11 @@ test('Windows packaging validates the cached Electron x64 artifact without fetch
     },
   });
   assert.equal(readDownloadConfig('win32', 'arm64'), null);
-  assert.equal(readDownloadConfig('darwin', 'x64'), null);
+  for (const arch of ['x64', 'arm64']) {
+    const download = readDownloadConfig('darwin', arch);
+    assert.deepEqual(download, { checksums: require('electron/checksums.json') });
+    assert.match(download.checksums[`electron-v${packageJson.devDependencies.electron}-darwin-${arch}.zip`], /^[a-f0-9]{64}$/);
+  }
 });
 
 test('the workspace SDK build does not require a separately installed npm command', () => {
@@ -329,6 +333,13 @@ test('renderer JSX has no hard-coded English UI labels outside technical values'
     'Aa',
     'MB',
     'null',
+    'tokens (',
+    'tok/s',
+    'Cron',
+    'const ready = true;',
+    'OpenAI Images',
+    'ComfyUI',
+    'API Key',
     'http://127.0.0.1:3000',
     'https://example.com',
   ]);
@@ -1035,7 +1046,10 @@ test('desktop shutdown waits for its Harness owner and bounds an unresponsive se
   let prevented = 0;
   let finishDraft;
   let finishHarness;
-  require('node:vm').runInNewContext(shutdown, {
+  require('node:vm').runInNewContext(ts.transpileModule(shutdown, {
+    compilerOptions: { target: ts.ScriptTarget.ES2022 },
+  }).outputText, {
+    harnessPreview: false,
     app: {
       on: (name, callback) => { assert.equal(name, 'before-quit'); beforeQuit = callback; },
       quit: () => { quitCalls++; beforeQuit({ preventDefault: () => prevented++ }); },
@@ -1045,6 +1059,7 @@ test('desktop shutdown waits for its Harness owner and bounds an unresponsive se
   });
   beforeQuit({ preventDefault: () => prevented++ });
   assert.equal(prevented, 1);
+  await new Promise(resolve => setImmediate(resolve));
   finishHarness();
   await new Promise(resolve => setImmediate(resolve));
   assert.equal(quitCalls, 0, 'also wait for pending drafts before quitting');
@@ -1054,7 +1069,7 @@ test('desktop shutdown waits for its Harness owner and bounds an unresponsive se
   assert.equal(prevented, 1, 'the final quit must not start shutdown again');
 });
 
-test('main window is revealed only after the React renderer reports ready', () => {
+test('Harness startup shows a centered first-paint loader before React becomes ready', () => {
   const mainProcess = readDesktopFile('src/main.ts');
   const createChatStart = mainProcess.indexOf('const createChat = async');
   const createLauncherStart = mainProcess.indexOf('const createLauncher =', createChatStart);
@@ -1065,7 +1080,13 @@ test('main window is revealed only after the React renderer reports ready', () =
 
   assert.ok(createChatStart >= 0 && createLauncherStart > createChatStart);
   assert.ok(reactReadyStart >= 0 && openExternalStart > reactReadyStart);
-  assert.doesNotMatch(createChat, /ready-to-show[\s\S]*mainWindow\.show\(\)/);
+  assert.match(createChat, /if \(runtime\) \{[\s\S]*ready-to-show[\s\S]*!mainWindow\.isDestroyed\(\) && !mainWindow\.isVisible\(\)/);
+  const html = readDesktopFile('index.html');
+  assert.match(html, /class="startup-loader first-paint" role="status"/);
+  assert.match(html, /src\/styles\/startup-loader\.css/);
+  const loader = readDesktopFile('src/styles/startup-loader.css');
+  assert.match(loader, /place-items: center/);
+  assert.match(loader, /#root > \.startup-loader[^}]*position: fixed; inset: 0/);
   assert.match(reactReady, /window\.show\(\)/);
   assert.match(reactReady, /window\.webContents\.invalidate\(\)/);
 });

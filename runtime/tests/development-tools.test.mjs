@@ -12,7 +12,8 @@ const sharp = require('sharp');
 test('distribution rejects Serena dependencies prepared for a different platform', async t => {
   const root = await mkdtemp(path.join(tmpdir(), 'cb-serena-stage-'));
   t.after(() => rm(root, { recursive: true, force: true }));
-  await mkdir(path.join(root, 'assets', 'serena'), { recursive: true });
+  await mkdir(path.join(root, 'assets', 'serena', 'serena'), { recursive: true });
+  await writeFile(path.join(root, 'assets', 'serena', 'serena', 'cli.py'), '# isolated fixture');
   await writeFile(path.join(root, 'assets', 'serena-runtime.json'), JSON.stringify({ platform: 'invalid-target', arch: process.arch }));
   await assert.rejects(staging.copyRuntimeSources(root, path.join(root, 'out')), /Serena payload.*does not match/);
 });

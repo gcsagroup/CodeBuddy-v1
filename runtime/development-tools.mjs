@@ -27,7 +27,7 @@ export function developmentTools({ cwd, dataDir, request = fetch }) {
         const runtime = fileURLToPath(new URL('./', import.meta.url));
         const python = path.join(runtime, 'py/dependencies/python', process.platform === 'win32' ? 'python.exe' : 'bin/python3');
         return new Promise((resolve, reject) => {
-          const child = spawn(python, [path.join(runtime, 'assets/code-navigation.py')], { cwd: directory, windowsHide: true, signal,
+          const child = spawn(python, ['-B', path.join(runtime, 'assets/code-navigation.py')], { cwd: directory, windowsHide: true, signal,
             stdio: ['pipe', 'pipe', 'pipe'], timeout: 180000 });
           let output = '', errors = '';
           child.stdout.on('data', data => { output += data; if (output.length > 1000000) child.kill(); });
@@ -39,7 +39,7 @@ export function developmentTools({ cwd, dataDir, request = fetch }) {
             catch (error) { reject(error); }
           });
           child.stdin.on('error', () => {});
-          child.stdin.end(JSON.stringify({ operation: args.operation, workspace: directory, state: path.join(dataDir ?? directory, 'tool-runtime', 'serena'), arguments: parameters }));
+          child.stdin.end(JSON.stringify({ operation: args.operation, workspace: directory, state: path.join(dataDir ?? directory, 'tool-runtime', 'serena'), nodeExecutable: process.execPath, arguments: parameters }));
         });
       },
     }, { key: JSON.stringify(['code_navigation', root]) }),

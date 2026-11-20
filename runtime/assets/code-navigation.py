@@ -3,12 +3,41 @@ import json
 import os
 import sys
 import site
+import tempfile
 from pathlib import Path
 
 root = Path(__file__).resolve().parent
 site.addsitedir(str(root / "serena"))
 from mcp import ClientSession, StdioServerParameters
 from mcp.client.stdio import stdio_client
+
+def configure_python_server(state, node_executable):
+    # Use Serena's supported command override. The default uvx route downloads
+    # another Python and installs its server on the user's first read-only query.
+    server = root / "pyright" / "dist" / "pyright-langserver.js"
+    if not server.is_file():
+        raise RuntimeError("Bundled Pyright is missing; prepare the code-navigation payload before packaging")
+    node = str(Path(node_executable).resolve(strict=True))
+    os.environ["SERENA_HOME"] = str(state)
+    from serena.config.serena_config import SerenaConfig
+    from ruamel.yaml import YAML
+    config = SerenaConfig.from_config_file()
+    config_path = Path(config.config_file_path).resolve(strict=True)
+    config_path.relative_to(state.resolve())
+    yaml = YAML()
+    with config_path.open(encoding="utf-8") as stream:
+        data = yaml.load(stream)
+    python = data.setdefault("ls_specific_settings", {}).setdefault("python", {})
+    command = [node, str(server)]
+    if python.get("ls_base_cmd") != command:
+        python["ls_base_cmd"] = command
+        with tempfile.NamedTemporaryFile(mode="w", encoding="utf-8", dir=config_path.parent, delete=False) as stream:
+            temporary = Path(stream.name)
+            yaml.dump(data, stream)
+        try:
+            os.replace(temporary, config_path)
+        finally:
+            temporary.unlink(missing_ok=True)
 
 async def main():
     request = json.load(sys.stdin)
@@ -22,9 +51,11 @@ async def main():
     if relative:
         target = (Path(workspace) / relative).resolve(strict=True)
         target.relative_to(workspace)
+    state = Path(request.get("state", str(Path(workspace) / ".serena-runtime"))).resolve()
+    configure_python_server(state, request["nodeExecutable"])
     code = "import sys,site;site.addsitedir(sys.argv.pop(1));from serena.cli import top_level;top_level()"
-    params = StdioServerParameters(command=sys.executable, env={**os.environ, "SERENA_HOME": request.get("state", str(Path(workspace) / ".serena-runtime"))}, args=[
-        "-c", code, str(root / "serena"), "start-mcp-server",
+    params = StdioServerParameters(command=sys.executable, env={**os.environ, "SERENA_HOME": str(state)}, args=[
+        "-B", "-c", code, str(root / "serena"), "start-mcp-server",
         "--project", workspace, "--context", "ide",
         "--mode", "planning", "--mode", "no-onboarding", "--mode", "no-memories",
         "--enable-web-dashboard", "false", "--enable-gui-log-window", "false",

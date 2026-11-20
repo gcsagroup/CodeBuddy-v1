@@ -18,11 +18,34 @@ function assertOfficeTarget(manifest, platform = process.platform, arch = proces
 }
 
 async function copyRuntimeSources(runtime, destination) {
+  const pyrightIdentity = await fs.readFile(path.join(runtime, 'assets/pyright-runtime.json'), 'utf8')
+    .then(JSON.parse, error => { if (error.code === 'ENOENT') return undefined; throw error; });
+  if (pyrightIdentity) {
+    const payload = path.join(runtime, 'assets/pyright');
+    await fs.access(path.join(payload, 'dist/pyright-langserver.js')).catch(() => {
+      throw new Error('Pyright payload is missing; run scripts/prepare-pyright-runtime.cjs before packaging.');
+    });
+    const actual = JSON.parse(await fs.readFile(path.join(payload, '.codebuddy-runtime.json'), 'utf8'));
+    for (const key of ['name', 'version', 'license', 'url', 'integrity'])
+      if (actual[key] !== pyrightIdentity[key]) throw new Error(`Pyright payload provenance mismatch: ${key}`);
+  }
   const serena = path.join(runtime, 'assets', 'serena');
-  if (await fs.stat(serena).then(() => true, error => { if (error.code === 'ENOENT') return false; throw error; })) {
-    const manifest = JSON.parse(await fs.readFile(path.join(runtime, 'assets', 'serena-runtime.json'), 'utf8'));
+  const provenance = await fs.readFile(path.join(runtime, 'assets', 'serena-runtime.json'), 'utf8')
+    .then(JSON.parse, error => { if (error.code === 'ENOENT') return undefined; throw error; });
+  let serenaManifest;
+  if (provenance) {
+    await fs.access(path.join(serena, 'serena', 'cli.py')).catch(() => {
+      throw new Error('Serena payload is missing; run scripts/prepare-serena-runtime.cjs on the target host before packaging.');
+    });
+    // Older Windows payloads used the tracked manifest. New native payloads
+    // carry their build identity without changing shared source on each host.
+    const manifest = await fs.readFile(path.join(serena, '.codebuddy-runtime.json'), 'utf8')
+      .then(JSON.parse, error => { if (error.code === 'ENOENT') return provenance; throw error; });
+    for (const key of ['source', 'revision', 'packageVersion', 'license', 'python'])
+      if (manifest[key] !== provenance[key]) throw new Error(`Serena payload provenance mismatch: ${key}`);
     if (manifest.platform !== process.platform || manifest.arch !== process.arch)
       throw new Error(`Serena payload ${manifest.platform}/${manifest.arch} does not match ${process.platform}/${process.arch}; prepare dependencies for the target platform`);
+    serenaManifest = manifest;
   }
   await fs.mkdir(destination, { recursive: true });
   for (const entry of await fs.readdir(runtime, { withFileTypes: true })) {
@@ -35,6 +58,8 @@ async function copyRuntimeSources(runtime, destination) {
       });
     }
   }
+  if (serenaManifest)
+    await fs.writeFile(path.join(destination, 'assets', 'serena-runtime.json'), JSON.stringify(serenaManifest, null, 2) + '\n');
 }
 
 async function copyHarnessSources(harness, destination) {

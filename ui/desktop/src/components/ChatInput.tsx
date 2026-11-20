@@ -20,7 +20,7 @@ import {
 } from '../workspace-panel/workspaceFilePanel';
 import { getSessionExtensions, addSessionExtension } from '../acp/session-extensions';
 import React, { useRef, useState, useEffect, useLayoutEffect, useMemo, useCallback } from 'react';
-import { ArrowUp, Play, Plus, ScrollText } from 'lucide-react';
+import { ArrowUp, LoaderCircle, Play, Plus, ScrollText } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipTrigger } from './ui/Tooltip';
 import { Button } from './ui/button';
 import type { View, ViewOptions } from '../utils/navigationUtils';
@@ -223,6 +223,7 @@ const i18n = defineMessages({
 });
 
 interface ChatInputProps {
+  creationStatus?: string;
   submissionDisabled?: boolean;
   onOpenPermissions?: () => void;
   modelToolbarSlot?: React.ReactNode;
@@ -292,6 +293,7 @@ export function shouldShowWorkingDirectorySwitcher(canChangeWorkingDirectory: bo
 }
 
 export default function ChatInput({
+  creationStatus,
   submissionDisabled = false,
   onOpenPermissions,
   modelToolbarSlot,
@@ -1164,7 +1166,7 @@ export default function ChatInput({
       debouncedAutosize(textAreaRef.current);
     }
     return () => debouncedAutosize.cancel();
-  }, [debouncedAutosize, compactText.editorValue, textAreaRef]);
+  }, [debouncedAutosize, compactText.editorValue, creationStatus, textAreaRef]);
 
   // Set consistent minimum height when displayValue is empty
   useEffect(() => {
@@ -2360,7 +2362,7 @@ export default function ChatInput({
           }}
         />
       )}
-      {(compactText.prefix || pastedImages.length > 0 || allDroppedFiles.length > 0) && (
+      {!creationStatus && (compactText.prefix || pastedImages.length > 0 || allDroppedFiles.length > 0) && (
         <ComposerAttachmentTray>
           {compactText.blocks.map((block) => (
             <div key={block.id} data-attachment-kind="text" className="max-w-full pb-1">
@@ -2519,7 +2521,7 @@ export default function ChatInput({
         className="relative w-full min-w-0"
       >
         <div className="relative flex w-full min-w-0 items-start">
-          {composerMode && (
+          {composerMode && !creationStatus && (
             <button
               type="button"
               className="ml-3 mt-3 shrink-0 text-sm text-blue-500 hover:underline"
@@ -2541,7 +2543,7 @@ export default function ChatInput({
             autoFocus
             id="dynamic-textarea"
             placeholder={
-              isRecording
+              creationStatus ?? (isRecording
                 ? ''
                 : composerMode
                   ? intl.formatMessage(
@@ -2549,11 +2551,11 @@ export default function ChatInput({
                         ? composerMessages.planPlaceholder
                         : composerMessages.goalPlaceholder
                     )
-                  : (placeholder ?? intl.formatMessage(composerMessages.messagePlaceholder))
+                  : (placeholder ?? intl.formatMessage(composerMessages.messagePlaceholder)))
             }
             title={getNavigationShortcutText(intl)}
             aria-label={placeholder}
-            value={compactText.editorValue}
+            value={creationStatus ? '' : compactText.editorValue}
             onChange={handleChange}
             onCompositionStart={handleCompositionStart}
             onCompositionEnd={handleCompositionEnd}
@@ -2561,7 +2563,7 @@ export default function ChatInput({
             onPaste={handlePaste}
             ref={textAreaRef}
             rows={1}
-            readOnly={isRecording}
+            readOnly={isRecording || Boolean(creationStatus)}
             style={{
               minHeight: `${minTextareaHeight}px`,
               maxHeight: `${maxHeight}px`,
@@ -2732,8 +2734,8 @@ export default function ChatInput({
                     size="sm"
                     shape="round"
                     variant="ghost"
-                    disabled={primaryActionDisabled}
-                    aria-label={intl.formatMessage(continueAction ? i18n.continueTask : i18n.send)}
+                    disabled={Boolean(creationStatus) || primaryActionDisabled}
+                    aria-label={creationStatus ?? intl.formatMessage(continueAction ? i18n.continueTask : i18n.send)}
                     onClick={continueAction ?? onFormSubmit}
                     className={cn(
                       continueAction ? 'bg-text-primary text-background-primary hover:bg-text-primary/90' : 'bg-background-tertiary',
@@ -2742,12 +2744,12 @@ export default function ChatInput({
                         : !continueAction && 'text-text-primary hover:bg-background-tertiary/70 hover:cursor-pointer'
                     )}
                   >
-                    {continueAction ? <Play className="w-4 h-4" fill="currentColor" /> : <ArrowUp className="w-4 h-4" strokeWidth={2.25} />}
+                    {creationStatus ? <LoaderCircle className="size-4 animate-spin" aria-hidden="true" /> : continueAction ? <Play className="w-4 h-4" fill="currentColor" /> : <ArrowUp className="w-4 h-4" strokeWidth={2.25} />}
                   </Button>
                 </span>
               </TooltipTrigger>
               <TooltipContent>
-                <p>{continueAction ? intl.formatMessage(i18n.continueTask) : getSubmitButtonTooltip()}</p>
+                <p>{creationStatus ?? (continueAction ? intl.formatMessage(i18n.continueTask) : getSubmitButtonTooltip())}</p>
               </TooltipContent>
             </Tooltip>
           )}

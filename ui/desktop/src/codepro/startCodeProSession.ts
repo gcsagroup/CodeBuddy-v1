@@ -130,7 +130,7 @@ export async function startCodeProSession(
       ...(input.recipeId ? { recipeId: input.recipeId } : {}),
     });
     sessionCreated = true;
-    await dependencies.addRecentDir(confirmation.workingDir).catch(() => undefined);
+    void dependencies.addRecentDir(confirmation.workingDir).catch(() => undefined);
     return { session, projectId: project.projectId, confirmation };
   } catch (primary) {
     const cleanupErrors: unknown[] = [];

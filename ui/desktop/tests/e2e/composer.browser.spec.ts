@@ -67,6 +67,42 @@ test('a draft workspace can be cleared without losing typed text', async () => {
 });
 const composerCacheRoot = resolve('../../.local');
 
+test('new chat immediately shows the pending message and restores the draft if setup is declined', async () => {
+  const page = await browser.newPage();
+  try {
+    await page.goto(server.resolvedUrls!.local[0] + 'tests/browser-fixtures/composer.html?hub', { waitUntil: 'commit' });
+    const input = page.getByTestId('chat-input');
+    await input.fill('你好');
+    await page.evaluate(() => {
+      window.electron.requestNetworkAccess = () => new Promise(resolve => {
+        window.addEventListener('decline-fixture-request', () => resolve(false), { once: true });
+      });
+    });
+    await page.getByRole('button', { name: '发送', exact: true }).click();
+    await expect(page.getByRole('status').filter({ hasText: '正在创建聊天' })).toBeVisible();
+    await expect(page.locator('.user-message').getByText('你好', { exact: true })).toBeVisible();
+    await expect(input).toBeVisible();
+    await expect(input).toBeDisabled();
+    await expect(input).toHaveValue('');
+    await expect(input).toHaveAttribute('placeholder', '正在创建聊天');
+    await expect(page.getByRole('button', { name: '正在创建聊天', exact: true }).locator('.animate-spin')).toBeVisible();
+    await expect(page.getByRole('heading', { name: '我是 CodeBuddy，一起把事情做好。' })).toHaveCount(0);
+    const shimmer = page.locator('.chat-creation-shimmer');
+    await expect(shimmer).toHaveCSS('animation-name', 'chat-creation-shimmer');
+    const position = await shimmer.evaluate(element => getComputedStyle(element).backgroundPosition);
+    await expect.poll(() => shimmer.evaluate(element => getComputedStyle(element).backgroundPosition)).not.toBe(position);
+    await expect(shimmer).not.toHaveCSS('background-image', 'none');
+    await page.screenshot({ path: test.info().outputPath('creating-chat.png') });
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    await expect(shimmer).toHaveCSS('animation-name', 'none');
+    await expect(shimmer).not.toHaveCSS('-webkit-text-fill-color', 'rgba(0, 0, 0, 0)');
+    await page.evaluate(() => window.dispatchEvent(new Event('decline-fixture-request')));
+    await expect(input).toBeVisible();
+    await expect(input).toHaveValue('你好');
+    await expect(page.getByRole('status').filter({ hasText: '正在创建聊天' })).toHaveCount(0);
+  } finally { await page.close(); }
+});
+
 test('continue and send share the same composer position after stopping', async () => {
   const page = await browser.newPage();
   try {

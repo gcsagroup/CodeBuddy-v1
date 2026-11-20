@@ -893,6 +893,9 @@
   "codeProHub.chooseProjectFolder": {
     "defaultMessage": "Wähle einen Projektordner aus, um fortzufahren"
   },
+  "codeProHub.creatingChat": {
+    "defaultMessage": "Chat wird erstellt"
+  },
   "codeProHub.directoryChooserFailed": {
     "defaultMessage": "Ein Projektordner konnte nicht ausgewählt werden. Versuche es erneut."
   },
@@ -7592,9 +7595,6 @@
   "sessions.action.openNewWindow": {
     "defaultMessage": "In neuem Fenster öffnen"
   },
-  "sessions.action.shareNostr": {
-    "defaultMessage": "Verschlüsselten Nostr-Link teilen"
-  },
   "sessions.action.unarchive": {
     "defaultMessage": "Unarchive session"
   },
@@ -7703,18 +7703,6 @@
   "sessions.import": {
     "defaultMessage": "Sitzung importieren"
   },
-  "sessions.importNostr": {
-    "defaultMessage": "Link importieren"
-  },
-  "sessions.importNostr.description": {
-    "defaultMessage": "Fügen Sie einen CodeBuddy-Nostr-Freigabelink ein, um die Sitzung abzurufen, zu entschlüsseln und zu importieren."
-  },
-  "sessions.importNostr.placeholder": {
-    "defaultMessage": "codebuddy://sessions/nostr?nevent=...&key=..."
-  },
-  "sessions.importNostr.title": {
-    "defaultMessage": "Nostr-Sitzung importieren"
-  },
   "sessions.importing": {
     "defaultMessage": "Wird importiert..."
   },
@@ -7735,12 +7723,6 @@
   },
   "sessions.searchPlaceholder": {
     "defaultMessage": "Verlauf durchsuchen..."
-  },
-  "sessions.shareNostr.description": {
-    "defaultMessage": "Jeder mit diesem Link kann die Sitzung abrufen und entschlüsseln. Behandeln Sie ihn wie ein Geheimnis."
-  },
-  "sessions.shareNostr.title": {
-    "defaultMessage": "Verschlüsselter Nostr-Freigabelink"
   },
   "sessions.toast.archiveFailed": {
     "defaultMessage": "Failed to update session archive: {error}"
@@ -7774,12 +7756,6 @@
   },
   "sessions.toast.imported": {
     "defaultMessage": "Sitzung erfolgreich importiert"
-  },
-  "sessions.toast.shareNostr": {
-    "defaultMessage": "Verschlüsselter Nostr-Freigabelink erstellt"
-  },
-  "sessions.toast.shareNostrFailed": {
-    "defaultMessage": "Nostr-Freigabelink konnte nicht erstellt werden: {error}"
   },
   "sessions.toast.unarchived": {
     "defaultMessage": "Session restored"

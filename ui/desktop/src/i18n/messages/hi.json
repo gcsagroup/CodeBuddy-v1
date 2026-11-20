@@ -893,6 +893,9 @@
   "codeProHub.chooseProjectFolder": {
     "defaultMessage": "जारी रखने के लिए प्रोजेक्ट फ़ोल्डर चुनें"
   },
+  "codeProHub.creatingChat": {
+    "defaultMessage": "चैट बनाई जा रही है"
+  },
   "codeProHub.directoryChooserFailed": {
     "defaultMessage": "प्रोजेक्ट फ़ोल्डर नहीं चुना जा सका। फिर प्रयास करें।"
   },
@@ -7592,9 +7595,6 @@
   "sessions.action.openNewWindow": {
     "defaultMessage": "नई विंडो में खोलें"
   },
-  "sessions.action.shareNostr": {
-    "defaultMessage": "एन्क्रिप्टेड नोस्ट्र लिंक साझा करें"
-  },
   "sessions.action.unarchive": {
     "defaultMessage": "Unarchive session"
   },
@@ -7703,18 +7703,6 @@
   "sessions.import": {
     "defaultMessage": "आयात सत्र"
   },
-  "sessions.importNostr": {
-    "defaultMessage": "लिंक आयात करें"
-  },
-  "sessions.importNostr.description": {
-    "defaultMessage": "सत्र लाने, डिक्रिप्ट करने और आयात करने के लिए CodeBuddy नॉस्ट्र शेयर लिंक चिपकाएँ।"
-  },
-  "sessions.importNostr.placeholder": {
-    "defaultMessage": "codebuddy://sessions/nostr?nevent=...&key=..."
-  },
-  "sessions.importNostr.title": {
-    "defaultMessage": "नोस्ट्र सत्र आयात करें"
-  },
   "sessions.importing": {
     "defaultMessage": "आयात किया जा रहा है..."
   },
@@ -7735,12 +7723,6 @@
   },
   "sessions.searchPlaceholder": {
     "defaultMessage": "खोज इतिहास..."
-  },
-  "sessions.shareNostr.description": {
-    "defaultMessage": "इस लिंक वाला कोई भी व्यक्ति सत्र को ला सकता है और डिक्रिप्ट कर सकता है। इसे एक रहस्य की तरह समझो."
-  },
-  "sessions.shareNostr.title": {
-    "defaultMessage": "एन्क्रिप्टेड नोस्ट्र शेयर लिंक"
   },
   "sessions.toast.archiveFailed": {
     "defaultMessage": "Failed to update session archive: {error}"
@@ -7774,12 +7756,6 @@
   },
   "sessions.toast.imported": {
     "defaultMessage": "सत्र सफलतापूर्वक आयात किया गया"
-  },
-  "sessions.toast.shareNostr": {
-    "defaultMessage": "एन्क्रिप्टेड नोस्ट्र शेयर लिंक बनाया गया"
-  },
-  "sessions.toast.shareNostrFailed": {
-    "defaultMessage": "Nostr शेयर लिंक बनाने में विफल: {error}"
   },
   "sessions.toast.unarchived": {
     "defaultMessage": "Session restored"

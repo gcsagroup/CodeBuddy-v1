@@ -1,4 +1,5 @@
 import { WorkspacePageTitle } from '../Layout/WorkspacePageTitle';
+import './history.css';
 import { SearchableSelect } from '../ui/SearchableSelect';
 import { AppEvents } from '../../constants/events';
 import { canForkSession, sessionCapabilityMessages } from '../../utils/sessionCapabilities';
@@ -12,7 +13,6 @@ import {
   Trash2,
   Download,
   Upload,
-  Share2,
   LoaderCircle,
   ExternalLink,
   Copy,
@@ -38,14 +38,6 @@ import { Skeleton } from '../ui/skeleton';
 import { toast } from 'react-toastify';
 import { ConfirmationModal } from '../ui/ConfirmationModal';
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '../ui/dialog';
-import {
   acpDeleteSession,
   acpArchiveSession,
   acpExportSession,
@@ -54,14 +46,12 @@ import {
   acpListSessions,
   acpRenameSession,
   acpUnarchiveSession,
-  acpShareSessionNostr,
   type SessionListItem,
   type SessionWorkspaceMode,
 } from '../../acp/sessions';
 import { acpChatSessionActions } from '../../acp/chatSessionStore';
 import { cancelAcpPermissionRequestsForSession } from '../../acp/permissionRequests';
 import { cancelAcpElicitationRequestsForSession } from '../../acp/elicitationRequests';
-import { toPrimaryDeepLink } from '../../utils/deepLinkProtocol';
 
 const i18n = defineMessages({
   editSessionTitle: { id: 'sessions.edit.title', defaultMessage: 'Edit Session Description' },
@@ -82,16 +72,6 @@ const i18n = defineMessages({
   },
   chatHistory: { id: 'sessions.chatHistory', defaultMessage: 'History' },
   importSession: { id: 'sessions.import', defaultMessage: 'Import Session' },
-  importNostrSession: { id: 'sessions.importNostr', defaultMessage: 'Import Link' },
-  importNostrTitle: { id: 'sessions.importNostr.title', defaultMessage: 'Import Nostr Session' },
-  importNostrDesc: {
-    id: 'sessions.importNostr.description',
-    defaultMessage: 'Paste a CodeBuddy Nostr share link to fetch, decrypt, and import the session.',
-  },
-  importNostrPlaceholder: {
-    id: 'sessions.importNostr.placeholder',
-    defaultMessage: 'codebuddy://sessions/nostr?nevent=...&key=...',
-  },
   importing: { id: 'sessions.importing', defaultMessage: 'Importing...' },
   chatHistoryDesc: {
     id: 'sessions.chatHistoryDesc',
@@ -139,14 +119,6 @@ const i18n = defineMessages({
     defaultMessage: 'Failed to import session: {error}',
   },
   exportSuccess: { id: 'sessions.toast.exported', defaultMessage: 'Session exported successfully' },
-  shareNostrSuccess: {
-    id: 'sessions.toast.shareNostr',
-    defaultMessage: 'Encrypted Nostr share link created',
-  },
-  shareNostrFailed: {
-    id: 'sessions.toast.shareNostrFailed',
-    defaultMessage: 'Failed to create Nostr share link: {error}',
-  },
   copied: { id: 'sessions.toast.copied', defaultMessage: 'Copied to clipboard' },
   openInNewWindow: { id: 'sessions.action.openNewWindow', defaultMessage: 'Open in new window' },
   editSessionName: { id: 'sessions.action.editName', defaultMessage: 'Edit session name' },
@@ -161,19 +133,6 @@ const i18n = defineMessages({
   exportFailed: {
     id: 'sessions.toast.exportFailed',
     defaultMessage: 'Failed to export session: {error}',
-  },
-  shareNostrSession: {
-    id: 'sessions.action.shareNostr',
-    defaultMessage: 'Share encrypted Nostr link',
-  },
-  shareNostrTitle: {
-    id: 'sessions.shareNostr.title',
-    defaultMessage: 'Encrypted Nostr Share Link',
-  },
-  shareNostrDesc: {
-    id: 'sessions.shareNostr.description',
-    defaultMessage:
-      'Anyone with this link can fetch and decrypt the session. Treat it like a secret.',
   },
   close: { id: 'sessions.close', defaultMessage: 'Close' },
   historyView: { id: 'sessions.filter.historyView', defaultMessage: 'History view' },
@@ -385,30 +344,24 @@ const SessionItem = React.memo(function SessionItem({
   historyView,
   onSelectSession,
   actionsBusy,
-  nostrEnabled,
   onEditClick,
   onDuplicateClick,
   onArchiveClick,
   onDeleteClick,
   onExportClick,
-  onShareClick,
   onOpenInNewWindow,
-  isSharing,
   isArchiving,
 }: {
   session: SessionListItem;
   historyView: HistoryView;
   onSelectSession: (id: string) => void;
   actionsBusy: boolean;
-  nostrEnabled: boolean;
   onEditClick: (session: SessionListItem) => void;
   onDuplicateClick: (session: SessionListItem) => void;
   onArchiveClick: (session: SessionListItem) => void;
   onDeleteClick: (session: SessionListItem) => void;
   onExportClick: (session: SessionListItem, e: React.MouseEvent) => void;
-  onShareClick: (session: SessionListItem, e: React.MouseEvent) => void;
   onOpenInNewWindow: (session: SessionListItem, e: React.MouseEvent) => void;
-  isSharing: boolean;
   isArchiving: boolean;
 }) {
   const intl = useIntl();
@@ -455,13 +408,6 @@ const SessionItem = React.memo(function SessionItem({
     [onExportClick, session]
   );
 
-  const handleShareClick = useCallback(
-    (e: React.MouseEvent) => {
-      onShareClick(session, e);
-    },
-    [onShareClick, session]
-  );
-
   const handleOpenInNewWindowClick = useCallback(
     (e: React.MouseEvent) => {
       onOpenInNewWindow(session, e);
@@ -472,7 +418,8 @@ const SessionItem = React.memo(function SessionItem({
   const displayName = session.name;
 
   return (
-    <article className="flex min-w-0 flex-wrap items-center gap-3 border-b border-border-primary px-4 py-3 last:border-b-0 hover:bg-background-secondary/40">
+    <article className="history-row flex min-w-0 flex-wrap items-center gap-3 border-b border-border-primary px-4 py-3 last:border-b-0 hover:bg-background-secondary/40">
+      <span className="history-row-icon" aria-hidden="true"><MessageSquareText className="size-4" /></span>
       <div className="min-w-0 flex-1 basis-48">
         <button
           onClick={handleCardClick}
@@ -485,8 +432,9 @@ const SessionItem = React.memo(function SessionItem({
         <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-text-secondary">
           <span>{formatMessageTimestamp(Date.parse(sessionActivityAt(session)) / 1000)}</span>
           {historyView !== 'archived' && (
-            <span className="max-w-64 truncate" title={session.workingDir}>
-              {session.workingDir}
+            <span className="history-project max-w-64 truncate" title={session.workingDir}>
+              <Folder className="size-3 shrink-0" aria-hidden="true" />
+              <span className="truncate">{session.workingDir.replace(/[\\/]+$/, '').split(/[\\/]/).pop() || session.workingDir}</span>
             </span>
           )}
           {session.archivedAt && historyView !== 'archived' && (
@@ -498,7 +446,7 @@ const SessionItem = React.memo(function SessionItem({
       </div>
       <div className="flex shrink-0 items-center gap-2">
         <Button
-          variant="outline"
+          variant="ghost"
           size="sm"
           onClick={handleArchiveClick}
           disabled={actionsBusy}
@@ -569,16 +517,6 @@ const SessionItem = React.memo(function SessionItem({
                 <Download />
                 {intl.formatMessage(i18n.exportSession)}
               </DropdownMenuItem>
-              {nostrEnabled && (
-                <DropdownMenuItem
-                  onClick={handleShareClick}
-                  disabled={isSharing}
-                  title={intl.formatMessage(i18n.shareNostrSession)}
-                >
-                  <Share2 />
-                  {intl.formatMessage(i18n.shareNostrSession)}
-                </DropdownMenuItem>
-              )}
               <DropdownMenuItem
                 onClick={handleDeleteClick}
                 disabled={actionsBusy}
@@ -617,16 +555,9 @@ const SessionListView: React.FC<SessionListViewProps> = React.memo(
     const [showDeleteConfirmation, setShowDeleteConfirmation] = useState(false);
     const [sessionToDelete, setSessionToDelete] = useState<SessionListItem | null>(null);
 
-    const [showImportLinkModal, setShowImportLinkModal] = useState(false);
-    const [nostrImportLink, setNostrImportLink] = useState('');
-    const [isImportingNostr, setIsImportingNostr] = useState(false);
-    const [shareLink, setShareLink] = useState('');
-    const [showShareLinkModal, setShowShareLinkModal] = useState(false);
-    const [sharingSessionId, setSharingSessionId] = useState<string | null>(null);
     const [archivingSessionId, setArchivingSessionId] = useState<string | null>(null);
     const mutationRef = useRef(false);
     const [deleting, setDeleting] = useState(false);
-    const [nostrEnabled, setNostrEnabled] = useState(true);
     const [historyView, setHistoryView] = useState<HistoryView>('active');
     const [projectFilter, setProjectFilter] = useState('all');
     const [dateFilter, setDateFilter] = useState<HistoryDateFilter>('all');
@@ -817,14 +748,6 @@ const SessionListView: React.FC<SessionListViewProps> = React.memo(
       };
     }, [loadSessions, debouncedSearchTerm]);
 
-    // Hide Nostr sharing when explicitly disabled via env var (restricted/enterprise bundles)
-    useEffect(() => {
-      const config = window.electron.getConfig();
-      if (config.GOOSE_DISABLE_NOSTR_SHARING === true) {
-        setNostrEnabled(false);
-      }
-    }, []);
-
     // Timing logic to prevent flicker between skeleton and content on initial load
     useEffect(() => {
       if (!isLoading && showSkeleton) {
@@ -1005,28 +928,6 @@ const SessionListView: React.FC<SessionListViewProps> = React.memo(
       [intl]
     );
 
-    const handleShareSessionNostr = useCallback(
-      async (session: SessionListItem, e: React.MouseEvent) => {
-        e.stopPropagation();
-        setSharingSessionId(session.id);
-        try {
-          const response = await acpShareSessionNostr(session.id, []);
-          setShareLink(toPrimaryDeepLink(response.deeplink));
-          setShowShareLinkModal(true);
-          toast.success(intl.formatMessage(i18n.shareNostrSuccess));
-        } catch (error) {
-          toast.error(
-            intl.formatMessage(i18n.shareNostrFailed, {
-              error: errorMessage(error, 'Unknown error'),
-            })
-          );
-        } finally {
-          setSharingSessionId(null);
-        }
-      },
-      [intl]
-    );
-
     const handleImportClick = useCallback(async () => {
       const native = window.electron?.selectImportSessionFile;
       if (typeof native === 'function') {
@@ -1051,36 +952,6 @@ const SessionListView: React.FC<SessionListViewProps> = React.memo(
       // Fallback for non-Electron contexts (tests, web build).
       fileInputRef.current?.click();
     }, [intl, loadSessions]);
-
-    const handleImportNostrLink = useCallback(async () => {
-      const deeplink = nostrImportLink.trim();
-      if (!deeplink) return;
-
-      setIsImportingNostr(true);
-      try {
-        await acpImportSession(deeplink, 'nostr');
-        setNostrImportLink('');
-        setShowImportLinkModal(false);
-        toast.success(intl.formatMessage(i18n.importSuccess));
-        window.dispatchEvent(new CustomEvent(AppEvents.SESSION_CREATED));
-        await loadSessions();
-      } catch (error) {
-        toast.error(
-          intl.formatMessage(i18n.importFailed, { error: errorMessage(error, 'Unknown error') })
-        );
-      } finally {
-        setIsImportingNostr(false);
-      }
-    }, [intl, loadSessions, nostrImportLink]);
-
-    const handleCopyShareLink = useCallback(async () => {
-      try {
-        await navigator.clipboard.writeText(shareLink);
-        toast.success(intl.formatMessage(i18n.copied));
-      } catch (error) {
-        toast.error(`Failed to copy: ${errorMessage(error, 'Unknown error')}`);
-      }
-    }, [intl, shareLink]);
 
     const handleImportSession = useCallback(
       async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -1194,15 +1065,12 @@ const SessionListView: React.FC<SessionListViewProps> = React.memo(
                     historyView={historyView}
                     onSelectSession={onSelectSession}
                     actionsBusy={Boolean(archivingSessionId) || deleting}
-                    nostrEnabled={nostrEnabled}
                     onEditClick={handleEditSession}
                     onDuplicateClick={handleDuplicateSession}
                     onArchiveClick={handleArchiveSession}
                     onDeleteClick={handleDeleteSession}
                     onExportClick={handleExportSession}
-                    onShareClick={handleShareSessionNostr}
                     onOpenInNewWindow={handleOpenInNewWindow}
-                    isSharing={sharingSessionId === session.id}
                     isArchiving={archivingSessionId === session.id}
                   />
                 ))}
@@ -1225,10 +1093,10 @@ const SessionListView: React.FC<SessionListViewProps> = React.memo(
     return (
       <>
         <MainPanelLayout>
-          <div className="mx-auto flex w-full max-w-6xl flex-1 flex-col min-h-0">
-            <div className="bg-background-primary px-4 pb-4 pt-6 sm:px-8">
+          <div className="history-page mx-auto flex w-full max-w-6xl flex-1 flex-col min-h-0">
+            <div className="history-header relative z-20 bg-background-primary px-4 pb-4 pt-6 sm:px-8">
               <div className="flex flex-col page-transition">
-                <div className="mb-4 flex flex-wrap items-start justify-between gap-3 border-b border-border-primary pb-4">
+                <div className="mb-4 flex flex-wrap items-start justify-between gap-3 pb-4">
                   <WorkspacePageTitle icon={History} description={intl.formatMessage(i18n.description)}>
                     {workspaceMode === 'unified'
                       ? null
@@ -1238,17 +1106,6 @@ const SessionListView: React.FC<SessionListViewProps> = React.memo(
                     {intl.formatMessage(i18n.chatHistory)}
                   </WorkspacePageTitle>
                   <div className="flex flex-wrap items-center gap-2">
-                    {nostrEnabled && (
-                      <Button
-                        onClick={() => setShowImportLinkModal(true)}
-                        variant="outline"
-                        size="sm"
-                        className="flex items-center gap-2"
-                      >
-                        <Share2 className="w-4 h-4" />
-                        {intl.formatMessage(i18n.importNostrSession)}
-                      </Button>
-                    )}
                     <Button
                       onClick={handleImportClick}
                       variant="outline"
@@ -1260,11 +1117,11 @@ const SessionListView: React.FC<SessionListViewProps> = React.memo(
                     </Button>
                   </div>
                 </div>
-                <div className="mb-3 flex items-start gap-2 rounded-lg bg-background-secondary px-3 py-2 text-xs leading-relaxed text-text-secondary">
+                <div className="history-notice mb-3 flex items-start gap-2 text-xs leading-relaxed text-text-secondary">
                   <Archive className="mt-0.5 size-4 shrink-0" />
                   <p>{intl.formatMessage(i18n.archiveNotice)}</p>
                 </div>
-                <label className="mb-3 flex items-center gap-2 rounded-lg border border-border-primary px-3 py-2 text-text-secondary focus-within:ring-1 focus-within:ring-border-active">
+                <label className="history-search mb-3 flex items-center gap-2 rounded-lg border border-border-primary px-3 py-2 text-text-secondary focus-within:ring-1 focus-within:ring-border-active">
                   <Search className="size-4 shrink-0" />
                   <input
                     ref={searchInputRef}
@@ -1276,7 +1133,7 @@ const SessionListView: React.FC<SessionListViewProps> = React.memo(
                     className="min-w-0 flex-1 bg-transparent text-sm text-text-primary outline-none"
                   />
                 </label>
-                <div className="flex flex-wrap items-center gap-2">
+                <div className="history-filters flex flex-wrap items-center gap-2">
                   <div
                     role="tablist"
                     aria-label={intl.formatMessage(i18n.historyView)}
@@ -1327,19 +1184,23 @@ const SessionListView: React.FC<SessionListViewProps> = React.memo(
                       </button>
                     ))}
                   </div>
+                  <div className="history-project-filter min-w-0 w-full sm:w-64">
                   <SearchableSelect
                     aria-label={intl.formatMessage(i18n.projectFilter)}
                     value={projectFilter}
                     onValueChange={(nextValue) => setProjectFilter(nextValue)}
-                    className="max-w-80 rounded-md border border-border-primary bg-background-primary px-3 py-2 text-sm text-text-primary"
+                    className="w-full rounded-lg border border-border-primary bg-background-primary px-3 py-2 text-sm text-text-primary"
                   >
                     <option value="all">{intl.formatMessage(i18n.allProjects)}</option>
                     {projectOptions.map((workingDir) => (
                       <option key={workingDir} value={workingDir}>
-                        {workingDir || intl.formatMessage(i18n.noProject)}
+                        {workingDir
+                          ? `${workingDir.replace(/[\\/]+$/, '').split(/[\\/]/).pop() || workingDir} · ${workingDir}`
+                          : intl.formatMessage(i18n.noProject)}
                       </option>
                     ))}
                   </SearchableSelect>
+                  </div>
                   <select
                     aria-label={intl.formatMessage(i18n.dateFilter)}
                     value={dateFilter}
@@ -1420,83 +1281,6 @@ const SessionListView: React.FC<SessionListViewProps> = React.memo(
           onClose={handleModalClose}
           onSave={handleModalSave}
         />
-
-        <Dialog open={showImportLinkModal} onOpenChange={setShowImportLinkModal}>
-          <DialogContent className="sm:max-w-lg">
-            <DialogHeader>
-              <DialogTitle className="flex items-center gap-2">
-                <Share2 className="w-5 h-5" />
-                {intl.formatMessage(i18n.importNostrTitle)}
-              </DialogTitle>
-              <DialogDescription>{intl.formatMessage(i18n.importNostrDesc)}</DialogDescription>
-            </DialogHeader>
-
-            <textarea
-              value={nostrImportLink}
-              onChange={(event) => setNostrImportLink(event.target.value)}
-              placeholder={intl.formatMessage(i18n.importNostrPlaceholder)}
-              className="min-h-28 w-full resize-none rounded-lg border border-border-primary bg-background-primary p-3 text-sm text-text-primary outline-none focus:ring-2 focus:ring-border-active"
-              disabled={isImportingNostr}
-            />
-
-            <DialogFooter>
-              <Button
-                variant="outline"
-                onClick={() => setShowImportLinkModal(false)}
-                disabled={isImportingNostr}
-              >
-                {intl.formatMessage(i18n.cancel)}
-              </Button>
-              <Button
-                onClick={handleImportNostrLink}
-                disabled={isImportingNostr || !nostrImportLink.trim()}
-              >
-                {isImportingNostr ? (
-                  <>
-                    <LoaderCircle className="w-4 h-4 animate-spin" />
-                    {intl.formatMessage(i18n.importing)}
-                  </>
-                ) : (
-                  intl.formatMessage(i18n.importSession)
-                )}
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
-
-        <Dialog open={showShareLinkModal} onOpenChange={setShowShareLinkModal}>
-          <DialogContent className="sm:max-w-lg">
-            <DialogHeader>
-              <DialogTitle className="flex items-center gap-2">
-                <Share2 className="w-5 h-5" />
-                {intl.formatMessage(i18n.shareNostrTitle)}
-              </DialogTitle>
-              <DialogDescription>{intl.formatMessage(i18n.shareNostrDesc)}</DialogDescription>
-            </DialogHeader>
-
-            <div className="relative rounded-lg border border-border-primary bg-background-secondary p-3 pr-12">
-              <code className="block max-h-36 overflow-y-auto break-all text-sm text-text-primary">
-                {shareLink}
-              </code>
-              <Button
-                variant="ghost"
-                size="sm"
-                className="absolute right-2 top-2"
-                onClick={handleCopyShareLink}
-                disabled={!shareLink}
-              >
-                <Copy className="h-4 w-4" />
-                <span className="sr-only">{intl.formatMessage(i18n.copied)}</span>
-              </Button>
-            </div>
-
-            <DialogFooter>
-              <Button variant="outline" onClick={() => setShowShareLinkModal(false)}>
-                {intl.formatMessage(i18n.close)}
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
 
         <ConfirmationModal
           isOpen={showDeleteConfirmation}

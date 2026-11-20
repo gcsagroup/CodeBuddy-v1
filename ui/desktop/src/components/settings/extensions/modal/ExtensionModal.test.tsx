@@ -74,7 +74,7 @@ describe('ExtensionModal', () => {
           modalType="edit"
         />
       );
-      expect(screen.getByText(/Conversations following the toolbox apply changes/)).toBeVisible();
+      expect(screen.getByText(/Conversations following the toolbox discover MCP changes before the next model call/)).toBeVisible();
       const user = userEvent.setup();
       const description = screen.getByDisplayValue('old description');
       await user.clear(description);

@@ -61,7 +61,7 @@ const i18n = defineMessages({
   },
   sessionScope: {
     id: 'extensionModal.sessionScope',
-    defaultMessage: 'Conversations following the toolbox apply changes before their next turn. Custom conversations keep their selection. Testing the connection checks the service without loading it into a conversation.',
+    defaultMessage: 'Conversations following the toolbox discover MCP changes before the next model call, including during a running task. Custom selections and permissions still apply. Testing checks the connection only.',
   },
   testConnection: {
     id: 'extensionModal.testConnection',

@@ -921,8 +921,8 @@ it('uses the existing browser owner for a web-link tab and keeps foreign session
   const view = panel();
   invoke.mockClear();
   invoke.mockImplementation(async (r: PanelRequest) =>
-    r.action === 'browser-control'
-      ? { id: 'link-browser', browser: { url: 'https://example.com/', title: 'Example' } }
+    r.action === 'browser-create'
+      ? { id: 'link-browser' }
       : {}
   );
   fireEvent(
@@ -941,12 +941,12 @@ it('uses the existing browser owner for a web-link tab and keeps foreign session
   await waitFor(() =>
     expect(invoke).toHaveBeenCalledWith({
       scope: view.scope,
-      action: 'browser-control',
-      operation: 'open',
+      action: 'browser-create',
       url: 'https://example.com/',
     })
   );
-  expect(await screen.findByRole('tab', { name: 'Example' })).toBeVisible();
+  expect(await screen.findByRole('tab', { name: 'example.com' })).toBeVisible();
+  expect(invoke.mock.calls.some(([r]) => r.action === 'browser-control')).toBe(false);
 });
 function fileOperation(
   id: string,

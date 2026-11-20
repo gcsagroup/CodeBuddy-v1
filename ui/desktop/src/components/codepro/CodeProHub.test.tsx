@@ -20,8 +20,9 @@ import type { FixedExtensionEntry } from '../ConfigContext';
 const configFixture = vi.hoisted(() => ({ extensions: [] as FixedExtensionEntry[] }));
 
 const navigate = vi.fn();
+const route = { key: 'new-task' };
 let submittedInput: UserInput = { msg: '开发一个记账应用', images: [] };
-vi.mock('react-router-dom', () => ({ useNavigate: () => navigate }));
+vi.mock('react-router-dom', () => ({ useNavigate: () => navigate, useLocation: () => route }));
 vi.mock('../ChatInput', () => ({
   default: function MockChatInput({
     handleSubmit,
@@ -259,11 +260,13 @@ describe('CodeProHub', () => {
     );
     submittedInput = { msg: 'first message', images: [{ data: 'image', mimeType: 'image/png' }] };
     const user = userEvent.setup();
-    render(<CodeProHub />, { wrapper: IntlTestWrapper });
+    const view = render(<CodeProHub />, { wrapper: IntlTestWrapper });
     const submit = screen.getByRole('button', { name: 'Submit development goal' });
     await user.click(submit);
     await waitFor(() => expect(startCodeProSession).toHaveBeenCalledOnce());
     expect(submit).toBeDisabled();
+    expect(screen.getByText('Creating chat')).toBeVisible();
+    expect(screen.getByText('first message', { selector: 'p' })).toBeVisible();
     expect(screen.getByTestId('composer-state')).toHaveTextContent(ChatState.Idle);
     expect(screen.getByTestId('draft-message')).toHaveTextContent('first message');
     expect(screen.getByTestId('draft-image-count')).toHaveTextContent('1');
@@ -273,6 +276,14 @@ describe('CodeProHub', () => {
     await waitFor(() => expect(navigate).toHaveBeenCalledOnce());
     expect(screen.getByTestId('draft-message')).toBeEmptyDOMElement();
     expect(screen.getByTestId('draft-image-count')).toHaveTextContent('0');
+    expect(screen.getByText('Creating chat')).toBeVisible();
+    expect(screen.getByText("I'm CodeBuddy. Let's work together.")).not.toBeVisible();
+    expect(submit).toBeVisible();
+    expect(submit).toBeDisabled();
+    route.key = 'returned-to-new-task';
+    view.rerender(<CodeProHub />);
+    await waitFor(() => expect(screen.queryByText('Creating chat')).toBeNull());
+    expect(submit).toBeEnabled();
   });
 
   it('does not accept or clear the input while asynchronous directory inspection is pending', async () => {

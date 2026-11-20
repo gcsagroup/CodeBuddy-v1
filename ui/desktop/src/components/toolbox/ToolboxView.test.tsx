@@ -1047,3 +1047,17 @@ it('renders an available inventory before slower parallel loading finishes', asy
   expect(await screen.findByRole('button', { name: 'Early inventory' })).toBeVisible();
   await act(async () => finish(partial));
 });
+
+it('groups built-in development skills and expands matching search results', async () => {
+  vi.mocked(loadToolbox).mockResolvedValue({
+    model: buildToolboxModel({ skills: [
+      { type: 'builtinSkill', name: 'code-navigation', description: 'Semantic references', content: '', global: true, path: 'builtin://skills/code-navigation' },
+      { type: 'builtinSkill', name: 'web-acceptance', description: 'Browser checks', content: '', global: true, path: 'builtin://skills/web-acceptance' },
+    ], apps: [], extensions: [] }), errors: {}, warnings: [],
+  });
+  renderView('/toolbox');
+  expect(await screen.findByText(/Development and debugging/)).toBeVisible();
+  expect(screen.getByText(/Web development and acceptance/)).toBeVisible();
+  await userEvent.type(screen.getByRole('searchbox'), 'Semantic references');
+  expect(await screen.findByRole('button', { name: /Code definitions and references/ })).toBeVisible();
+});

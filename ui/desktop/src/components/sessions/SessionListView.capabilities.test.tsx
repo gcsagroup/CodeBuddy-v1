@@ -21,7 +21,7 @@ describe('history copy capability', () => {
         disconnect() {}
       }
     );
-    Object.assign(window.electron, { getConfig: () => ({ GOOSE_DISABLE_NOSTR_SHARING: true }) });
+    Object.assign(window.electron, { getConfig: () => ({}) });
     const now = new Date().toISOString();
     vi.mocked(acpListSessions).mockResolvedValue({
       nextCursor: null,
@@ -40,7 +40,11 @@ describe('history copy capability', () => {
       wrapper: IntlTestWrapper,
     });
     const user = userEvent.setup();
+    expect(screen.queryByRole('button', { name: 'Import Link' })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Import Session' })).toBeVisible();
     await user.click(await screen.findByRole('button', { name: 'More actions for Project task' }));
+    expect(screen.queryByText('Share encrypted Nostr link')).not.toBeInTheDocument();
+    expect(screen.getByTitle('Export session')).toBeVisible();
     await user.click(await screen.findByTitle('Branch conversation'));
     expect(acpForkSession).toHaveBeenCalledWith('codepro');
     await user.keyboard('{Escape}');

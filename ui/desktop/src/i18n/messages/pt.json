@@ -893,6 +893,9 @@
   "codeProHub.chooseProjectFolder": {
     "defaultMessage": "Escolha uma pasta de projeto para continuar"
   },
+  "codeProHub.creatingChat": {
+    "defaultMessage": "Criando conversa"
+  },
   "codeProHub.directoryChooserFailed": {
     "defaultMessage": "Não foi possível escolher uma pasta de projeto. Tente novamente."
   },
@@ -7592,9 +7595,6 @@
   "sessions.action.openNewWindow": {
     "defaultMessage": "Abrir numa nova janela"
   },
-  "sessions.action.shareNostr": {
-    "defaultMessage": "Partilhar ligação Nostr encriptada"
-  },
   "sessions.action.unarchive": {
     "defaultMessage": "Unarchive session"
   },
@@ -7703,18 +7703,6 @@
   "sessions.import": {
     "defaultMessage": "Importar sessão"
   },
-  "sessions.importNostr": {
-    "defaultMessage": "Importar ligação"
-  },
-  "sessions.importNostr.description": {
-    "defaultMessage": "Cole uma ligação de partilha Nostr do CodeBuddy para obter, desencriptar e importar a sessão."
-  },
-  "sessions.importNostr.placeholder": {
-    "defaultMessage": "codebuddy://sessions/nostr?nevent=...&key=..."
-  },
-  "sessions.importNostr.title": {
-    "defaultMessage": "Importar sessão Nostr"
-  },
   "sessions.importing": {
     "defaultMessage": "A importar..."
   },
@@ -7735,12 +7723,6 @@
   },
   "sessions.searchPlaceholder": {
     "defaultMessage": "Pesquisar no histórico..."
-  },
-  "sessions.shareNostr.description": {
-    "defaultMessage": "Qualquer pessoa com este link pode obter e descriptografar a sessão. Trate-o como um segredo."
-  },
-  "sessions.shareNostr.title": {
-    "defaultMessage": "Link de Partilha Nostr Criptografado"
   },
   "sessions.toast.archiveFailed": {
     "defaultMessage": "Failed to update session archive: {error}"
@@ -7774,12 +7756,6 @@
   },
   "sessions.toast.imported": {
     "defaultMessage": "Sessão importada com êxito"
-  },
-  "sessions.toast.shareNostr": {
-    "defaultMessage": "Link de partilha Nostr criptografado criado"
-  },
-  "sessions.toast.shareNostrFailed": {
-    "defaultMessage": "Falha ao criar o link de partilha Nostr: {error}"
   },
   "sessions.toast.unarchived": {
     "defaultMessage": "Session restored"

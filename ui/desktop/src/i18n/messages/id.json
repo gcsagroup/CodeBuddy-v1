@@ -893,6 +893,9 @@
   "codeProHub.chooseProjectFolder": {
     "defaultMessage": "Pilih folder proyek untuk melanjutkan"
   },
+  "codeProHub.creatingChat": {
+    "defaultMessage": "Membuat percakapan"
+  },
   "codeProHub.directoryChooserFailed": {
     "defaultMessage": "Folder proyek tidak dapat dipilih. Coba lagi."
   },
@@ -7592,9 +7595,6 @@
   "sessions.action.openNewWindow": {
     "defaultMessage": "Buka di jendela baru"
   },
-  "sessions.action.shareNostr": {
-    "defaultMessage": "Bagikan tautan Nostr terenkripsi"
-  },
   "sessions.action.unarchive": {
     "defaultMessage": "Unarchive session"
   },
@@ -7703,18 +7703,6 @@
   "sessions.import": {
     "defaultMessage": "Impor Sesi"
   },
-  "sessions.importNostr": {
-    "defaultMessage": "Impor Tautan"
-  },
-  "sessions.importNostr.description": {
-    "defaultMessage": "Tempel tautan berbagi Nostr CodeBuddy untuk mengambil, mendekripsi, dan mengimpor sesi."
-  },
-  "sessions.importNostr.placeholder": {
-    "defaultMessage": "codebuddy://sessions/nostr?nevent=...&key=..."
-  },
-  "sessions.importNostr.title": {
-    "defaultMessage": "Impor Sesi Nostr"
-  },
   "sessions.importing": {
     "defaultMessage": "Mengimpor..."
   },
@@ -7735,12 +7723,6 @@
   },
   "sessions.searchPlaceholder": {
     "defaultMessage": "Cari riwayat..."
-  },
-  "sessions.shareNostr.description": {
-    "defaultMessage": "Siapa pun yang memiliki tautan ini dapat mengambil dan mendekripsi sesi. Perlakukan seperti rahasia."
-  },
-  "sessions.shareNostr.title": {
-    "defaultMessage": "Tautan Berbagi Nostr Terenkripsi"
   },
   "sessions.toast.archiveFailed": {
     "defaultMessage": "Failed to update session archive: {error}"
@@ -7774,12 +7756,6 @@
   },
   "sessions.toast.imported": {
     "defaultMessage": "Sesi berhasil diimpor"
-  },
-  "sessions.toast.shareNostr": {
-    "defaultMessage": "Tautan berbagi Nostr terenkripsi dibuat"
-  },
-  "sessions.toast.shareNostrFailed": {
-    "defaultMessage": "Gagal membuat tautan berbagi Nostr: {error}"
   },
   "sessions.toast.unarchived": {
     "defaultMessage": "Session restored"

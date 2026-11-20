@@ -12,7 +12,7 @@ vi.mock('../acp/preferences', () => ({
 }));
 
 const navigate = vi.fn();
-vi.mock('react-router-dom', () => ({ useNavigate: () => navigate }));
+vi.mock('react-router-dom', () => ({ useNavigate: () => navigate, useLocation: () => ({ key: 'new-task' }) }));
 vi.mock('./ConfigContext', () => ({ useConfig: () => ({ extensionsList: [] }) }));
 vi.mock('../hooks/useNavigation', () => ({ useNavigation: () => vi.fn() }));
 vi.mock('../codepro/startCodeProSession', () => ({ startCodeProSession: vi.fn() }));
@@ -168,7 +168,7 @@ describe('CodeProHub real composer setup', () => {
     fireEvent.change(screen.getByTestId('chat-input'), { target: { value: 'send once' } });
     await userEvent.click(screen.getByRole('button', { name: 'Send' }));
     await waitFor(() => expect(navigate).toHaveBeenCalled());
-    expect(screen.getByTestId('chat-input')).not.toBeDisabled();
+    expect(screen.getByTestId('chat-input')).toBeDisabled();
     view.unmount();
     render(<CodeProHub />, { wrapper: IntlTestWrapper });
     expect(screen.getByTestId('chat-input')).toHaveValue('');
@@ -224,11 +224,14 @@ describe('CodeProHub real composer setup', () => {
     render(<CodeProHub />, { wrapper: IntlTestWrapper });
     const input = screen.getByTestId('chat-input');
     await user.type(input, 'prepare project');
+    const send = screen.getByRole('button', { name: 'Send' });
     await user.keyboard('{Enter}');
     await waitFor(() => expect(window.electron.inspectCodeProWorkspace).toHaveBeenCalledOnce());
-    expect(input).toHaveValue('prepare project');
+    expect(input).toHaveValue('');
+    expect(input).toHaveAttribute('placeholder', 'Creating chat');
     expect(input).toBeDisabled();
-    expect(screen.getByRole('button', { name: 'Send' })).toBeDisabled();
+    expect(send).toBeDisabled();
+    expect(screen.getByText('Creating chat')).toBeVisible();
     expect(screen.queryByRole('button', { name: 'Stop' })).toBeNull();
     expect(screen.queryByText('Message Queue')).toBeNull();
     expect(screen.queryByText('Queue Paused')).toBeNull();
@@ -239,7 +242,7 @@ describe('CodeProHub real composer setup', () => {
     expect(dropped.defaultPrevented).toBe(true);
     expect(screen.queryByText('extra.txt')).toBeNull();
     await user.keyboard('{Enter}{Enter}');
-    await user.click(screen.getByRole('button', { name: 'Send' }));
+    await user.click(send);
     expect(window.electron.inspectCodeProWorkspace).toHaveBeenCalledOnce();
     expect(startCodeProSession).not.toHaveBeenCalled();
     await act(async () => resolveInspection([candidate]));

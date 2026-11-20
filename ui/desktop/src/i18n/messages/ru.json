@@ -893,6 +893,9 @@
   "codeProHub.chooseProjectFolder": {
     "defaultMessage": "Выберите папку проекта, чтобы продолжить"
   },
+  "codeProHub.creatingChat": {
+    "defaultMessage": "Создание чата"
+  },
   "codeProHub.directoryChooserFailed": {
     "defaultMessage": "Не удалось выбрать папку проекта. Повторите попытку."
   },
@@ -7592,9 +7595,6 @@
   "sessions.action.openNewWindow": {
     "defaultMessage": "Открыть в новом окне"
   },
-  "sessions.action.shareNostr": {
-    "defaultMessage": "Поделиться зашифрованной ссылкой Nostr"
-  },
   "sessions.action.unarchive": {
     "defaultMessage": "Unarchive session"
   },
@@ -7703,18 +7703,6 @@
   "sessions.import": {
     "defaultMessage": "Импортировать сеанс"
   },
-  "sessions.importNostr": {
-    "defaultMessage": "Импортировать ссылку"
-  },
-  "sessions.importNostr.description": {
-    "defaultMessage": "Вставьте ссылку общего доступа CodeBuddy Nostr, чтобы получить, расшифровать и импортировать сеанс."
-  },
-  "sessions.importNostr.placeholder": {
-    "defaultMessage": "codebuddy://sessions/nostr?nevent=...&key=..."
-  },
-  "sessions.importNostr.title": {
-    "defaultMessage": "Импортировать сеанс Nostr"
-  },
   "sessions.importing": {
     "defaultMessage": "Импорт..."
   },
@@ -7735,12 +7723,6 @@
   },
   "sessions.searchPlaceholder": {
     "defaultMessage": "Поиск по истории..."
-  },
-  "sessions.shareNostr.description": {
-    "defaultMessage": "Любой, у кого есть эта ссылка, сможет получить и расшифровать ваш сеанс. Обращайтесь с ней как с секретом."
-  },
-  "sessions.shareNostr.title": {
-    "defaultMessage": "Зашифрованная ссылка общего доступа Nostr"
   },
   "sessions.toast.archiveFailed": {
     "defaultMessage": "Failed to update session archive: {error}"
@@ -7774,12 +7756,6 @@
   },
   "sessions.toast.imported": {
     "defaultMessage": "Сеанс успешно импортирован"
-  },
-  "sessions.toast.shareNostr": {
-    "defaultMessage": "Зашифрованная ссылка Nostr создана"
-  },
-  "sessions.toast.shareNostrFailed": {
-    "defaultMessage": "Не удалось создать ссылку Nostr: {error}"
   },
   "sessions.toast.unarchived": {
     "defaultMessage": "Session restored"

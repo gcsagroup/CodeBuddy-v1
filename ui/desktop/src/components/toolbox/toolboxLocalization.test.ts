@@ -50,6 +50,18 @@ describe('toolbox localization', () => {
     expect(item.description).not.toContain('MCP');
     expect(item.extensionSource?.name).toBe('qwen_computer');
   });
+  it.each([
+    ['systematic-debugging', '系统化排错'],
+    ['verification-before-completion', '完成前验证'],
+  ])('shows the bundled %s skill in Chinese', (name, title) => {
+    const intl = createIntl({ locale: 'zh-CN' });
+    const model = buildToolboxModel({
+      skills: [{ type: 'builtinSkill', name, description: name, content: '', global: true, path: 'builtin://skills/' + name }],
+      apps: [], extensions: [],
+    });
+    const skill = model.methods.find(item => item.skillSource?.name === name)!;
+    expect(localizeToolboxItem(skill, intl).name).toBe(title);
+  });
   it('does not translate third-party instructions or spoof built-in names', () => {
     const intl = createIntl({
       locale: 'zh-CN',

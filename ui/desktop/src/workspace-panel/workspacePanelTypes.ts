@@ -108,7 +108,7 @@ export type PanelRequest = { scope: PanelScope; reference?: boolean; line?: numb
   | { action: 'terminal-input'; id: string; data: string }
   | { action: 'terminal-resize'; id: string; cols: number; rows: number }
   | { action: 'terminal-close'; id: string }
-  | { action: 'browser-create' }
+  | { action: 'browser-create'; url?: string }
   | { action: 'browser-state'; id: string }
   | { action: 'browser-navigate'; id: string; url: string }
   | { action: 'browser-command'; id: string; command: 'back' | 'forward' | 'reload' | 'stop' }

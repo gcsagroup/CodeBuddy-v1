@@ -64,6 +64,7 @@ interface TerminalState {
   exited: boolean;
 }
 interface BrowserState {
+  openingUrl?: string;
   automation?: boolean;
   scope: string;
   view: WebContentsView;
@@ -253,9 +254,9 @@ function browserState(id: string, browser: BrowserState): PanelBrowserState {
     ...(feedback && (feedback.expiresAt === undefined || feedback.expiresAt > Date.now())
       ? { feedback: { operation: feedback.operation, phase: feedback.phase } } : {}),
     id,
-    url: wc.getURL(),
+    url: browser.openingUrl || wc.getURL(),
     title: wc.getTitle(),
-    loading: wc.isLoading(),
+    loading: !!browser.openingUrl || wc.isLoading(),
     back: wc.navigationHistory.canGoBack(),
     forward: wc.navigationHistory.canGoForward(),
     error: browser.error,
@@ -822,6 +823,13 @@ async function dispatch(owner: Owner, request: PanelRequest): Promise<PanelReply
       return {};
     }
     case 'browser-create': {
+      const url = request.url === undefined ? undefined : panelUrl(request.url);
+      if (url) {
+        for (const [id, browser] of owner.browsers) {
+          if (browser.scope === scope && browser.openingUrl === url)
+            return { id, browser: browserState(id, browser) };
+        }
+      }
       if (owner.browsers.size >= 16)
         throw new Error('Close a browser tab before opening another (limit: 16)');
       const id = randomUUID();
@@ -878,6 +886,12 @@ async function dispatch(owner: Owner, request: PanelRequest): Promise<PanelReply
       wc.on('render-process-gone', () => {
         state.error = 'The page stopped. Reload to continue.';
       });
+      if (url) {
+        state.openingUrl = url;
+        void wc.loadURL(url).catch((error) => {
+          if (error.code !== 'ERR_ABORTED') state.error = String(error);
+        }).finally(() => { state.openingUrl = undefined; });
+      }
       return { id, browser: browserState(id, state) };
     }
     case 'browser-state':

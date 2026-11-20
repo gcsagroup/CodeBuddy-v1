@@ -3,14 +3,15 @@ import {
   createNextChatExtensionDraft,
   type NextChatExtensionDraft,
 } from '../../utils/nextChatExtensions';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import ChatInput from '../ChatInput';
 import { CodeBuddyMark } from '../CodeBuddyMark';
 import { DirSwitcher } from '../bottom_menu/DirSwitcher';
 import { useConfig } from '../ConfigContext';
 import { AppEvents } from '../../constants/events';
 import { ChatState } from '../../types/chatState';
-import type { UserInput } from '../../types/message';
+import { createUserMessage, type Message, type UserInput } from '../../types/message';
+import UserMessage from '../UserMessage';
 import type { MessageSubmissionLifecycle } from '../../hooks/useChatSessionTypes';
 import { useNavigation } from '../../hooks/useNavigation';
 import { defineMessages, useIntl } from '../../i18n';
@@ -71,6 +72,7 @@ interface PendingCodeProStart {
 }
 
 const i18n = defineMessages({
+  creatingChat: { id: 'codeProHub.creatingChat', defaultMessage: 'Creating chat' },
   title: { id: 'baseChat.mainWelcome', defaultMessage: "I'm CodeBuddy. Let's work together." },
   introduction: { id: 'baseChat.mainIntroduction', defaultMessage: 'I can help you understand code, work with documents and data, and carry a task through to checked results. Tell me what you want to get done.' },
   code: { id: 'baseChat.mainCode', defaultMessage: 'Write and debug code' },
@@ -138,6 +140,7 @@ const setupMessages: Record<CodeProSetupMessageKey, MessageDescriptor> = {
 export function CodeProHub({ launchIntent }: { launchIntent?: CodeProLaunchIntent }) {
   const intl = useIntl();
   const navigate = useNavigate();
+  const location = useLocation();
   const setView = useNavigation();
   const { extensionsList } = useConfig();
   const [initialPermissionPreset, setInitialPermissionPreset] = useInitialPermissionPreset();
@@ -167,6 +170,10 @@ export function CodeProHub({ launchIntent }: { launchIntent?: CodeProLaunchInten
   const [isCreating, setIsCreating] = useState(false);
   const [setupError, setSetupError] = useState<CodeProSetupMessageKey | null>(null);
   const [draftMessage, setDraftMessage] = useState(launchIntent?.initialMessage?.msg ?? '');
+  const [pendingMessage, setPendingMessage] = useState<Message>();
+  useEffect(() => {
+    setPendingMessage(undefined);
+  }, [location.key]);
   const [pendingStart, setPendingStart] = useState<PendingCodeProStart | null>(null);
   const [retryIntent, setRetryIntent] = useState<CodeProLaunchIntent | null>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
@@ -186,6 +193,8 @@ export function CodeProHub({ launchIntent }: { launchIntent?: CodeProLaunchInten
       // Do not leave that still-mounted composer locked in the creation state.
       setIsCreating(false);
       setDraftMessage('');
+      // Keep the sent-message preview until navigation commits. React Router
+      // can defer that render after the creation state has already settled.
       submissionLifecycleRef.current = undefined;
       window.dispatchEvent(new CustomEvent(AppEvents.SESSION_CREATED, { detail: { session } }));
       window.dispatchEvent(
@@ -223,6 +232,10 @@ export function CodeProHub({ launchIntent }: { launchIntent?: CodeProLaunchInten
       if (isCreating || inspectingRef.current) return;
       inspectingRef.current = true;
       const initialMessage = intent.initialMessage ?? { msg: '', images: [] };
+      if (!intent.noAutoSubmit && (initialMessage.msg.trim() || initialMessage.images.length)) {
+        const preview = createUserMessage(initialMessage.msg, initialMessage.images);
+        setPendingMessage(preview);
+      }
       setDraftMessage(initialMessage.msg);
       setIsInspecting(true);
       setSetupError(null);
@@ -231,6 +244,7 @@ export function CodeProHub({ launchIntent }: { launchIntent?: CodeProLaunchInten
         if (!intent.noAutoSubmit && (initialMessage.msg.trim() || initialMessage.images.length) &&
             !await window.electron.requestNetworkAccess()) {
           submissionLifecycleRef.current?.onRejectedBeforeAcceptance();
+          setPendingMessage(undefined);
           submissionLifecycleRef.current = undefined;
           return;
         }
@@ -260,6 +274,7 @@ export function CodeProHub({ launchIntent }: { launchIntent?: CodeProLaunchInten
         });
       } catch (error) {
         submissionLifecycleRef.current?.onRejectedBeforeAcceptance();
+        setPendingMessage(undefined);
         submissionLifecycleRef.current = undefined;
         setRetryIntent(intent);
         setSetupError(safeCodeProSetupError(error, 'workspaceInspectionFailed'));
@@ -320,6 +335,7 @@ export function CodeProHub({ launchIntent }: { launchIntent?: CodeProLaunchInten
           openSession(session, pending.intent);
         } catch (error) {
           submissionLifecycleRef.current?.onRejectedBeforeAcceptance();
+          setPendingMessage(undefined);
           submissionLifecycleRef.current = undefined;
           setRetryIntent(pending.intent);
           setSetupError(safeCodeProSetupError(error, 'rootContainerStartFailed'));
@@ -345,6 +361,7 @@ export function CodeProHub({ launchIntent }: { launchIntent?: CodeProLaunchInten
         openSession(session, pending.intent);
       } catch (error) {
         submissionLifecycleRef.current?.onRejectedBeforeAcceptance();
+        setPendingMessage(undefined);
         submissionLifecycleRef.current = undefined;
         console.error(
           'CodePro workspace start failed',
@@ -378,15 +395,25 @@ export function CodeProHub({ launchIntent }: { launchIntent?: CodeProLaunchInten
     void handleWorkspaceConfirm(staged, candidate);
   }, [handleWorkspaceConfirm, pendingStart, isCreating]);
 
-  const inputBlocked = isInspecting || isCreating || pendingStart !== null;
+  const showPendingMessage = Boolean(pendingMessage);
+  const inputBlocked = isInspecting || isCreating || pendingStart !== null || showPendingMessage;
 
   return (
     <main
       className="flex h-full min-h-0 flex-col overflow-y-auto px-4 py-4 sm:px-6 sm:pb-6"
-      aria-labelledby="codepro-title"
+      aria-label={showPendingMessage ? intl.formatMessage(i18n.title) : undefined}
+      aria-labelledby={showPendingMessage ? undefined : "codepro-title"}
     >
       <div className="mx-auto flex w-full max-w-3xl flex-1 flex-col">
-        <div className="mx-auto flex w-full max-w-2xl flex-1 flex-col justify-center py-8">
+        {showPendingMessage && pendingMessage && (
+          <div className="flex-1">
+            <UserMessage message={pendingMessage} readOnly />
+            <p role="status" className="mt-6 text-sm text-text-secondary">
+              <span className="chat-creation-shimmer">{intl.formatMessage(i18n.creatingChat)}</span>
+            </p>
+          </div>
+        )}
+        <div hidden={showPendingMessage} className="mx-auto flex w-full max-w-2xl flex-1 flex-col justify-center py-8 hidden:hidden">
           <div className="mb-6 flex size-14 items-center justify-center rounded-2xl bg-gradient-to-br from-blue-100/70 to-violet-100/50 text-text-primary dark:from-blue-950/60 dark:to-violet-950/40">
             <CodeBuddyMark className="size-8" />
           </div>
@@ -437,6 +464,8 @@ export function CodeProHub({ launchIntent }: { launchIntent?: CodeProLaunchInten
           }}
         >
           <ChatInput
+            creationStatus={showPendingMessage ? intl.formatMessage(i18n.creatingChat) : undefined}
+            submissionDisabled={inputBlocked}
             onOpenPermissions={() => setPermissionOpenRequest((value) => value + 1)}
             placeholder={intl.formatMessage(i18n.goalPlaceholder)}
             modelToolbarSlot={

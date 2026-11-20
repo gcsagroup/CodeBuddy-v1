@@ -893,6 +893,9 @@
   "codeProHub.chooseProjectFolder": {
     "defaultMessage": "続行するにはプロジェクトフォルダーを選択してください"
   },
+  "codeProHub.creatingChat": {
+    "defaultMessage": "チャットを作成中"
+  },
   "codeProHub.directoryChooserFailed": {
     "defaultMessage": "プロジェクトフォルダーを選択できません。もう一度お試しください。"
   },
@@ -7592,9 +7595,6 @@
   "sessions.action.openNewWindow": {
     "defaultMessage": "新しいウィンドウで開く"
   },
-  "sessions.action.shareNostr": {
-    "defaultMessage": "暗号化Nostrリンクを共有"
-  },
   "sessions.action.unarchive": {
     "defaultMessage": "Unarchive session"
   },
@@ -7703,18 +7703,6 @@
   "sessions.import": {
     "defaultMessage": "セッションをインポート"
   },
-  "sessions.importNostr": {
-    "defaultMessage": "リンクをインポート"
-  },
-  "sessions.importNostr.description": {
-    "defaultMessage": "CodeBuddy Nostr共有リンクを貼り付けて、セッションを取得・復号・インポートします。"
-  },
-  "sessions.importNostr.placeholder": {
-    "defaultMessage": "codebuddy://sessions/nostr?nevent=...&key=..."
-  },
-  "sessions.importNostr.title": {
-    "defaultMessage": "Nostrセッションをインポート"
-  },
   "sessions.importing": {
     "defaultMessage": "インポート中..."
   },
@@ -7735,12 +7723,6 @@
   },
   "sessions.searchPlaceholder": {
     "defaultMessage": "履歴を検索..."
-  },
-  "sessions.shareNostr.description": {
-    "defaultMessage": "このリンクを持つ人は誰でもセッションを取得して復号できます。秘密情報として扱ってください。"
-  },
-  "sessions.shareNostr.title": {
-    "defaultMessage": "暗号化Nostr共有リンク"
   },
   "sessions.toast.archiveFailed": {
     "defaultMessage": "Failed to update session archive: {error}"
@@ -7774,12 +7756,6 @@
   },
   "sessions.toast.imported": {
     "defaultMessage": "セッションをインポートしました"
-  },
-  "sessions.toast.shareNostr": {
-    "defaultMessage": "暗号化Nostr共有リンクを作成しました"
-  },
-  "sessions.toast.shareNostrFailed": {
-    "defaultMessage": "Nostr共有リンクを作成できませんでした: {error}"
   },
   "sessions.toast.unarchived": {
     "defaultMessage": "Session restored"

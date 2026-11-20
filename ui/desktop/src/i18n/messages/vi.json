@@ -893,6 +893,9 @@
   "codeProHub.chooseProjectFolder": {
     "defaultMessage": "Chọn thư mục dự án để tiếp tục"
   },
+  "codeProHub.creatingChat": {
+    "defaultMessage": "Đang tạo cuộc trò chuyện"
+  },
   "codeProHub.directoryChooserFailed": {
     "defaultMessage": "Không thể chọn thư mục dự án. Hãy thử lại."
   },
@@ -7592,9 +7595,6 @@
   "sessions.action.openNewWindow": {
     "defaultMessage": "Mở trong cửa sổ mới"
   },
-  "sessions.action.shareNostr": {
-    "defaultMessage": "Chia sẻ liên kết Nostr được mã hóa"
-  },
   "sessions.action.unarchive": {
     "defaultMessage": "Unarchive session"
   },
@@ -7703,18 +7703,6 @@
   "sessions.import": {
     "defaultMessage": "Nhập phiên"
   },
-  "sessions.importNostr": {
-    "defaultMessage": "Nhập liên kết"
-  },
-  "sessions.importNostr.description": {
-    "defaultMessage": "Dán một liên kết chia sẻ Nostr của CodeBuddy để tìm nạp, giải mã và nhập phiên."
-  },
-  "sessions.importNostr.placeholder": {
-    "defaultMessage": "codebuddy://sessions/nostr?nevent=...&key=..."
-  },
-  "sessions.importNostr.title": {
-    "defaultMessage": "Nhập phiên Nostr"
-  },
   "sessions.importing": {
     "defaultMessage": "Đang nhập..."
   },
@@ -7735,12 +7723,6 @@
   },
   "sessions.searchPlaceholder": {
     "defaultMessage": "Tìm kiếm lịch sử..."
-  },
-  "sessions.shareNostr.description": {
-    "defaultMessage": "Bất kỳ ai có liên kết này đều có thể tải về và giải mã phiên làm việc. Hãy coi nó như một bí mật."
-  },
-  "sessions.shareNostr.title": {
-    "defaultMessage": "Liên kết chia sẻ Nostr được mã hóa"
   },
   "sessions.toast.archiveFailed": {
     "defaultMessage": "Failed to update session archive: {error}"
@@ -7774,12 +7756,6 @@
   },
   "sessions.toast.imported": {
     "defaultMessage": "Đã nhập phiên làm việc thành công"
-  },
-  "sessions.toast.shareNostr": {
-    "defaultMessage": "Đã tạo liên kết chia sẻ Nostr được mã hóa"
-  },
-  "sessions.toast.shareNostrFailed": {
-    "defaultMessage": "Không thể tạo liên kết chia sẻ Nostr: {error}"
   },
   "sessions.toast.unarchived": {
     "defaultMessage": "Session restored"

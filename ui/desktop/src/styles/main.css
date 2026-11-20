@@ -1046,6 +1046,35 @@ pre:has(> code.bg-inline-code) {
   animation: conversation-loading-spin 0.85s linear infinite;
 }
 
+.chat-creation-shimmer {
+  display: inline-block;
+  color: var(--color-text-secondary);
+  background: linear-gradient(
+    110deg,
+    var(--color-text-secondary) 35%,
+    var(--color-text-primary) 50%,
+    var(--color-text-secondary) 65%
+  );
+  background-size: 250% 100%;
+  background-clip: text;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  animation: chat-creation-shimmer 2.6s ease-in-out infinite;
+}
+
+@keyframes chat-creation-shimmer {
+  from { background-position: 150% 0; }
+  to { background-position: -150% 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .chat-creation-shimmer {
+    animation: none;
+    background: none;
+    -webkit-text-fill-color: currentColor;
+  }
+}
+
 .work-status-icon {
   animation: work-status-icon-enter 180ms ease-out both;
 }

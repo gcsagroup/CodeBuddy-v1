@@ -22,7 +22,7 @@ function isBrowserCovered(viewport: DOMRect) {
   return false;
 }
 
-export function WorkspaceBrowser({ scope, id }: { scope: PanelScope; id: string }) {
+export function WorkspaceBrowser({ scope, id, onTitle }: { scope: PanelScope; id: string; onTitle?: (id: string, title: string) => void }) {
   const intl = useIntl();
   const [state, setState] = useState<PanelBrowserState>();
   const [address, setAddress] = useState('');
@@ -57,6 +57,7 @@ export function WorkspaceBrowser({ scope, id }: { scope: PanelScope; id: string 
         const r = await window.electron.workspacePanel({ scope, action: 'browser-state', id });
         if (!alive) return;
         setState(r.browser);
+        if (r.browser?.title && !r.browser.loading) onTitle?.(id, r.browser.title);
         pageVisible = !!r.browser?.url && r.browser.url !== 'about:blank';
         if (!focused.current && r.browser?.url)
           setAddress(r.browser.url === 'about:blank' ? '' : r.browser.url);
@@ -89,7 +90,7 @@ export function WorkspaceBrowser({ scope, id }: { scope: PanelScope; id: string 
         .workspacePanel({ scope, action: 'browser-bounds', id, bounds: null })
         .catch(() => {});
     };
-  }, [scope, id]);
+  }, [scope, id, onTitle]);
   const command = (command: 'back' | 'forward' | 'reload' | 'stop') => {
     void window.electron
       .workspacePanel({ scope, action: 'browser-command', id, command })

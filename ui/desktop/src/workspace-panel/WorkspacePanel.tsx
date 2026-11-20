@@ -378,6 +378,10 @@ export function WorkspacePanelContent({
   }, [scope.root, scope.sessionId, update]);
   // Inline cards show progress without taking over the user's current tab.
   // Generation history stays available in the tab strip; opening a result is explicit.
+  const updateBrowserTitle = useCallback((id: string, title: string) => {
+    if (!latest.current.tabs.some(tab => tab.id === id && tab.title !== title)) return;
+    update(current => ({ ...current, tabs: current.tabs.map(tab => tab.id === id ? { ...tab, title } : tab) }));
+  }, [update]);
   const selected = state.tabs.find((t) => t.id === state.active);
   useEffect(() => {
     tabStrip.current
@@ -758,16 +762,18 @@ export function WorkspacePanelContent({
         setError(intl.formatMessage(m.noWorkspace));
         return;
       }
-      void controlWorkspaceBrowser({
-        scope,
-        action: 'browser-control',
-        operation: 'open',
-        url: target.url,
-      })
-        .then((result) => {
-          if ('error' in result) throw new Error(intl.formatMessage(m.linkFailed));
-        })
-        .catch(fail);
+      setError('');
+      void window.electron.workspacePanel({ scope, action: 'browser-create', url: target.url })
+        .then(({ id }) => {
+          if (!id) throw new Error(intl.formatMessage(m.linkFailed));
+          const title = new URL(target.url).host;
+          update(current => ({
+            ...current,
+            active: id,
+            tabs: current.tabs.some(tab => tab.id === id) ? current.tabs
+              : [...current.tabs, { id, kind: 'browser', title }],
+          }));
+        }).catch(fail);
     };
     window.addEventListener(OPEN_WORKSPACE_WEB, open);
     return () => window.removeEventListener(OPEN_WORKSPACE_WEB, open);
@@ -1642,7 +1648,7 @@ export function WorkspacePanelContent({
           ) : selected?.kind === 'terminal' ? (
             <WorkspaceTerminal key={selected.id} scope={scope} id={selected.id} />
           ) : selected?.kind === 'browser' ? (
-            <WorkspaceBrowser key={selected.id} scope={scope} id={selected.id} />
+            <WorkspaceBrowser key={selected.id} scope={scope} id={selected.id} onTitle={updateBrowserTitle} />
           ) : state.active === 'files' ? null : (
             <p className="m-auto p-4 text-sm text-text-secondary">
               {intl.formatMessage(m.selectFile)}

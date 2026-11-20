@@ -893,6 +893,9 @@
   "codeProHub.chooseProjectFolder": {
     "defaultMessage": "Devam etmek için bir proje klasörü seçin"
   },
+  "codeProHub.creatingChat": {
+    "defaultMessage": "Sohbet oluşturuluyor"
+  },
   "codeProHub.directoryChooserFailed": {
     "defaultMessage": "Proje klasörü seçilemedi. Yeniden deneyin."
   },
@@ -7592,9 +7595,6 @@
   "sessions.action.openNewWindow": {
     "defaultMessage": "Yeni pencerede aç"
   },
-  "sessions.action.shareNostr": {
-    "defaultMessage": "Şifrelenmiş Nostr bağlantısını paylaşın"
-  },
   "sessions.action.unarchive": {
     "defaultMessage": "Unarchive session"
   },
@@ -7703,18 +7703,6 @@
   "sessions.import": {
     "defaultMessage": "Oturumu İçe Aktar"
   },
-  "sessions.importNostr": {
-    "defaultMessage": "Bağlantıyı İçe Aktar"
-  },
-  "sessions.importNostr.description": {
-    "defaultMessage": "Oturumu almak, şifresini çözmek ve içe aktarmak için bir CodeBuddy Nostr paylaşım bağlantısını yapıştırın."
-  },
-  "sessions.importNostr.placeholder": {
-    "defaultMessage": "codebuddy://sessions/nostr?nevent=...&key=..."
-  },
-  "sessions.importNostr.title": {
-    "defaultMessage": "Nostr Oturumunu İçe Aktar"
-  },
   "sessions.importing": {
     "defaultMessage": "İçe aktarılıyor..."
   },
@@ -7735,12 +7723,6 @@
   },
   "sessions.searchPlaceholder": {
     "defaultMessage": "Arama geçmişi..."
-  },
-  "sessions.shareNostr.description": {
-    "defaultMessage": "Bu bağlantıya sahip olan herkes oturumu alıp şifresini çözebilir. Buna bir sırmış gibi davran."
-  },
-  "sessions.shareNostr.title": {
-    "defaultMessage": "Şifreli Nostr Paylaşım Bağlantısı"
   },
   "sessions.toast.archiveFailed": {
     "defaultMessage": "Failed to update session archive: {error}"
@@ -7774,12 +7756,6 @@
   },
   "sessions.toast.imported": {
     "defaultMessage": "Oturum başarıyla içe aktarıldı"
-  },
-  "sessions.toast.shareNostr": {
-    "defaultMessage": "Şifrelenmiş Nostr paylaşım bağlantısı oluşturuldu"
-  },
-  "sessions.toast.shareNostrFailed": {
-    "defaultMessage": "Nostr paylaşım bağlantısı oluşturulamadı: {error}"
   },
   "sessions.toast.unarchived": {
     "defaultMessage": "Session restored"

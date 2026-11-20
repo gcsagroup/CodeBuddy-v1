@@ -4,37 +4,45 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import os from 'node:os';
 
+import { createServer } from 'vite';
+
+async function launchPanel(root: string) {
+  const main = path.join(root, 'main.cjs');
+  const preload = path.join(root, 'preload.cjs');
+  await fs.writeFile(
+    preload,
+    `const {contextBridge, ipcRenderer}=require('electron'); const panel=request=>ipcRenderer.invoke('workspace-panel',request);
+     contextBridge.exposeInMainWorld('panel', panel); contextBridge.exposeInMainWorld('electron', { workspacePanel: panel, on:()=>{}, off:()=>{}, getSetting:async()=>false });`
+  );
+  const entry = `
+    import {app,BrowserWindow} from 'electron';
+    import {registerWorkspacePanel} from ${JSON.stringify(path.resolve('src/workspace-panel/workspacePanelMain.ts'))};
+    app.setPath('userData', ${JSON.stringify(path.join(root, 'profile'))});
+    app.whenReady().then(async()=>{
+      registerWorkspacePanel();
+      const win=new BrowserWindow({width:1000,height:750,webPreferences:{preload:${JSON.stringify(preload)},contextIsolation:true,sandbox:true}});
+      await win.loadURL('data:text/html,<title>CodeBuddy browser integration</title><h1>Native browser integration</h1>');
+    });
+  `;
+  await build({
+    stdin: { contents: entry, resolveDir: process.cwd(), loader: 'ts' },
+    outfile: main,
+    bundle: true,
+    platform: 'node',
+    format: 'cjs',
+    external: ['electron', 'node-pty'],
+  });
+  const env = { ...process.env };
+  delete env.ELECTRON_RUN_AS_NODE;
+  return await _electron.launch({ args: [main], env });
+}
+
 test('native embedded browser observes, types, clicks, rejects covered targets and releases previews', async () => {
   const root = await fs.realpath(
     await fs.mkdtemp(path.join(os.tmpdir(), 'codebuddy-browser-native-'))
   );
   let application: Awaited<ReturnType<typeof _electron.launch>> | undefined;
   try {
-    const main = path.join(root, 'main.cjs');
-    const preload = path.join(root, 'preload.cjs');
-    await fs.writeFile(
-      preload,
-      `const {contextBridge, ipcRenderer}=require('electron'); const panel=request=>ipcRenderer.invoke('workspace-panel',request);
-       contextBridge.exposeInMainWorld('panel', panel); contextBridge.exposeInMainWorld('electron', { workspacePanel: panel });`
-    );
-    const entry = `
-      import {app,BrowserWindow} from 'electron';
-      import {registerWorkspacePanel} from ${JSON.stringify(path.resolve('src/workspace-panel/workspacePanelMain.ts'))};
-      app.setPath('userData', ${JSON.stringify(path.join(root, 'profile'))});
-      app.whenReady().then(async()=>{
-        registerWorkspacePanel();
-        const win=new BrowserWindow({width:1000,height:750,webPreferences:{preload:${JSON.stringify(preload)},contextIsolation:true,sandbox:true}});
-        await win.loadURL('data:text/html,<title>CodeBuddy browser integration</title><h1>Native browser integration</h1>');
-      });
-    `;
-    await build({
-      stdin: { contents: entry, resolveDir: process.cwd(), loader: 'ts' },
-      outfile: main,
-      bundle: true,
-      platform: 'node',
-      format: 'cjs',
-      external: ['electron', 'node-pty'],
-    });
     await fs.writeFile(
       path.join(root, 'index.html'),
       `<meta charset="utf-8"><title>本机预览验收</title>
@@ -56,9 +64,7 @@ test('native embedded browser observes, types, clicks, rejects covered targets a
       <button onclick="document.querySelector('#cover').style.display='block'">显示遮挡</button>
       <div id="cover" style="display:none;position:fixed;inset:0;background:white">遮挡层</div>`
     );
-    const env = { ...process.env };
-    delete env.ELECTRON_RUN_AS_NODE;
-    application = await _electron.launch({ args: [main], env });
+    application = await launchPanel(root);
     const page = await application.firstWindow();
     const scope = { sessionId: 'native-a', root };
     const call = (input: Record<string, unknown>, selectedScope = scope): Promise<any> =>
@@ -165,8 +171,10 @@ test('native embedded browser observes, types, clicks, rejects covered targets a
     const edge = page.locator('.wb-control-surface .glow');
     const guestBounds = () => win.evaluate(window => window.contentView.children[0].getBounds());
     await expect(edge).toHaveCSS('animation-name', 'edge-breathe');
-    const before = await guestBounds();
     const frame = (await edge.boundingBox())!;
+    // Positioning the native view is a separate IPC from rendering the toolbar.
+    await expect.poll(async () => (await guestBounds()).x).toBeGreaterThan(frame.x);
+    const before = await guestBounds();
     expect(frame.x).toBeGreaterThan(0);
     expect(before.x).toBeGreaterThan(frame.x);
     expect(before.x + before.width).toBeLessThan(frame.x + frame.width);
@@ -380,5 +388,57 @@ test('native embedded browser observes, types, clicks, rejects covered targets a
     await application?.close();
     expect(path.dirname(root)).toBe(await fs.realpath(os.tmpdir()));
     await fs.rm(root, { recursive: true, force: true });
+  }
+});
+
+test('a chat source opens a visible manual tab before the server releases the page', async () => {
+  const root = await fs.realpath(await fs.mkdtemp(path.join(os.tmpdir(), 'codebuddy-source-click-')));
+  let release!: () => void;
+  const gate = new Promise<void>(resolve => { release = resolve; });
+  let visits = 0;
+  const server = await createServer({
+    configFile: path.resolve('vite.renderer.config.mts'),
+    cacheDir: path.join(root, 'vite'),
+    server: { host: '127.0.0.1', port: 0, hmr: false },
+    plugins: [{ name: 'delayed-source', configureServer(vite) {
+      vite.middlewares.use('/slow-source', async (_req, res) => {
+        visits++;
+        await gate;
+        res.setHeader('Content-Type', 'text/html');
+        res.end('<title>Source receipt</title><h1>Source loaded</h1>');
+      });
+    } }],
+  });
+  let application: Awaited<ReturnType<typeof _electron.launch>> | undefined;
+  try {
+    await server.listen();
+    const origin = server.resolvedUrls!.local[0];
+    application = await launchPanel(root);
+    const page = await application.firstWindow();
+    await page.goto(origin + 'tests/browser-fixtures/source-click.html?root=' + encodeURIComponent(root));
+    const link = page.getByRole('link', { name: 'Repository README' });
+    await link.click();
+    const tab = page.getByRole('tab', { name: new URL(origin).host, exact: true });
+    await expect(tab).toHaveAttribute('aria-selected', 'true');
+    await expect(page.getByRole('progressbar')).toBeVisible();
+    await expect(page.getByRole('textbox', { name: 'Address', exact: false })).toHaveValue(origin + 'slow-source');
+    await link.click();
+    await expect.poll(() => visits).toBe(1);
+    await expect(tab).toHaveCount(1);
+    release();
+    await expect(page.getByRole('tab', { name: 'Source receipt' })).toHaveAttribute('aria-selected', 'true');
+    await expect(page.getByRole('progressbar')).toHaveCount(0);
+    await expect(page.locator('.control-feedback .banner')).toHaveCount(0);
+    expect(await application.evaluate(({ webContents }) => {
+      const guests = webContents.getAllWebContents().filter(wc => wc.getURL().endsWith('/slow-source'));
+      return guests.map(wc => wc.debugger.isAttached());
+    })).toEqual([false]);
+    expect(visits).toBe(1);
+  } finally {
+    release();
+    await application?.close();
+    await server.close();
+    if (path.dirname(root) === await fs.realpath(os.tmpdir()) && path.basename(root).startsWith('codebuddy-source-click-'))
+      await fs.rm(root, { recursive: true, force: true });
   }
 });

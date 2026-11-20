@@ -914,6 +914,9 @@
   "codeProHub.clearWorkspace": {
     "defaultMessage": "Clear selected workspace"
   },
+  "codeProHub.creatingChat": {
+    "defaultMessage": "Creating chat"
+  },
   "codeProHub.directoryChooserFailed": {
     "defaultMessage": "Unable to choose a project folder. Try again."
   },
@@ -2988,7 +2991,7 @@
     "defaultMessage": "Remove extension"
   },
   "extensionModal.sessionScope": {
-    "defaultMessage": "Conversations following the toolbox apply changes before their next turn. Custom conversations keep their selection. Testing the connection checks the service without loading it into a conversation."
+    "defaultMessage": "Conversations following the toolbox discover MCP changes before the next model call, including during a running task. Custom selections and permissions still apply. Testing checks the connection only."
   },
   "extensionModal.testConnection": {
     "defaultMessage": "Test connection"
@@ -7757,9 +7760,6 @@
   "sessions.action.openNewWindow": {
     "defaultMessage": "Open in new window"
   },
-  "sessions.action.shareNostr": {
-    "defaultMessage": "Share encrypted Nostr link"
-  },
   "sessions.action.unarchive": {
     "defaultMessage": "Unarchive session"
   },
@@ -7868,18 +7868,6 @@
   "sessions.import": {
     "defaultMessage": "Import Session"
   },
-  "sessions.importNostr": {
-    "defaultMessage": "Import Link"
-  },
-  "sessions.importNostr.description": {
-    "defaultMessage": "Paste a CodeBuddy Nostr share link to fetch, decrypt, and import the session."
-  },
-  "sessions.importNostr.placeholder": {
-    "defaultMessage": "codebuddy://sessions/nostr?nevent=...&key=..."
-  },
-  "sessions.importNostr.title": {
-    "defaultMessage": "Import Nostr Session"
-  },
   "sessions.importing": {
     "defaultMessage": "Importing..."
   },
@@ -7900,12 +7888,6 @@
   },
   "sessions.searchPlaceholder": {
     "defaultMessage": "Search history..."
-  },
-  "sessions.shareNostr.description": {
-    "defaultMessage": "Anyone with this link can fetch and decrypt the session. Treat it like a secret."
-  },
-  "sessions.shareNostr.title": {
-    "defaultMessage": "Encrypted Nostr Share Link"
   },
   "sessions.toast.archiveFailed": {
     "defaultMessage": "Failed to update session archive: {error}"
@@ -7939,12 +7921,6 @@
   },
   "sessions.toast.imported": {
     "defaultMessage": "Session imported successfully"
-  },
-  "sessions.toast.shareNostr": {
-    "defaultMessage": "Encrypted Nostr share link created"
-  },
-  "sessions.toast.shareNostrFailed": {
-    "defaultMessage": "Failed to create Nostr share link: {error}"
   },
   "sessions.toast.unarchived": {
     "defaultMessage": "Session restored"

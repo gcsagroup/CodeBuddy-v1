@@ -908,6 +908,9 @@
   "codeProHub.capabilities": {
     "defaultMessage": "CodePro 能力"
   },
+  "codeProHub.creatingChat": {
+    "defaultMessage": "正在建立聊天"
+  },
   "codeProHub.chooseProjectFolder": {
     "defaultMessage": "請選擇專案資料夾以繼續"
   },
@@ -2988,7 +2991,7 @@
     "defaultMessage": "移除擴充功能"
   },
   "extensionModal.sessionScope": {
-    "defaultMessage": "跟隨工具箱的對話將在下一輪任務開始前套用變更；自訂範圍的對話保留其選擇。測試連線只檢查服務，不會將它載入對話中。"
+    "defaultMessage": "跟隨工具箱的對話會在下一次模型呼叫前識別 MCP 變更，進行中的任務也適用。自訂選擇和權限限制繼續生效；測試連線只檢查服務。"
   },
   "extensionModal.testConnection": {
     "defaultMessage": "測試連線"
@@ -7757,9 +7760,6 @@
   "sessions.action.openNewWindow": {
     "defaultMessage": "在新視窗中開啟"
   },
-  "sessions.action.shareNostr": {
-    "defaultMessage": "分享加密的 Nostr 連結"
-  },
   "sessions.action.unarchive": {
     "defaultMessage": "取消封存會話"
   },
@@ -7868,18 +7868,6 @@
   "sessions.import": {
     "defaultMessage": "匯入工作階段"
   },
-  "sessions.importNostr": {
-    "defaultMessage": "匯入連結"
-  },
-  "sessions.importNostr.description": {
-    "defaultMessage": "貼上 CodeBuddy Nostr 分享連結，以擷取、解密並匯入該工作階段。"
-  },
-  "sessions.importNostr.placeholder": {
-    "defaultMessage": "codebuddy://sessions/nostr?nevent=...&key=..."
-  },
-  "sessions.importNostr.title": {
-    "defaultMessage": "匯入 Nostr 工作階段"
-  },
   "sessions.importing": {
     "defaultMessage": "正在匯入…"
   },
@@ -7900,12 +7888,6 @@
   },
   "sessions.searchPlaceholder": {
     "defaultMessage": "搜尋記錄..."
-  },
-  "sessions.shareNostr.description": {
-    "defaultMessage": "任何持有此連結的人都能擷取並解密該工作階段。請將其視為機密。"
-  },
-  "sessions.shareNostr.title": {
-    "defaultMessage": "加密的 Nostr 分享連結"
   },
   "sessions.toast.archiveFailed": {
     "defaultMessage": "無法更新會話封存狀態：{error}"
@@ -7939,12 +7921,6 @@
   },
   "sessions.toast.imported": {
     "defaultMessage": "已成功匯入工作階段"
-  },
-  "sessions.toast.shareNostr": {
-    "defaultMessage": "已建立加密的 Nostr 分享連結"
-  },
-  "sessions.toast.shareNostrFailed": {
-    "defaultMessage": "無法建立 Nostr 分享連結：{error}"
   },
   "sessions.toast.unarchived": {
     "defaultMessage": "會話已還原"

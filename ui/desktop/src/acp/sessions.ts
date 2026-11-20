@@ -526,8 +526,3 @@ export async function acpImportSession(input: string, source: SessionImportSourc
   const client = await getAcpClient();
   await client.goose.sessionImport_unstable({ input, source });
 }
-
-export async function acpShareSessionNostr(sessionId: string, relays: string[]) {
-  const client = await getAcpClient();
-  return await client.goose.sessionShareNostr_unstable({ sessionId, relays });
-}

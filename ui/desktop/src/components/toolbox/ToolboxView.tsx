@@ -1,4 +1,5 @@
 import { WorkspacePageTitle } from '../Layout/WorkspacePageTitle';
+import './toolbox.css';
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import {
   AlertTriangle,
@@ -13,6 +14,9 @@ import {
   RefreshCw,
   Search,
   BriefcaseBusiness,
+  Code2,
+  Globe,
+  Film,
 } from 'lucide-react';
 import { useLocation, useSearchParams, Link } from 'react-router-dom';
 import { ProgressiveToolboxGrid } from './ProgressiveToolboxGrid';
@@ -219,19 +223,19 @@ function ItemCard({
         : statusMessages[item.status];
   const toggleable = item.actions.includes(enabled ? 'disable' : 'enable');
   return (
-    <Card className="group overflow-hidden border-border-secondary bg-background-primary py-0 shadow-none transition-colors hover:border-border-primary hover:bg-background-secondary">
+    <Card data-kind={item.kind} data-status={item.status} className="toolbox-card group overflow-hidden border-border-secondary bg-background-primary py-0 shadow-none transition-colors hover:border-border-primary hover:bg-background-secondary">
       <div className="flex min-h-24 items-stretch">
         <button
           type="button"
           aria-label={item.name}
           onClick={() => onOpen(item)}
-          className="flex min-w-0 flex-1 items-start gap-3 p-3.5 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
+          className="toolbox-card-main flex min-w-0 flex-1 items-start gap-3 p-3.5 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
         >
-          <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-background-secondary text-text-secondary">
+          <div className="toolbox-card-icon flex size-8 shrink-0 items-center justify-center rounded-lg bg-background-secondary text-text-secondary">
             <ItemIcon className="size-4" aria-hidden="true" />
           </div>
           <div className="min-w-0 flex-1">
-            <div className="flex flex-wrap items-center gap-2">
+            <div className="toolbox-card-heading flex flex-wrap items-center gap-2">
               <h3 className="truncate text-sm font-medium">{item.name}</h3>
               {item.kind === 'skill' && (
                 <span className="rounded-md border border-border-secondary px-1.5 py-0.5 text-[11px] text-text-muted">
@@ -257,17 +261,17 @@ function ItemCard({
               {!item.repositoryMembers && (
                 <span
                   aria-live="polite"
-                  className="rounded-md bg-background-tertiary px-1.5 py-0.5 text-[11px] text-text-secondary"
+                  className="toolbox-card-status rounded-md bg-background-tertiary px-1.5 py-0.5 text-[11px] text-text-secondary"
                 >
                   {intl.formatMessage(displayedStatus)}
                 </span>
               )}
             </div>
-            <p className="mt-2 line-clamp-2 text-sm leading-5 text-text-secondary">
+            <p className="toolbox-card-description mt-2 line-clamp-2 text-sm leading-5 text-text-secondary">
               {item.description}
             </p>
             {item.usage && (
-              <p className="mt-3 text-xs text-text-muted">
+              <p className="toolbox-card-usage mt-3 text-xs text-text-muted">
                 {intl.formatMessage(i18n.usage, { count: item.usage.successCount })}
               </p>
             )}
@@ -275,7 +279,7 @@ function ItemCard({
           <ChevronRight className="mt-2 size-4 shrink-0 text-text-muted transition-transform group-hover:translate-x-0.5" />
         </button>
         {(toggleable || item.locked) && (
-          <div className="flex w-16 shrink-0 items-center justify-center border-l border-border-secondary">
+          <div className="toolbox-card-toggle flex w-16 shrink-0 items-center justify-center">
             <Switch
               checked={enabled}
               disabled={item.locked || toggling || !toggleable}
@@ -646,10 +650,40 @@ export default function ToolboxView() {
     const advanced = entries.filter(
       (item) => item.kind === 'builtin' && ADVANCED_CAPABILITIES.has(item.reference?.value ?? '')
     );
-    const basic = entries.filter((item) => !advanced.includes(item) && !office.includes(item));
+    const groups = [
+      {
+        title: selectNativeText(intl.locale, 'Development and debugging', '开发与排错', '開發與除錯'),
+        icon: Code2,
+        names: ['systematic-debugging', 'verification-before-completion', 'code-navigation', 'versioned-docs'],
+      },
+      {
+        title: selectNativeText(intl.locale, 'Web development and acceptance', '网页开发与验收', '網頁開發與驗收'),
+        icon: Globe,
+        names: ['modern-web-guidance', 'web-acceptance'],
+      },
+      {
+        title: selectNativeText(intl.locale, 'Images, video and pets', '图片、视频与宠物', '圖片、影片與寵物'),
+        icon: Film,
+        names: ['comfyui', 'media-quality'],
+      },
+    ].map(group => ({ ...group, items: entries.filter(item =>
+      isBuiltInSkill(item) && group.names.includes(item.skillSource?.name ?? '')) }));
+    const grouped = new Set(groups.flatMap(group => group.items));
+    const basic = entries.filter((item) => !advanced.includes(item) && !office.includes(item) && !grouped.has(item));
     return (
       <>
         {renderGrid(basic)}
+        {groups.filter(group => group.items.length > 0).map(group => (
+          <details key={group.title} className="toolbox-group mt-5"
+            open={query.trim() ? true : undefined}>
+            <summary className="cursor-pointer text-sm font-medium">
+              <group.icon className="size-4" aria-hidden="true" />
+              <span>{group.title}</span><span className="toolbox-group-count">{group.items.length}</span>
+              <ChevronRight className="toolbox-group-chevron size-4" aria-hidden="true" />
+            </summary>
+            <div className="mt-4">{renderGrid(group.items)}</div>
+          </details>
+        ))}
         {office.length > 0 && (
           <section className="mt-5" aria-label={intl.formatMessage(i18n.office)}>
             <h2 className="mb-3 text-sm font-medium">{intl.formatMessage(i18n.office)}</h2>
@@ -673,7 +707,7 @@ export default function ToolboxView() {
 
   return (
     <MainPanelLayout>
-      <div data-toolbox-scroll className="min-w-0 flex-1 overflow-y-auto px-4 pb-12 pt-6 sm:px-8">
+      <div data-toolbox-scroll className="toolbox-page min-w-0 flex-1 overflow-y-auto px-4 pb-12 pt-6 sm:px-8">
         <div className="mx-auto max-w-6xl">
           {sessionId && (
             <section aria-label={intl.formatMessage({ id: 'toolbox.session.context', defaultMessage: 'Tools for this conversation' })}
@@ -698,7 +732,7 @@ export default function ToolboxView() {
               </Button>
             </section>
           )}
-          <div className="mb-5 flex flex-wrap items-start justify-between gap-3 border-b border-border-primary pb-4">
+          <div className="toolbox-header mb-5 flex flex-wrap items-start justify-between gap-3 pb-4">
             <WorkspacePageTitle icon={BriefcaseBusiness} description={intl.formatMessage(i18n.description)}>
               {intl.formatMessage(i18n.title)}
             </WorkspacePageTitle>
@@ -709,7 +743,7 @@ export default function ToolboxView() {
                 </Button>
               )}
               {(selectedSection === 'all' || selectedSection === 'external') && (
-                <Button onClick={() => setControlledMcpAdd(true)}>
+                <Button variant="outline" onClick={() => setControlledMcpAdd(true)}>
                   {intl.formatMessage(i18n.addMcp)}
                 </Button>
               )}
@@ -737,7 +771,7 @@ export default function ToolboxView() {
             </div>
           )}
 
-          <div className="mb-5 flex flex-wrap items-center gap-3">
+          <div className="toolbox-toolbar mb-5 flex flex-wrap items-center gap-3">
             <div
               role="tablist"
               aria-label={intl.formatMessage(i18n.tablist)}

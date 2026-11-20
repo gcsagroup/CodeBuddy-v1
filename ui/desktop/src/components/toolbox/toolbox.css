@@ -1,0 +1,48 @@
+.toolbox-page {
+  background: var(--color-background-primary);
+  container-type: inline-size;
+}
+.toolbox-header { padding-top: 8px; margin-bottom: 12px; }
+.toolbox-toolbar {
+  padding: 12px 0 20px;
+  border-bottom: 1px solid var(--color-border-secondary);
+  margin-bottom: 24px;
+}
+.toolbox-toolbar > label { max-width: 340px; margin-left: auto; }
+.toolbox-card { border-radius: 14px; gap: 0; }
+.toolbox-card > div:first-child { min-height: 108px; }
+.toolbox-card-main { padding: 16px; gap: 12px; }
+.toolbox-card-icon { width: 36px; height: 36px; border-radius: 11px; color: #536bb4; background: #eef2fc; }
+.toolbox-card[data-kind="skill"] .toolbox-card-icon { color: #428276; background: #edf6f2; }
+.toolbox-card[data-kind="external"] .toolbox-card-icon { color: #8d6ba9; background: #f4eff8; }
+.toolbox-card-heading { gap: 5px 7px; }
+.toolbox-card-heading h3 { width: 100%; font-size: 14px; line-height: 20px; font-weight: 600; }
+.toolbox-card-heading > span { border: 0; padding: 0; border-radius: 0; font-size: 10px; line-height: 16px; background: transparent; }
+.toolbox-card-heading > span + span::before { content: "·"; padding-right: 7px; color: var(--color-text-muted); }
+.toolbox-card-description { margin-top: 5px; font-size: 12px; line-height: 19px; -webkit-line-clamp: 1; }
+.toolbox-card-usage { margin-top: 7px; font-size: 10px; line-height: 15px; }
+.toolbox-card-toggle { width: 48px; padding-right: 12px; }
+.toolbox-card[data-status="failed"] .toolbox-card-status { color: #c14c48; }
+.toolbox-card[data-status="permission"] .toolbox-card-status,
+.toolbox-card[data-status="setup"] .toolbox-card-status { color: #9b721d; }
+.toolbox-group > summary {
+  display: flex; align-items: center; gap: 9px; list-style: none;
+  padding: 12px 0; border-bottom: 1px solid var(--color-border-secondary);
+  color: var(--color-text-primary);
+}
+.toolbox-group > summary::-webkit-details-marker { display: none; }
+.toolbox-group > summary > svg:first-child { color: var(--color-text-secondary); }
+.toolbox-group-count { font-size: 11px; font-weight: 400; color: var(--color-text-muted); }
+.toolbox-group-chevron { margin-left: auto; color: var(--color-text-muted); transition: transform 150ms ease; }
+.toolbox-group[open] > summary .toolbox-group-chevron { transform: rotate(90deg); }
+.toolbox-group > summary:focus-visible { outline: 2px solid var(--color-ring); outline-offset: 4px; border-radius: 4px; }
+.dark .toolbox-card-icon { background: #242d45; color: #a2b7f2; }
+.dark .toolbox-card[data-kind="skill"] .toolbox-card-icon { background: #213b34; color: #95cabb; }
+.dark .toolbox-card[data-kind="external"] .toolbox-card-icon { background: #362b43; color: #c7aadf; }
+@container (max-width: 620px) {
+  .toolbox-toolbar > label { max-width: none; flex-basis: 100%; margin-left: 0; }
+  .toolbox-card-main { padding: 13px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .toolbox-group-chevron { transition: none; }
+}

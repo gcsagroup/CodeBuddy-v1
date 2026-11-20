@@ -1,4 +1,4 @@
-import { act, fireEvent, render, screen, within } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { IntlTestWrapper } from '../../i18n/test-utils';
 import { SearchView } from './SearchView';
@@ -35,6 +35,27 @@ function Chats({ firstActive }: { firstActive: boolean }) {
 }
 
 describe('find command scope', () => {
+  it('pauses a hidden chat query and searches the latest typed term on return', async () => {
+    const onSearch = vi.fn();
+    const onQueryActiveChange = vi.fn();
+    const view = (active: boolean) => (
+      <SearchView active={active} onSearch={onSearch} onQueryActiveChange={onQueryActiveChange}>
+        Unrelated history
+      </SearchView>
+    );
+    const { rerender } = render(view(true), { wrapper: IntlTestWrapper });
+    fireEvent.keyDown(window, { key: 'f', ctrlKey: true, metaKey: true });
+    const input = screen.getByRole('textbox');
+    fireEvent.change(input, { target: { value: 'first term' } });
+    await waitFor(() => expect(onQueryActiveChange).toHaveBeenLastCalledWith(true));
+    fireEvent.change(input, { target: { value: 'last term' } });
+    rerender(view(false));
+    expect(onQueryActiveChange).toHaveBeenLastCalledWith(false);
+    expect(input).toHaveValue('last term');
+    rerender(view(true));
+    await waitFor(() => expect(onSearch).toHaveBeenLastCalledWith('last term', false));
+  });
+
   it.each(['keyboard', 'menu'])(
     'opens search only in the active kept-alive chat via %s',
     (command) => {

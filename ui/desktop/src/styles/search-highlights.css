@@ -1,0 +1,9 @@
+::highlight(conversation-find) {
+  background-color: var(--highlight-color);
+  color: var(--color-text-primary);
+}
+
+::highlight(conversation-find-current) {
+  background-color: var(--highlight-current);
+  color: var(--color-text-primary);
+}

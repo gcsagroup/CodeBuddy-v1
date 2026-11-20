@@ -651,7 +651,7 @@ it('shows running dots at the bottom, preserves the return control, and clears d
 });
 
 it.each(['keyboard', 'menu'] as const)(
-  'uses the actual search visibility for the history window when opened by %s',
+  'keeps the history window light until a query is entered via %s',
   async (entry) => {
     show();
     expect(screen.getByText('Recent history')).toBeVisible();
@@ -668,16 +668,20 @@ it.each(['keyboard', 'menu'] as const)(
       expect(find).toBeDefined();
       act(() => find?.[1]({} as IpcRendererEvent));
     }
-    expect(screen.getByText('Search all history')).toBeVisible();
+    expect(screen.getByText('Recent history')).toBeVisible();
     const searchInput = screen.getByPlaceholderText('Search conversation...');
     expect(searchInput).toHaveFocus();
     expect(
       screen.getByRole('heading', { name: 'Saved history' }).closest('header')
     ).toContainElement(searchInput);
+    fireEvent.change(searchInput, { target: { value: 'no-fixture-match' } });
+    expect(await screen.findByText('Search all history')).toBeVisible();
     fireEvent.keyDown(searchInput, {
       key: 'Escape',
     });
-    await waitFor(() => expect(screen.getByText('Recent history')).toBeVisible());
-    expect(screen.queryByPlaceholderText('Search conversation...')).not.toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getByText('Recent history')).toBeVisible();
+      expect(screen.queryByPlaceholderText('Search conversation...')).not.toBeInTheDocument();
+    });
   }
 );

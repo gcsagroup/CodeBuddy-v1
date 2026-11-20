@@ -41,6 +41,7 @@ import {
 import { isPlanTool, isProgressTool, presentedToolCall } from './codepro/CodeProToolContent';
 import { isPlanContextMessage } from '../types/codeproPlan';
 import { ToolCallExpandable } from './ToolCallExpandable';
+import { WorkHistoryWindow } from './WorkHistoryWindow';
 import { CodeProWorkStep } from './codepro/CodeProWorkStep';
 import {
   formatToolAction,
@@ -533,6 +534,7 @@ function ProgressiveMessageListContent({
   sharedMediaJobs,
   processSettled = false,
   contentClip,
+  windowWorkHistory = false,
   footer,
 }: ProgressiveMessageListProps & {
   renderRange?: readonly [number, number];
@@ -543,6 +545,7 @@ function ProgressiveMessageListContent({
   sharedComputerTargets?: ReadonlyMap<string, string>;
   sharedMediaJobs?: MediaJobsByCall;
   processSettled?: boolean;
+  windowWorkHistory?: boolean;
   contentClip?: readonly [number, number, number];
   footer?: { hidden?: boolean; messageIndex?: number; usage?: import('../types/message').MessageUsage; created?: number };
 }) {
@@ -571,6 +574,8 @@ function ProgressiveMessageListContent({
     () => new Set<string>(JSON.parse(livePermissionKey)),
     [livePermissionKey]
   );
+  // Native approval cards must be immediately available while awaiting input.
+  const keepAllWorkHistoryMounted = livePermissions.size > 0;
   const [isLoading, setIsLoading] = useState(
     () => !(foldTurns && !renderMessage) && messages.length > showLoadingThreshold
   );
@@ -1415,7 +1420,13 @@ function ProgressiveMessageListContent({
                   role="region"
                   aria-label={intl.formatMessage(i18n.toolRecordsRegion)}
                 >
-                  {group.map((item) => renderToolMessage(item, true, pendingIds))}
+                  {windowWorkHistory ? (
+                    <WorkHistoryWindow
+                      rows={group.map((item) => renderToolMessage(item, true, pendingIds))}
+                      keepAllMounted={keepAllWorkHistoryMounted}
+                      prepareSearch={searchActive}
+                    />
+                  ) : group.map((item) => renderToolMessage(item, true, pendingIds))}
                 </div>
               </ToolCallExpandable>
               {!renderRange && <MediaTaskCards jobs={groupMedia} sessionId={chat.sessionId} readOnly={readOnly} />}
@@ -1681,6 +1692,9 @@ function ProgressiveMessageListContent({
     foldTurns,
     renderRange,
     livePermissions,
+    windowWorkHistory,
+    keepAllWorkHistoryMounted,
+    searchActive,
     renderStartIndex,
     renderEndIndex,
     renderMessage,
@@ -1729,7 +1743,8 @@ function ProgressiveMessageListContent({
         messageIndex?: number;
         usage?: import('../types/message').MessageUsage;
         created?: number;
-      }
+      },
+      windowWorkHistory = false
     ) => (
       <ProgressiveMessageListContent
         messages={turn}
@@ -1741,6 +1756,8 @@ function ProgressiveMessageListContent({
         presentationPending={pending}
         processSettled={settled}
         contentClip={clip}
+        windowWorkHistory={windowWorkHistory}
+        searchActive={searchActive}
         footer={footer}
         renderRange={[start, end]}
         sessionType={sessionType}
@@ -2000,7 +2017,8 @@ function ProgressiveMessageListContent({
                   pending && !settled,
                   settled,
                   !continued && answerIndex >= 0 ? [answerIndex, 0, answerStart] : undefined,
-                  { hidden: settled || streaming || pending, messageIndex, usage }
+                  { hidden: settled || streaming || pending, messageIndex, usage },
+                  true
                 )}
               </TurnProcessHistory>
               <AnswerFiles.Provider value={conversationChanges.find(change => change.id === turn[0]?.id)?.files ?? []}>
@@ -2055,7 +2073,10 @@ function ProgressiveMessageListContent({
         />
       )}
 
-      {renderMessages()}
+      {windowWorkHistory ? (
+        <WorkHistoryWindow rows={renderMessages()} keepAllMounted={keepAllWorkHistoryMounted}
+          prepareSearch={searchActive} />
+      ) : renderMessages()}
 
       {/* Loading indicator when progressively rendering */}
       {isLoading && (

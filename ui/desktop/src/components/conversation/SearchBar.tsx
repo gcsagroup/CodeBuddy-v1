@@ -33,12 +33,18 @@ const i18nMessages = defineMessages({
  * Props for the SearchBar component
  */
 interface SearchBarProps {
+  /** A kept-alive conversation can pause find while it is hidden. */
+  active?: boolean;
   /** Callback fired when search term or case sensitivity changes */
   onSearch: (term: string, caseSensitive: boolean) => void;
   /** Callback fired when the search bar is closed */
   onClose: () => void;
+  /** Release search work as the exit animation starts. */
+  onCloseStart?: () => void;
   /** Optional callback for navigating between search results */
   onNavigate?: (direction: 'next' | 'prev') => void;
+  /** Search results are still being prepared. */
+  searchPending?: boolean;
   /** Current search results state */
   searchResults?: {
     count: number;
@@ -63,9 +69,12 @@ interface SearchBarProps {
  * SearchBar provides a search input with case-sensitive toggle and result navigation.
  */
 export const SearchBar: React.FC<SearchBarProps> = ({
+  active = true,
   onSearch,
   onClose,
+  onCloseStart,
   onNavigate,
+  searchPending = false,
   searchResults,
   inputRef: externalInputRef,
   initialSearchTerm = '',
@@ -82,9 +91,11 @@ export const SearchBar: React.FC<SearchBarProps> = ({
   const internalInputRef = React.useRef<HTMLInputElement>(null);
   const inputRef = externalInputRef || internalInputRef;
   const debouncedSearchRef = useRef<ReturnType<typeof debounce> | null>(null);
+  const wasActive = useRef(active);
 
   // Create debounced search function
   useEffect(() => {
+    if (!active) return;
     const debouncedFn = debounce((term: string, caseSensitive: boolean) => {
       onSearch(term, caseSensitive);
     }, 200);
@@ -93,8 +104,15 @@ export const SearchBar: React.FC<SearchBarProps> = ({
 
     return () => {
       debouncedFn.cancel();
+      debouncedSearchRef.current = null;
     };
-  }, [onSearch]);
+  }, [active, onSearch]);
+
+  useEffect(() => {
+    const resumed = active && !wasActive.current;
+    wasActive.current = active;
+    if (resumed && !isExiting && searchTerm.trim()) onSearch(searchTerm, caseSensitive);
+  }, [active, caseSensitive, isExiting, onSearch, searchTerm]);
 
   useEffect(() => {
     inputRef.current?.focus();
@@ -121,6 +139,7 @@ export const SearchBar: React.FC<SearchBarProps> = ({
   }, [searchResults, searchTerm]);
 
   const handleSearch = (event: React.ChangeEvent<HTMLInputElement>) => {
+    if (isExiting) return;
     const value = event.target.value;
 
     // Always cancel pending searches first
@@ -168,8 +187,10 @@ export const SearchBar: React.FC<SearchBarProps> = ({
   };
 
   const handleClose = () => {
+    if (isExiting) return;
     setIsExiting(true);
     debouncedSearchRef.current?.cancel(); // Cancel any pending searches
+    onCloseStart?.();
     setTimeout(() => {
       onClose();
     }, 150); // Match animation duration
@@ -260,10 +281,13 @@ export const SearchBar: React.FC<SearchBarProps> = ({
             </Button>
             <output
               aria-live="polite"
+              aria-busy={searchPending}
               className="ml-auto pr-2 text-xs text-text-secondary tabular-nums"
             >
-              {localSearchResults?.count ? localSearchResults.currentIndex : 0} /{' '}
-              {localSearchResults?.count ?? 0}
+              {searchPending ? '…' : (
+                <>{localSearchResults?.count ? localSearchResults.currentIndex : 0} /{' '}
+                  {localSearchResults?.count ?? 0}</>
+              )}
             </output>
           </div>
         )}

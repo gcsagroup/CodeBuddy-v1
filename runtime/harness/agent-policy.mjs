@@ -30,8 +30,16 @@ export default class AgentSkillRegistry extends SkillRegistry {
     if (skill?.provider !== 'dsh-office') return skill;
     const agent = options?.scope;
     const route = agent?.session?.requestHeader()?.config ?? agent?.options;
-    const info = route?.provider && route.model
-      ? await this.ctx.llm.resolveModelInfo(route.provider, route.model, options.signal) : undefined;
+    let info;
+    if (route?.provider && route.model) {
+      try {
+        info = await this.ctx.llm.resolveModelInfo(route.provider, route.model, options.signal);
+      } catch (error) {
+        if (options.signal?.aborted) throw error;
+        // Reading installed instructions does not require an available model.
+        // Unknown capability keeps Office's existing conservative QA guidance.
+      }
+    }
     return officeWorkflow(skill, info ? info.inputModalities?.includes('image') === true : undefined);
   }
 }

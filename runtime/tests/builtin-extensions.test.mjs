@@ -126,11 +126,11 @@ test("legacy document configuration reconnects with residual tools and upstream 
       assert.ok((await driver.listSkills(sessionId)).some(skill => skill.name === name));
     }
     const discovery = await driver.callTool(sessionId, "search_mcp_tools", { names: ["skill", "load_workspace_dependencies"] }, { onPermission: () => true });
-    assert.equal(discovery.isError, false);
+    assert.equal(discovery.isError, false, JSON.stringify(discovery));
     assert.ok(names.includes('skill'), 'Skills remain directly callable without deferred discovery');
     assert.deepEqual(discovery.value.tools.map(tool => tool.name), ['load_workspace_dependencies']);
     const skill = await driver.callTool(sessionId, 'skill', { name: 'office-docx' }, { onPermission: () => true });
-    assert.equal(skill.isError, false);
+    assert.equal(skill.isError, false, JSON.stringify(skill));
     const cache = await driver.callTool(sessionId, "mcp__computercontroller__cache", { command: "list" }, { onPermission: () => true });
     assert.equal(cache.isError, false);
   } finally { await driver.close(); }

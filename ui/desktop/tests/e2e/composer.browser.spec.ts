@@ -1,3 +1,4 @@
+/* global getComputedStyle, performance, DataTransfer, ClipboardEvent */
 import { chromium, expect, test, type Browser } from '@playwright/test';
 import { createServer, type ViteDevServer } from 'vite';
 import { resolve, dirname, basename } from 'node:path';
@@ -483,7 +484,8 @@ for (const dark of [false, true]) test(`context card is compact, centered and ab
         }),
       };
     });
-    expect(appearance).toEqual({ width: 176, lines: 2, above: true, bodyPortal: true, consistent: true });
+    await expect(dialog.getByText('自动压缩触发线 · 800,000 tokens (80%)', { exact: true })).toBeVisible();
+    expect(appearance).toEqual({ width: 176, lines: 3, above: true, bodyPortal: true, consistent: true });
     await dialog.screenshot({ path: resolve(`../../.local/context-card-${dark ? 'dark' : 'light'}.png`) });
   } finally { await page.close(); }
 });

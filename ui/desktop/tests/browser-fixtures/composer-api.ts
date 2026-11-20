@@ -49,6 +49,17 @@ const client = {
     sessionExtensionsList_unstable: async () => ({ extensions: [] }),
   },
   extMethod: async (method: string, input: Record<string, unknown>) => {
+    if (method === '_goose/unstable/model-settings/read') {
+      if (input.providerId !== fixtureProvider || input.modelId !== fixtureModel)
+        throw new Error('Unexpected composer fixture model');
+      return {
+        providerId: fixtureProvider,
+        modelId: fixtureModel,
+        contextWindow: modelInfo.contextLimit,
+        contextSource: 'models',
+        thinking: { options: ['low', 'medium', 'high'], value: 'high', toggle: false },
+      };
+    }
     if (method === '_codebuddy/main-conversation/overview')
       return (window as unknown as { fixtureProjectBrief(input: Record<string, unknown>): Promise<unknown> }).fixtureProjectBrief(input);
     if (method === '_codebuddy/agents/list') return { profiles: [profile], presets: [] };

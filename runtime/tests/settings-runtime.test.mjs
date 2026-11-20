@@ -118,9 +118,10 @@ async function fixture({ codepro = false, onTiming } = {}) {
   const created = [];
   const driver = {
     createSession: async (options) => {
-      const { mcpImageFallback, mcpRequestMetadata, prefersMcpImageObserver, restoreSubagentProvider, mainAgentRole, ...serializableOptions } = options.options;
+      const { mcpImageFallback, mcpRequestMetadata, prefersMcpImageObserver, restoreSubagentProvider, mainAgentRole, resolveMcpConfiguration, ...serializableOptions } = options.options;
       assert.equal(typeof mcpImageFallback, "function");
       assert.equal(typeof prefersMcpImageObserver, 'function');
+      assert.equal(typeof resolveMcpConfiguration, 'function');
       created.push(
         structuredClone({
           ...options,

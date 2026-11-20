@@ -26,7 +26,13 @@ export function proposeFirstTurnTitle(host, original, users, updates, signal, ea
     .map(update => update.content.text).join('').trim().slice(0, 6000);
   // A tool turn often has no assistant prose until its final answer. Its
   // original topic is already available; do not serialize naming after it.
-  return host.driver.generateTitle(original.id, { user, assistant, ...(early && !assistant ? { topicOnly: true } : {}) }, signal).catch(() => undefined);
+  try {
+    return Promise.resolve(host.driver.generateTitle(original.id, { user, assistant, ...(early && !assistant ? { topicOnly: true } : {}) }, signal)).catch(() => undefined);
+  } catch {
+    // Naming is optional metadata: synchronous adapter errors must not abort
+    // the tool turn any more than a rejected model request would.
+    return undefined;
+  }
 }
 
 export async function nameFirstTurn(host, original, users, updates, signal, proposal) {

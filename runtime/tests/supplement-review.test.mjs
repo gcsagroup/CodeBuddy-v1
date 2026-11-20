@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createServer } from 'node:http';
-import { mkdtemp, readFile } from 'node:fs/promises';
+import { mkdtemp, readFile, realpath } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { randomUUID } from 'node:crypto';
@@ -9,7 +9,7 @@ import { createHarnessDriver } from '../harness/index.mjs';
 import { Compat } from '../compat.mjs';
 
 async function fixture(t, preset) {
-  const root = await mkdtemp(join(tmpdir(), 'cb-supplement-review-'));
+  const root = await realpath(await mkdtemp(join(tmpdir(), 'cb-supplement-review-')));
   const once = join(root, 'once.txt'), extra = join(root, 'extra.txt');
   let step = 0, driver;
   const failures = [];

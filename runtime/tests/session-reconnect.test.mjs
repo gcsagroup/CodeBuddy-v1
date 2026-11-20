@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createServer } from 'node:http';
-import { mkdtemp, readFile } from 'node:fs/promises';
+import { mkdtemp, readFile, realpath } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { WebSocket } from 'ws';
@@ -37,7 +37,7 @@ async function until(check) {
   throw Error('Expected renderer notification was not delivered');
 }
 async function fixture(t) {
-  const root = await mkdtemp(join(tmpdir(), 'codebuddy-reconnect-'));
+  const root = await realpath(await mkdtemp(join(tmpdir(), 'codebuddy-reconnect-')));
   const started = Promise.withResolvers(), resume = Promise.withResolvers(), middle = Promise.withResolvers(), finish = Promise.withResolvers();
   let streams = 0;
   const model = createServer(async (req, res) => {
@@ -84,11 +84,13 @@ test('real Harness keeps executing while disconnected, replays the gap and deliv
   const prompting = f.first.rpc('session/prompt', { sessionId: f.sessionId, prompt: [{ type: 'text', text: 'Complete this isolated pet-like workflow once.' }] });
   prompting.catch(() => {});
   await f.started.promise;
+  await until(() => JSON.stringify(f.first.notifications).includes('WAITING_FOR_IMAGE'));
   f.first.ws.terminate();
   await assert.rejects(prompting, /disconnected/);
   f.resume.resolve(); await f.middle.promise;
   const second = await f.open();
   await second.rpc('session/load', { sessionId: f.sessionId, cwd: f.root, mcpServers: [] });
+  await until(() => JSON.stringify(second.notifications).includes('IMAGE_RECEIPT_READY'));
   const replay = JSON.stringify(second.notifications);
   assert.match(replay, /WAITING_FOR_IMAGE/); assert.match(replay, /IMAGE_RECEIPT_READY/);
   assert.ok(second.notifications.some(n => typeof n.params?.update?._meta?.goose?.activeRunId === 'string'));

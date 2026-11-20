@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createServer } from 'node:http';
-import { mkdtemp, readFile, glob } from 'node:fs/promises';
+import { mkdtemp, readFile, glob, realpath } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { WebSocket } from 'ws';
@@ -34,7 +34,7 @@ async function client(app) {
 }
 
 test('native terminal inspection keeps the initiating input after a consumed steer and retains completed tools', { timeout: 30000 }, async t => {
-  const root = await mkdtemp(path.join(tmpdir(), 'codebuddy-native-steer-terminal-'));
+  const root = await realpath(await mkdtemp(path.join(tmpdir(), 'codebuddy-native-steer-terminal-')));
   let driver, requests = 0, effects = 0;
   const entered = Promise.withResolvers(), release = Promise.withResolvers();
   const endpoint = createServer(async (req, res) => {
@@ -70,7 +70,7 @@ test('native terminal inspection keeps the initiating input after a consumed ste
 });
 
 test('ordinary native failures survive cold load, including legacy history, without inference or tool replay', { timeout: 60000 }, async t => {
-  const root = await mkdtemp(path.join(tmpdir(), 'codebuddy-ordinary-failure-')), dataDir = path.join(root, 'data');
+  const root = await realpath(await mkdtemp(path.join(tmpdir(), 'codebuddy-ordinary-failure-'))), dataDir = path.join(root, 'data');
   const privateText = 'PRIVATE_RAW_PROVIDER_PATH_AND_TOKEN';
   let mode = 'auth', requests = 0, app, c;
   const endpoint = createServer(async (req, res) => {
@@ -142,7 +142,7 @@ test('ordinary native failures survive cold load, including legacy history, with
 });
 
 test('ordinary replay stays idempotent across steering, inspection failure and a newer active input', { timeout: 30000 }, async t => {
-  const root = await mkdtemp(path.join(tmpdir(), 'codebuddy-ordinary-race-')), dataDir = path.join(root, 'data');
+  const root = await realpath(await mkdtemp(path.join(tmpdir(), 'codebuddy-ordinary-race-'))), dataDir = path.join(root, 'data');
   const store = await openStore(dataDir);
   await store.update(state => {
     state.providers = [{ id: 'fixture', engine: 'openai_compatible', apiUrl: 'http://127.0.0.1:1', models: ['fixture'], requiresAuth: false, headers: {} }];
@@ -202,7 +202,7 @@ test('ordinary replay stays idempotent across steering, inspection failure and a
 });
 
 for (const inspection of ['userTurnTerminals', 'lastUserStop']) test(`readable history survives a stalled ${inspection} without late projection`, { timeout: 5000 }, async t => {
-  const root = await mkdtemp(path.join(tmpdir(), 'codebuddy-stalled-inspection-'));
+  const root = await realpath(await mkdtemp(path.join(tmpdir(), 'codebuddy-stalled-inspection-')));
   const store = await openStore(root);
   await store.update(s => {
     s.providers = [{ id: 'fixture', engine: 'openai_compatible', apiUrl: 'http://127.0.0.1:1', models: ['fixture'], requiresAuth: false }];
@@ -240,7 +240,7 @@ for (const inspection of ['userTurnTerminals', 'lastUserStop']) test(`readable h
 
 for (const phase of ['before-native-end', 'driver-cleanup', 'compat-cleanup', 'recovered-error', 'child-error']) test(`ordinary stop ordering: ${phase}`, async t => {
   const late = ['driver-cleanup', 'compat-cleanup'].includes(phase);
-  const root = await mkdtemp(path.join(tmpdir(), 'codebuddy-terminal-stop-race-'));
+  const root = await realpath(await mkdtemp(path.join(tmpdir(), 'codebuddy-terminal-stop-race-')));
   const store = await openStore(root);
   await store.update(state => {
     state.providers = [{ id: 'fixture', engine: 'openai_compatible', apiUrl: 'http://127.0.0.1:1', models: ['fixture'], requiresAuth: false }];
@@ -295,7 +295,7 @@ for (const phase of ['before-native-end', 'driver-cleanup', 'compat-cleanup', 'r
 });
 
 test('real native AUTH remains visible when stop arrives while driver event cleanup is still pending', { timeout: 30000 }, async t => {
-  const root = await mkdtemp(path.join(tmpdir(), 'codebuddy-native-auth-stop-'));
+  const root = await realpath(await mkdtemp(path.join(tmpdir(), 'codebuddy-native-auth-stop-')));
   let requests = 0, compat;
   const entered = Promise.withResolvers(), release = Promise.withResolvers();
   const endpoint = createServer(async (req, res) => {

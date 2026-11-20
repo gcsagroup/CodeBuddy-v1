@@ -87,7 +87,7 @@ test('real ACP CodePro edit cancels the old run, keeps file effects and logs, an
   const before = await stored(), oldRun = before.codeproRuns.at(-1), source = before.sessions.find(s => s.id === id);
   assert.equal(source.title, '文件修改与恢复');
   assert.equal(titleRequests.length, 1);
-  assert.match(JSON.stringify(titleRequests[0].messages), /original fixture left its task open/);
+  assert.match(JSON.stringify(titleRequests[0].messages), /ACP_EDIT_ORIGINAL develop a temporary file/);
   const oldSnapshot = client.notifications.filter(m => m.method === ext('codepro/run/update')).at(-1).params.snapshot;
   assert.equal(oldSnapshot.state, 'paused');
   assert.ok(oldRun.events.some(e => e.eventType === 'harness_event' && e.payload.event.type === 'goal/change'));

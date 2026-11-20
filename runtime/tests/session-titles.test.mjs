@@ -49,6 +49,20 @@ test('overlap naming with tool activity once and publish only at settlement', as
   assert.deepEqual(calls[0], { user: users[0].content.text, assistant: '', topicOnly: true });
 });
 
+test('early title failures cannot interrupt a tool turn or overwrite its placeholder', async () => {
+  for (const generateTitle of [
+    () => { throw new Error('title adapter unavailable'); },
+    async () => { throw new Error('title request unavailable'); },
+  ]) {
+    const { host, saved } = fixture();
+    host.driver.generateTitle = generateTitle;
+    const proposal = proposeFirstTurnTitle(host, original, users, [], signal, true);
+    assert.equal(await proposal, undefined);
+    await nameFirstTurn(host, original, users, [], signal, proposal);
+    assert.equal(saved.title, original.title);
+  }
+});
+
 test('restart repairs only unclaimed placeholders and keeps order, including a missing native cache entry', async () => {
   const rows = [
     { id: 'cached' }, { id: 'cold' }, { id: 'manual', userSetName: true },

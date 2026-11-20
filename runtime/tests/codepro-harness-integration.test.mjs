@@ -1,4 +1,5 @@
 import { replyToNoActionReview } from '../harness/test/review-fixture.mjs';
+import { answerTitleRequest } from './fixtures/title-request.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import http from 'node:http';
@@ -73,6 +74,7 @@ async function scriptedModel(cwd) {
       const request = JSON.parse(raw);
     if (replyToNoActionReview(request, res)) return; requests.push(request);
       if (!request.stream) { res.setHeader('content-type', 'application/json'); res.end(JSON.stringify({ choices: [{ message: { role: 'assistant', content: 'OK' } }] })); return; }
+      if (answerTitleRequest(request, res, 'Math and invoice project')) return;
       const user = [...request.messages].reverse().find((message) => message.role === 'user' && JSON.stringify(message.content).includes('official_codepro_'));
       assert.ok(user, 'fixture should be isolated to explicit project requests');
       const phase = JSON.stringify(user.content).includes('official_codepro_resume') ? 'resume' : 'initial';

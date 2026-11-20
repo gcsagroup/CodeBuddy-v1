@@ -1,5 +1,5 @@
-import { render, screen } from '@testing-library/react';
-import { describe, expect, it } from 'vitest';
+import { fireEvent, render, screen } from '@testing-library/react';
+import { describe, expect, it, vi } from 'vitest';
 import { IntlTestWrapper } from '../i18n/test-utils';
 import type { Message } from '../types/message';
 import GooseMessage from './GooseMessage';
@@ -48,5 +48,34 @@ describe('persistent answer actions', () => {
     view.rerender(answer(false, false));
     expect(screen.getByRole('button', { name: 'Copy' })).toBeVisible();
     expect(screen.getByText('Input 1.2k')).toBeVisible();
+  });
+
+  it('retries the original user prompt after streaming settles', () => {
+    const prompt: Message = {
+      id: 'prompt',
+      role: 'user',
+      created: 0,
+      content: [{ type: 'text', text: 'Check the local fixture.' }],
+      metadata: { userVisible: true, agentVisible: true },
+    };
+    const onRetryMessage = vi.fn();
+    const view = (running: boolean) => (
+      <GooseMessage
+        compactTools
+        sessionId="paced-session"
+        message={message}
+        messages={[prompt, message]}
+        toolCallNotifications={new Map()}
+        append={() => {}}
+        isStreaming={false}
+        isTurnRunning={running}
+        onRetryMessage={onRetryMessage}
+      />
+    );
+    const { rerender } = render(view(true), { wrapper: IntlTestWrapper });
+    expect(screen.queryByRole('button', { name: 'Retry' })).toBeNull();
+    rerender(view(false));
+    fireEvent.click(screen.getByRole('button', { name: 'Retry' }));
+    expect(onRetryMessage).toHaveBeenCalledExactlyOnceWith('prompt', 'Check the local fixture.', 'retry');
   });
 });

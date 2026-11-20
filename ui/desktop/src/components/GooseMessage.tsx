@@ -309,13 +309,9 @@ export function codeProRetryMode(
 }
 
 export function isRetryableUserMessage(message: Message): boolean {
+  if (message.role !== 'user' || !message.id || !message.metadata.userVisible) return false;
   const content = getTextAndImageContent(message);
-  return (
-    message.role === 'user' &&
-    Boolean(message.id) &&
-    message.metadata.userVisible &&
-    (content.textContent.trim().length > 0 || content.imagePaths.length > 0)
-  );
+  return content.textContent.trim().length > 0 || content.imagePaths.length > 0;
 }
 
 export function isTurnTerminalSuperseded(message: Message, messages: Message[]): boolean {
@@ -582,19 +578,12 @@ export default function GooseMessage({
   const displayedUsage = usageOverride ?? message.metadata.usage;
   const toolRequests = getToolRequests(message);
   const messageIndex = messages.findIndex((msg) => msg.id === message.id);
-  const retrySource = useMemo(() => {
-    if (messageIndex <= 0) return undefined;
-    if (turnTerminal?.source_user_message_id) {
-      return messages.find(
-        (candidate) =>
-          candidate.id === turnTerminal.source_user_message_id && isRetryableUserMessage(candidate)
-      );
-    }
-    return [...messages.slice(0, messageIndex)].reverse().find(isRetryableUserMessage);
-  }, [messageIndex, messages, turnTerminal?.source_user_message_id]);
+  // Old progress rows have no action menu while the turn is running. Avoid
+  // searching the transcript once per row on every streaming update.
+  const canShowActions = !isStreaming && (Boolean(turnTerminal) || (showMessageFooter && !isTurnRunning));
   const supersededByTurnTerminal = useMemo(
-    () => isTurnTerminalSuperseded(message, messages),
-    [message, messages]
+    () => canShowActions && isTurnTerminalSuperseded(message, messages),
+    [canShowActions, message, messages]
   );
   const actionPolicy = getAssistantMessageActionPolicy({
     displayText,
@@ -605,6 +594,21 @@ export default function GooseMessage({
   const showMessageActions = actionPolicy.showActionGroup;
   const showTextMessageActions = actionPolicy.showTextActionGroup;
   const retryMode = actionPolicy.retryMode;
+  const needsRetrySource = !!onRetryMessage && canShowActions &&
+    (retryMode === 'replay' || retryMode === 'resubmit');
+  const sourceUserMessageId = turnTerminal?.source_user_message_id;
+  const retrySource = useMemo(() => {
+    if (!needsRetrySource || messageIndex <= 0) return undefined;
+    if (sourceUserMessageId) {
+      return messages.find(
+        (candidate) => candidate.id === sourceUserMessageId && isRetryableUserMessage(candidate)
+      );
+    }
+    for (let index = messageIndex - 1; index >= 0; index--) {
+      if (isRetryableUserMessage(messages[index])) return messages[index];
+    }
+    return undefined;
+  }, [messageIndex, messages, needsRetrySource, sourceUserMessageId]);
   const retryMessage =
     onRetryMessage && message.id
       ? retryMode === 'none'
@@ -699,7 +703,7 @@ export default function GooseMessage({
     return responseMap;
   }, [messages, messageIndex, toolRequests, toolResponses]);
 
-  const pendingConfirmationIds = getPendingToolConfirmationIds(messages);
+  const pendingConfirmationIds = toolRequests.length ? getPendingToolConfirmationIds(messages) : null;
 
   return (
     <div
@@ -763,7 +767,7 @@ export default function GooseMessage({
             const toolRequest = content;
             if (hiddenToolRequestIds?.has(toolRequest.id)) return null;
             const hasResponse = toolResponsesMap.has(toolRequest.id);
-            const isPending = pendingConfirmationIds.has(toolRequest.id);
+            const isPending = pendingConfirmationIds?.has(toolRequest.id) ?? false;
             if (!isPending) {
               const rendered = renderToolRequest?.(toolRequest);
               if (rendered === null) return null;

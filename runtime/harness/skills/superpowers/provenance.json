@@ -1,0 +1,7 @@
+{
+  "source": "https://github.com/obra/superpowers",
+  "revision": "22f0b463e7a5e579904dd6211a520321035526f7",
+  "license": "MIT",
+  "skills": ["systematic-debugging", "verification-before-completion"],
+  "adaptations": ["Use bundled skill names and local testing conventions for cross-references."]
+}

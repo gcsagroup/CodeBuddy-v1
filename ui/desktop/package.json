@@ -1,7 +1,7 @@
 {
   "name": "codebuddy-desktop",
   "productName": "CodeBuddy",
-  "version": "1.43.18",
+  "version": "1.43.19",
   "description": "CodeBuddy Desktop",
   "engines": {
     "node": "^24.10.0",

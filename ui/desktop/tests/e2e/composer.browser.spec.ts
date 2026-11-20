@@ -183,7 +183,7 @@ test.beforeAll(async () => {
   server = await createServer({
     configFile: resolve('vite.renderer.config.mts'),
     cacheDir: cacheDirectory,
-    optimizeDeps: { entries: ['tests/browser-fixtures/composer.html'] },
+    optimizeDeps: { entries: ['tests/browser-fixtures/composer.html'], holdUntilCrawlEnd: false },
     resolve: {
       alias: [
         {
@@ -200,6 +200,7 @@ test.beforeAll(async () => {
   });
   await server.listen();
   browser = await chromium.launch({ channel: process.platform === 'win32' ? 'msedge' : undefined });
+  browser.on('page', page => page.on('pageerror', error => console.error(error.message)));
 });
 test.afterAll(async () => {
   await browser?.close();

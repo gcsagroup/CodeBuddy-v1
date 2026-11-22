@@ -10270,5 +10270,44 @@
   },
   "windowMenu.label": {
     "defaultMessage": "Anwendungsmenü"
+  },
+  "modelInventory.acknowledge": {
+    "defaultMessage": "Verstanden"
+  },
+  "modelInventory.actionFailed": {
+    "defaultMessage": "Aktion fehlgeschlagen. Ihre Modellauswahl wurde nicht geändert. Versuchen Sie es erneut."
+  },
+  "modelInventory.changed": {
+    "defaultMessage": "{model}: Der Anbieter hat {fields} geändert. Prüfen Sie die Modelleinstellungen."
+  },
+  "modelInventory.context": {
+    "defaultMessage": "Kontextkapazität"
+  },
+  "modelInventory.failed": {
+    "defaultMessage": "Aktualisierung fehlgeschlagen. Die letzte Liste bleibt erhalten; dies bedeutet nicht, dass Modelle entfernt wurden."
+  },
+  "modelInventory.image": {
+    "defaultMessage": "Bildeingabe"
+  },
+  "modelInventory.output": {
+    "defaultMessage": "Ausgabelimit"
+  },
+  "modelInventory.preserved": {
+    "defaultMessage": "Ihre Modellauswahl bleibt unverändert. Ist das Modell nicht verfügbar, wählen Sie im Modellmenü manuell ein anderes."
+  },
+  "modelInventory.removed": {
+    "defaultMessage": "{model} fehlt in der aktuellen Anbieterliste. Es wurde möglicherweise entfernt oder die Zugriffsrechte haben sich geändert."
+  },
+  "modelInventory.retry": {
+    "defaultMessage": "Erneut aktualisieren"
+  },
+  "modelInventory.thinking": {
+    "defaultMessage": "Denkoptionen"
+  },
+  "modelInventory.title": {
+    "defaultMessage": "Änderungen an Modellverbindungen"
+  },
+  "modelInventory.tools": {
+    "defaultMessage": "Werkzeugaufrufe"
   }
 }

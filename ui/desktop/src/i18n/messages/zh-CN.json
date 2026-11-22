@@ -10270,5 +10270,44 @@
   },
   "windowMenu.label": {
     "defaultMessage": "应用菜单"
+  },
+  "modelInventory.acknowledge": {
+    "defaultMessage": "知道了"
+  },
+  "modelInventory.actionFailed": {
+    "defaultMessage": "操作未完成，原模型选择未更改，请重试。"
+  },
+  "modelInventory.changed": {
+    "defaultMessage": "{model}：厂商报告的{fields}已变化，请检查模型设置后继续。"
+  },
+  "modelInventory.context": {
+    "defaultMessage": "上下文容量"
+  },
+  "modelInventory.failed": {
+    "defaultMessage": "此连接刷新失败，已保留上次成功的模型列表；这不代表模型已下架。"
+  },
+  "modelInventory.image": {
+    "defaultMessage": "图片输入能力"
+  },
+  "modelInventory.output": {
+    "defaultMessage": "输出上限"
+  },
+  "modelInventory.preserved": {
+    "defaultMessage": "原模型选择未更改。如果模型已不可用，请在模型菜单中手动选择其他模型。"
+  },
+  "modelInventory.removed": {
+    "defaultMessage": "{model} 已不在厂商最新模型列表中，可能已下架或访问权限发生变化。"
+  },
+  "modelInventory.retry": {
+    "defaultMessage": "重新刷新"
+  },
+  "modelInventory.thinking": {
+    "defaultMessage": "思考选项"
+  },
+  "modelInventory.title": {
+    "defaultMessage": "模型连接有更新"
+  },
+  "modelInventory.tools": {
+    "defaultMessage": "工具调用能力"
   }
 }

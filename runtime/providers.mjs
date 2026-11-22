@@ -409,7 +409,7 @@ async function requestJson(
   }
 }
 
-export async function discover(input, stored, { timeoutMs, authPending, refreshMetadata = false } = {}) {
+export async function discover(input, stored, { timeoutMs, authPending, refreshMetadata = false, allowEmpty = false } = {}) {
   const provider = { ...stored, ...input };
   const endpoint = endpoints(provider);
   const auth = await (authPending ?? credentials(
@@ -434,7 +434,7 @@ export async function discover(input, stored, { timeoutMs, authPending, refreshM
     model.capabilities.length > 0 && model.capabilities.every(value => typeof value === 'string') &&
     !model.capabilities.includes('completion')).map(model => model.id) : [];
   const ids = modelIds(models).filter(id => !nonChatModels.includes(id));
-  if (!ids.length && !nonChatModels.length)
+  if (!ids.length && !nonChatModels.length && !(allowEmpty && rawModels.length === 0))
     throw providerError("no_models", "The model endpoint returned no chat models.");
   const contexts = Object.fromEntries(models.filter(model => modelContext(model) !== undefined)
     .map(model => [model.id, modelContext(model)]));
@@ -460,6 +460,19 @@ export async function discover(input, stored, { timeoutMs, authPending, refreshM
   }
   return orderedModels(provider, ids, created);
 }
+
+// Only service-reported facts participate in change detection, never defaults
+// or user overrides. Unknown metadata is not evidence of a capability removal.
+export function discoveredModelCapabilities(provider, models) {
+  const cache = cachedModels(provider) ?? {};
+  return Object.fromEntries(models.map(id => [id, Object.fromEntries([
+    ['context', cache.contexts?.[id]], ['output', cache.outputs?.[id]],
+    ['image', cache.inputs?.[id]], ['thinking', cache.thinking?.[id]],
+    ['tools', cache.tools?.[id]],
+  ].filter(([, value]) => value !== undefined))]));
+}
+
+export const modelConnectionIdentity = provider => listingKey(provider);
 
 async function resolveContext(provider, model, authPending, retryAfterRefresh = true) {
   if (!model || !desktopNetworkAllowed()) return undefined;

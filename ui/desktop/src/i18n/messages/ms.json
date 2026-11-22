@@ -10270,5 +10270,44 @@
   },
   "windowMenu.label": {
     "defaultMessage": "Menu aplikasi"
+  },
+  "modelInventory.acknowledge": {
+    "defaultMessage": "Faham"
+  },
+  "modelInventory.actionFailed": {
+    "defaultMessage": "Tindakan gagal. Pilihan model tidak berubah. Cuba lagi."
+  },
+  "modelInventory.changed": {
+    "defaultMessage": "{model}: pembekal mengubah {fields}. Semak tetapan model."
+  },
+  "modelInventory.context": {
+    "defaultMessage": "kapasiti konteks"
+  },
+  "modelInventory.failed": {
+    "defaultMessage": "Sambungan tidak dapat disegarkan. Senarai terakhir dikekalkan; ini tidak bermakna model telah dibuang."
+  },
+  "modelInventory.image": {
+    "defaultMessage": "input imej"
+  },
+  "modelInventory.output": {
+    "defaultMessage": "had output"
+  },
+  "modelInventory.preserved": {
+    "defaultMessage": "Model pilihan anda tidak berubah. Jika tidak tersedia, pilih model lain secara manual dalam menu model."
+  },
+  "modelInventory.removed": {
+    "defaultMessage": "{model} tiada lagi dalam senarai pembekal. Model mungkin telah dibuang atau akses berubah."
+  },
+  "modelInventory.retry": {
+    "defaultMessage": "Segarkan semula"
+  },
+  "modelInventory.thinking": {
+    "defaultMessage": "pilihan penaakulan"
+  },
+  "modelInventory.title": {
+    "defaultMessage": "Kemas kini sambungan model"
+  },
+  "modelInventory.tools": {
+    "defaultMessage": "panggilan alat"
   }
 }

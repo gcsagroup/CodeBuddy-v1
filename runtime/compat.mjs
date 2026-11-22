@@ -1,4 +1,5 @@
 import { webAuditTool } from './web-audit-tool.mjs';
+import { ModelInventory } from './model-inventory.mjs';
 import { developmentTools } from './development-tools.mjs';
 import { desktopNetworkAllowed } from './desktop-network-consent.mjs';
 import { SessionDeletionCleanup } from './session-deletion-cleanup.mjs';
@@ -375,6 +376,7 @@ export class Compat {
     this.library = store.directory
       ? new LibraryService(store, { driver, workspaces: this.workspaces })
       : null;
+    this.modelInventory = new ModelInventory(store);
     this.settings = new RuntimeSettings(store, {
       changed: async (change) => {
         this.configurationRevision += 1;
@@ -830,6 +832,8 @@ export class Compat {
   }
   async sessionModel(s) {
     const provider = this.provider(s.providerId);
+    if (provider.inventoryState && !provider.models.includes(s.modelId))
+      throw invalid('当前模型已不在厂商最新列表中。原模型选择已保留，请手动选择可用模型后重试。', { code: 'custom_provider_model_unavailable' });
     if (!provider.models.includes(s.modelId) || !providerStatus(provider).isConfigured)
       throw invalid("Configure the current session model first");
     return { provider: await driverProvider(provider, s.modelId), model: s.modelId };
@@ -1490,6 +1494,7 @@ export class Compat {
   }
   async prepareStartup() {
     if (!desktopNetworkAllowed()) return;
+    await this.modelInventory.start();
     const state = this.store.read(['defaults', 'providers', 'config']);
     const provider = state.providers.find(p => p.id === state.defaults?.providerId);
     if (!provider || this.closing) return;
@@ -2831,7 +2836,14 @@ export class Compat {
         return { runId, messageId };
       }
       case "runtime/status":
-        return this.runtimeStatus ? this.runtimeStatus() : { activeTurns: this.active.size };
+        this.modelInventory.start();
+        return { ...(this.runtimeStatus ? await this.runtimeStatus() : { activeTurns: this.active.size }), modelInventory: this.modelInventory.status(),
+          modelInventoryRevision: this.modelInventory.revision };
+      case "providers/inventory/acknowledge":
+        requireString(p.providerId, 'providerId');
+        requireString(p.noticeId, 'noticeId');
+        await this.modelInventory.acknowledge(p.providerId, p.noticeId);
+        return {};
       case "diagnostics/get": {
         const s = this.session(p.sessionId);
         return {
@@ -2960,11 +2972,7 @@ export class Compat {
             skipped.push({ providerId: id, reason: "unknown_provider" });
             continue;
           }
-          const models = await discover(provider, provider, { refreshMetadata: true });
-          await this.store.update((state) => {
-            const saved = state.providers.find((x) => x.id === id);
-            if (saved) saved.models = models;
-          }, ['providers'], { skipUnchanged: true });
+          await this.modelInventory.refresh(id);
           started.push(id);
         }
         return { started, skipped };
@@ -3839,6 +3847,7 @@ export class Compat {
   }
   async close({ drainRequests = async () => {} } = {}) {
     this.closing = true;
+    const inventoryClosed = this.modelInventory.close();
     // Fence scheduler admission before the first await; let its owner settle
     // running attempts as cancelled while native conversation turns drain.
     const schedulesClosed = this.schedules?.close();
@@ -3862,6 +3871,7 @@ export class Compat {
     // Do not flush or dispose their owners until those requests have settled.
     await drainRequests();
     await this.titleRestoration;
+    await inventoryClosed;
     await Promise.allSettled(
       [...this.sessionMutations.values()].map((change) => change.done),
     );

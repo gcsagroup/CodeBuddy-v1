@@ -10270,5 +10270,44 @@
   },
   "windowMenu.label": {
     "defaultMessage": "Меню приложения"
+  },
+  "modelInventory.acknowledge": {
+    "defaultMessage": "Понятно"
+  },
+  "modelInventory.actionFailed": {
+    "defaultMessage": "Операция не выполнена. Выбранная модель не изменена. Повторите попытку."
+  },
+  "modelInventory.changed": {
+    "defaultMessage": "{model}: поставщик изменил {fields}. Проверьте настройки модели."
+  },
+  "modelInventory.context": {
+    "defaultMessage": "объём контекста"
+  },
+  "modelInventory.failed": {
+    "defaultMessage": "Не удалось обновить подключение. Сохранён предыдущий список; это не означает, что модели удалены."
+  },
+  "modelInventory.image": {
+    "defaultMessage": "ввод изображений"
+  },
+  "modelInventory.output": {
+    "defaultMessage": "лимит вывода"
+  },
+  "modelInventory.preserved": {
+    "defaultMessage": "Выбранная модель не изменена. Если она недоступна, выберите другую вручную в меню моделей."
+  },
+  "modelInventory.removed": {
+    "defaultMessage": "{model} больше нет в списке поставщика. Возможно, модель удалена или изменились права доступа."
+  },
+  "modelInventory.retry": {
+    "defaultMessage": "Обновить снова"
+  },
+  "modelInventory.thinking": {
+    "defaultMessage": "параметры рассуждения"
+  },
+  "modelInventory.title": {
+    "defaultMessage": "Обновления подключений моделей"
+  },
+  "modelInventory.tools": {
+    "defaultMessage": "вызовы инструментов"
   }
 }

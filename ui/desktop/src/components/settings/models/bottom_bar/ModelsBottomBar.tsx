@@ -143,6 +143,11 @@ export default function ModelsBottomBar({
     selection: Selection;
   } | null>(null);
   const [retry, setRetry] = useState(0);
+  useEffect(() => {
+    const refresh = () => setRetry(value => value + 1);
+    window.addEventListener('codebuddy:model-inventory-updated', refresh);
+    return () => window.removeEventListener('codebuddy:model-inventory-updated', refresh);
+  }, []);
   const [modelQuery, setModelQuery] = useState('');
   const [expandedProviders, setExpandedProviders] = useState<Record<string, boolean>>({});
   const [expandedModelLists, setExpandedModelLists] = useState<Record<string, boolean>>({});

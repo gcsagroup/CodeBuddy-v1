@@ -10270,5 +10270,44 @@
   },
   "windowMenu.label": {
     "defaultMessage": "एप्लिकेशन मेन्यू"
+  },
+  "modelInventory.acknowledge": {
+    "defaultMessage": "समझ गया"
+  },
+  "modelInventory.actionFailed": {
+    "defaultMessage": "कार्रवाई विफल हुई। चुना गया मॉडल नहीं बदला गया। फिर प्रयास करें।"
+  },
+  "modelInventory.changed": {
+    "defaultMessage": "{model}: प्रदाता ने {fields} बदल दिया है। मॉडल की सेटिंग जाँचें।"
+  },
+  "modelInventory.context": {
+    "defaultMessage": "कॉन्टेक्स्ट क्षमता"
+  },
+  "modelInventory.failed": {
+    "defaultMessage": "कनेक्शन रीफ़्रेश नहीं हुआ। पिछली सूची रखी गई है; इसका अर्थ यह नहीं है कि मॉडल हटा दिए गए हैं।"
+  },
+  "modelInventory.image": {
+    "defaultMessage": "चित्र इनपुट"
+  },
+  "modelInventory.output": {
+    "defaultMessage": "आउटपुट सीमा"
+  },
+  "modelInventory.preserved": {
+    "defaultMessage": "चुना गया मॉडल नहीं बदला गया। अनुपलब्ध होने पर मॉडल मेन्यू से दूसरा मॉडल स्वयं चुनें।"
+  },
+  "modelInventory.removed": {
+    "defaultMessage": "{model} अब प्रदाता की सूची में नहीं है। हो सकता है इसे हटा दिया गया हो या पहुँच बदल गई हो।"
+  },
+  "modelInventory.retry": {
+    "defaultMessage": "फिर रीफ़्रेश करें"
+  },
+  "modelInventory.thinking": {
+    "defaultMessage": "सोचने के विकल्प"
+  },
+  "modelInventory.title": {
+    "defaultMessage": "मॉडल कनेक्शन अपडेट"
+  },
+  "modelInventory.tools": {
+    "defaultMessage": "टूल कॉल"
   }
 }

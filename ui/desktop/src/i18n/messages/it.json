@@ -10270,5 +10270,44 @@
   },
   "windowMenu.label": {
     "defaultMessage": "Menu dell’applicazione"
+  },
+  "modelInventory.acknowledge": {
+    "defaultMessage": "Capito"
+  },
+  "modelInventory.actionFailed": {
+    "defaultMessage": "Operazione non riuscita. Il modello selezionato non è cambiato. Riprova."
+  },
+  "modelInventory.changed": {
+    "defaultMessage": "{model}: il fornitore ha modificato {fields}. Controlla le impostazioni del modello."
+  },
+  "modelInventory.context": {
+    "defaultMessage": "capacità del contesto"
+  },
+  "modelInventory.failed": {
+    "defaultMessage": "Impossibile aggiornare la connessione. L’ultimo elenco viene conservato; ciò non significa che i modelli siano stati rimossi."
+  },
+  "modelInventory.image": {
+    "defaultMessage": "input immagini"
+  },
+  "modelInventory.output": {
+    "defaultMessage": "limite di output"
+  },
+  "modelInventory.preserved": {
+    "defaultMessage": "Il modello selezionato non è cambiato. Se non è disponibile, scegline un altro manualmente dal menu dei modelli."
+  },
+  "modelInventory.removed": {
+    "defaultMessage": "{model} non compare più nell’elenco del fornitore. Potrebbe essere stato rimosso o l’accesso potrebbe essere cambiato."
+  },
+  "modelInventory.retry": {
+    "defaultMessage": "Aggiorna di nuovo"
+  },
+  "modelInventory.thinking": {
+    "defaultMessage": "opzioni di ragionamento"
+  },
+  "modelInventory.title": {
+    "defaultMessage": "Aggiornamenti delle connessioni ai modelli"
+  },
+  "modelInventory.tools": {
+    "defaultMessage": "chiamate agli strumenti"
   }
 }

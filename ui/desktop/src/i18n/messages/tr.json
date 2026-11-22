@@ -10270,5 +10270,44 @@
   },
   "windowMenu.label": {
     "defaultMessage": "Uygulama menüsü"
+  },
+  "modelInventory.acknowledge": {
+    "defaultMessage": "Anladım"
+  },
+  "modelInventory.actionFailed": {
+    "defaultMessage": "İşlem başarısız oldu. Model seçiminiz değiştirilmedi. Tekrar deneyin."
+  },
+  "modelInventory.changed": {
+    "defaultMessage": "{model}: sağlayıcı {fields} bilgisini değiştirdi. Model ayarlarını kontrol edin."
+  },
+  "modelInventory.context": {
+    "defaultMessage": "bağlam kapasitesi"
+  },
+  "modelInventory.failed": {
+    "defaultMessage": "Bağlantı yenilenemedi. Son liste korunuyor; bu, modellerin kaldırıldığı anlamına gelmez."
+  },
+  "modelInventory.image": {
+    "defaultMessage": "görüntü girişi"
+  },
+  "modelInventory.output": {
+    "defaultMessage": "çıktı sınırı"
+  },
+  "modelInventory.preserved": {
+    "defaultMessage": "Seçili model değiştirilmedi. Kullanılamıyorsa model menüsünden başka bir modeli elle seçin."
+  },
+  "modelInventory.removed": {
+    "defaultMessage": "{model} artık sağlayıcının listesinde değil. Kaldırılmış veya erişim değişmiş olabilir."
+  },
+  "modelInventory.retry": {
+    "defaultMessage": "Yeniden yenile"
+  },
+  "modelInventory.thinking": {
+    "defaultMessage": "düşünme seçenekleri"
+  },
+  "modelInventory.title": {
+    "defaultMessage": "Model bağlantısı güncellemeleri"
+  },
+  "modelInventory.tools": {
+    "defaultMessage": "araç çağrıları"
   }
 }

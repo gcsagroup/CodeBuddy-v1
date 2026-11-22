@@ -1,4 +1,10 @@
 <!-- 2026-11-16 已批准：对话 sidebarPlacement 由 Compat 唯一写入，导航只消费；归属与 cwd 分离。目录切换沿用原有 Harness owner 和运行中拒绝规则。详见 docs/conversation-drag-drop.zh-CN.md。 -->
+## 2026-11-22 已批准：启动模型清单与变更提示
+
+`runtime/model-inventory.mjs` 是启动及手动模型刷新、连接身份校验、成功基线和待确认变化的唯一 writer；`providers.mjs` 只提供服务发现和能力事实。可选 `providers[].inventoryState` 在成功刷新时建立，旧状态无需迁移。`runtime/status` 投影提示与修订，桌面翻译展示，不重新裁决下架、失败或能力变化。默认模型、会话模型和用户能力覆盖仍由既有设置 owner 写入；刷新不能代替用户换模型。在途请求必须校验连接身份，关闭后禁止提交，通知确认绑定版本。详见 `docs/model-inventory-refresh.zh-CN.md`。
+
+繁體：執行階段統一持有模型清單、基線和提示；桌面僅展示，不自動切換模型。English: The runtime owns inventory, baselines and notices; the desktop only presents them and never changes model selection automatically.
+
 ## 2026-11-19 已批准：Mac 可选单字段聚焦写入
 
 主模型选择当前已观察字段和值；Go 只校验并透传可选 `set_value.focus`，Swift 唯一持有聚焦、聚焦后窗口/控件/旧值/实际焦点/输入版本/租约复核与真实写入回执。聚焦触发的应用变化不得跳过重新校验。失败停止，无坐标猜测、键盘回退、整表批量或动作重放。旧调用不变，不新增持久化状态；宿主继续持有 Esc、断线停控及新输入恢复权威。见 [协议与迁移边界](../../docs/mac-focused-value.zh-CN.md)。

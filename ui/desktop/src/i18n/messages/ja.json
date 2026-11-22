@@ -10270,5 +10270,44 @@
   },
   "windowMenu.label": {
     "defaultMessage": "アプリケーションメニュー"
+  },
+  "modelInventory.acknowledge": {
+    "defaultMessage": "確認しました"
+  },
+  "modelInventory.actionFailed": {
+    "defaultMessage": "操作に失敗しました。選択中のモデルは変更されていません。再試行してください。"
+  },
+  "modelInventory.changed": {
+    "defaultMessage": "{model}：提供元が{fields}を変更しました。モデル設定を確認してください。"
+  },
+  "modelInventory.context": {
+    "defaultMessage": "コンテキスト容量"
+  },
+  "modelInventory.failed": {
+    "defaultMessage": "接続を更新できませんでした。前回の一覧を保持しています。モデルが廃止されたという意味ではありません。"
+  },
+  "modelInventory.image": {
+    "defaultMessage": "画像入力"
+  },
+  "modelInventory.output": {
+    "defaultMessage": "出力上限"
+  },
+  "modelInventory.preserved": {
+    "defaultMessage": "選択中のモデルは変更されていません。利用できない場合はモデルメニューで別のモデルを手動で選択してください。"
+  },
+  "modelInventory.removed": {
+    "defaultMessage": "{model}が提供元の最新一覧にありません。廃止されたか、アクセス権が変わった可能性があります。"
+  },
+  "modelInventory.retry": {
+    "defaultMessage": "再度更新"
+  },
+  "modelInventory.thinking": {
+    "defaultMessage": "思考オプション"
+  },
+  "modelInventory.title": {
+    "defaultMessage": "モデル接続の更新"
+  },
+  "modelInventory.tools": {
+    "defaultMessage": "ツール呼び出し"
   }
 }

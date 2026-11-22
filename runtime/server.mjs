@@ -376,7 +376,7 @@ export async function createCompatServer({ dataDir, secret, driver, defaultModel
           server.once("error", reject);
           server.listen(port, host, resolve);
         });
-        if (store.read(["defaults"]).defaults?.providerId) warmup?.();
+        warmup?.();
         warmup = undefined;
         const address = server.address();
         return `http://${host === "::1" ? "[::1]" : host}:${address.port}`;

@@ -10270,5 +10270,44 @@
   },
   "windowMenu.label": {
     "defaultMessage": "Menu de l’application"
+  },
+  "modelInventory.acknowledge": {
+    "defaultMessage": "Compris"
+  },
+  "modelInventory.actionFailed": {
+    "defaultMessage": "Échec de l’action. Le modèle sélectionné reste inchangé. Réessayez."
+  },
+  "modelInventory.changed": {
+    "defaultMessage": "{model} : le fournisseur a modifié {fields}. Vérifiez les paramètres du modèle."
+  },
+  "modelInventory.context": {
+    "defaultMessage": "capacité du contexte"
+  },
+  "modelInventory.failed": {
+    "defaultMessage": "Impossible d’actualiser cette connexion. La dernière liste est conservée ; cela ne signifie pas que les modèles ont été retirés."
+  },
+  "modelInventory.image": {
+    "defaultMessage": "entrée d’images"
+  },
+  "modelInventory.output": {
+    "defaultMessage": "limite de sortie"
+  },
+  "modelInventory.preserved": {
+    "defaultMessage": "Le modèle sélectionné reste inchangé. S’il est indisponible, choisissez-en un autre manuellement dans le menu des modèles."
+  },
+  "modelInventory.removed": {
+    "defaultMessage": "{model} ne figure plus dans la liste du fournisseur. Il a peut-être été retiré ou les droits d’accès ont changé."
+  },
+  "modelInventory.retry": {
+    "defaultMessage": "Actualiser à nouveau"
+  },
+  "modelInventory.thinking": {
+    "defaultMessage": "options de raisonnement"
+  },
+  "modelInventory.title": {
+    "defaultMessage": "Mises à jour des connexions de modèles"
+  },
+  "modelInventory.tools": {
+    "defaultMessage": "appels d’outils"
   }
 }

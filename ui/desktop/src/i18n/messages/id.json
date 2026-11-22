@@ -10270,5 +10270,44 @@
   },
   "windowMenu.label": {
     "defaultMessage": "Menu aplikasi"
+  },
+  "modelInventory.acknowledge": {
+    "defaultMessage": "Mengerti"
+  },
+  "modelInventory.actionFailed": {
+    "defaultMessage": "Tindakan gagal. Pilihan model tidak berubah. Coba lagi."
+  },
+  "modelInventory.changed": {
+    "defaultMessage": "{model}: penyedia mengubah {fields}. Periksa pengaturan model."
+  },
+  "modelInventory.context": {
+    "defaultMessage": "kapasitas konteks"
+  },
+  "modelInventory.failed": {
+    "defaultMessage": "Koneksi gagal diperbarui. Daftar terakhir dipertahankan; ini bukan berarti model telah dihapus."
+  },
+  "modelInventory.image": {
+    "defaultMessage": "input gambar"
+  },
+  "modelInventory.output": {
+    "defaultMessage": "batas output"
+  },
+  "modelInventory.preserved": {
+    "defaultMessage": "Model pilihan Anda tidak berubah. Jika tidak tersedia, pilih model lain secara manual di menu model."
+  },
+  "modelInventory.removed": {
+    "defaultMessage": "{model} tidak lagi ada dalam daftar penyedia. Model mungkin dihapus atau aksesnya berubah."
+  },
+  "modelInventory.retry": {
+    "defaultMessage": "Perbarui lagi"
+  },
+  "modelInventory.thinking": {
+    "defaultMessage": "opsi penalaran"
+  },
+  "modelInventory.title": {
+    "defaultMessage": "Pembaruan koneksi model"
+  },
+  "modelInventory.tools": {
+    "defaultMessage": "pemanggilan alat"
   }
 }

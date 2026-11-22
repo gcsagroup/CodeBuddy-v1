@@ -10270,5 +10270,44 @@
   },
   "windowMenu.label": {
     "defaultMessage": "Menu ứng dụng"
+  },
+  "modelInventory.acknowledge": {
+    "defaultMessage": "Đã hiểu"
+  },
+  "modelInventory.actionFailed": {
+    "defaultMessage": "Thao tác thất bại. Mô hình đã chọn không thay đổi. Hãy thử lại."
+  },
+  "modelInventory.changed": {
+    "defaultMessage": "{model}: nhà cung cấp đã thay đổi {fields}. Hãy kiểm tra cài đặt mô hình."
+  },
+  "modelInventory.context": {
+    "defaultMessage": "dung lượng ngữ cảnh"
+  },
+  "modelInventory.failed": {
+    "defaultMessage": "Không thể làm mới kết nối. Danh sách trước được giữ lại; điều này không có nghĩa là mô hình đã bị gỡ bỏ."
+  },
+  "modelInventory.image": {
+    "defaultMessage": "đầu vào hình ảnh"
+  },
+  "modelInventory.output": {
+    "defaultMessage": "giới hạn đầu ra"
+  },
+  "modelInventory.preserved": {
+    "defaultMessage": "Mô hình đã chọn không thay đổi. Nếu không khả dụng, hãy chọn mô hình khác thủ công trong menu mô hình."
+  },
+  "modelInventory.removed": {
+    "defaultMessage": "{model} không còn trong danh sách của nhà cung cấp. Mô hình có thể đã bị gỡ bỏ hoặc quyền truy cập đã thay đổi."
+  },
+  "modelInventory.retry": {
+    "defaultMessage": "Làm mới lại"
+  },
+  "modelInventory.thinking": {
+    "defaultMessage": "tùy chọn suy luận"
+  },
+  "modelInventory.title": {
+    "defaultMessage": "Cập nhật kết nối mô hình"
+  },
+  "modelInventory.tools": {
+    "defaultMessage": "gọi công cụ"
   }
 }

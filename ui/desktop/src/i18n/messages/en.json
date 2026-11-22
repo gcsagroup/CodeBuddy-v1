@@ -5048,6 +5048,45 @@
   "modelImageCapability.unsupported": {
     "defaultMessage": "Manually confirmed: text only"
   },
+  "modelInventory.acknowledge": {
+    "defaultMessage": "Dismiss changes"
+  },
+  "modelInventory.actionFailed": {
+    "defaultMessage": "The action failed. Your model selection was not changed. Try again."
+  },
+  "modelInventory.changed": {
+    "defaultMessage": "{model}: the provider changed {fields}. Review the model settings before continuing."
+  },
+  "modelInventory.context": {
+    "defaultMessage": "context capacity"
+  },
+  "modelInventory.failed": {
+    "defaultMessage": "Could not refresh this connection. Keeping the last saved list; this does not mean its models were removed."
+  },
+  "modelInventory.image": {
+    "defaultMessage": "image input"
+  },
+  "modelInventory.output": {
+    "defaultMessage": "output limit"
+  },
+  "modelInventory.preserved": {
+    "defaultMessage": "Your selected model has not been changed. If it is unavailable, choose another model manually from the model menu."
+  },
+  "modelInventory.removed": {
+    "defaultMessage": "{model} is no longer in the provider model list. It may have been removed or access may have changed."
+  },
+  "modelInventory.retry": {
+    "defaultMessage": "Refresh again"
+  },
+  "modelInventory.thinking": {
+    "defaultMessage": "thinking options"
+  },
+  "modelInventory.title": {
+    "defaultMessage": "Model connection updates"
+  },
+  "modelInventory.tools": {
+    "defaultMessage": "tool calling"
+  },
   "modelSettingsButtons.configureProviders": {
     "defaultMessage": "Configure providers"
   },

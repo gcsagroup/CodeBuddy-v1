@@ -642,6 +642,11 @@ export function ModelThinkingMenu({
   const [error, setError] = useState(false);
   const [readFailed, setReadFailed] = useState(false);
   const [refreshAttempt, setRefreshAttempt] = useState(0);
+  useEffect(() => {
+    const refresh = () => setRefreshAttempt(value => value + 1);
+    window.addEventListener('codebuddy:model-inventory-updated', refresh);
+    return () => window.removeEventListener('codebuddy:model-inventory-updated', refresh);
+  }, []);
   const [reading, setReading] = useState(false);
   const forceRefresh = useRef<string | null>(null);
   const current = useRef(identity);

@@ -10270,5 +10270,44 @@
   },
   "windowMenu.label": {
     "defaultMessage": "Menú de la aplicación"
+  },
+  "modelInventory.acknowledge": {
+    "defaultMessage": "Entendido"
+  },
+  "modelInventory.actionFailed": {
+    "defaultMessage": "La acción falló. No se cambió el modelo seleccionado. Inténtalo de nuevo."
+  },
+  "modelInventory.changed": {
+    "defaultMessage": "{model}: el proveedor cambió {fields}. Revisa la configuración del modelo."
+  },
+  "modelInventory.context": {
+    "defaultMessage": "capacidad de contexto"
+  },
+  "modelInventory.failed": {
+    "defaultMessage": "No se pudo actualizar la conexión. Se conserva la última lista; esto no significa que los modelos se hayan retirado."
+  },
+  "modelInventory.image": {
+    "defaultMessage": "entrada de imágenes"
+  },
+  "modelInventory.output": {
+    "defaultMessage": "límite de salida"
+  },
+  "modelInventory.preserved": {
+    "defaultMessage": "No se ha cambiado el modelo seleccionado. Si no está disponible, elige otro manualmente en el menú de modelos."
+  },
+  "modelInventory.removed": {
+    "defaultMessage": "{model} ya no figura en la lista del proveedor. Puede haberse retirado o haber cambiado el acceso."
+  },
+  "modelInventory.retry": {
+    "defaultMessage": "Actualizar de nuevo"
+  },
+  "modelInventory.thinking": {
+    "defaultMessage": "opciones de razonamiento"
+  },
+  "modelInventory.title": {
+    "defaultMessage": "Cambios en las conexiones de modelos"
+  },
+  "modelInventory.tools": {
+    "defaultMessage": "llamadas a herramientas"
   }
 }

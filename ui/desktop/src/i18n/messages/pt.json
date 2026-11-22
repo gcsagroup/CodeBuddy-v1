@@ -8670,7 +8670,7 @@
     "defaultMessage": "Nenhum controle verificado"
   },
   "thinkingEffortPicker.off": {
-    "defaultMessage": "None"
+    "defaultMessage": "Desativado"
   },
   "thinkingEffortPicker.on": {
     "defaultMessage": "On"
@@ -10309,5 +10309,8 @@
   },
   "modelInventory.tools": {
     "defaultMessage": "chamadas de ferramentas"
+  },
+  "thinkingEffortPicker.unsupportedLabel": {
+    "defaultMessage": "Não ajustável"
   }
 }

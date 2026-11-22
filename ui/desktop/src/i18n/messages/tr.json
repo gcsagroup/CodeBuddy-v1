@@ -8670,7 +8670,7 @@
     "defaultMessage": "Doğrulanmış ayar yok"
   },
   "thinkingEffortPicker.off": {
-    "defaultMessage": "None"
+    "defaultMessage": "Kapalı"
   },
   "thinkingEffortPicker.on": {
     "defaultMessage": "On"
@@ -10309,5 +10309,8 @@
   },
   "modelInventory.tools": {
     "defaultMessage": "araç çağrıları"
+  },
+  "thinkingEffortPicker.unsupportedLabel": {
+    "defaultMessage": "Ayarlanamaz"
   }
 }

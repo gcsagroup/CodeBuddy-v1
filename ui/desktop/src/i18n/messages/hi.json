@@ -8670,7 +8670,7 @@
     "defaultMessage": "कोई सत्यापित नियंत्रण नहीं"
   },
   "thinkingEffortPicker.off": {
-    "defaultMessage": "None"
+    "defaultMessage": "बंद"
   },
   "thinkingEffortPicker.on": {
     "defaultMessage": "On"
@@ -10309,5 +10309,8 @@
   },
   "modelInventory.tools": {
     "defaultMessage": "टूल कॉल"
+  },
+  "thinkingEffortPicker.unsupportedLabel": {
+    "defaultMessage": "बदला नहीं जा सकता"
   }
 }

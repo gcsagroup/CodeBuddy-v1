@@ -57,8 +57,8 @@ test('vLLM tokenizer fallback validates nested template efforts and ignores erro
   });
   const native = await driverProvider(provider, 'custom');
   const profile = thinkingProfile(provider, 'custom');
-  assert.deepEqual(modelThinkingOptions(profile, 'high'), { source: 'tokenize', options: ['none', 'low', 'medium', 'xhigh'], value: 'none', toggle: false });
-  assert.equal(modelThinkingPreference(profile, 'high'), 'none', 'A saved rejected value is not sent again');
+  assert.deepEqual(modelThinkingOptions(profile, 'high'), { source: 'tokenize', options: ['none', 'low', 'medium', 'xhigh'], value: 'xhigh', toggle: false });
+  assert.equal(modelThinkingPreference(profile, 'high'), 'xhigh', 'A saved rejected value falls back to the verified service default');
   assert.equal(native.compat.thinkingFormat, 'chat-template');
   assert.deepEqual(native.compat.chatTemplateKwargs.reasoning_effort, { $var: 'thinking.effort' });
   const count = calls.length;
@@ -192,10 +192,10 @@ test(`custom ${backend} names discover real template modes, preserve defaults an
   await store.update(state => { state.providers = [provider]; });
   const settings = new RuntimeSettings(store);
   await resolvedModelInfo(provider, model);
-  assert.deepEqual(modelThinkingOptions(thinkingProfile(provider, model)), { options: ['none', 'low', 'medium', 'xhigh'], value: 'none', toggle: false });
+  assert.deepEqual(modelThinkingOptions(thinkingProfile(provider, model)), { options: ['none', 'low', 'medium', 'xhigh'], value: 'xhigh', toggle: false });
   const offered = await settings.request('providers/config/read', { providerId: provider.id });
   assert.deepEqual(JSON.parse(offered.fields.find(field => field.key === `thinkingEffort:${model}`).value),
-    { options: ['none', 'low', 'medium', 'xhigh'], value: 'none', toggle: false });
+    { options: ['none', 'low', 'medium', 'xhigh'], value: 'xhigh', toggle: false });
   const count = calls.length;
   await settings.request('providers/config/save', { providerId: provider.id, fields: [{ key: `thinkingEffort:${model}`, value: 'low' }] });
   assert.equal(calls.length, count, 'Warm reads and saves reuse discovery');
@@ -263,14 +263,14 @@ test(`discovered ${backend} modes reach real Harness HTTP requests`, { timeout: 
   driver = await createHarnessDriver({ dataDir: path.join(root, 'state'), cwd: root });
   const provider = { id: 'wire-vllm', engine: 'openai_compatible', apiUrl: `http://127.0.0.1:${server.address().port}`, models: [model], requiresAuth: false };
   const profile = await driverProvider(provider, model);
-  for (const [effort, expectedBudget, outputLimit] of [[undefined, undefined], ['minimal', 512], ['low', 2048],
+  for (const [effort, expectedBudget, outputLimit] of [[undefined, 16384], ['minimal', 512], ['low', 2048],
     ['medium', 4096], ['xhigh', 16384], ['high', 8192], ['max', 16384], ['none', undefined],
     ['xhigh', 2048, 3072]]) {
     const configured = applyModelThinking(profile, modelThinkingPreference(thinkingProfile(provider, model), effort));
     if (outputLimit) configured.provider.requestMaxTokens = outputLimit;
     const session = await driver.createSession({ cwd: root, provider: configured.provider, model, options: { thinkingEffort: configured.thinkingEffort } });
     assert.equal((await driver.prompt(session.sessionId, 'Reply OK.')).stopReason, 'end_turn');
-    assert.equal(requests.at(-1).reasoning_effort, effort ?? 'none');
+    assert.equal(requests.at(-1).reasoning_effort, effort === 'default' ? undefined : effort ?? 'xhigh');
     assert.equal(requests.at(-1).thinking_token_budget, backend === 'vllm' ? expectedBudget : undefined);
   }
 });

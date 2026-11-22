@@ -8847,7 +8847,7 @@
     "defaultMessage": "尚未确认可用档位"
   },
   "thinkingEffortPicker.off": {
-    "defaultMessage": "无"
+    "defaultMessage": "关闭"
   },
   "thinkingEffortPicker.on": {
     "defaultMessage": "开启"
@@ -10309,5 +10309,8 @@
   },
   "modelInventory.tools": {
     "defaultMessage": "工具调用能力"
+  },
+  "thinkingEffortPicker.unsupportedLabel": {
+    "defaultMessage": "不支持调节"
   }
 }

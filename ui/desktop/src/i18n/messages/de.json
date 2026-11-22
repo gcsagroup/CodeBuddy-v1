@@ -8670,7 +8670,7 @@
     "defaultMessage": "Keine bestätigten Einstellungen"
   },
   "thinkingEffortPicker.off": {
-    "defaultMessage": "None"
+    "defaultMessage": "Aus"
   },
   "thinkingEffortPicker.on": {
     "defaultMessage": "On"
@@ -10309,5 +10309,8 @@
   },
   "modelInventory.tools": {
     "defaultMessage": "Werkzeugaufrufe"
+  },
+  "thinkingEffortPicker.unsupportedLabel": {
+    "defaultMessage": "Nicht einstellbar"
   }
 }

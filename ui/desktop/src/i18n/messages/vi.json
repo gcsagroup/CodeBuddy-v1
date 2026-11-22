@@ -8670,7 +8670,7 @@
     "defaultMessage": "Không có tùy chỉnh đã xác minh"
   },
   "thinkingEffortPicker.off": {
-    "defaultMessage": "None"
+    "defaultMessage": "Tắt"
   },
   "thinkingEffortPicker.on": {
     "defaultMessage": "On"
@@ -10309,5 +10309,8 @@
   },
   "modelInventory.tools": {
     "defaultMessage": "gọi công cụ"
+  },
+  "thinkingEffortPicker.unsupportedLabel": {
+    "defaultMessage": "Không thể điều chỉnh"
   }
 }

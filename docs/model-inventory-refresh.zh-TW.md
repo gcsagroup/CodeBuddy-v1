@@ -9,3 +9,7 @@
 `runtime/model-inventory.mjs` 統一持有重新整理、連線身分、基線和提示；可選的 `providers[].inventoryState` 在首次成功重新整理時建立。`runtime/status` 投影結構化結果，桌面翻譯展示；確認綁定通知版本，過期結果不能覆蓋新設定。
 
 參考：[VS Code Language Model Chat Provider](https://code.visualstudio.com/api/extension-guides/ai/language-model-chat-provider)。僅參考職責劃分，沒有複製實作或新增依賴。
+
+## 思考強度預設值
+
+切換模型後保留該模型已有的手動選擇；未選擇時採用服務明確宣告的預設檔位，未宣告則顯示「服務預設」並省略思考參數。不會因支援關閉而預設關閉，也不會擅自選擇最低檔位。「關閉」代表實際關閉選項，「不支援調整」代表沒有可調能力。

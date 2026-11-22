@@ -3,8 +3,9 @@ import { invalid } from './providers.mjs';
 export const THINKING_EFFORTS = Object.freeze(['default', 'none', 'minimal', 'low', 'medium', 'high', 'xhigh', 'max']);
 
 export function modelThinkingPreference(profile, saved, legacy) {
-  const fallback = profile.reasoningEfforts && Object.hasOwn(profile.reasoningEfforts, 'off') ? 'none' : 'default';
-  if (saved === 'default') return fallback;
+  const fallback = profile.reasoningEfforts && Object.hasOwn(profile.reasoningEfforts, profile.thinkingDefault)
+    ? profile.thinkingDefault === 'off' ? 'none' : profile.thinkingDefault : 'default';
+  if (saved === 'default') return 'default';
   // A service can change capabilities after a preference was saved. Preserve
   // the stored choice but do not send a level the current model rejects.
   const savedLevel = saved === 'none' ? 'off' : saved;
@@ -13,9 +14,9 @@ export function modelThinkingPreference(profile, saved, legacy) {
   // Legacy global preferences remain a fallback only for a declared capability.
   const level = legacy === 'none' ? 'off' : legacy;
   if (profile.reasoningEfforts && Object.hasOwn(profile.reasoningEfforts, level)) return legacy;
-  if (fallback === 'none') return fallback;
-  return profile.reasoningEfforts && Object.hasOwn(profile.reasoningEfforts, profile.thinkingDefault)
-    ? profile.thinkingDefault === 'off' ? 'none' : profile.thinkingDefault : undefined;
+  // Offering Off does not make it the service default. When no default is
+  // declared, omit controls rather than silently choosing an effort.
+  return fallback;
 }
 
 export function modelThinkingOptions(profile, saved, legacy) {

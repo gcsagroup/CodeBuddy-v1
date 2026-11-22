@@ -8670,7 +8670,7 @@
     "defaultMessage": "確認済みの設定はありません"
   },
   "thinkingEffortPicker.off": {
-    "defaultMessage": "None"
+    "defaultMessage": "オフ"
   },
   "thinkingEffortPicker.on": {
     "defaultMessage": "On"
@@ -10309,5 +10309,8 @@
   },
   "modelInventory.tools": {
     "defaultMessage": "ツール呼び出し"
+  },
+  "thinkingEffortPicker.unsupportedLabel": {
+    "defaultMessage": "調整非対応"
   }
 }

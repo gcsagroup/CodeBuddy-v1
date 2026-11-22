@@ -8883,7 +8883,7 @@
     "defaultMessage": "No verified controls"
   },
   "thinkingEffortPicker.off": {
-    "defaultMessage": "None"
+    "defaultMessage": "Off"
   },
   "thinkingEffortPicker.on": {
     "defaultMessage": "On"
@@ -8914,6 +8914,9 @@
   },
   "thinkingEffortPicker.unsupported": {
     "defaultMessage": "This model does not support adjustable thinking."
+  },
+  "thinkingEffortPicker.unsupportedLabel": {
+    "defaultMessage": "Not adjustable"
   },
   "thinkingEffortPicker.useDefault": {
     "defaultMessage": "Use model default"

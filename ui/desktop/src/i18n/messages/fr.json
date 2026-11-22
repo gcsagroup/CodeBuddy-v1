@@ -8670,7 +8670,7 @@
     "defaultMessage": "Aucun réglage vérifié"
   },
   "thinkingEffortPicker.off": {
-    "defaultMessage": "None"
+    "defaultMessage": "Désactivé"
   },
   "thinkingEffortPicker.on": {
     "defaultMessage": "On"
@@ -10309,5 +10309,8 @@
   },
   "modelInventory.tools": {
     "defaultMessage": "appels d’outils"
+  },
+  "thinkingEffortPicker.unsupportedLabel": {
+    "defaultMessage": "Non réglable"
   }
 }

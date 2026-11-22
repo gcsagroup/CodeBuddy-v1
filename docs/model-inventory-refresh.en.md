@@ -9,3 +9,7 @@ Comparison covers reported context capacity, output limits, image input, thinkin
 `runtime/model-inventory.mjs` owns refresh, connection identity checks, baselines and notices. Optional `providers[].inventoryState` is established on the first successful refresh without bulk migration. `runtime/status` projects structured results for localized rendering. Acknowledgements bind to notice versions; late requests cannot overwrite a changed connection or write after shutdown.
 
 Reference: [VS Code Language Model Chat Provider](https://code.visualstudio.com/api/extension-guides/ai/language-model-chat-provider). Only the separation between discovery and change notification was adopted; no implementation was copied and no dependency added.
+
+## Thinking defaults
+
+Switching models preserves each model's explicit preference. Without a preference, use the service's declared default level; when undeclared, show “Service default” and omit thinking controls. Offering Off does not make Off the default, and the lowest level is not selected automatically. “Off” identifies a real off setting; “Not adjustable” identifies unsupported controls.

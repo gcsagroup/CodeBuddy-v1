@@ -8670,7 +8670,7 @@
     "defaultMessage": "검증된 설정 없음"
   },
   "thinkingEffortPicker.off": {
-    "defaultMessage": "None"
+    "defaultMessage": "꺼짐"
   },
   "thinkingEffortPicker.on": {
     "defaultMessage": "On"
@@ -10309,5 +10309,8 @@
   },
   "modelInventory.tools": {
     "defaultMessage": "도구 호출"
+  },
+  "thinkingEffortPicker.unsupportedLabel": {
+    "defaultMessage": "조절 불가"
   }
 }

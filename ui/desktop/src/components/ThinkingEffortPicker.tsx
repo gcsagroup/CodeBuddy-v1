@@ -41,13 +41,14 @@ const i18n = defineMessages({
     id: 'thinkingEffortPicker.unsupported',
     defaultMessage: 'This model does not support adjustable thinking.',
   },
+  unsupportedLabel: { id: 'thinkingEffortPicker.unsupportedLabel', defaultMessage: 'Not adjustable' },
   stale: {
     id: 'thinkingEffortPicker.stale',
     defaultMessage:
       'Your previous level is no longer available. Using the current fallback; choose a supported level to replace it.',
   },
   title: { id: 'thinkingEffortPicker.title', defaultMessage: 'Thinking effort' },
-  off: { id: 'thinkingEffortPicker.off', defaultMessage: 'None' },
+  off: { id: 'thinkingEffortPicker.off', defaultMessage: 'Off' },
   on: { id: 'thinkingEffortPicker.on', defaultMessage: 'On' },
   minimal: { id: 'thinkingEffortPicker.minimal', defaultMessage: 'Minimal' },
   low: { id: 'thinkingEffortPicker.low', defaultMessage: 'Low' },
@@ -762,7 +763,7 @@ export function ModelThinkingMenu({
           className="flex h-8 min-w-0 max-w-full cursor-default items-center gap-1 rounded-md px-1.5 text-xs text-text-secondary transition-colors hover:bg-background-secondary hover:text-text-primary disabled:opacity-60"
         >
           {triggerContent}
-          {settings?.state === 'unsupported' && <span>{intl.formatMessage(i18n.off)}</span>}
+          {settings?.state === 'unsupported' && <span>{intl.formatMessage(i18n.unsupportedLabel)}</span>}
           {settings && settings.options.length === 0 && (
             <span className="shrink-0 text-xs" title={intl.formatMessage(i18n.noControls)}>
               {settings.value ? `${intl.formatMessage(i18n[settings.value])} · ` : ''}

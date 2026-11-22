@@ -15,6 +15,20 @@ vi.mock('../acp/providers', () => ({
 }));
 beforeEach(() => vi.resetAllMocks());
 
+it('shows service default after switching to a model without a declared default', async () => {
+  const read = vi.fn().mockResolvedValue({ thinking: { options: ['default', 'off', 'low', 'high'], value: 'default', toggle: false, state: 'supported' }, contextWindow: 8192, contextSource: 'service' });
+  render(<ModelThinkingMenu provider="p" model="new-model" readSettings={read} />, { wrapper: IntlTestWrapper });
+  expect(await screen.findByRole('button', { name: 'Thinking effort: Service default' })).toBeVisible();
+  expect(screen.queryByRole('button', { name: 'Thinking effort: Off' })).not.toBeInTheDocument();
+  expect(acpSaveThinkingEffort).not.toHaveBeenCalled();
+});
+
+it('labels an unsupported model as not adjustable instead of Off', () => {
+  render(<ModelThinkingMenu provider="p" model="plain" triggerContent={<span>plain</span>} initialSettings={{ thinking: { options: ['off'], value: 'off', toggle: false, state: 'unsupported' }, contextWindow: 8192, contextSource: 'service' }} />, { wrapper: IntlTestWrapper });
+  expect(screen.getByText('Not adjustable')).toBeVisible();
+  expect(screen.queryByText('Off')).not.toBeInTheDocument();
+});
+
 function deferred<T>() {
   let resolve!: (value: T | PromiseLike<T>) => void;
   const promise = new Promise<T>((yes) => {
@@ -68,7 +82,7 @@ describe('ThinkingEffortPicker', () => {
     expect(screen.queryByRole('status')).toBeNull();
     expect(acpReadModelDisplaySettings).not.toHaveBeenCalled();
     fireEvent.mouseEnter(screen.getByRole('button', { name: 'Thinking effort: On' }));
-    await user.click(screen.getByRole('radio', { name: 'None' }));
+    await user.click(screen.getByRole('radio', { name: 'Off' }));
     await waitFor(() =>
       expect(changed).toHaveBeenCalledWith({
         ...initialSettings,
@@ -151,7 +165,7 @@ describe('ThinkingEffortPicker', () => {
       'high',
     ]);
     expect(screen.getByRole('radio', { name: 'High' })).toBeChecked();
-    expect(screen.queryByRole('radio', { name: 'None' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('radio', { name: 'Off' })).not.toBeInTheDocument();
     await user.click(screen.getByRole('radio', { name: 'Low' }));
     expect(change).toHaveBeenCalledExactlyOnceWith('low');
   });
@@ -172,8 +186,8 @@ describe('ThinkingEffortPicker', () => {
     });
     fireEvent.mouseEnter(await screen.findByRole('button', { name: 'Thinking effort: On' }));
     expect(screen.getAllByRole('radio')).toHaveLength(2);
-    expect(screen.getByRole('radio', { name: 'None' })).toBeInTheDocument();
-    await user.click(screen.getByRole('radio', { name: 'None' }));
+    expect(screen.getByRole('radio', { name: 'Off' })).toBeInTheDocument();
+    await user.click(screen.getByRole('radio', { name: 'Off' }));
     await waitFor(() =>
       expect(acpSaveThinkingEffort).toHaveBeenCalledExactlyOnceWith(
         'off',
@@ -181,7 +195,7 @@ describe('ThinkingEffortPicker', () => {
         'boolean-model'
       )
     );
-    expect(await screen.findByRole('button', { name: 'Thinking effort: None' })).toBeVisible();
+    expect(await screen.findByRole('button', { name: 'Thinking effort: Off' })).toBeVisible();
   });
   it('labels API-declared controls without claiming verified model behavior', async () => {
     render(<ThinkingEffortPicker settings={{ options: ['low', 'high'], value: 'high', toggle: false, source: 'openapi' }} onChange={vi.fn()} />, { wrapper: IntlTestWrapper });
@@ -224,12 +238,12 @@ it('ignores a late previous-model response and refreshes only on explicit rechec
   const read = vi.fn().mockImplementation((_provider, model) => model === 'A' ? a.promise : Promise.resolve(b));
   const view = render(<ModelThinkingMenu provider="p" model="A" readSettings={read} showLabel />, { wrapper: IntlTestWrapper });
   view.rerender(<ModelThinkingMenu provider="p" model="B" readSettings={read} showLabel />);
-  await waitFor(() => expect(screen.getByRole('button', { name: 'Thinking effort: None' })).toBeVisible());
+  await waitFor(() => expect(screen.getByRole('button', { name: 'Thinking effort: Off' })).toBeVisible());
   a.resolve({ thinking: { options: ['low', 'high'], value: 'high', toggle: false }, contextWindow: 65536, contextSource: 'service' });
-  fireEvent.mouseEnter(screen.getByRole('button', { name: 'Thinking effort: None' }));
+  fireEvent.mouseEnter(screen.getByRole('button', { name: 'Thinking effort: Off' }));
   expect(screen.queryByRole('radio', { name: 'High' })).not.toBeInTheDocument();
   expect(screen.queryByRole('radio', { name: 'Service default' })).not.toBeInTheDocument();
-  expect(screen.getByRole('radio', { name: 'None' })).toBeChecked();
+  expect(screen.getByRole('radio', { name: 'Off' })).toBeChecked();
   expect(screen.getByRole('radio', { name: 'On' })).toBeVisible();
   await userEvent.click(screen.getByRole('button', { name: 'Recheck model capabilities' }));
   await waitFor(() => expect(read).toHaveBeenLastCalledWith('p', 'B', true));

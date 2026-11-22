@@ -22,7 +22,7 @@ test('model snapshot resolves only the selected model, refreshes explicitly and 
   const read = (modelId, refresh = false) => settings.request('model-settings/read', { providerId: provider.id, modelId, refresh });
   for (const modelId of ['A', 'B', 'A', 'B', 'A']) {
     const result = await read(modelId);
-    assert.deepEqual(result.thinking.options, modelId === 'A' ? ['default', 'low', 'high'] : ['none', 'medium']);
+    assert.deepEqual(result.thinking.options, modelId === 'A' ? ['default', 'low', 'high'] : ['default', 'none', 'medium']);
     assert.equal(result.thinking.value, provider.thinkingEfforts[modelId]);
     const selected = applyModelThinking(await driverProvider(provider, modelId), modelThinkingPreference(thinkingProfile(provider, modelId), provider.thinkingEfforts[modelId]));
     assert.equal(selected.provider.reasoningEfforts[selected.thinkingEffort], provider.thinkingEfforts[modelId]);
@@ -52,7 +52,23 @@ test('unknown differs from unsupported and neither invents selectable effort lev
   }
 });
 
-test('off-capable model starts at none and keeps explicit levels isolated across models', async t => {
+test('missing service defaults never choose Off or the lowest effort on model switch', async t => {
+  const provider = { id: 'service-default', engine: 'openai_compatible', apiUrl: 'http://service-default.invalid', requiresAuth: false,
+    models: ['declared', 'unspecified'], thinkingEfforts: {} };
+  t.mock.method(globalThis, 'fetch', async () => Response.json({ data: [
+    { id: 'declared', reasoning_efforts: ['none', 'low', 'high'], default_reasoning_effort: 'high' },
+    { id: 'unspecified', reasoning_efforts: ['none', 'low', 'high'] },
+  ] }));
+  const settings = new RuntimeSettings({ read: () => ({ providers: [provider], preferences: {} }) });
+  for (const modelId of ['declared', 'unspecified', 'declared']) {
+    const { thinking } = await settings.request('model-settings/read', { providerId: provider.id, modelId });
+    assert.equal(thinking.value, modelId === 'declared' ? 'high' : 'default');
+    assert.deepEqual(thinking.options, ['default', 'none', 'low', 'high']);
+  }
+  assert.deepEqual(provider.thinkingEfforts, {}, 'Reading and switching never persists a preference');
+});
+
+test('off-capable model respects service defaults and keeps explicit levels isolated across models', async t => {
   const provider = { id: 'off-default', engine: 'openai_compatible', apiUrl: 'http://off-default.invalid', requiresAuth: false,
     models: ['graded', 'toggle', 'always'], thinkingEfforts: { graded: 'default', toggle: 'medium' } };
   t.mock.method(globalThis, 'fetch', async () => Response.json({ data: [
@@ -67,11 +83,11 @@ test('off-capable model starts at none and keeps explicit levels isolated across
     const preference = modelThinkingPreference(profile, provider.thinkingEfforts[modelId]);
     const actual = applyModelThinking(await driverProvider(provider, modelId), preference);
     if (modelId === 'graded') {
-      assert.deepEqual(thinking.options, ['none', 'low', 'medium', 'high']);
-      assert.equal(thinking.value, 'none');
-      assert.equal(actual.provider.reasoningEfforts[actual.thinkingEffort], 'none');
-      assert.equal(modelThinkingPreference(profile, undefined), 'none');
-      assert.equal(modelThinkingPreference(profile, 'max'), 'none');
+      assert.deepEqual(thinking.options, ['default', 'none', 'low', 'medium', 'high']);
+      assert.equal(thinking.value, 'default');
+      assert.equal(actual.source, 'provider_default');
+      assert.equal(modelThinkingPreference(profile, undefined), 'high');
+      assert.equal(modelThinkingPreference(profile, 'max'), 'high');
     } else if (modelId === 'toggle') {
       assert.equal(thinking.value, 'medium');
       assert.equal(actual.provider.reasoningEfforts[actual.thinkingEffort], 'medium');

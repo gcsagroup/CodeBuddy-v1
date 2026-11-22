@@ -57,7 +57,7 @@ it('keeps service default outside the strength scale and explains that it is not
   expect(screen.queryByRole('slider')).not.toBeInTheDocument();
   expect(screen.getByText(/This does not turn thinking off/)).toBeVisible();
   expect(screen.getByText(/does not offer an off setting.*Low/)).toBeVisible();
-  expect(screen.queryByRole('button', { name: 'None' })).not.toBeInTheDocument();
+  expect(screen.queryByRole('button', { name: 'Off' })).not.toBeInTheDocument();
   fireEvent.click(screen.getByRole('button', { name: 'Low' }));
   await waitFor(() =>
     expect(acpSaveThinkingEffort).toHaveBeenCalledExactlyOnceWith('low', 'p', 'always-on')
@@ -93,7 +93,7 @@ it('the leftmost point sends low, not default or off, when off is unavailable', 
   );
 });
 
-it('the leftmost point remains a real None control for off-capable models', async () => {
+it('the leftmost point remains a real Off control for off-capable models', async () => {
   render(
     <ModelThinkingMenu
       provider="p"
@@ -113,11 +113,11 @@ it('the leftmost point remains a real None control for off-capable models', asyn
   await waitFor(() =>
     expect(acpSaveThinkingEffort).toHaveBeenCalledExactlyOnceWith('off', 'p', 'off-capable')
   );
-  expect(slider()).toHaveAttribute('aria-valuetext', 'None');
+  expect(slider()).toHaveAttribute('aria-valuetext', 'Off');
   expect(screen.queryByText(/does not offer an off setting/)).not.toBeInTheDocument();
 });
 
-it('shows None for a model explicitly without thinking and does not invent a slider', () => {
+it('shows Not adjustable for a model explicitly without thinking and does not invent a slider', () => {
   render(
     <ModelThinkingMenu
       provider="p"
@@ -134,7 +134,7 @@ it('shows None for a model explicitly without thinking and does not invent a sli
     />,
     { wrapper: IntlTestWrapper }
   );
-  expect(screen.getByRole('button', { name: 'Plain model' })).toHaveTextContent('None');
+  expect(screen.getByRole('button', { name: 'Plain model' })).toHaveTextContent('Not adjustable');
   expect(screen.queryByRole('slider')).not.toBeInTheDocument();
 });
 const release = (value: number) => {
@@ -292,7 +292,7 @@ it('adapts to a two-state model and keyboard controls without fabricating extra 
   fireEvent.click(screen.getByRole('button', { name: 'Thinking effort: On' }));
   expect(slider()).toHaveAttribute('max', '1');
   fireEvent.keyDown(slider(), { key: 'Home' });
-  expect(slider()).toHaveAttribute('aria-valuetext', 'None');
+  expect(slider()).toHaveAttribute('aria-valuetext', 'Off');
   expect(changed).not.toHaveBeenCalled();
   fireEvent.keyUp(slider(), { key: 'Home' });
   await waitFor(() => expect(changed).toHaveBeenCalledExactlyOnceWith('off'));

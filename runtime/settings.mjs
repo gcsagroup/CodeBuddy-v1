@@ -264,7 +264,7 @@ export class RuntimeSettings {
         const state = profile.reasoningEfforts === false ? 'unsupported' : thinking.options.length ? 'supported' : 'unknown';
         const stalePreference = saved != null && saved !== 'default' && !thinking.options.includes(saved);
         return { providerId: p.providerId, modelId: p.modelId, ...contextProfile(provider, p.modelId),
-          thinking: { ...thinking, options: state === 'unsupported' ? ['none'] : thinking.options.includes('none') ? thinking.options : ['default', ...thinking.options],
+          thinking: { ...thinking, options: state === 'unsupported' ? ['none'] : ['default', ...thinking.options],
             value: state === 'unsupported' ? 'none' : state === 'supported' ? thinking.value ?? 'default' : 'default', state, stalePreference } };
       }
       case 'providers/config/read': {

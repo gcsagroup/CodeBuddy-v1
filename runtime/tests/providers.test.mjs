@@ -625,7 +625,7 @@ test('probe respects discovered Ollama thinking and tools capabilities', async t
       : { choices: [{ message: { content: 'OK' } }] })));
   await saveProvider(memoryStore(), input(api.url, { engine: 'ollama_compatible' }));
   const body = api.requests.at(-1).body;
-  assert.equal(body.reasoning_effort, 'none', 'Off-capable models default to the requested None policy');
+  assert.equal(body.reasoning_effort, 'high', 'Offering Off must not override the service-declared High default');
   assert.equal(body.tools[0].function.name, 'connection_check');
 });
 

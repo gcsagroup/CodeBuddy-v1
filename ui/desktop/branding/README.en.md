@@ -1,6 +1,6 @@
 # CodeBuddy icons
 
-`codebuddy-selected.png` preserves the exact uploaded selection. Built-in imagegen removes its outer pale background for `codebuddy-master.png`, retaining the graphite tile and interlocking white brackets, and produces the monochrome macOS adaptation `codebuddy-template-master.png`. All shipping formats are exported proportionally with the existing Pillow toolchain. `concepts/` contains candidates only and is not a build input.
+`codebuddy-selected.png` preserves the exact uploaded selection. Built-in imagegen removes its outer pale background for `codebuddy-master.png`, retaining the graphite tile and interlocking white brackets, and produces the monochrome macOS adaptation `codebuddy-template-master.png`. All shipping formats are exported proportionally with the existing Pillow toolchain. Unused concept images have been removed and remain available in Git history; shipping master artwork is retained.
 
 Run `python ui/desktop/scripts/generate-codebuddy-icons.py` from the repository root to export in-app marks, favicon, PNG, Windows ICO, macOS ICNS, Linux SVG wrappers and tray states. `src/images/prepare.sh` delegates to the same script. SVG embeds the PNG artwork; it is not a traced vector. The update state adds a status dot. Commit sources and exports together.
 

@@ -1,6 +1,6 @@
 # CodeBuddy 图标
 
-选定原图保存在 `codebuddy-selected.png`。正式母版 `codebuddy-master.png` 使用内置 imagegen 去除原图外部浅色背景，保留石墨黑圆角底与两条交错的白色括号；macOS 单色模板为 `codebuddy-template-master.png`。其他尺寸和格式由现有 Pillow 工具链等比导出。`concepts/` 仅保留候选方案，不参与构建。
+选定原图保存在 `codebuddy-selected.png`。正式母版 `codebuddy-master.png` 使用内置 imagegen 去除原图外部浅色背景，保留石墨黑圆角底与两条交错的白色括号；macOS 单色模板为 `codebuddy-template-master.png`。其他尺寸和格式由现有 Pillow 工具链等比导出。未采用的候选图已移除，历史版本仍可从 Git 查阅；正式母版保持不变。
 
 在仓库根目录运行 `python ui/desktop/scripts/generate-codebuddy-icons.py`，一次更新应用内标识、favicon、PNG、Windows ICO、macOS ICNS、Linux SVG 容器和托盘资源。`src/images/prepare.sh` 调用同一脚本。SVG 嵌入同源 PNG，不是真正矢量图；更新提示仅叠加状态圆点。请同时提交母版和导出文件。
 

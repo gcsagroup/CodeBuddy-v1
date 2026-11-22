@@ -8,6 +8,7 @@ import defaultModel from '../default-model.json' with { type: 'json' };
 import { providerStatus, driverProvider } from '../providers.mjs';
 import { createCompatServer } from '../server.mjs';
 import { RuntimeSettings } from '../settings.mjs';
+import { VisionRouting } from '../vision-routing.mjs';
 import { spawn } from 'node:child_process';
 import { once } from 'node:events';
 import { fileURLToPath } from 'node:url';
@@ -34,7 +35,7 @@ test('preview CLI seeds the same main and vision defaults as the installed deskt
   });
   const state = JSON.parse(await readFile(path.join(dir, 'state.json'), 'utf8'));
   assert.equal(state.providers[0].apiUrl, defaultModel.baseUrl);
-  assert.deepEqual(state.modelRouting.visionRoute, { enabled: true, mode: 'always', providerId: defaultModel.providerId, modelId: defaultModel.visionModelId });
+  assert.deepEqual(state.modelRouting.visionRoute, { enabled: true, mode: 'auto', providerId: defaultModel.providerId, modelId: defaultModel.visionModelId });
   assert.equal(state.modelCapabilities.overrides[0].imageInput, 'force_supported');
   assert.equal(state.providers.length, 2);
   assert.deepEqual(state.providers[1].models, ['qwen3.8-flash-next-uncensored', 'Qwen3.8-27B-FP4', 'Qwen3.8-27B-CyberSecurity']);
@@ -46,6 +47,49 @@ async function fixture(t) {
   t.after(() => rm(dir, { recursive: true, force: true }));
   return dir;
 }
+
+test('fresh image routing sends images directly to a capable main model and only otherwise uses the backup', async t => {
+  const store = await openStore(await fixture(t), { defaultModel });
+  const state = store.read();
+  let mainSupportsImages = true;
+  let observerCalls = 0;
+  const vision = new VisionRouting({
+    createSession: async () => {},
+    prompt: async (_id, _content, options) => {
+      observerCalls++;
+      await options.onEvent({ type: 'text_delta', text: 'A red square.' });
+      return { stopReason: 'end_turn' };
+    },
+  }, {
+    resolveCapability: async ({ modelId }) => ({ imageInput:
+      modelId === state.defaults.modelId && !mainSupportsImages ? 'unsupported' : 'supported' }),
+    resolveProvider: async provider => ({ id: provider.id }),
+  });
+  t.after(() => vision.close());
+  const content = [{ type: 'image', mediaType: 'image/png', data: 'AQID' }];
+  const request = { sessionId: 'fresh-vision', cwd: process.cwd(), content,
+    routing: state.modelRouting, main: state.defaults, providers: state.providers };
+  const direct = await vision.preparePrompt(request);
+  assert.equal(direct.route, 'main');
+  assert.deepEqual(direct.content, content);
+  assert.equal(observerCalls, 0);
+  mainSupportsImages = false;
+  const fallback = await vision.preparePrompt(request);
+  assert.equal(observerCalls, 1);
+  assert.equal(fallback.observations[0].modelId, defaultModel.visionModelId);
+});
+
+test('startup preserves an explicitly saved dedicated or main-only image route', async t => {
+  const dir = await fixture(t);
+  const store = await openStore(dir, { defaultModel });
+  for (const mode of ['always', 'disabled']) {
+    await store.update(state => {
+      state.modelRouting.visionRoute.mode = mode;
+      state.modelRouting.visionRoute.enabled = mode !== 'disabled';
+    });
+    assert.deepEqual((await openStore(dir, { defaultModel })).read().modelRouting, store.read().modelRouting);
+  }
+});
 
 test('fresh installed profile exposes Gemma, Flash and both existing Qwen models without credentials', async t => {
   const dir = await fixture(t);
@@ -66,7 +110,7 @@ test('fresh installed profile exposes Gemma, Flash and both existing Qwen models
   assert.equal(providerStatus(providers[0]).isConfigured, true);
   const settings = new RuntimeSettings(store);
   const routing = await settings.request('codepro/model-routing/read');
-  assert.deepEqual(routing.config.visionRoute, { enabled: true, mode: 'always', providerId: defaults.providerId, modelId: defaultModel.visionModelId });
+  assert.deepEqual(routing.config.visionRoute, { enabled: true, mode: 'auto', providerId: defaults.providerId, modelId: defaultModel.visionModelId });
   assert.equal((await settings.request('model-capabilities/resolve', defaults)).imageInput, 'supported');
   assert.ok(providers[0].models.includes(defaultModel.visionModelId));
   assert.equal((await settings.request('model-capabilities/resolve', routing.config.visionRoute)).source, 'catalog');

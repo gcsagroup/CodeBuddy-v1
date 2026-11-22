@@ -16,11 +16,11 @@ const defaultVisionModel =
     ? distribution.visionModelId
     : distribution.modelId;
 
-const modes = ['always', 'auto', 'disabled'] as const;
+const modes = ['auto', 'always', 'disabled'] as const;
 const modeLabel = (mode: CodeProVisionRoute['mode']) =>
   ({
     always: t('Dedicated model', '专用模型识图', '專用模型識圖'),
-    auto: t('Automatic fallback', '主模型优先', '主模型優先'),
+    auto: t('Main model first', '主模型优先', '主模型優先'),
     disabled: t('Main model only', '仅用主模型', '僅用主模型'),
   })[mode];
 const modelKey = (route: Pick<CodeProVisionRoute, 'providerId' | 'modelId'>) =>
@@ -143,9 +143,9 @@ export default function VisionSettings({ providers }: { providers: ProviderDetai
                   )
                 : draft.mode === 'auto'
                   ? t(
-                      'Use the selected model when the chat model cannot read images.',
-                      '聊天模型无法识图时，使用下方模型。',
-                      '聊天模型無法識圖時，使用下方模型。'
+                      'Use the current chat model when it is confirmed to support images; otherwise use the backup model below.',
+                      '当前聊天模型已确认支持图片时，直接识图；否则使用下方备用模型。',
+                      '目前聊天模型已確認支援圖片時，直接識圖；否則使用下方備用模型。'
                     )
                   : t(
                       'Images go directly to the chat model if it supports them.',
@@ -155,7 +155,9 @@ export default function VisionSettings({ providers }: { providers: ProviderDetai
             </p>
             {draft.enabled && (
               <label className="block space-y-1.5 pt-2 text-sm">
-                <span>{t('Vision model', '识图模型', '識圖模型')}</span>
+                <span>{draft.mode === 'auto'
+                  ? t('Backup image model', '备用识图模型', '備用識圖模型')
+                  : t('Vision model', '识图模型', '識圖模型')}</span>
                 <SearchableSelect
                   aria-label={t('Vision model', '识图模型', '識圖模型')}
                   disabled={busy}

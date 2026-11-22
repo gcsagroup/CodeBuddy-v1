@@ -90,7 +90,7 @@ export async function openStore(dataDir, { replaceFile = rename, defaultModel, o
       state.modelRouting = {
         version: 2, advancedRoutingEnabled: false, routes: [], maxParallelCoders: 1,
         visionRoute: defaultModel.visionModelId
-          ? { enabled: true, mode: 'always', providerId: defaultModel.providerId, modelId: defaultModel.visionModelId }
+          ? { enabled: true, mode: 'auto', providerId: defaultModel.providerId, modelId: defaultModel.visionModelId }
           : { enabled: true, mode: 'auto', ...state.defaults },
       };
       if (defaultModel.imageInput === true) {

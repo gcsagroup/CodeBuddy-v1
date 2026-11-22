@@ -20,6 +20,17 @@ vi.mock('../../../acp/codeproModelRouting', async (original) => ({
   readCodeProModelRouting: vi.fn(),
   saveCodeProModelRouting: vi.fn(),
 }));
+it('shows main-model-first as the first choice and describes the configured model as a backup', async () => {
+  const route = { enabled: true, mode: 'auto' as const, providerId: 'custom_codebuddy_lan', modelId: 'CUA-S1-Qwen3.5-4B' };
+  vi.mocked(readCodeProModelRouting).mockResolvedValue({ ...DISABLED_CODEPRO_MODEL_ROUTING, visionRoute: route });
+  render(<VisionSettings providers={[
+    { name: 'custom_codebuddy_lan', metadata: { display_name: 'CodeBuddy LAN', known_models: [] } },
+  ] as unknown as ProviderDetails[]} />, { wrapper: IntlTestWrapper });
+  expect(await screen.findByRole('radio', { name: 'Main model first' })).toBeChecked();
+  expect(screen.getAllByRole('radio')[0]).toHaveAccessibleName('Main model first');
+  expect(screen.getByText('Backup image model')).toBeVisible();
+  expect(screen.getByRole('button', { name: 'Save settings' })).toBeDisabled();
+});
 it('offers the built-in vision model to an existing connection and saves only the intended route', async () => {
   const existing = { ...DISABLED_CODEPRO_MODEL_ROUTING, maxParallelCoders: 3 };
   vi.mocked(readCodeProModelRouting).mockResolvedValue(existing);

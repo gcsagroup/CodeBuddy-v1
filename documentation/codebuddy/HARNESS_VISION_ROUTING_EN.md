@@ -1,5 +1,7 @@
 # Harness auxiliary vision adaptation
 
+2026-11-23: New profiles default to `auto` (main model first). A confirmed image-capable chat model receives the original images; otherwise the configured backup image model is used. Existing saved dedicated-model and main-only choices are preserved and can be changed in Settings → Image understanding. Windows and macOS share this initialization logic.
+
 Date: 2026-10-14. Source: current files in `D:\CodeBuddy-v1`, which has no Git revision. This batch contains no commits, pushes, or renderer source changes.
 
 ## Behavior and ownership

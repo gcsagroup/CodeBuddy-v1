@@ -1,3 +1,6 @@
+vi.mock('../hooks/useAudioRecorder', () => ({
+  useAudioRecorder: () => ({ isRecording: false, isTranscribing: false, startRecording: async () => {}, stopRecording: () => {} }),
+}));
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import type { IpcRendererEvent } from 'electron';
 import { act, fireEvent, render, screen } from '@testing-library/react';

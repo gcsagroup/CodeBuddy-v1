@@ -1,9 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { getAcpClient } from './acpConnection';
-import { deleteDictationSecret, saveDictationSecret, selectLocalDictationModel } from './dictation';
+import { getAcpClient, getAcpControlClient } from './acpConnection';
+import { checkDictationService, getDictationConfig, transcribeDictation, deleteDictationSecret, saveDictationSecret, selectLocalDictationModel } from './dictation';
 
 vi.mock('./acpConnection', () => ({
   getAcpClient: vi.fn(),
+  getAcpControlClient: vi.fn(),
 }));
 
 describe('typed dictation secrets', () => {
@@ -76,4 +77,18 @@ describe('typed dictation secrets', () => {
     );
     expect(getAcpClient).not.toHaveBeenCalled();
   });
+});
+
+
+it('uses the control connection for voice status, configuration and transcription', async () => {
+  const extMethod = vi.fn().mockResolvedValue({ available: true });
+  const dictationConfig_unstable = vi.fn().mockResolvedValue({ providers: {} });
+  const dictationTranscribe_unstable = vi.fn().mockResolvedValue({ text: 'hello' });
+  vi.mocked(getAcpControlClient).mockResolvedValue({ extMethod, goose: { dictationConfig_unstable, dictationTranscribe_unstable } } as never);
+  const before = vi.mocked(getAcpClient).mock.calls.length;
+  await getDictationConfig();
+  await checkDictationService('remote', true);
+  expect(await transcribeDictation('audio', 'audio/wav', 'remote')).toBe('hello');
+  expect(extMethod).toHaveBeenCalledWith('_goose/unstable/dictation/check', { provider: 'remote', refresh: true });
+  expect(vi.mocked(getAcpClient).mock.calls.length).toBe(before);
 });

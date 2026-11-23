@@ -1,3 +1,4 @@
+import { Phone } from 'lucide-react';
 import { AppEvents } from '../constants/events';
 import { useWorkStatus } from './codepro/useWorkStatus';
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
@@ -746,6 +747,17 @@ export default function BaseChat({
             >
               {sessionTitle}
             </h1>
+            {session?.global_conversation && (
+              <button
+                type="button"
+                title="打电话"
+                aria-label="打电话"
+                className="rounded-lg p-2 text-text-secondary hover:bg-background-secondary hover:text-text-primary"
+                onClick={() => window.dispatchEvent(new CustomEvent('codebuddy:open-voice-call', { detail: { sessionId: session.id } }))}
+              >
+                <Phone size={18} />
+              </button>
+            )}
             <div
               ref={setSearchBarContainer}
               className="ml-auto w-[min(20rem,70%)] shrink-0 empty:hidden"

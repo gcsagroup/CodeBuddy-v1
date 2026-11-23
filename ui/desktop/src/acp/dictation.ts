@@ -3,7 +3,7 @@ import type {
   DictationLocalModelStatus,
   DictationProviderStatusEntry,
 } from '@aaif/goose-sdk';
-import { getAcpClient } from './acpConnection';
+import { getAcpClient, getAcpControlClient } from './acpConnection';
 
 export type { DictationProviderStatusEntry };
 
@@ -12,7 +12,7 @@ export type LocalDictationModel = DictationLocalModelStatus;
 export type LocalDictationDownloadProgress = DictationDownloadProgress;
 
 export async function getDictationConfig(): Promise<DictationProviders> {
-  const client = await getAcpClient();
+  const client = await getAcpControlClient();
   const response = await client.goose.dictationConfig_unstable({});
   return response.providers ?? {};
 }
@@ -44,7 +44,7 @@ export async function transcribeDictation(
   mimeType: string,
   provider: string
 ): Promise<string> {
-  const client = await getAcpClient();
+  const client = await getAcpControlClient();
   const response = await client.goose.dictationTranscribe_unstable({ audio, mimeType, provider });
   return response.text;
 }
@@ -88,4 +88,9 @@ export async function selectLocalDictationModel(modelId: string): Promise<void> 
     provider: 'local',
     modelId: trimmedModelId,
   });
+}
+
+export async function checkDictationService(provider: string, refresh = false): Promise<void> {
+  const client = await getAcpControlClient();
+  await client.extMethod('_goose/unstable/dictation/check', { provider, refresh });
 }

@@ -164,6 +164,7 @@ export function AgentSelector({
       });
       if (current !== generation.current) return;
       setSelection(result.selection);
+      window.dispatchEvent(new Event(AppEvents.AGENT_PROFILES_CHANGED));
       remember(result.selection.profile?.id ?? null);
       setUnavailable(result.unavailable ?? []);
     } catch (cause) {

@@ -33,7 +33,7 @@ describe('dictation typed preferences', () => {
     expect(readPreferences).toHaveBeenCalledWith([
       'voiceDictationProvider',
       'voiceDictationPreferredMic',
-    ]);
+    ], true);
   });
 
   it.each([

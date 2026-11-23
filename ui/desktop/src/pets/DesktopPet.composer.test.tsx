@@ -1,3 +1,6 @@
+vi.mock('../hooks/useAudioRecorder', () => ({
+  useAudioRecorder: () => ({ isRecording: false, isTranscribing: false, startRecording: async () => {}, stopRecording: () => {} }),
+}));
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import DesktopPet from './DesktopPet';
@@ -80,7 +83,8 @@ describe('pet message composer', () => {
   });
   it('keeps a failed draft and allows retry; empty drafts cannot be submitted', async () => {
     const { desktopPet, input } = await setup();
-    expect(screen.getByRole('button', { name: '发送' })).toBeDisabled();
+    expect(screen.queryByRole('button', { name: '发送' })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '按住说话' })).toBeEnabled();
     fireEvent.change(input, { target: { value: '保留我的消息' } });
     desktopPet.mockRejectedValueOnce(new Error('delivery failed'));
     fireEvent.click(screen.getByRole('button', { name: '发送' }));

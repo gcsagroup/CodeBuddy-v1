@@ -6,6 +6,7 @@ const mocks = vi.hoisted(() => ({
   readDictationPreferences: vi.fn(),
   getDictationConfig: vi.fn(),
   transcribeDictation: vi.fn(),
+  checkDictationService: vi.fn(),
   useConfig: vi.fn(),
   readDictationPreference: vi.fn(),
 }));
@@ -17,6 +18,7 @@ vi.mock('../acp/dictationPreferences', () => ({
 vi.mock('../acp/dictation', () => ({
   getDictationConfig: mocks.getDictationConfig,
   transcribeDictation: mocks.transcribeDictation,
+  checkDictationService: mocks.checkDictationService,
 }));
 
 vi.mock('../components/ConfigContext', () => ({
@@ -78,6 +80,7 @@ describe('useAudioRecorder typed preferences and lifecycle', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    mocks.checkDictationService.mockResolvedValue(undefined);
     workletNodes.length = 0;
     audioContext = makeAudioContext();
 
@@ -352,4 +355,95 @@ describe('useAudioRecorder typed preferences and lifecycle', () => {
     expect(onTranscription).not.toHaveBeenCalled();
     expect(onError).not.toHaveBeenCalled();
   });
+  it('holds silent audio until release and ignores a transcription after changing conversations', async () => {
+    const { stream } = makeStream();
+    getUserMedia.mockResolvedValue(stream);
+    mocks.getDictationConfig.mockResolvedValue({ remote: { configured: true } });
+    const transcription = deferred<string>();
+    mocks.transcribeDictation.mockReturnValue(transcription.promise);
+    const onTranscription = vi.fn();
+    const { result, rerender } = renderHook(({ scopeId }) => useAudioRecorder({
+      onTranscription, onError: vi.fn(), pushToTalk: true, scopeId,
+    }), { initialProps: { scopeId: 'first' } });
+    await waitUntilEnabled(result);
+    await act(async () => result.current.startRecording());
+    act(() => {
+      workletNodes[0].port.onmessage?.({ data: new Float32Array(3200) } as MessageEvent<Float32Array>);
+    });
+    expect(mocks.transcribeDictation).not.toHaveBeenCalled();
+    act(() => result.current.stopRecording());
+    await waitFor(() => expect(mocks.transcribeDictation).toHaveBeenCalledWith('d2F2', 'audio/wav', 'remote'));
+    expect(mocks.readDictationPreferences).toHaveBeenCalledTimes(2);
+    expect(mocks.getDictationConfig).toHaveBeenCalledTimes(2);
+    rerender({ scopeId: 'second' });
+    await act(async () => transcription.resolve('old conversation'));
+    expect(onTranscription).not.toHaveBeenCalled();
+  });
+
+  it('shows microphone startup and derives waveform levels from audio, clearing them on release', async () => {
+    const permission = deferred<MediaStream>();
+    getUserMedia.mockReturnValue(permission.promise);
+    const { result } = renderRecorder();
+    await waitUntilEnabled(result);
+    let starting!: Promise<void>;
+    act(() => { starting = result.current.startRecording(); });
+    expect(result.current.isStarting).toBe(true);
+    await act(async () => { permission.resolve(makeStream().stream); await starting; });
+    expect(result.current.isStarting).toBe(false);
+    const clock = vi.spyOn(performance, 'now');
+    clock.mockReturnValue(1000);
+    act(() => workletNodes[0].port.onmessage?.({ data: new Float32Array(128) } as MessageEvent<Float32Array>));
+    expect(result.current.waveform[result.current.waveform.length - 1]).toBe(0);
+    clock.mockReturnValue(1050);
+    act(() => workletNodes[0].port.onmessage?.({ data: new Float32Array(128).fill(0.1) } as MessageEvent<Float32Array>));
+    expect(result.current.waveform[result.current.waveform.length - 1]).toBeGreaterThan(0);
+    act(() => result.current.stopRecording());
+    expect(result.current.waveform).toEqual([]);
+    clock.mockRestore();
+  });
+
+  it('reports an unavailable recognition service before opening the microphone', async () => {
+    mocks.checkDictationService.mockRejectedValue(new Error('语音识别服务不可用'));
+    const { result, onError } = renderRecorder();
+    await waitUntilEnabled(result);
+    await act(async () => result.current.startRecording());
+    expect(onError).toHaveBeenCalledWith('语音识别服务不可用');
+    expect(getUserMedia).not.toHaveBeenCalled();
+    expect(result.current.isStarting).toBe(false);
+    expect(result.current.isRecording).toBe(false);
+  });
+
+  it('times out a microphone permission prompt and releases a stream returned later', async () => {
+    const permission = deferred<MediaStream>();
+    getUserMedia.mockReturnValue(permission.promise);
+    const { result, onError } = renderRecorder();
+    await waitUntilEnabled(result);
+    vi.useFakeTimers();
+    try {
+      await act(async () => { void result.current.startRecording(); });
+      expect(getUserMedia).toHaveBeenCalled();
+      await act(async () => { await vi.advanceTimersByTimeAsync(8000); });
+      expect(onError).toHaveBeenCalledWith(expect.stringContaining('麦克风开启超时'));
+      expect(result.current.isStarting).toBe(false);
+      expect(result.current.isRecording).toBe(false);
+      const late = makeStream();
+      await act(async () => permission.resolve(late.stream));
+      expect(late.track.stop).toHaveBeenCalledOnce();
+    } finally { vi.useRealTimers(); }
+  });
+
+  it.each([
+    ['NotAllowedError', '权限被拒绝'],
+    ['NotFoundError', '未找到可用麦克风'],
+    ['NotReadableError', '设备可能被占用'],
+  ])('explains microphone failure %s', async (name, message) => {
+    getUserMedia.mockRejectedValue(new DOMException('Device error', name));
+    const { result, onError } = renderRecorder();
+    await waitUntilEnabled(result);
+    await act(async () => result.current.startRecording());
+    expect(onError).toHaveBeenCalledWith(expect.stringContaining(message));
+    expect(result.current.isStarting).toBe(false);
+  });
+
+
 });

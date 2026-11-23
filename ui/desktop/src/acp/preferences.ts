@@ -3,7 +3,7 @@ import type {
   PreferencesReadResponse_unstable,
   PreferenceValue,
 } from '@aaif/goose-sdk';
-import { getAcpClient } from './acpConnection';
+import { getAcpClient, getAcpControlClient } from './acpConnection';
 
 type GoosePreferencesClient = Awaited<ReturnType<typeof getAcpClient>>['goose'];
 
@@ -80,9 +80,10 @@ function enqueueMutation<T>(task: () => Promise<T>): Promise<T> {
 }
 
 export async function readPreferences(
-  keys: PreferenceKey[]
+  keys: PreferenceKey[],
+  control = false
 ): Promise<PreferencesReadResponse_unstable> {
-  const client = await getAcpClient();
+  const client = await (control ? getAcpControlClient() : getAcpClient());
   return readWithClient(client.goose, keys);
 }
 

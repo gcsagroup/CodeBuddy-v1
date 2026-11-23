@@ -433,3 +433,102 @@ test("disconnect, timeout and shutdown cancel in-flight requests without affecti
   await closingAssertion;
   await assert.rejects(service.request(method("config")), /closed/u);
 });
+
+test("remote ASR sends the configured endpoint and Qwen model without requiring an API key", async () => {
+  const config = {};
+  const calls = [];
+  const service = new TranscriptionService({ read: () => ({ config }) }, {
+    fetch: async (url, options) => {
+      calls.push({ url: String(url), options });
+      return new Response(JSON.stringify({ text: "测试语音 submit (保留原文)" }), { headers: { "content-type": "application/json" } });
+    },
+  });
+  try {
+    const result = await service.request(method("transcribe"), input("remote"));
+    assert.equal(result.text, "测试语音 submit (保留原文)");
+    assert.equal(calls[0].url, "http://192.168.9.101:18003/v1/audio/transcriptions");
+    assert.equal(calls[0].options.body.get("model"), "Qwen3-ASR-0.6B");
+    assert.deepEqual(Buffer.from(await calls[0].options.body.get("file").arrayBuffer()), audio);
+    assert.equal(calls[0].options.headers.has("authorization"), false);
+    config.SPEECH_SERVICES = { value: { REMOTE_ASR_URL: "https://example.test/custom/transcribe", REMOTE_ASR_MODEL: "another-asr" } };
+    await service.request(method("transcribe"), input("remote"));
+    assert.equal(calls[1].url, config.SPEECH_SERVICES.value.REMOTE_ASR_URL);
+    assert.equal(calls[1].options.body.get("model"), "another-asr");
+  } finally { service.close(); }
+});
+
+test("recognition availability rejects transport errors and unhealthy status while allowing POST-only routes", async () => {
+  for (const status of [200, 405, 401, 404, 503]) {
+    const service = new TranscriptionService({ read: () => ({ config: {} }) }, {
+      fetch: async (_url, options) => {
+        assert.equal(options.method, 'HEAD');
+        return new Response(null, { status });
+      },
+    });
+    try {
+      if (status === 200 || status === 405) assert.deepEqual(await service.request(method('check'), { provider: 'remote' }), { available: true });
+      else await assert.rejects(service.request(method('check'), { provider: 'remote' }), /语音识别服务不可用/);
+    } finally { service.close(); }
+  }
+  const service = new TranscriptionService({ read: () => ({ config: {} }) }, { fetch: async () => { throw new Error('connection refused'); } });
+  try { await assert.rejects(service.request(method('check'), { provider: 'remote' }), /语音识别服务不可用/); }
+  finally { service.close(); }
+});
+
+test('startup availability is shared and cached for both success and failure', async () => {
+  for (const status of [405, 503]) {
+    let probes = 0;
+    const service = new TranscriptionService({ read: () => ({ config: {} }) }, {
+      fetch: async () => { probes++; return new Response(null, { status }); },
+    });
+    try {
+      await service.startAvailabilityCheck('remote');
+      assert.equal(probes, 1);
+      const attempts = await Promise.allSettled(Array.from({ length: 5 }, () => service.request(method('check'), { provider: 'remote' })));
+      assert.equal(probes, 1);
+      assert.ok(attempts.every(result => result.status === (status === 405 ? 'fulfilled' : 'rejected')));
+    } finally { service.close(); }
+  }
+});
+
+test('manual availability refresh recovers a cached startup failure without probing on activation', async () => {
+  let probes = 0;
+  let status = 503;
+  const service = new TranscriptionService({ read: () => ({ config: {} }) }, {
+    fetch: async () => { probes++; return new Response(null, { status }); },
+  });
+  try {
+    await service.startAvailabilityCheck('remote');
+    status = 405;
+    await assert.rejects(service.request(method('check'), { provider: 'remote' }), /最近一次检测失败/);
+    assert.equal(probes, 1);
+    assert.deepEqual(await service.request(method('check'), { provider: 'remote', refresh: true }), { available: true });
+    await service.request(method('check'), { provider: 'remote' });
+    assert.equal(probes, 2);
+  } finally { service.close(); }
+});
+
+test('voice configuration and availability never copy conversation history', async () => {
+  const reads = [];
+  const store = {
+    read(keys) {
+      assert.ok(Array.isArray(keys), 'speech reads must be scoped');
+      assert.ok(keys.every(key => ['config', 'providers', 'defaults'].includes(key)), 'speech must not read session history');
+      reads.push(keys);
+      return { config: {}, providers: [], defaults: {} };
+    },
+  };
+  const service = new TranscriptionService(store, {
+    fetch: async (_url, options) => options.method === 'HEAD'
+      ? new Response(null, { status: 405 })
+      : new Response(JSON.stringify({ text: 'hello' })),
+  });
+  try {
+    await service.startAvailabilityCheck('remote');
+    const config = await service.request(method('config'));
+    assert.equal(config.providers.remote.configured, true);
+    await service.request(method('check'), { provider: 'remote' });
+    assert.equal((await service.request(method('transcribe'), input('remote'))).text, 'hello');
+    assert.ok(reads.length > 0);
+  } finally { service.close(); }
+});

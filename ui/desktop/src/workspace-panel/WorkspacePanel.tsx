@@ -25,6 +25,7 @@ import {
   Bot,
   X,
   Target,
+  Phone,
 } from 'lucide-react';
 import { useIntl } from '../i18n';
 import { AppEvents } from '../constants/events';
@@ -40,6 +41,7 @@ import { WorkspaceLocalFiles } from './WorkspaceLocalFiles';
 import { WorkspaceOpenMenu } from './WorkspaceOpenMenu';
 import { WorkspaceDocument } from './WorkspaceDocument';
 import { BROWSER_TAB_EVENT, controlWorkspaceBrowser } from './browserControlClient';
+import { WorkspaceVoiceCall } from './WorkspaceVoiceCall';
 import { WorkspaceTerminal } from './WorkspaceTerminal';
 import { WorkspaceSubagent } from './WorkspaceSubagent';
 import {
@@ -492,10 +494,17 @@ export function WorkspacePanelContent({
       update((current) => ({ ...current, active: 'subagents' }));
       onExpandedChange(true);
     };
+    const openCall = (event: Event) => {
+      if ((event as CustomEvent<{ sessionId: string }>).detail?.sessionId !== scope.sessionId) return;
+      update(current => ({ ...current, active: 'voice-call' }));
+      onExpandedChange(true);
+    };
+    window.addEventListener('codebuddy:open-voice-call', openCall);
     window.addEventListener(OPEN_SUBAGENT_CATALOG, openCatalog);
     return () => {
       window.removeEventListener(OPEN_SUBAGENT_CONVERSATION, open);
       window.removeEventListener(OPEN_SUBAGENT_CATALOG, openCatalog);
+      window.removeEventListener('codebuddy:open-voice-call', openCall);
     };
   }, [scope.sessionId, update, onExpandedChange]);
   const fileView =
@@ -1215,6 +1224,15 @@ export function WorkspacePanelContent({
               </button>
             </div>
           )}
+          <button
+            role="tab"
+            aria-selected={state.active === 'voice-call'}
+            className={`wb-tab wb-tab-label ${state.active === 'voice-call' ? 'is-active' : ''}`}
+            onClick={() => activate('voice-call')}
+          >
+            <Phone size={14} />
+            <span>{mediaText('Call', '打电话', '打電話')}</span>
+          </button>
           {state.tabs.map((t) => (
             <div
               key={t.id}
@@ -1319,7 +1337,9 @@ export function WorkspacePanelContent({
           </button>
         </div>
       )}
-      {selected?.kind === 'local-files' ? (
+      {state.active === 'voice-call' ? (
+        <WorkspaceVoiceCall sessionId={scope.sessionId} />
+      ) : selected?.kind === 'local-files' ? (
         <WorkspaceLocalFiles key={selected.id} selection={selected.selection} />
       ) : state.active === 'subagents' ? (
         <WorkspaceSubagents

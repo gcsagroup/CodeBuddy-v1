@@ -10,6 +10,11 @@ import { validateWave } from "./harness/node_modules/@deepseek-ai/dsh-experiment
 
 const prefix = "_goose/unstable/";
 const definitions = {
+  remote: {
+    key: "REMOTE_ASR_API_KEY", modelKey: "REMOTE_ASR_MODEL",
+    model: "Qwen3-ASR-0.6B", modelLabel: "Remote ASR", modelField: "model",
+    description: "OpenAI-compatible remote speech recognition.",
+  },
   openai: {
     key: "OPENAI_API_KEY",
     modelKey: "OPENAI_TRANSCRIPTION_MODEL",
@@ -53,6 +58,7 @@ const methodName = (name) =>
   name.startsWith(prefix) ? name.slice(prefix.length) : name;
 const methods = new Set([
   "dictation/config",
+  "dictation/check",
   "dictation/transcribe",
   "dictation/secret/save",
   "dictation/secret/delete",
@@ -98,7 +104,7 @@ export function transcriptionEndpoint(baseUrl) {
 }
 
 function modelFor(state, def) {
-  const configured = state.config?.[def.modelKey]?.value;
+  const configured = def === definitions.remote ? state.config?.SPEECH_SERVICES?.value?.REMOTE_ASR_MODEL : state.config?.[def.modelKey]?.value;
   if (configured == null || configured === "") return def.model;
   const model = requireString(configured, "Dictation model");
   if (model.length > 256 || /[\r\n\0]/u.test(model))
@@ -162,6 +168,11 @@ async function boundedJson(response, maxBytes) {
   }
 }
 
+function remoteAvailabilityKey(store) {
+  const config = store.read(["config"]).config?.SPEECH_SERVICES?.value;
+  return JSON.stringify([config?.REMOTE_ASR_URL ?? null, config?.REMOTE_ASR_MODEL ?? null]);
+}
+
 export class TranscriptionService {
   constructor(
     store,
@@ -177,13 +188,14 @@ export class TranscriptionService {
     this.resolveOpenAI =
       resolveOpenAI ??
       (({ includeSecrets } = {}) =>
-        savedOpenAI(this.store.read(), includeSecrets));
+        savedOpenAI(this.store.read(["config", "providers", "defaults"]), includeSecrets));
     this.fetch = fetch;
     this.timeoutMs = timeoutMs;
     this.maxAudioBytes = maxAudioBytes;
     this.maxResponseBytes = maxResponseBytes;
     this.active = new Set();
     this.closed = false;
+    this.availabilityChecks = new Map();
   }
 
   handles(name) {
@@ -200,6 +212,11 @@ export class TranscriptionService {
 
   async connection(provider, includeSecrets = true) {
     const def = providerDefinition(provider);
+    if (provider === "remote") {
+      const config = this.store.read(["config"]).config ?? {};
+      const endpoint = validEndpoint(config.SPEECH_SERVICES?.value?.REMOTE_ASR_URL ?? "http://192.168.9.101:18003/v1/audio/transcriptions");
+      return { endpoint, configured: true, apiKey: includeSecrets ? await revealSecret(config.REMOTE_ASR_API_KEY?.secret) : undefined };
+    }
     if (provider === "openai") {
       const configured = await this.resolveOpenAI({ includeSecrets });
       if (!configured) return { configured: false };
@@ -212,7 +229,7 @@ export class TranscriptionService {
           Boolean(configured.apiKey || configured.headers?.Authorization),
       };
     }
-    const secret = this.store.read().config?.[def.key]?.secret;
+    const secret = this.store.read(["config"]).config?.[def.key]?.secret;
     return {
       endpoint: new URL(def.endpoint),
       apiKey: includeSecrets ? await revealSecret(secret) : undefined,
@@ -221,7 +238,7 @@ export class TranscriptionService {
   }
 
   async config() {
-    const state = this.store.read();
+    const state = this.store.read(["config"]);
     const providers = {};
     for (const [name, def] of Object.entries(definitions)) {
       const configured = await this.connection(name, false);
@@ -306,7 +323,7 @@ export class TranscriptionService {
         new Blob([bytes], { type: params.mimeType }),
         `audio.${extension}`,
       );
-      form.append(def.modelField, modelFor(this.store.read(), def));
+      form.append(def.modelField, modelFor(this.store.read(["config"]), def));
       const headers = new Headers(target.headers ?? {});
       headers.delete("content-type");
       headers.delete("content-length");
@@ -367,10 +384,64 @@ export class TranscriptionService {
     }
   }
 
+  startAvailabilityCheck(provider) {
+    if (!this.availabilityChecks.has(provider)) {
+      const result = this.probeAvailability(provider).then(
+        () => ({ available: true }),
+        () => ({ available: false }),
+      );
+      this.availabilityChecks.set(provider, {
+        result,
+        settings: remoteAvailabilityKey(this.store),
+      });
+    }
+    return this.availabilityChecks.get(provider).result;
+  }
+
+  async check(provider, refresh = false) {
+    if (refresh) this.availabilityChecks.delete(provider);
+    const pending = this.startAvailabilityCheck(provider);
+    const result = await pending;
+    if (this.availabilityChecks.get(provider).result !== pending) return this.check(provider);
+    if (provider === "remote" && this.availabilityChecks.get(provider).settings !== remoteAvailabilityKey(this.store)) {
+      throw invalid("语音服务配置已修改，请在设置中点击“重新检测服务”。", { reason: "dictation_settings_changed" });
+    }
+    if (!result.available) {
+      throw invalid("语音识别服务不可用（最近一次检测失败）。请在设置中的“语音识别与合成”点击“重新检测服务”。", { reason: "dictation_service_unavailable" });
+    }
+    return result;
+  }
+
+  async probeAvailability(provider) {
+    const controller = new AbortController();
+    const row = { controller, connection: null };
+    this.active.add(row);
+    const timer = setTimeout(() => controller.abort(), 3000);
+    try {
+      const target = await this.connection(provider);
+      if (!target.configured) throw new Error("Not configured");
+      const headers = new Headers(target.headers ?? {});
+      if (target.apiKey) headers.set(provider === "elevenlabs" ? "xi-api-key" : "authorization", provider === "elevenlabs" ? target.apiKey : `Bearer ${target.apiKey}`);
+      const response = await this.fetch(target.endpoint, {
+        method: "HEAD", headers, redirect: "manual", signal: controller.signal,
+      });
+      await response.body?.cancel();
+      // Transcription routes commonly accept POST only. A 405 still confirms reachability.
+      if (!response.ok && response.status !== 405) throw new Error("Unavailable");
+      return { available: true };
+    } catch {
+      throw invalid("语音识别服务不可用，请检查服务地址和连接后重试。", { reason: "dictation_service_unavailable" });
+    } finally {
+      clearTimeout(timer);
+      this.active.delete(row);
+    }
+  }
+
   async request(name, params = {}, connection) {
     const method = methodName(name);
     if (!methods.has(method)) return undefined;
     if (this.closed) throw invalid("Dictation service is closed");
+    if (method === "dictation/check") return this.check(params.provider, params.refresh === true);
     if (method === "dictation/config") return this.config();
     if (method === "dictation/transcribe")
       return this.transcribe(params, connection);

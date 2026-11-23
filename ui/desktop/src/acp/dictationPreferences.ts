@@ -42,7 +42,7 @@ function parseMicrophone(value: unknown): string | null {
 }
 
 export async function readDictationPreferences(): Promise<DictationPreferences> {
-  const snapshot = await readPreferences(DICTATION_KEYS);
+  const snapshot = await readPreferences(DICTATION_KEYS, true);
   return {
     revision: snapshot.revision,
     provider: parseProvider(valueFor(snapshot.values, 'voiceDictationProvider')),

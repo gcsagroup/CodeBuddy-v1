@@ -1,5 +1,6 @@
 import './runtime-settings.css';
 import { selectNativeText } from '../../../utils/nativeLocalization';
+import { SpeechSettings } from './SpeechSettings';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Bot, Image, ScanEye, SlidersHorizontal, Plug, RefreshCw, Layers3 } from 'lucide-react';
 import type { View } from '../../../utils/navigationUtils';
@@ -208,6 +209,13 @@ export default function ModelsAndRuntimeSettings({
             description: intl.formatMessage(i18n.customConnectionsDescription),
             icon: <Plug className="h-5 w-5" />,
             content: connections,
+          },
+          {
+            id: 'speech',
+            title: '语音识别与合成',
+            description: '配置远程语音识别与合成模型',
+            icon: <SlidersHorizontal className="h-5 w-5" />,
+            content: <SpeechSettings />,
           },
           {
             id: 'subagents',

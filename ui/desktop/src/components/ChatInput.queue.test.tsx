@@ -787,6 +787,7 @@ describe('ChatInput queue delivery', () => {
     await queue('supplement B');
     view.changeBlocked(true);
     await userEvent.click(sendNow());
+    expect(screen.queryByRole('button', { name: '按住说话' })).not.toBeInTheDocument();
     await userEvent.click(screen.getByRole('button', { name: /^Stop$/ }));
     view.changeState(ChatState.Idle);
     view.changeBlocked(false);

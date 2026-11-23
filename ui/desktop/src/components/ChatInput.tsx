@@ -1,3 +1,5 @@
+import { VoiceInputStatus } from './VoiceInputStatus';
+import { useHoldToTalk } from '../hooks/useHoldToTalk';
 import { receiveMainConversationMessages } from '../pets/mainConversation';
 import { droppedImageUrls, videoEvidenceContext, videoTimestamp } from '../utils/videoEvidence';
 import { ComposerGoalBar } from './ComposerGoalBar';
@@ -834,44 +836,23 @@ export default function ChatInput({
 
   // Audio recorder hook for voice dictation
   const {
-    isEnabled,
-    dictationProvider,
+    isStarting,
+    startupStage,
+    waveform,
     isRecording,
     isTranscribing,
     startRecording,
     stopRecording,
   } = useAudioRecorder({
+    pushToTalk: true,
+    scopeId: sessionId,
     onTranscription: (text) => {
       trackVoiceDictation('transcribed');
 
-      let filteredText = text.replace(/\([^)]*\)/g, '').trim();
-
-      if (!filteredText) {
-        return;
-      }
-
-      const shouldAutoSubmit = /\bsubmit[.,!?;'"\s]*$/i.test(filteredText);
-
-      const cleanedText = shouldAutoSubmit
-        ? filteredText.replace(/\bsubmit[.,!?;'"\s]*$/i, '').trim()
-        : filteredText;
-
-      const newValue =
-        displayValue.trim() && cleanedText
-          ? `${displayValue.trim()} ${cleanedText}`
-          : displayValue.trim() || cleanedText;
-
+      const newValue = displayValue.trim() ? `${displayValue.trim()} ${text}` : text;
       setDisplayValue(newValue);
       setValue(newValue);
-
-      if (shouldAutoSubmit && newValue.trim()) {
-        trackVoiceDictation('auto_submit');
-        setTimeout(() => {
-          performSubmit(newValue);
-        }, 100);
-      } else {
-        textAreaRef.current?.focus();
-      }
+      textAreaRef.current?.focus();
     },
     onError: (message) => {
       const errorType = 'DictationError';
@@ -884,6 +865,9 @@ export default function ChatInput({
   });
   const internalTextAreaRef = useRef<HTMLTextAreaElement>(null);
   const textAreaRef = inputRef || internalTextAreaRef;
+  const { begin: beginVoiceHold, end: endVoiceHold } = useHoldToTalk(
+    startRecording, stopRecording, !isTranscribing && !displayValue.trim() && !submissionDisabled, sessionId
+  );
   const timeoutRefsRef = useRef<Set<ReturnType<typeof setTimeout>>>(new Set());
 
   useEffect(() => {
@@ -1771,6 +1755,11 @@ export default function ChatInput({
   );
 
   const handleKeyDown = (evt: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (evt.code === 'Space' && !evt.nativeEvent.isComposing && !evt.ctrlKey && !evt.altKey && !evt.metaKey && !displayValue.trim()) {
+      evt.preventDefault();
+      if (!evt.repeat) beginVoiceHold();
+      return;
+    }
     if (submissionDisabled && evt.key === 'Enter' && !evt.shiftKey && !evt.altKey && !isComposing && !evt.nativeEvent.isComposing) { evt.preventDefault(); return; }
     if (evt.key === 'Enter' && (isComposing || evt.nativeEvent.isComposing)) return;
     if (mentionPopover.isOpen && mentionPopoverRef.current) {
@@ -2573,27 +2562,12 @@ export default function ChatInput({
             className="w-full min-w-0 flex-1 outline-none border-none focus:ring-0 bg-transparent px-2 pt-3 pb-1.5 text-sm resize-none text-text-primary placeholder:text-text-secondary [&::-webkit-scrollbar]:hidden"
           />
 
-          {/* Recording/transcribing status indicator (floats above the bottom bar) */}
-          {(isRecording || isTranscribing) && (
-            <div className="absolute right-2 -bottom-2 bg-background-primary px-2 py-1 rounded text-xs whitespace-nowrap shadow-md border border-border-primary">
-              <span className="flex items-center gap-2">
-                {isRecording && (
-                  <span className="flex items-center gap-1 text-text-secondary">
-                    <span className="inline-block w-2 h-2 bg-red-500 rounded-full animate-pulse" />
-                    {intl.formatMessage(i18n.listening)}
-                  </span>
-                )}
-                {isRecording && isTranscribing && <span className="text-text-secondary">•</span>}
-                {isTranscribing && (
-                  <span className="flex items-center gap-1 text-blue-500">
-                    <span className="inline-block w-2 h-2 bg-blue-500 rounded-full animate-pulse" />
-                    {intl.formatMessage(i18n.transcribing)}
-                  </span>
-                )}
-              </span>
-            </div>
-          )}
         </div>
+        {(isRecording || isStarting || isTranscribing) && (
+          <div className="px-2 pb-2">
+            <VoiceInputStatus recording={isRecording} starting={isStarting} startupStage={startupStage} transcribing={isTranscribing} waveform={waveform} />
+          </div>
+        )}
       </form>
 
       {/* Move complete control groups together instead of wrapping individual actions. */}
@@ -2672,60 +2646,22 @@ export default function ChatInput({
               sessionLoaded={sessionLoaded}
             />
           </div>
-          {/* Right: mic — ghost icon, no background when idle */}
-          {!isBottomBarNarrow && dictationProvider && (
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  shape="round"
-                  onClick={() => {
-                    if (!isEnabled) return;
-                    if (isRecording) {
-                      trackVoiceDictation('stop');
-                      stopRecording();
-                    } else {
-                      trackVoiceDictation('start');
-                      startRecording();
-                    }
-                  }}
-                  // Keep the button hoverable when only !isEnabled so the
-                  // "Dictation not configured" tooltip stays reachable.
-                  // We still natively disable while transcribing.
-                  disabled={isTranscribing}
-                  aria-disabled={!isEnabled}
-                  className={cn(
-                    'transition-colors',
-                    isRecording
-                      ? 'text-red-500 hover:text-red-600'
-                      : 'text-text-primary/70 hover:text-text-primary',
-                    isTranscribing && 'animate-pulse',
-                    !isEnabled && 'opacity-50 cursor-not-allowed'
-                  )}
-                >
-                  <Microphone size={16} />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>
-                <p>
-                  {intl.formatMessage(
-                    !isEnabled
-                      ? i18n.dictationNotConfigured
-                      : isRecording
-                        ? i18n.voiceDictation
-                        : i18n.voiceDictationHint
-                  )}
-                </p>
-              </TooltipContent>
-            </Tooltip>
-          )}
-
           {actionVisibility.showStop && (
             <ChatInputStopButton label={intl.formatMessage(i18n.stop)} onStop={handleStop} />
           )}
-          {actionVisibility.showSend && (
+          {!actionVisibility.showStop && !hasSubmittableContent && !continueAction && (
+            <Button type="button" size="sm" shape="round" variant="ghost"
+              aria-label={isRecording ? '松开结束录音' : isTranscribing ? '正在识别语音' : '按住说话'}
+              title="按住说话，或在空输入框中长按空格"
+              disabled={isTranscribing || submissionDisabled}
+              className={cn('touch-none select-none bg-background-tertiary', isRecording && 'text-red-500 bg-red-500/10')}
+              onPointerDown={event => { if (event.button !== 0) return; event.preventDefault(); event.currentTarget.setPointerCapture(event.pointerId); beginVoiceHold(); }}
+              onPointerUp={endVoiceHold} onPointerCancel={endVoiceHold} onLostPointerCapture={endVoiceHold}
+              onKeyDown={event => { if (event.code === 'Space' || event.key === 'Enter') { event.preventDefault(); if (!event.repeat) beginVoiceHold(); } }}
+              onKeyUp={endVoiceHold}
+            ><Microphone className="w-4 h-4" /></Button>
+          )}
+          {actionVisibility.showSend && (hasSubmittableContent || continueAction) && (
             <Tooltip>
               <TooltipTrigger asChild>
                 <span>

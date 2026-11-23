@@ -1,3 +1,6 @@
+import { VoiceInputStatus } from '../components/VoiceInputStatus';
+import { useAudioRecorder } from '../hooks/useAudioRecorder';
+import { useHoldToTalk } from '../hooks/useHoldToTalk';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { PetSprite } from './PetSprite';
 import type { PetAnimation, PetSnapshot, PetTask } from './petTypes';
@@ -6,6 +9,7 @@ import { petPanelHeight, petPanelWidth } from './petPolicy';
 import { currentLocale } from '../i18n';
 import { selectNativeText } from '../utils/nativeLocalization';
 import {
+  Mic,
   ArrowUp,
   ArrowUpRight,
   ChevronDown,
@@ -156,6 +160,16 @@ export default function DesktopPet() {
   const readingRef = useRef(false);
   const sendingRef = useRef(false);
   const input = useRef<HTMLTextAreaElement>(null);
+  const [voiceError, setVoiceError] = useState('');
+  const { isRecording, isStarting, startupStage, waveform, isTranscribing, startRecording, stopRecording } = useAudioRecorder({
+    pushToTalk: true,
+    scopeId: composing ? 'pet-composer' : 'closed',
+    onTranscription: text => setMessage(current => current ? `${current} ${text}` : text),
+    onError: setVoiceError,
+  });
+  const { begin: beginVoice, end: endVoice } = useHoldToTalk(
+    startRecording, stopRecording, composing && !message.trim() && !sending && !isTranscribing, composing
+  );
   const clickTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const panel = useRef<HTMLDivElement>(null);
   const spriteContainer = useRef<HTMLDivElement>(null);
@@ -430,6 +444,7 @@ export default function DesktopPet() {
                 value={message}
                 maxLength={8000}
                 disabled={sending}
+                readOnly={isRecording}
                 rows={2}
                 aria-label={t('Message', '消息', '訊息')}
                 placeholder={t(
@@ -440,6 +455,7 @@ export default function DesktopPet() {
                 onChange={(event) => setMessage(event.target.value)}
                 onKeyDown={(event) => {
                   if (event.nativeEvent.isComposing || event.keyCode === 229) return;
+                  if (event.code === 'Space' && !message.trim() && !event.ctrlKey && !event.altKey && !event.metaKey) { event.preventDefault(); if (!event.repeat) beginVoice(); return; }
                   if (event.key === 'Escape') void closeComposer();
                   if (event.key === 'Enter' && !event.shiftKey) {
                     event.preventDefault();
@@ -500,6 +516,8 @@ export default function DesktopPet() {
                   )}
                 </p>
               )}
+              <VoiceInputStatus recording={isRecording} starting={isStarting} startupStage={startupStage} transcribing={isTranscribing} waveform={waveform} />
+              {voiceError && <p role="alert">{voiceError}</p>}
               {sendError && (
                 <p role="alert">
                   {t(
@@ -535,6 +553,16 @@ export default function DesktopPet() {
                     ? t('Reading…', '读取中…', '讀取中…')
                     : t('Enter to send', 'Enter 发送', 'Enter 傳送')}
                 </span>
+                {!message.trim() && !attachments.length ? (
+                  <button type="button" className="pet-send-button" disabled={sending || isTranscribing}
+                    aria-label={isRecording ? '松开结束录音' : isTranscribing ? '正在识别语音' : '按住说话'}
+                    style={{ touchAction: 'none' }}
+                    onPointerDown={event => { if (event.button !== 0) return; event.preventDefault(); event.currentTarget.setPointerCapture(event.pointerId); setVoiceError(''); beginVoice(); }}
+                    onPointerUp={endVoice} onPointerCancel={endVoice} onLostPointerCapture={endVoice}
+                    onKeyDown={event => { if (event.code === 'Space' || event.key === 'Enter') { event.preventDefault(); if (!event.repeat) beginVoice(); } }}
+                    onKeyUp={endVoice}
+                  ><Mic size={16} /></button>
+                ) : (
                 <button
                   className="pet-send-button"
                   type="submit"
@@ -547,7 +575,7 @@ export default function DesktopPet() {
                   aria-label={t('Send', '发送', '傳送')}
                 >
                   {sending ? '…' : <ArrowUp size={17} aria-hidden="true" />}
-                </button>
+                </button>)}
               </div>
             </form>
           ) : (

@@ -357,6 +357,7 @@ export class Compat {
     this.memory = new ProjectMemory(driver);
     this.history = new HistoryService(store);
     this.transcription = new TranscriptionService(store);
+    void this.transcription.startAvailabilityCheck("remote");
     this.safety = new SafetyPolicy(store, {
       modelMapping: process.env.SECURITY_ML_MODEL_MAPPING,
       overrides: {

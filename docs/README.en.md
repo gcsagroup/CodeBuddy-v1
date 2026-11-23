@@ -2,7 +2,7 @@
 
 [简体中文](README.zh-CN.md) · [繁體中文](README.zh-TW.md) · [English](README.en.md)
 
-DeepSeek Harness owns execution, Electron/TypeScript provides the desktop, and Rust provides independent MCP tools. Read the version from the desktop package.json. Test results apply to a specific source revision and artifact.
+The agent runtime owns execution, Electron/TypeScript provides the desktop, and Rust provides independent MCP tools. Read the version from the desktop package.json. Test results apply to a specific source revision and artifact.
 
 ## Current update and collaboration
 

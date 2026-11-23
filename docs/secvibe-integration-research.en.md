@@ -8,7 +8,7 @@ Status: research and proposed design; no integration or security-detection accep
 
 The intended feature is a security review loop: after CodeBuddy changes code and runs functional tests, submit the authorized changes and necessary context to SecVibe, receive findings and evidence, let CodeBuddy repair them, then test and review again. Deliver the code together with a scoped security report.
 
-DeepSeek Harness retains ownership of execution, scheduling, permissions, recovery and task completion. SecVibe supplies external review results. Existing integration mechanisms are reusable, but a critical prerequisite remains unverified: a supported third-party audit API/MCP, its result contract, and commercial integration terms. A complete security-agent product does not itself establish an open audit API.
+The agent runtime retains ownership of execution, scheduling, permissions, recovery and task completion. SecVibe supplies external review results. Existing integration mechanisms are reusable, but a critical prerequisite remains unverified: a supported third-party audit API/MCP, its result contract, and commercial integration terms. A complete security-agent product does not itself establish an open audit API.
 
 ## 2. Verified observations and gaps
 

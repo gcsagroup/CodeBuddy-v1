@@ -57,7 +57,7 @@ Harness 的原生 `llm/retry` 表示仍在恢复，显示次数和等待时间�
 
 - [Codex 的错误类型与重试策略](https://github.com/openai/codex/blob/main/codex-rs/protocol/src/error.rs)：借鉴额度、限流、上下文和传输错误分开，以及界面信息有界；不推断其桌面私有逻辑，也不照搬供应商专用额度字段。
 - [Claude Code 错误参考](https://code.claude.com/docs/en/errors)：借鉴重试过程与最终失败分开、同为 429 仍需区分使用上限与瞬时限流、提供对应恢复方向；不移植其网关降级和超时策略。
-- [DeepSeek Harness 重试插件](https://github.com/deepseek-ai/deepseek-harness/blob/master/packages/llm/llm-retry/README.md)：继续使用本仓库锁定版本掌握重试与取消，展示层不再套一层重试。用户显式选择的 `always` 策略保持原义；本批未升级依赖。
+- [Agent 执行引擎 重试插件](https://github.com/deepseek-ai/deepseek-harness/blob/master/packages/llm/llm-retry/README.md)：继续使用本仓库锁定版本掌握重试与取消，展示层不再套一层重试。用户显式选择的 `always` 策略保持原义；本批未升级依赖。
 - [pi agent 会话执行链](https://github.com/earendil-works/pi/blob/main/packages/coding-agent/src/core/agent-session.ts)：借鉴区分恢复中与最终稳定结束、上下文超限走压缩专用路径；不把另一套 Agent 循环接入当前 Host。
 
 ### 验证边界

@@ -2,7 +2,7 @@
 
 [简体中文](README.zh-CN.md) · [繁體中文](README.zh-TW.md) · [English](README.en.md)
 
-目前執行核心為 DeepSeek Harness，桌面為 Electron/TypeScript，Rust 僅用於獨立 MCP 工具。版本以桌面 package.json 為準；測試結論必須對應具體原始碼與產物。
+目前執行核心為 Agent 執行引擎，桌面為 Electron/TypeScript，Rust 僅用於獨立 MCP 工具。版本以桌面 package.json 為準；測試結論必須對應具體原始碼與產物。
 
 ## 目前更新與協作
 

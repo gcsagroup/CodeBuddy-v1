@@ -6,7 +6,7 @@
 
 ## 能力與資料邊界
 
-CodeBuddy 能讀取專案、修改檔案、執行命令，並透過已啟用工具存取瀏覽器、桌面、Office、媒體服務及外部 MCP。DeepSeek Harness 負責 Agent 執行、子 Agent、權限與上下文壓縮；Electron/TypeScript 提供桌面介面，Rust 僅保留獨立 MCP 工具。詳見 [Harness 文件](../runtime/harness/README.zh-TW.md)。
+CodeBuddy 能讀取專案、修改檔案、執行命令，並透過已啟用工具存取瀏覽器、桌面、Office、媒體服務及外部 MCP。Agent 執行引擎負責 Agent 執行、子 Agent、權限與上下文壓縮；Electron/TypeScript 提供桌面介面，Rust 僅保留獨立 MCP 工具。詳見 [Harness 文件](../runtime/harness/README.zh-TW.md)。
 
 任務可能直接修改所選工作區。聊天、主對話及自訂智能體不是獨立的作業系統沙箱；不能假設每個任務都有專案副本、自動復原或獨立審查。開始前檢查目錄和 Git 差異，保留備份。
 

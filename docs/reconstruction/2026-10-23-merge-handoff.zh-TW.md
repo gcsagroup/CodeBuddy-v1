@@ -21,7 +21,7 @@
 | macOS 與原生助手 | DMG 背景/Finder 布局、簽名/架構/載荷檢查、執行中工具檔案替換、Keychain 驗證、AX 和按鍵處理。`ui/desktop/scripts/`、`scripts/*macos*`、`tools/macos-credentials/`、`tools/qwen-computer-use/`。 |
 | 文件與語系 | 補齊功能、所有權與三語交付文件；16 個介面語系有條目及格式差異，衝突應按鍵合併，保留同事譯文。 |
 
-執行、計畫、目標、壓縮與完成仍由官方 DeepSeek Harness 判定；Rust 僅保留獨立 MCP 工具，沒有恢復舊核心。
+執行、計畫、目標、壓縮與完成仍由現有 Agent 執行引擎 判定；Rust 僅保留獨立 MCP 工具，沒有恢復舊核心。
 
 ## 合併注意事項
 

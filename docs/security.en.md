@@ -6,7 +6,7 @@ Updated: 2026-11-20. This describes the current Harness desktop architecture. Th
 
 ## Capabilities and data boundaries
 
-CodeBuddy can read projects, edit files, execute commands and use enabled browser, desktop, Office, media and external MCP tools. DeepSeek Harness owns Agent execution, subagents, permissions and context compaction. Electron/TypeScript provides the desktop; Rust supplies independent MCP tools. See the [Harness documentation](../runtime/harness/README.en.md).
+CodeBuddy can read projects, edit files, execute commands and use enabled browser, desktop, Office, media and external MCP tools. The agent runtime owns Agent execution, subagents, permissions and context compaction. Electron/TypeScript provides the desktop; Rust supplies independent MCP tools. See the [Harness documentation](../runtime/harness/README.en.md).
 
 Tasks may modify the selected workspace directly. Chats, the main conversation and custom agents are not separate operating-system sandboxes. Do not assume every task has a project copy, automatic rollback or independent review. Check the directory and Git diff and keep backups.
 

@@ -6,7 +6,7 @@ Updated: 2026-11-20.
 
 ## Before starting
 
-Read the [README](../documentation/codebuddy/GITHUB_OVERVIEW_EN.md), [AGENTS.md](../AGENTS.md) and component rules. DeepSeek Harness owns execution, Electron/TypeScript supplies the desktop, and Rust supplies independent MCP tools. Do not restore the retired Rust Agent, Provider or generated API client.
+Read the [README](../documentation/codebuddy/GITHUB_OVERVIEW_EN.md), [AGENTS.md](../AGENTS.md) and component rules. The agent runtime owns execution, Electron/TypeScript supplies the desktop, and Rust supplies independent MCP tools. Do not restore the retired Rust Agent, Provider or generated API client.
 
 Use this repository's [Issues](https://github.com/erjinyi-bool/CodeBuddy-v1/issues) for reproducible bugs. Include the version or commit, OS, steps, expected and actual behavior, and redacted logs. Follow the [security policy](security.en.md) for sensitive reports.
 

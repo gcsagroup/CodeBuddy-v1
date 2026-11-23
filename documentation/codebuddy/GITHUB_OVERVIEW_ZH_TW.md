@@ -2,9 +2,9 @@
 
 [简体中文](../../README.md) · 繁體中文 · [English](GITHUB_OVERVIEW_EN.md)
 
-CodeBuddy 是用於專案開發、文件處理、工具呼叫與結果驗證的桌面 AI 助手。DeepSeek Harness 負責 Agent 執行、子 Agent、權限及上下文壓縮；Electron/TypeScript 提供桌面，Rust 僅用於獨立 MCP 工具。
+CodeBuddy 是用於專案開發、文件處理、工具呼叫與結果驗證的桌面 AI 助手。Agent 執行引擎負責 Agent 執行、子 Agent、權限及上下文壓縮；Electron/TypeScript 提供桌面，Rust 僅用於獨立 MCP 工具。
 
-文件更新：**2026-11-20**。最新已記錄原始碼基線為 [`25cbb9815`](https://github.com/erjinyi-bool/CodeBuddy-v1/commit/25cbb9815f304f35583bf3e7fa716e299cba060c)，[桌面 manifest](../../ui/desktop/package.json) 仍為 **1.43.18**；原始碼提交不代表新安裝包發布。
+文件更新：**2026-11-23**。最新已發布版本為 **1.43.20 預覽版**，提供 Windows x64 與 macOS Apple Silicon 安裝包。[下載安裝包](https://github.com/gcsagroup/CodeBuddy-v1/releases/tag/codebuddy-1.43.20-preview-20261122)。主分支另含後續識圖預設策略調整；原始碼更新不代表安裝包已重新發布。
 
 本批包含長對話效能、執行中匯出、MCP/技能刷新、新聊天草稿、工具箱分組及瀏覽器互動改進，相關自動化與瀏覽器/Electron 檢查共 689 項通過。範圍及未覆蓋項見[本批更新](../../docs/updates-20261120.zh-TW.md)，不代表所有流程、平台或安裝包均通過。
 

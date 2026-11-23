@@ -4,7 +4,7 @@
 
 # CodeBuddy
 
-**基于 DeepSeek Harness 的桌面 AI 助手：开发项目、处理文档、调用工具、验证结果。**
+**你的桌面 AI 工作伙伴：开发项目、处理文档、调用工具、验证结果。**
 
 [简体中文](README.md) · [繁體中文](documentation/codebuddy/GITHUB_OVERVIEW_ZH_TW.md) · [English](documentation/codebuddy/GITHUB_OVERVIEW_EN.md)
 
@@ -12,9 +12,9 @@
 
 ## 当前版本
 
-文档更新：**2026-11-20**。最新已记录源码基线为 [`25cbb9815`](https://github.com/erjinyi-bool/CodeBuddy-v1/commit/25cbb9815f304f35583bf3e7fa716e299cba060c)，桌面 manifest 版本仍为 **1.43.18**。源码提交不代表已发布新的安装包。
+文档更新：**2026-11-23**。最新已发布版本为 **1.43.20 预览版**，提供 Windows x64 和 macOS Apple Silicon 安装包。[下载安装包](https://github.com/gcsagroup/CodeBuddy-v1/releases/tag/codebuddy-1.43.20-preview-20261122)。主分支还包含后续识图默认策略优化；源码更新不代表安装包已重新发布。
 
-CodeBuddy 将项目分析、代码修改、命令执行、Git 审查、Office、媒体和工具扩展放在同一个桌面工作区。DeepSeek Harness 负责 Agent 执行、子 Agent、权限及上下文压缩；Electron/TypeScript 提供桌面，Rust 仅用于独立 MCP 工具。应用版本以 [ui/desktop/package.json](ui/desktop/package.json) 为准。
+CodeBuddy 将项目分析、代码修改、命令执行、Git 审查、Office、媒体和工具扩展放在同一个桌面工作区。Agent 执行引擎负责 Agent 执行、子 Agent、权限及上下文压缩；Electron/TypeScript 提供桌面，Rust 仅用于独立 MCP 工具。应用版本以 [ui/desktop/package.json](ui/desktop/package.json) 为准。
 
 本批包含长对话历史性能、运行中导出、MCP/技能刷新、新聊天草稿、工具箱分组和浏览器交互改进；相关自动化与浏览器/Electron 检查共 689 项通过。具体范围和未覆盖项见[2026-11-20 更新记录](docs/updates-20261120.zh-CN.md)。这些结果不代表全仓库、所有平台或安装包均已验收。
 

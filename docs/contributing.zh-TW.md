@@ -6,7 +6,7 @@
 
 ## 開始之前
 
-閱讀 [README](../documentation/codebuddy/GITHUB_OVERVIEW_ZH_TW.md)、[AGENTS.md](../AGENTS.md) 和元件局部規則。DeepSeek Harness 負責執行，Electron/TypeScript 提供桌面，Rust 僅提供獨立 MCP 工具；不要恢復舊 Rust Agent、Provider 或舊 API 產生客戶端。
+閱讀 [README](../documentation/codebuddy/GITHUB_OVERVIEW_ZH_TW.md)、[AGENTS.md](../AGENTS.md) 和元件局部規則。Agent 執行引擎負責執行，Electron/TypeScript 提供桌面，Rust 僅提供獨立 MCP 工具；不要恢復舊 Rust Agent、Provider 或舊 API 產生客戶端。
 
 在 [Issues](https://github.com/erjinyi-bool/CodeBuddy-v1/issues) 提供版本或 commit、系統、重現步驟、預期與實際行為及脫敏日誌；安全問題依[安全說明](security.zh-TW.md)聯絡維護者。
 

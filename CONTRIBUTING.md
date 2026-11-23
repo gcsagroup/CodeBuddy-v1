@@ -6,7 +6,7 @@
 
 ## 开始之前
 
-先阅读 [README](README.md)、[AGENTS.md](AGENTS.md) 和涉及组件的局部规则。当前执行核心是 DeepSeek Harness，桌面是 Electron/TypeScript，Rust 只提供独立 MCP 工具；不要恢复旧 Rust Agent、Provider 或生成的旧 API 客户端。
+先阅读 [README](README.md)、[AGENTS.md](AGENTS.md) 和涉及组件的局部规则。当前执行核心是 Agent 执行引擎，桌面是 Electron/TypeScript，Rust 只提供独立 MCP 工具；不要恢复旧 Rust Agent、Provider 或生成的旧 API 客户端。
 
 通过本仓库 [Issues](https://github.com/erjinyi-bool/CodeBuddy-v1/issues) 提交可复现问题；安全问题按[安全说明](SECURITY.md)联系维护者。说明版本或 commit、系统、复现步骤、预期和实际行为，附脱敏日志。
 

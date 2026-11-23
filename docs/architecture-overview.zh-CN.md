@@ -4,7 +4,7 @@
 
 ## 1. 整体架构
 
-项目是 **Electron/React 桌面 + Node.js 本地服务 + 官方 DeepSeek Harness 执行核心 + 独立 MCP 工具**。它属于本地分层应用；功能模块多数仍组合在同一个运行时中，并非独立部署的微服务。
+项目是 **Electron/React 桌面 + Node.js 本地服务 + 现有 Agent 执行引擎 执行核心 + 独立 MCP 工具**。它属于本地分层应用；功能模块多数仍组合在同一个运行时中，并非独立部署的微服务。
 
 Harness 当前锁定 `@deepseek-ai/dsh@0.2.1-alpha.2`。Agent 循环、原生会话、子 Agent、目标与压缩走 Harness；CodeBuddy 提供产品交互、协议适配、配置与工具接线。Rust workspace 当前只包含 `goose-mcp`，不承担 Agent 或模型 Provider 核心。
 

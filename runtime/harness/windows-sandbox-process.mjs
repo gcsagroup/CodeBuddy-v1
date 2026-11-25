@@ -39,6 +39,8 @@ process.on('message', message => {
     controller.signal.throwIfAborted();
     provider.preparationDeadline = message.deadline;
     provider.sessionTempCapability = message.tempCapability;
+    if (message.pwshCodec !== undefined && !['core', 'legacy'].includes(message.pwshCodec)) throw Error('Invalid Windows PowerShell codec family.');
+    provider.pwshCodecFamily = message.pwshCodec;
     provider.onPreparationPhase = phase => send({ id: message.id, phase });
     const result = await provider.confine(message.argv, message.policy, controller.signal);
     controller.signal.throwIfAborted();

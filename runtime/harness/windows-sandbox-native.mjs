@@ -71,7 +71,9 @@ export default class NativeWindowsSandboxProvider extends LocalSandboxProvider {
   windowsAclRunnerInvocation() {
     const [node, ...args] = super.windowsAclRunnerInvocation();
     // Keep the native runner, policy arguments, token, pipes and Job lifecycle.
-    return [node, '--import', new URL('./windows-sandbox-startup.mjs', import.meta.url).href, ...args];
+    const startup = new URL('./windows-sandbox-startup.mjs', import.meta.url);
+    if (this.pwshCodecFamily) startup.searchParams.set('pwshCodec', this.pwshCodecFamily);
+    return [node, '--import', startup.href, ...args];
   }
 
   materializeAclGrant(sessionId, workspaceRoot) {

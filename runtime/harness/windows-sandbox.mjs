@@ -6,6 +6,7 @@ import { LocalSandboxProvider } from '@deepseek-ai/dsh-sandbox-local';
 import { SandboxUnavailableError } from '@deepseek-ai/dsh-sandbox';
 import { ownSandboxHelper } from './windows-sandbox-job.mjs';
 import { WindowsSessionTemps } from './windows-session-temps.mjs';
+import { pwshCodec, windowsPwshCodec } from './windows-pwsh-codec.mjs';
 
 // The native provider owns grants, SIDs, locks and restricted runner argv.
 // Its synchronous Win32 ACL propagation can walk millions of descendants.
@@ -13,6 +14,8 @@ import { WindowsSessionTemps } from './windows-session-temps.mjs';
 // or a different project's shell. Jobs own the entire preparation process tree.
 // https://nodejs.org/learn/asynchronous-work/dont-block-the-event-loop
 export default class WindowsSandboxProvider extends LocalSandboxProvider {
+  get [windowsPwshCodec]() { return process.platform === 'win32' && !this.nativeConfig.runnerCommand?.length; }
+
   constructor(ctx, config) {
     super(ctx, config);
     this.nativeConfig = config;
@@ -144,7 +147,7 @@ export default class WindowsSandboxProvider extends LocalSandboxProvider {
       }
       if (worker.retiring || worker.active !== entry) return;
       if (performance.now() >= entry.deadlineAt) { entry.expire(); return; }
-      worker.child.send({ type: 'confine', id: entry.id, argv: entry.argv, policy: entry.policy, tempCapability,
+      worker.child.send({ type: 'confine', id: entry.id, argv: entry.argv, pwshCodec: entry.argv[pwshCodec], policy: entry.policy, tempCapability,
         config: this.nativeConfig, deadline: Date.now() + Math.max(0, entry.deadlineAt - performance.now()) }, error => {
         if (error) this.retire(worker, 'ipc-failure');
       });

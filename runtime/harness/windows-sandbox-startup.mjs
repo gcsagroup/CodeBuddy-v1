@@ -4,7 +4,18 @@ import './windows-process-errors.mjs';
 // upstream sandbox requires its children to inherit an existing console.
 // The Job owner starts this carrier with STARTF_USESHOWWINDOW / SW_HIDE, so
 // AllocConsole honors the hidden startup state; never hide a user's console.
-if (process.platform === 'win32') {
+const codec = new URL(import.meta.url).searchParams.get('pwshCodec');
+if (process.platform === 'win32' && codec) {
+  try {
+    const { initializePwshConsole } = await import('./windows-pwsh-console.mjs');
+    initializePwshConsole(codec);
+  } catch (error) {
+    // Preloads run before the native runner's catch. Use its pinned failure
+    // dialect and stop here: setting exitCode alone would still run main().
+    await new Promise(resolve => process.stderr.write(`windows-acl-run: PowerShell console initialization: ${error.message}\n`, resolve));
+    process.exit(127);
+  }
+} else if (process.platform === 'win32') {
   const { createRequire } = await import('node:module');
   const require = createRequire(import.meta.resolve('@deepseek-ai/dsh-win32-process'));
   const koffi = require('koffi');

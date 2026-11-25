@@ -25,6 +25,15 @@ function abortable(pending, signal) {
   });
 }
 
+function preparationFailure(mode, cause) {
+  const detail = 'Windows PowerShell encoding preparation failed; the requested command was not started. ' +
+    (cause instanceof Error ? cause.message : String(cause));
+  const error = new SandboxUnavailableError(mode, detail);
+  error.message = detail;
+  error.cause = cause;
+  return error;
+}
+
 export async function preparePwshCodec(executor, spec, policy, signal) {
   // Capture resolution once. The same executable, cwd and environment are used
   // for a read-only ASCII probe and the requested invocation. No filename guess,
@@ -68,13 +77,21 @@ export async function preparePwshCodec(executor, spec, policy, signal) {
     checkDeadline();
     return argv;
   } catch (cause) {
-    handle?.terminate();
+    if (handle) {
+      try {
+        handle.terminate();
+        // The aborted preparation signal cannot confirm native Job exit.
+        const [, exited] = await abortable(
+          Promise.all([handle.done.catch(() => {}), handle.waitForExit()]),
+          AbortSignal.timeout(5000),
+        );
+        if (!exited) throw Error('The subprocess owner did not confirm the version probe exit.');
+      } catch (cleanup) {
+        throw preparationFailure(policy.mode, new Error('The version probe process range could not be confirmed stopped.', { cause: cleanup }));
+      }
+    }
     signal?.throwIfAborted();
     if (cause instanceof SandboxUnavailableError) throw cause;
-    const detail = 'Windows PowerShell encoding preparation failed; the requested command was not started. ' + cause.message;
-    const error = new SandboxUnavailableError(policy.mode, detail);
-    error.message = detail;
-    error.cause = cause;
-    throw error;
+    throw preparationFailure(policy.mode, cause);
   } finally { clearTimeout(timer); }
 }

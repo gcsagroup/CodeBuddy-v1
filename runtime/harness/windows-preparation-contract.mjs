@@ -2,9 +2,9 @@ import { readFileSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import { registerHooks } from 'node:module';
 
-// The native job/tool owner already knows that preparation timed out before a
-// process handle existed. Preserve its timeout and result shape; report that
-// fact at its source instead of tracking another execution state downstream.
+// Keep preparation settlement and error attribution with the native job.
+// Its job view carries text, so retain the original startup promise until the
+// foreground waiter has classified the outcome.
 if (process.platform === 'win32') {
   const entry = import.meta.resolve('@deepseek-ai/dsh-tool-pwsh');
   const source = readFileSync(new URL(entry), 'utf8');
@@ -16,8 +16,29 @@ if (process.platform === 'win32') {
   const previous = 'stderr: {\n\t\t\t\t\t\ttext: "",';
   if (start < 0 || end < start || branch.split(previous).length !== 2)
     throw new Error('Native PowerShell preparation-timeout receipt seam changed.');
-  const replacement = source.slice(0, start) + branch.replace(previous,
+  let replacement = source.slice(0, start) + branch.replace(previous,
     'stderr: {\n\t\t\t\t\t\ttext: "Sandbox preparation timed out; the user command was not started. Preparation may have updated workspace permissions.\\n",') + source.slice(end);
+  const replaceSeam = (from, to) => {
+    if (replacement.split(from).length !== 2)
+      throw new Error('Native PowerShell preparation settlement seam changed.');
+    replacement = replacement.replace(from, to);
+  };
+  replaceSeam('import { ESCALATION_TARGETS, approveEscalation,',
+    'import { ESCALATION_TARGETS, SandboxUnavailableError, approveEscalation,');
+  replaceSeam('let proc;\n\t\t\tlet stopped;', 'let proc;\n\t\t\tlet preparation;\n\t\t\tlet stopped;');
+  replaceSeam('proc = await ctx.shell.execute({', 'preparation = ctx.shell.execute({');
+  replaceSeam('\n\t\t\t\t\t\t\treturn proc;', '\n\t\t\t\t\t\t\tproc = await preparation;\n\t\t\t\t\t\t\treturn proc;');
+  replaceSeam('process: () => proc,', 'process: () => proc,\n\t\t\t\tpreparation: () => preparation,');
+  replaceSeam('const stop = async (reason) => {', `const preparationFailure = async () => {
+				try { await attached.preparation(); }
+				catch (error) { if (error instanceof SandboxUnavailableError) return error; }
+			};
+			const stop = async (reason) => {`);
+  replaceSeam('registry.kill(attached.id, owner, reason);', `registry.kill(attached.id, owner, reason);
+				const failure = attached.process() === void 0 ? await preparationFailure() : void 0;`);
+  replaceSeam('return settled;', 'if (failure !== void 0) throw failure;\n\t\t\t\treturn settled;');
+  replaceSeam('if (process === void 0) throw new Error(view.detail);',
+    'if (process === void 0) throw (await preparationFailure()) ?? new Error(view.detail);');
   let applied = false;
   const hook = registerHooks({ load(url, context, next) {
     const result = next(url, context);

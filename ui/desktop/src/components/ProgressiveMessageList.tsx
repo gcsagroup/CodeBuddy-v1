@@ -1727,10 +1727,15 @@ function ProgressiveMessageListContent({
     // Internal-only records can project to an empty list, including while the
     // ordered presenter is waiting to release the next visible message.
     if (messages.length === 0) return null;
-    const starts = messages.flatMap((message, index) =>
-      isConversationTurnStart(message) ? [index] : []
-    );
+    let cancellingStart: number | undefined;
+    const starts = messages.flatMap((message, index) => {
+      if (!isConversationTurnStart(message)) return [];
+      // Queue previews have their own display row before native admission.
+      if (cancelling && !message.metadata.pendingDelivery) cancellingStart = index;
+      return [index];
+    });
     if (starts.length === 0 || starts[0] !== 0) starts.unshift(0);
+    const cancellingTurn = cancellingStart === undefined ? undefined : messages[cancellingStart];
     const renderSlice = (
       turn: Message[],
       start: number,
@@ -1767,7 +1772,7 @@ function ProgressiveMessageListContent({
         messageEditingDisabled={messageEditingDisabled}
         chat={chat}
         activeRunId={activeRunId}
-        cancelling={cancelling && turn[turn.length - 1] === messages[messages.length - 1]}
+        cancelling={turn[0] === cancellingTurn}
         foldTurns={false}
         toolCallNotifications={toolCallNotifications}
         append={append}
@@ -1901,7 +1906,7 @@ function ProgressiveMessageListContent({
           );
           const timedEnd = Number.isFinite(elapsed) && elapsed >= 0;
           const liveTime = timedTurn && streaming && !hasTerminalBoundary;
-          const turnCancelling = Boolean(cancelling && latest);
+          const turnCancelling = start === cancellingStart;
           let processLabel: React.ReactNode;
           // Local sealing inserts a terminal before the native cancellation
           // barrier settles. It cannot confirm that execution has stopped.

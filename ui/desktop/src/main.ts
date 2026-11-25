@@ -3665,6 +3665,27 @@ app.whenReady().then(async () => {
     cacheTimer.unref();
     taskWakelock.setEnabled(getSettings().enableWakelock ?? false);
     await registerDesktopPet({
+      onWindowCreated: (window) => {
+        const id = window.id;
+        // The pet records in its own renderer, so it needs the same backend
+        // lease as a chat window before its preload can resolve the ACP URL.
+        const binding = (async () => {
+          if (!applicationWindows().length) await createChat(app, {});
+          const owner = applicationWindows()[0];
+          if (!owner) throw new Error('Cannot connect pet voice input: no chat window');
+          await pendingWindowBindings.get(owner.id);
+          if (window.isDestroyed()) return;
+          const lease = gooseServeLeases.get(owner.id);
+          if (!lease) throw new Error('Cannot connect pet voice input: backend unavailable');
+          gooseServeLeases.attachWindow(id, lease);
+        })();
+        pendingWindowBindings.set(id, binding);
+        void binding.catch(error => log.error('Pet backend binding failed', error));
+        window.once('closed', () => {
+          pendingWindowBindings.delete(id);
+          void gooseServeLeases.releaseWindow(id);
+        });
+      },
       onQuestion: (owner, task, questionId) => {
         const focused = applicationWindows().find(win => win.isFocused());
         (focused ?? owner).webContents.send('agent-question-notice', { sessionId: task.sessionId, title: task.title, questionId });

@@ -30,4 +30,19 @@ describe('Harness backend window leases', () => {
     expect(store.getAcpUrl(1)).toBeNull();
     expect(store.getSecretKey(2)).toBeNull();
   });
+  it('keeps pet voice connected after its chat closes and releases the backend after the pet closes', async () => {
+    const cleanup = vi.fn(async () => undefined);
+    const store = new GooseServeLeaseRegistry({ error: vi.fn() });
+    const lease = store.createExternal('ws://127.0.0.1:1234/acp', 'secret', cleanup);
+    store.attachWindow(1, lease);
+    store.attachWindow(2, store.get(1)!);
+    await store.releaseWindow(1);
+    expect(store.getAcpUrl(2)).toBe(lease.acpUrl);
+    expect(store.getSecretKey(2)).toBe('secret');
+    expect(store.getAcpUrl(3)).toBeNull();
+    expect(cleanup).not.toHaveBeenCalled();
+    await store.releaseWindow(2);
+    expect(cleanup).toHaveBeenCalledOnce();
+    expect(store.getAcpUrl(2)).toBeNull();
+  });
 });

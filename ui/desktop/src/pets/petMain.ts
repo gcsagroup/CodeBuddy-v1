@@ -41,6 +41,7 @@ export async function registerDesktopPet(options: {
   preload: string;
   rendererUrl: string;
   builtinDirectory: string;
+  onWindowCreated?: (window: BrowserWindow) => void;
   onWorkingChange?: (working: boolean) => void;
   onQuestion?: (owner: BrowserWindow, task: PetTask, questionId: string) => void;
   openChat: (options: {
@@ -248,6 +249,7 @@ export async function registerDesktopPet(options: {
         },
       });
       markAuxiliaryWindow(petWindow);
+      options.onWindowCreated?.(petWindow);
       ignoresMouse = true;
       petWindow.setIgnoreMouseEvents(true, { forward: true });
       const url = new URL(options.rendererUrl);

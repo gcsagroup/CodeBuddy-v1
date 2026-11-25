@@ -135,10 +135,12 @@ describe('bundled pet registry and saved selection', () => {
     await fs.rm(host.root, { recursive: true, force: true });
   });
   const start = (onWorkingChange?: (working: boolean) => void,
-    onQuestion?: Parameters<typeof registerDesktopPet>[0]['onQuestion']) =>
+    onQuestion?: Parameters<typeof registerDesktopPet>[0]['onQuestion'],
+    onWindowCreated?: Parameters<typeof registerDesktopPet>[0]['onWindowCreated']) =>
     registerDesktopPet({
       onWorkingChange,
       onQuestion,
+      onWindowCreated,
       preload: 'unused',
       rendererUrl: 'http://localhost/',
       builtinDirectory: path.join(host.root, 'bundled'),
@@ -392,8 +394,14 @@ describe('bundled pet registry and saved selection', () => {
     host.createWindow.mockImplementation(function () {
       return floating;
     });
-    await start();
+    const bindBackend = vi.fn(() => {
+      expect(floating.loadURL).not.toHaveBeenCalled();
+    });
+    await start(undefined, undefined, bindBackend);
     await request({ action: 'configure', preferences: { selectedId: 'red-panda', visible: true } });
+    expect(bindBackend).toHaveBeenCalledExactlyOnceWith(floating);
+    await request({ action: 'configure', preferences: { size: 160 } });
+    expect(bindBackend).toHaveBeenCalledTimes(1);
     const theme = { mode: 'dark', theme: 'dark', useSystemTheme: false };
     host.signals.get('broadcast-theme-change')!({ sender: host.sender }, theme);
     expect(contents.send).toHaveBeenCalledWith('theme-changed', theme);

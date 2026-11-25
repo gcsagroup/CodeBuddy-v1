@@ -6,7 +6,6 @@ using System.IO;
 using System.Runtime.InteropServices;
 using System.Security.AccessControl;
 using System.Security.Principal;
-using System.Text;
 using System.Threading;
 using Microsoft.Win32.SafeHandles;
 
@@ -26,7 +25,7 @@ public static class WorkspaceLabelAccess
     [DllImport("ntdll.dll")]
     static extern int NtQueryInformationFile(SafeFileHandle file, out IoStatus io, out uint access, uint size, int infoClass);
     [DllImport("kernel32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
-    static extern uint GetFinalPathNameByHandleW(SafeFileHandle file, StringBuilder path, int size, uint flags);
+    static extern uint GetFinalPathNameByHandleW(SafeFileHandle file, [Out] char[] path, int size, uint flags);
     [DllImport("kernel32.dll", SetLastError = true)]
     static extern bool GetFileInformationByHandleEx(SafeFileHandle file, int infoClass, out AttributeTag tag, int size);
     [StructLayout(LayoutKind.Sequential)]
@@ -54,6 +53,24 @@ public static class WorkspaceLabelAccess
     }
     [DllImport("kernel32.dll", SetLastError = true)]
     static extern bool GetFileInformationByHandle(SafeFileHandle file, out FileInformation information);
+
+    static bool MatchesPinnedPath(SafeFileHandle file, string path)
+    {
+        string expected = @"\\?\" + path;
+        if (expected.Length >= 32768) return false;
+        // Size for this path, not the maximum Windows path for every object.
+        // An Out char[] also avoids StringBuilder's extra interop copies.
+        var name = new char[expected.Length + 1];
+        uint length = GetFinalPathNameByHandleW(file, name, name.Length, 0);
+        if (length >= name.Length)
+        {
+            if (length > 32768) return false;
+            name = new char[length]; // Required size includes the null terminator.
+            length = GetFinalPathNameByHandleW(file, name, name.Length, 0);
+        }
+        return length != 0 && length < name.Length &&
+            String.Equals(new string(name, 0, (int)length), expected, StringComparison.OrdinalIgnoreCase);
+    }
 
     // Run before restricted execution, including files written by host tools
     // since the preceding command. No-follow, non-delete-sharing handles pin
@@ -198,9 +215,7 @@ public static class WorkspaceLabelAccess
             FileInformation info;
             if (!GetFileInformationByHandle(handle, out info)) return 0;
             if ((info.Attributes & (uint)(FileAttributes.ReparsePoint | FileAttributes.ReadOnly)) != 0 || info.Links > 1) return 0;
-            var name = new StringBuilder(32768);
-            uint length = GetFinalPathNameByHandleW(handle, name, name.Capacity, 0);
-            if (length == 0 || length >= name.Capacity || !String.Equals(name.ToString(), @"\\?\" + path, StringComparison.OrdinalIgnoreCase)) return 0;
+            if (!MatchesPinnedPath(handle, path)) return 0;
             // Hold each directory until its selected descendants unwind. Disjoint
             // roots never contend; nested roots meet at a common directory guard
             // before either can borrow a descendant's WRITE_OWNER. Links are
@@ -314,9 +329,7 @@ public static class WorkspaceLabelAccess
             if ((tag.Attributes & (FileAttributes.Directory | FileAttributes.ReparsePoint)) != FileAttributes.Directory) return false;
             FileInformation information;
             if (!GetFileInformationByHandle(handle, out information)) throw new Win32Exception();
-            var name = new StringBuilder(32768);
-            uint length = GetFinalPathNameByHandleW(handle, name, name.Capacity, 0);
-            if (length == 0 || length >= name.Capacity || !String.Equals(name.ToString(), @"\\?\" + path, StringComparison.OrdinalIgnoreCase)) return false;
+            if (!MatchesPinnedPath(handle, path)) return false;
             // FileAccessInformation reports the rights actually granted to this handle.
             IoStatus io;
             uint granted;

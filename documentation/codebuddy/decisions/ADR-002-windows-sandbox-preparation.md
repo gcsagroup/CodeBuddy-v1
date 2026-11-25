@@ -48,6 +48,7 @@ flowchart LR
 12. 同键 TEMP 申请合并，等待者取消只移除自身，不影响已有能力或其他等待者。未完成资源申请最多 16 个，独立资源操作看门狗为 120 秒；资源进程失去响应时以 Job 硬回收，保留可能仍被旧命令使用的授权。旧代退出前不再启动另一代，旧 IPC 不进入新缓存。已经成功的键不会排在其他键的新授权之后。故障回归采用持有 IPC，未故意挂死 Win32 内核调用。
 13. Win32 32/33 共享/锁冲突返回结构化 `partial` 与 `DeferredPaths`，不把该对象缓存为已修复，也不阻断无关命令。最多保留 64 项、4096 个 UTF-16 字符；溢出使下一次调用重做完整枚举，不在本次自旋。延后路径与新变更队列分开，每次调用重试一次；用户命令仍由同一 OS 权限边界判定。结果经私有 control 目录的显式 UTF-8 文件传回，避免 Windows PowerShell stdout 编码破坏 Unicode 路径。取消、期限和真实检查错误仍不交出 argv。
 14. 父进程在派发与最终成功交接时都检查同一个单调时钟期限，不能仅依赖到期定时器先运行。跨进程预算以剩余时间交给子进程，成功 IPC 先于到期 timer 被处理也不能绕过最终交接检查。
+15. 已固定句柄的最终路径检查使用 `[Out] char[]`，按本次期望路径的 UTF-16 长度加 NUL 分配；不足时依据 Win32 返回的 required size 有界重试，仍拒绝失败、截断、超出原上限或完整路径不匹配。替代逐对象 32768 字符 `StringBuilder`，不改变句柄、访问掩码、链接/所有者/保护策略、对象锁或 DACL 还原。短路径 501 对象回归先测出约67.3MB累计分配，再降到约1.6MB；独立4041对象实验约540.4MB降至9.7MB。它们是累计托管分配而非驻留峰值，也不是18万对象墙钟预测；原生通知溢出与首次初始化仍需单独验证。
 
 ## 比较与边界
 
@@ -94,6 +95,8 @@ GLM-5.3 与 DeepSeek-v4.1-flash 的真实调用补充命令选择、参数纠错
 - [Microsoft：SetNamedSecurityInfoW 的继承传播](https://learn.microsoft.com/en-us/windows/win32/api/aclapi/nf-aclapi-setnamedsecurityinfow)
 - [Microsoft：Job Objects](https://learn.microsoft.com/en-us/windows/win32/procthread/job-objects)
 - [Microsoft：卷序号与文件 ID 的对象身份](https://learn.microsoft.com/en-us/windows/win32/api/fileapi/nf-fileapi-getfileinformationbyhandle)
+- [Microsoft：最终路径缓冲长度与 required size](https://learn.microsoft.com/en-us/windows/win32/api/fileapi/nf-fileapi-getfinalpathnamebyhandlew)
+- [Microsoft：StringBuilder P/Invoke 拷贝与 Out 数组](https://learn.microsoft.com/en-us/dotnet/standard/native-interop/best-practices#string-parameters)
 - [Microsoft：增量 Change Journals](https://learn.microsoft.com/en-us/windows/win32/fileio/change-journals)
 - [libuv：Windows 递归目录通知及溢出回调](https://github.com/libuv/libuv/blob/v1.x/src/win/fs-event.c)
 - [Codex：原生 MXC 后端的要求与职责](https://github.com/openai/codex/blob/main/codex-rs/mxc-sandbox/README.md)

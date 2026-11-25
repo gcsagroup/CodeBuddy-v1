@@ -288,6 +288,10 @@ test('signing requires an explicit compatible identity and reports the actual ce
   assert.equal(parseSignature(output.replace('TeamIdentifier=ABCDE12345', 'TeamIdentifier=OTHER12345'), plan).teamId, 'OTHER12345');
   assert.throws(() => parseSignature(output.replace('TeamIdentifier=ABCDE12345', 'TeamIdentifier=OTHER12345'), { ...plan, teamId: 'ABCDE12345' }), /differs/);
   assert.throws(() => parseSignature('Identifier=local.codebuddy.desktop\nSignature=adhoc\ndesignated => cdhash H"123"', plan), /differs/);
+  const adhoc = 'Identifier=local.codebuddy.desktop\nSignature=adhoc\nTeamIdentifier=not set\n# designated => cdhash H"076170dd54b6ea15c01dbb89799ce9d12fef35dd"';
+  assert.equal(parseSignature(adhoc, { kind: 'ad-hoc' }).requirement, 'cdhash H"076170dd54b6ea15c01dbb89799ce9d12fef35dd"');
+  assert.throws(() => parseSignature(adhoc, plan), /differs/);
+  assert.throws(() => parseSignature(adhoc.replace('Signature=adhoc', 'Signature=unknown'), { kind: 'ad-hoc' }), /Expected ad-hoc/);
 });
 
 test('packaging refuses a missing or wrong-architecture computer runtime', (t) => {

@@ -25,7 +25,8 @@ function parseSignature(output, plan) {
   const identity = field('Authority');
   const teamId = field('TeamIdentifier');
   const identifier = field('Identifier');
-  const requirement = output.match(/^designated => (.+)$/m)?.[1];
+  // codesign prefixes the synthesized ad-hoc requirement with a comment marker.
+  const requirement = output.match(/^(?:# )?designated => (.+)$/m)?.[1];
   if (!identifier || !requirement) throw new Error('Missing code signing identity or designated requirement');
   if (plan.kind === 'ad-hoc') {
     if (field('Signature') !== 'adhoc') throw new Error('Expected ad-hoc code signature');

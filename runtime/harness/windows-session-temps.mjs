@@ -37,6 +37,16 @@ export class WindowsSessionTemps {
     if (this.worker === worker) { this.worker = undefined; this.capabilities.clear(); }
     for (const request of [...this.pending.values()]) if (request.worker === worker) this.settle(request, error);
   }
+  retire(worker, error) {
+    if (worker.retiring) return;
+    worker.retiring = true;
+    // Errors and kill requests do not confirm physical exit. Keep admission
+    // sealed until this exact child's close event, including failed Job setup.
+    if (this.worker === worker) this.retiring = worker;
+    this.fail(worker, error);
+    if (worker.releaseJob) worker.releaseJob();
+    else worker.child.kill();
+  }
   start() {
     if (this.retiring) throw Error('The previous TEMP resource owner has not exited; new authorization was not queued.');
     const child = spawn(process.execPath, [fileURLToPath(new URL('./windows-session-temps-process.mjs', import.meta.url))],
@@ -44,9 +54,10 @@ export class WindowsSessionTemps {
     const exit = Promise.withResolvers();
     const worker = { child, closed: exit.promise };
     let diagnostic = '';
-    child.stderr.on('data', bytes => { diagnostic = (diagnostic + bytes.toString()).slice(-4096); });
+    // Node may emit spawn errors before it creates any stdio handles.
+    child.stderr?.on('data', bytes => { diagnostic = (diagnostic + bytes.toString()).slice(-4096); });
     this.worker = worker;
-    child.on('error', error => this.fail(worker, error));
+    child.on('error', error => this.retire(worker, error));
     child.on('close', () => {
       worker.releaseJob?.();
       this.fail(worker, new Error('Session TEMP resource process exited; new calls require fresh private grants. ' + diagnostic.trim()));
@@ -68,16 +79,13 @@ export class WindowsSessionTemps {
     try {
       if (!child.pid) throw Error('Session TEMP resource process did not start');
       worker.releaseJob = ownSandboxHelper(child.pid);
-    } catch (error) { this.fail(worker, error); child.kill(); throw error; }
+    } catch (error) { this.retire(worker, error); throw error; }
     return worker;
   }
   expireOwner(worker) {
     if (this.worker !== worker) return;
-    this.retiring = worker;
-    this.fail(worker, Error('Session TEMP resource operation deadline expired; old private grants were retained.'));
-    // A resource-owner fault is distinct from a caller cancelling its wait.
-    // Hard exit deliberately skips revoke/delete: old commands may still run.
-    worker.releaseJob();
+    // Hard exit skips revoke/delete: old commands may still run.
+    this.retire(worker, Error('Session TEMP resource operation deadline expired; old private grants were retained.'));
   }
   allocation(policy) {
     const key = this.key(policy);
@@ -89,7 +97,7 @@ export class WindowsSessionTemps {
     request.watchdog = setTimeout(() => this.expireOwner(worker), Math.max(1, deadlineAt - performance.now()));
     this.pending.set(id, request); this.capabilities.set(key, request);
     worker.child.send({ type: 'acquire', id, policy: { sessionId: policy.sessionId, workspaceRoot: policy.workspaceRoot } }, error => {
-      if (error && this.pending.get(id) === request) this.settle(request, error);
+      if (error && this.pending.get(id) === request) this.retire(worker, error);
     });
     return request;
   }

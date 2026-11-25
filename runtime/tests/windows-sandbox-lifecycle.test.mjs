@@ -1,12 +1,12 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { spawn } from 'node:child_process';
+import childProcess, { spawn } from 'node:child_process';
 import { once } from 'node:events';
 import { mkdtemp, mkdir, rm, access, writeFile, readFile } from 'node:fs/promises';
 import { join, relative, resolve, isAbsolute, sep } from 'node:path';
 import { tmpdir } from 'node:os';
-import { createRequire } from 'node:module';
-import { pathToFileURL } from 'node:url';
+import { createRequire, syncBuiltinESMExports } from 'node:module';
+import { pathToFileURL, fileURLToPath } from 'node:url';
 import { setTimeout as delay } from 'node:timers/promises';
 import { createHarnessDriver } from '../harness/index.mjs';
 import { WindowsSessionTemps } from '../harness/windows-session-temps.mjs';
@@ -371,3 +371,80 @@ test('Host teardown removes session TEMP only after its real background process 
   assert.equal(observed, true, 'The Host did not reach its resource cleanup barrier');
   await assert.rejects(access(information.temp));
 });
+
+
+test('a TEMP owner whose native Job setup fails retains its process allowance until real close', {
+  skip: process.platform !== 'win32', timeout: 10000,
+}, async t => {
+  const { loadWin32ProcessBindings } = await import(pathToFileURL(require.resolve('@deepseek-ai/dsh-win32-process')));
+  const api = loadWin32ProcessBindings(), realSet = api.setInformationJobObject;
+  const originalSpawn = childProcess.spawn, children = [];
+  const root = await mkdtemp(join(tmpdir(), 'codebuddy-resource-start-failure-'));
+  const resources = new WindowsSessionTemps();
+  const capture = t.mock.method(childProcess, 'spawn', function (...args) {
+    const child = originalSpawn.apply(this, args), exit = Promise.withResolvers();
+    const info = { child, closed: false, exit: exit.promise }; children.push(info);
+    child.once('close', () => { info.closed = true; exit.resolve(); });
+    return child;
+  });
+  syncBuiltinESMExports();
+  let injected = false, firstOutcome, secondOutcome;
+  const failOnce = t.mock.method(api, 'setInformationJobObject', function (...args) {
+    if (!injected) { injected = true; return 0; }
+    return realSet.apply(this, args);
+  });
+  const errorCode = t.mock.method(api, 'getLastError', () => 5);
+  t.after(async () => {
+    failOnce.mock.restore(); errorCode.mock.restore();
+    try {
+      await resources.close(); await firstOutcome; await secondOutcome;
+    } finally {
+      for (const info of children) if (!info.closed) info.child.kill();
+      await Promise.all(children.map(info => info.exit));
+      capture.mock.restore(); syncBuiltinESMExports();
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+  const policy = { workspaceRoot: root, sessionId: 'failed-start' };
+  // Only the native Job boundary fails. All child, kill and close events are real.
+  firstOutcome = resources.acquire(policy, undefined, performance.now()+5000)
+    .then(value => ({ value }), error => ({ error }));
+  failOnce.mock.restore(); errorCode.mock.restore();
+  // No await: a kill request is not yet confirmation that the child closed.
+  secondOutcome = resources.acquire(policy, undefined, performance.now()+5000)
+    .then(value => ({ value }), error => ({ error }));
+  assert.equal(children[0].closed, false, 'the fault must reach the unconfirmed-exit window');
+  assert.equal(children[0].child.killed, true);
+  assert.equal(children.length, 1, 'a second owner must not start before the previous close');
+  assert.equal((await firstOutcome).error?.api, 'SetInformationJobObject');
+  assert.match((await secondOutcome).error?.message ?? '', /previous TEMP resource owner has not exited/);
+  await children[0].exit;
+  assert.ok((await resources.acquire(policy, undefined, performance.now()+5000)).dir);
+});
+
+
+async function runResourceFaultFixture(file, expected) {
+  const fixture = new URL('./fixtures/' + file, import.meta.url);
+  await new Promise((resolve, reject) => {
+    const child = spawn(process.execPath, [fileURLToPath(fixture)], { windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'] });
+    let output = '', errors = '';
+    const timer = setTimeout(() => { child.kill(); reject(Error('Resource fault fixture did not finish')); }, 9000);
+    child.stdout.on('data', bytes => { output += bytes; });
+    child.stderr.on('data', bytes => { errors += bytes; });
+    child.once('error', error => { clearTimeout(timer); reject(error); });
+    child.once('close', code => {
+      clearTimeout(timer);
+      if (code !== 0) { reject(Error('Resource fault fixture exited ' + code + ': ' + errors.slice(-3000))); return; }
+      try { assert.match(output, expected); resolve(); }
+      catch (error) { reject(error); }
+    });
+  });
+}
+
+test('a native spawn failure without stdio is handled before Node emits error and a later owner can recover', {
+  skip: process.platform !== 'win32', timeout: 12000,
+}, () => runResourceFaultFixture('windows-resource-spawn-failure.mjs', /NATIVE_SPAWN_FAILURE_HANDLED_AND_RECOVERED/));
+
+test('an IPC send failure retires its unresponsive resource owner while preserving old grants and permits recovery', {
+  skip: process.platform !== 'win32', timeout: 12000,
+}, () => runResourceFaultFixture('windows-resource-ipc-failure.mjs', /IPC_TRANSPORT_FAILURE_RETIRED_AND_RECOVERED/));

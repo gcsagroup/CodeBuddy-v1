@@ -1,5 +1,7 @@
 using System;
 using System.ComponentModel;
+using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Runtime.InteropServices;
 using System.Security.AccessControl;
@@ -58,20 +60,127 @@ public static class WorkspaceLabelAccess
     // every ancestor during traversal. Never follow junctions or hard links.
     public static int PrepareExisting(string root)
     {
-        root = Path.GetFullPath(root).TrimEnd('\\');
-        if (root.Length < 4 || root[1] != ':' || root[2] != '\\') return 0;
-        using (var identity = WindowsIdentity.GetCurrent())
-        using (var mutex = new Mutex(false, @"Local\CodeBuddy.WorkspaceLabel." + identity.User.Value))
+        return PrepareExistingCore(root, null, null);
+    }
+
+    public sealed class LabelPreparationResult
+    {
+        public string Status = "complete";
+        public int Visited;
+        public int Changed;
+    }
+
+    sealed class LabelScan
+    {
+        public readonly LabelPreparationResult Result = new LabelPreparationResult();
+        readonly Stopwatch watch = Stopwatch.StartNew();
+        readonly int budget;
+        readonly string cancelFile;
+        long nextCancellationCheck;
+        public LabelScan(int budgetMs, string cancellationFile) { budget = budgetMs; cancelFile = cancellationFile; }
+        public void Check()
         {
-            try { if (!mutex.WaitOne(5000)) throw new TimeoutException("Workspace ACL is busy"); }
-            catch (AbandonedMutexException) { }
-            try { return LabelExisting(root, identity.User, true); }
-            finally { mutex.ReleaseMutex(); }
+            long elapsed = watch.ElapsedMilliseconds;
+            // Do not add a filesystem query for every object in a large tree.
+            if (elapsed >= nextCancellationCheck)
+            {
+                nextCancellationCheck = elapsed + 10;
+                if (!String.IsNullOrEmpty(cancelFile) && File.Exists(cancelFile)) throw new OperationCanceledException();
+            }
+            if (elapsed >= budget) throw new TimeoutException("Workspace label preparation deadline expired");
         }
     }
 
-    static int LabelExisting(string path, SecurityIdentifier user, bool root)
+    sealed class DirectoryGuard : IDisposable
     {
+        readonly Mutex mutex;
+        public DirectoryGuard(FileInformation file, SecurityIdentifier user, LabelScan scan)
+        {
+            string key = file.Volume.ToString("X8") + "." + file.IndexHigh.ToString("X8") + file.IndexLow.ToString("X8");
+            mutex = new Mutex(false, @"Local\CodeBuddy.WorkspaceLabel." + user.Value + "." + key);
+            try
+            {
+                if (scan == null)
+                {
+                    if (!mutex.WaitOne(5000)) throw new TimeoutException("Workspace directory ACL is busy");
+                }
+                else
+                {
+                    var waiting = Stopwatch.StartNew();
+                    while (!mutex.WaitOne(25))
+                    {
+                        scan.Check();
+                        if (waiting.ElapsedMilliseconds >= 5000) throw new TimeoutException("Workspace directory ACL is busy");
+                    }
+                }
+            }
+            catch (AbandonedMutexException) { /* The acquired guard must reread the descriptor. */ }
+            catch { mutex.Dispose(); throw; }
+        }
+        public void Dispose() { try { mutex.ReleaseMutex(); } finally { mutex.Dispose(); } }
+    }
+
+    // Check at object boundaries, outside the temporary DACL edit's try/finally.
+    // Expiry must restore the current object before unwinding pinned ancestors.
+    public static LabelPreparationResult PrepareExistingBounded(string root, int budgetMs, string cancellationFile)
+    {
+        if (budgetMs <= 0) throw new ArgumentOutOfRangeException("budgetMs");
+        var scan = new LabelScan(budgetMs, cancellationFile);
+        try { PrepareExistingCore(root, scan, null); }
+        catch (OperationCanceledException) { scan.Result.Status = "cancelled"; }
+        catch (TimeoutException) { scan.Result.Status = "deadline"; }
+        return scan.Result;
+    }
+
+    sealed class PathSelection
+    {
+        public bool WholeTree;
+        public readonly Dictionary<string, PathSelection> Children = new Dictionary<string, PathSelection>(StringComparer.OrdinalIgnoreCase);
+    }
+
+    // Changed targets use the same pinned ancestor and policy checks as a full
+    // traversal. Validate the complete selection before touching any object.
+    public static LabelPreparationResult PrepareChangedBounded(string root, string[] paths, int budgetMs, string cancellationFile)
+    {
+        if (budgetMs <= 0) throw new ArgumentOutOfRangeException("budgetMs");
+        if (paths == null) throw new ArgumentNullException("paths");
+        root = Path.GetFullPath(root).TrimEnd('\\');
+        var selection = new PathSelection();
+        foreach (string target in paths)
+        {
+            string path = Path.GetFullPath(target).TrimEnd('\\');
+            if (String.Equals(root, path, StringComparison.OrdinalIgnoreCase)) { selection.WholeTree = true; continue; }
+            if (!path.StartsWith(root + "\\", StringComparison.OrdinalIgnoreCase)) throw new ArgumentException("Changed path is outside the workspace");
+            var node = selection;
+            foreach (string component in path.Substring(root.Length + 1).Split('\\'))
+            {
+                if (component.Length == 0 || component.IndexOf(':') >= 0) throw new ArgumentException("Invalid changed path");
+                PathSelection child;
+                if (!node.Children.TryGetValue(component, out child)) node.Children.Add(component, child = new PathSelection());
+                node = child;
+            }
+            node.WholeTree = true;
+        }
+        var scan = new LabelScan(budgetMs, cancellationFile);
+        try { if (paths.Length != 0) PrepareExistingCore(root, scan, selection); }
+        catch (OperationCanceledException) { scan.Result.Status = "cancelled"; }
+        catch (TimeoutException) { scan.Result.Status = "deadline"; }
+        return scan.Result;
+    }
+
+    static int PrepareExistingCore(string root, LabelScan scan, PathSelection selection)
+    {
+        if (scan != null) scan.Check();
+        root = Path.GetFullPath(root).TrimEnd('\\');
+        if (root.Length < 4 || root[1] != ':' || root[2] != '\\') return 0;
+        using (var identity = WindowsIdentity.GetCurrent())
+            return LabelExisting(root, identity.User, true, scan, selection);
+    }
+
+    static int LabelExisting(string path, SecurityIdentifier user, bool root, LabelScan scan, PathSelection selection)
+    {
+        if (selection != null && selection.WholeTree) selection = null;
+        if (scan != null) { scan.Check(); scan.Result.Visited++; }
         using (var handle = CreateFileW(@"\\?\" + path, ReadControl | WriteDac | 2, 3, IntPtr.Zero, OpenExisting, DirectoryNoFollow, IntPtr.Zero))
         {
             if (handle.IsInvalid) return 0;
@@ -81,6 +190,12 @@ public static class WorkspaceLabelAccess
             var name = new StringBuilder(32768);
             uint length = GetFinalPathNameByHandleW(handle, name, name.Capacity, 0);
             if (length == 0 || length >= name.Capacity || !String.Equals(name.ToString(), @"\\?\" + path, StringComparison.OrdinalIgnoreCase)) return 0;
+            // Hold each directory until its selected descendants unwind. Disjoint
+            // roots never contend; nested roots meet at a common directory guard
+            // before either can borrow a descendant's WRITE_OWNER. Links are
+            // excluded above, so traversal acquires guards only from parent to child.
+            using (var guard = (info.Attributes & (uint)FileAttributes.Directory) != 0 ? new DirectoryGuard(info, user, scan) : null)
+            {
             IntPtr owner, acl, sacl, descriptor;
             uint status = GetSecurityWithLabel(handle, FileObject, OwnerAndDacl | 16, out owner, IntPtr.Zero, out acl, out sacl, out descriptor);
             if (status != 0) return 0;
@@ -132,6 +247,7 @@ public static class WorkspaceLabelAccess
                                 result = NtSetSecurityObject(labelHandle, 16, label);
                                 if (result != 0) throw new Win32Exception((int)RtlNtStatusToDosError(result));
                                 changed++;
+                                if (scan != null) scan.Result.Changed++;
                             }
                             finally { LocalFree(low); }
                         }
@@ -148,11 +264,15 @@ public static class WorkspaceLabelAccess
             {
                 try
                 {
-                    foreach (string child in Directory.EnumerateFileSystemEntries(path)) changed += LabelExisting(child, user, false);
+                    if (selection == null)
+                        foreach (string child in Directory.EnumerateFileSystemEntries(path)) changed += LabelExisting(child, user, false, scan, null);
+                    else
+                        foreach (var child in selection.Children) changed += LabelExisting(Path.Combine(path, child.Key), user, false, scan, child.Value);
                 }
                 catch (UnauthorizedAccessException) { /* Leave inaccessible subtrees untouched. */ }
             }
             return changed;
+            }
         }
     }
 
@@ -161,13 +281,7 @@ public static class WorkspaceLabelAccess
         path = Path.GetFullPath(path).TrimEnd('\\');
         if (path.Length < 4 || path[1] != ':' || path[2] != '\\') return false;
         using (var identity = WindowsIdentity.GetCurrent())
-        using (var mutex = new Mutex(false, @"Local\CodeBuddy.WorkspaceLabel." + identity.User.Value))
-        {
-            try { if (!mutex.WaitOne(5000)) throw new TimeoutException("Workspace ACL is busy"); }
-            catch (AbandonedMutexException) { /* Reread the descriptor under the acquired lock. */ }
-            try { return PrepareOwnedDirectory(path, identity.User); }
-            finally { mutex.ReleaseMutex(); }
-        }
+            return PrepareOwnedDirectory(path, identity.User);
     }
 
     static bool PrepareOwnedDirectory(string path, SecurityIdentifier user)
@@ -179,6 +293,8 @@ public static class WorkspaceLabelAccess
             AttributeTag tag;
             if (!GetFileInformationByHandleEx(handle, 9, out tag, 8)) throw new Win32Exception();
             if ((tag.Attributes & (FileAttributes.Directory | FileAttributes.ReparsePoint)) != FileAttributes.Directory) return false;
+            FileInformation information;
+            if (!GetFileInformationByHandle(handle, out information)) throw new Win32Exception();
             var name = new StringBuilder(32768);
             uint length = GetFinalPathNameByHandleW(handle, name, name.Capacity, 0);
             if (length == 0 || length >= name.Capacity || !String.Equals(name.ToString(), @"\\?\" + path, StringComparison.OrdinalIgnoreCase)) return false;
@@ -189,6 +305,8 @@ public static class WorkspaceLabelAccess
             const uint required = ReadControl | WriteDac | AddFileAndDirectory;
             if ((granted & required) != required) return false;
 
+            using (var guard = new DirectoryGuard(information, user, null))
+            {
             IntPtr owner, acl, descriptor;
             uint status = GetSecurityInfo(handle, FileObject, OwnerAndDacl, out owner, IntPtr.Zero, out acl, IntPtr.Zero, out descriptor);
             if (status != 0) throw new Win32Exception((int)status);
@@ -225,6 +343,7 @@ public static class WorkspaceLabelAccess
                 return true;
             }
             finally { LocalFree(descriptor); }
+            }
         }
     }
 }

@@ -59,6 +59,12 @@ test('an owner with Modify can use the Windows sandbox without widening other di
     const existing = await call("[IO.File]::WriteAllText((Join-Path $PWD 'existing/server.pid'), 'updated')");
     assert.equal(existing.value.exitCode, 0, JSON.stringify(existing));
     assert.equal(await readFile(join(child, 'server.pid'), 'utf8'), 'updated');
+    const hostCreated = join(child, 'host-created.txt');
+    const hostWrite = await driver.callTool(session.sessionId, 'write', { file_path: hostCreated, content: 'host' }, { onPermission: () => true });
+    assert.equal(hostWrite.isError, false, JSON.stringify(hostWrite));
+    const afterHostWrite = await call("[IO.File]::WriteAllText((Join-Path $PWD 'existing/host-created.txt'), 'restricted')");
+    assert.equal(afterHostWrite.value.exitCode, 0, JSON.stringify(afterHostWrite));
+    assert.equal(await readFile(hostCreated, 'utf8'), 'restricted');
     const escape = join(sibling, 'outside.txt');
     await call("Set-Content -LiteralPath '" + escape.replaceAll("'", "''") + "' -Value 'escaped'");
     await assert.rejects(readFile(escape), { code: 'ENOENT' });

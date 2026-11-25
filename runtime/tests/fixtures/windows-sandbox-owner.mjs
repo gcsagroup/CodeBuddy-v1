@@ -1,0 +1,11 @@
+import { createRequire } from 'node:module';
+import { pathToFileURL } from 'node:url';
+await import('../../harness/index.mjs');
+const require = createRequire(new URL('../../harness/package.json', import.meta.url));
+const { Context } = await import(pathToFileURL(require.resolve('@deepseek-ai/cordis')));
+const { default: WindowsSandboxProvider } = await import('../../harness/windows-sandbox.mjs');
+const context = new Context();
+await context.plugin(WindowsSandboxProvider, {});
+const helper = context.sandbox.helper();
+process.send({ helperPid: helper.child.pid });
+setInterval(() => {}, 1000);

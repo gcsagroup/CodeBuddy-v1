@@ -6,5 +6,6 @@ await import('./tool-error-contract.mjs');
 await import('./subagent-return-contract.mjs');
 await import('./native-schedule-contract.mjs');
 await import('./runtime-context-contract.mjs');
+await import('./windows-preparation-contract.mjs');
 const driver = await import('./driver.mjs');
 export const { HARNESS_VERSION, HARNESS_REFERENCE_COMMIT, createHarnessDriver } = driver;

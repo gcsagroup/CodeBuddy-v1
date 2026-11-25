@@ -6,6 +6,7 @@ const { Context } = await import(pathToFileURL(require.resolve('@deepseek-ai/cor
 const { default: WindowsSandboxProvider } = await import('../../harness/windows-sandbox.mjs');
 const context = new Context();
 await context.plugin(WindowsSandboxProvider, {});
-const helper = context.sandbox.helper();
+await context.sandbox.confine(['pwsh.exe'], { mode: 'read-only', workspaceRoot: process.cwd() });
+const helper = [...context.sandbox.slots.values()][0].worker;
 process.send({ helperPid: helper.child.pid });
 setInterval(() => {}, 1000);

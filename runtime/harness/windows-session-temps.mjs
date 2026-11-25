@@ -10,6 +10,7 @@ export class WindowsSessionTemps {
     this.capabilities = new Map(); this.pending = new Map(); this.sequence = 0;
     this.processOwners = new Set(); this.internals = {};
   }
+  get resourceTimeoutMs() { return this.internals.resourceTimeoutMs ?? 120000; }
   key(policy) { return JSON.stringify([String(policy.sessionId), resolve(policy.workspaceRoot).toLowerCase()]); }
   invalidate(policy) { this.capabilities.delete(this.key(policy)); }
   registerProcessOwner(owner) {
@@ -83,7 +84,7 @@ export class WindowsSessionTemps {
     if (this.capabilities.has(key)) return this.capabilities.get(key);
     if (this.pending.size >= 16) throw Error('Session TEMP authorization is busy; no new request was queued.');
     const worker = this.worker ?? this.start(), id = ++this.sequence;
-    const deadlineAt = performance.now() + (this.internals.resourceTimeoutMs ?? 120000);
+    const deadlineAt = performance.now() + this.resourceTimeoutMs;
     const request = { id, key, worker, policy, deadlineAt, waiters: new Set() };
     request.watchdog = setTimeout(() => this.expireOwner(worker), Math.max(1, deadlineAt - performance.now()));
     this.pending.set(id, request); this.capabilities.set(key, request);
@@ -123,15 +124,19 @@ export class WindowsSessionTemps {
   async closeWorker(cleanup) {
     const worker = this.worker ?? this.retiring;
     if (!worker) return;
+    const dispose = cleanup && this.worker === worker;
+    // Revoking grants and removing every owned directory can take time even
+    // after all consumers exited. Give it the normal resource-operation bound.
+    const timeoutMs = dispose ? this.resourceTimeoutMs : 2500;
     for (const request of [...this.pending.values()]) this.settle(request, Error('Session TEMP owner closed before authorization completed.'));
     let timer;
     try {
-      if (worker.child.connected) worker.child.send({ type: cleanup ? 'dispose' : 'abandon' }, () => {});
+      if (worker.child.connected) worker.child.send({ type: dispose ? 'dispose' : 'abandon' }, () => {});
       await Promise.race([worker.closed, new Promise(resolve => {
         timer = setTimeout(() => {
-          console.warn('[Windows session TEMP]', JSON.stringify({ status: 'cleanup-exit-unconfirmed', cleanupRequested: cleanup }));
+          console.warn('[Windows session TEMP]', JSON.stringify({ status: 'cleanup-exit-unconfirmed', cleanupRequested: dispose, timeoutMs }));
           worker.releaseJob?.(); resolve();
-        }, 2500);
+        }, timeoutMs);
       })]);
     } finally { clearTimeout(timer); }
   }

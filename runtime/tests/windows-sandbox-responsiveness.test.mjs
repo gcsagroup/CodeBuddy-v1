@@ -72,7 +72,7 @@ test('a sandbox preparation process failure fails closed and a subsequent call c
   const policy = { mode: 'read-only', workspaceRoot: root, sessionId: 'crash-fixture' };
   const pending = context.sandbox.confine(['pwsh.exe', '-Command', 'Write-Output SHOULD_NOT_START'], policy);
   const rejected = assert.rejects(pending, error => error.code === 'SANDBOX_UNAVAILABLE');
-  [...context.sandbox.workers.values()][0].child.kill();
+  [...context.sandbox.slots.values()][0].worker.child.kill();
   await rejected;
   const recovered = await context.sandbox.confine(['pwsh.exe'], policy);
   assert.notDeepEqual(recovered.argv, ['pwsh.exe'], 'recovery must still use the restricted runner');
@@ -175,6 +175,70 @@ test('idle preparation processes are recycled when opening more workspaces than 
   }
 });
 
+test('cancelling an active session preserves another session waiting for the same worker', {
+  skip: process.platform !== 'win32', timeout: 15000,
+}, async t => {
+  const root = await mkdtemp(join(tmpdir(), 'codebuddy-sandbox-active-cancel-'));
+  const context = new Context(); const plugin = context.plugin(WindowsSandboxProvider, {}); await plugin;
+  const release = await holdWorkspaceLock(root), stop = new AbortController();
+  t.after(async () => { stop.abort(); await release(); await plugin.dispose(); await rm(root, { recursive: true, force: true }); });
+  const policy = { mode: 'workspace-write', workspaceRoot: root };
+  const first = context.sandbox.confine(['pwsh.exe'], { ...policy, sessionId: 'first' }, stop.signal);
+  const cancelled = assert.rejects(first, { name: 'AbortError' });
+  const second = context.sandbox.confine(['pwsh.exe'], { ...policy, sessionId: 'second' });
+  const third = context.sandbox.confine(['pwsh.exe'], { ...policy, sessionId: 'third' });
+  const completions = [], results = Promise.allSettled([second, third].map((pending, index) =>
+    pending.then(value => { completions.push(index); return value; })));
+  await delay(100);
+  stop.abort(); await cancelled; await release();
+  for (const outcome of await results) {
+    assert.equal(outcome.status, 'fulfilled', outcome.reason?.message);
+    assert.ok(outcome.value.argv.includes('--temp-write-sid'));
+  }
+  assert.deepEqual(completions, [0, 1]);
+});
+
+test('an already requested worker survives a concurrent new workspace admission at capacity', {
+  skip: process.platform !== 'win32', timeout: 15000,
+}, async t => {
+  const base = await mkdtemp(join(tmpdir(), 'codebuddy-sandbox-reservation-'));
+  const context = new Context(); const plugin = context.plugin(WindowsSandboxProvider, {}); await plugin;
+  t.after(async () => { await plugin.dispose(); await rm(base, { recursive: true, force: true }); });
+  const request = dir => context.sandbox.confine(['pwsh.exe'], { mode: 'read-only', workspaceRoot: join(base, dir) });
+  for (const dir of ['a', 'b', 'c', 'd', 'e']) await mkdir(join(base, dir));
+  for (const dir of ['a', 'b', 'c', 'd']) await request(dir);
+  const results = await Promise.all([request('a'), request('e')]);
+  for (const result of results) assert.notDeepEqual(result.argv, ['pwsh.exe']);
+});
+
+test('a queued deadline still expires before the retired child releases its slot', {
+  skip: process.platform !== 'win32', timeout: 15000,
+}, async t => {
+  const root = await mkdtemp(join(tmpdir(), 'codebuddy-sandbox-retiring-deadline-'));
+  const context = new Context(); const plugin = context.plugin(WindowsSandboxProvider, {}); await plugin;
+  let dispose;
+  t.after(async () => { dispose?.(); await plugin.dispose(); await rm(root, { recursive: true, force: true }); });
+  const sandbox = context.sandbox, policy = { mode: 'read-only', workspaceRoot: root };
+  await sandbox.confine(['pwsh.exe'], policy);
+  const child = [...sandbox.slots.values()][0].worker.child, send = child.send;
+  t.mock.method(child, 'send', function (message, ...args) {
+    if (message.type !== 'dispose') return send.call(this, message, ...args);
+    dispose = () => { dispose = undefined; if (this.connected) send.call(this, message, ...args); };
+    return true;
+  });
+  const stop = new AbortController();
+  const cancelled = assert.rejects(sandbox.confine(['pwsh.exe'], policy, stop.signal), { name: 'AbortError' });
+  sandbox.internals.preparationTimeoutMs = 150;
+  const expired = assert.rejects(sandbox.confine(['pwsh.exe'], policy),
+    error => error.code === 'SANDBOX_UNAVAILABLE' && /queue.*150ms preparation deadline/.test(error.message));
+  delete sandbox.internals.preparationTimeoutMs;
+  const survivor = sandbox.confine(['pwsh.exe'], policy);
+  stop.abort(); await cancelled; await expired;
+  assert.doesNotThrow(() => process.kill(child.pid, 0), 'the queued deadline must run while the old process is still alive');
+  dispose();
+  assert.notDeepEqual((await survivor).argv, ['pwsh.exe']);
+});
+
 test('abrupt host exit also terminates its sandbox preparation process', {
   skip: process.platform !== 'win32', timeout: 15000,
 }, async t => {
@@ -203,8 +267,13 @@ test('replacing a workspace discards both native grants and label observations b
   const policy = { mode: 'workspace-write', workspaceRoot: root, sessionId: 'replaced' };
   await context.sandbox.confine(['pwsh.exe'], policy);
   await rename(root, join(base, 'previous')); await mkdir(root);
-  await assert.rejects(context.sandbox.confine(['pwsh.exe'], policy),
-    error => error.code === 'SANDBOX_UNAVAILABLE' && /identity changed/.test(error.message));
+  const rejected = await Promise.allSettled([context.sandbox.confine(['pwsh.exe'], policy),
+    context.sandbox.confine(['pwsh.exe'], { ...policy, sessionId: 'already-queued' })]);
+  for (const call of rejected) {
+    assert.equal(call.status, 'rejected');
+    assert.equal(call.reason.code, 'SANDBOX_UNAVAILABLE');
+    assert.match(call.reason.message, /identity changed/);
+  }
   const recovered = await context.sandbox.confine(['pwsh.exe'], policy);
   assert.notDeepEqual(recovered.argv, ['pwsh.exe']);
 });

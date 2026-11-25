@@ -75,7 +75,7 @@ test('a running restricted command retains its session TEMP across preparation p
       fs.writeFileSync(file,'after');console.log('TEMP_RETAINED');clearTimeout(timer);process.exit(0)
     }catch(e){console.error(e.code||e.message);process.exit(2)}});`;
   const confined = await context.sandbox.confine([process.execPath, '-e', source], policy);
-  const worker = context.sandbox.workers.get(context.sandbox.workerKey(root, policy.mode));
+  const worker = context.sandbox.slots.get(context.sandbox.workerKey(root, policy.mode)).worker;
   child = spawn(confined.argv[0], confined.argv.slice(1), { cwd: root, windowsHide: true, stdio: ['pipe', 'pipe', 'pipe'] });
   closed = once(child, 'close');
   let output = '', errors = '';
@@ -113,7 +113,7 @@ test('a successful native IPC delivered after its deadline cannot bypass the exp
   const policy = { mode: 'read-only', workspaceRoot: root, sessionId: 'delivery-deadline' };
   await sandbox.confine(['pwsh.exe'], policy);
   sandbox.internals.preparationTimeoutMs = 100;
-  const worker = [...sandbox.workers.values()][0];
+  const worker = [...sandbox.slots.values()][0].worker;
   const emit = worker.child.emit;
   let delayed = false;
   worker.child.emit = function (event, ...args) {
@@ -147,7 +147,7 @@ for (const disruption of ['cancellation', 'preparation crash', 'resource owner c
     });
     command = await commandUsingTemp(t, sandbox, root, 'survivor');
     const policy = { mode: 'workspace-write', workspaceRoot: root, sessionId: 'survivor' };
-    const worker = sandbox.workers.get(sandbox.workerKey(root, policy.mode));
+    const worker = sandbox.slots.get(sandbox.workerKey(root, policy.mode)).worker;
     if (disruption === 'cancellation') {
       const file = join(root, 'new.txt'); await writeFile(file, 'new');
       const abort = new AbortController();
@@ -253,6 +253,27 @@ test('a stalled TEMP resource operation has a bounded owner generation while run
   const next = await sandbox.confine(['pwsh.exe'], { mode: 'workspace-write', workspaceRoot: root, sessionId: 'existing' });
   assert.notEqual(next.argv[next.argv.indexOf('--temp') + 1], command.temp);
   assert.notEqual(resources.worker, owner);
+});
+
+test('ordinary shutdown gives slow session TEMP disposal its resource-operation budget', {
+  skip: process.platform !== 'win32', timeout: 15000,
+}, async t => {
+  const root = await mkdtemp(join(tmpdir(), 'codebuddy-temp-slow-disposal-'));
+  const resources = new WindowsSessionTemps();
+  const capability = await resources.acquire({ workspaceRoot: root, sessionId: 'slow-disposal' }, undefined, performance.now() + 5000);
+  t.after(async () => {
+    await resources.close(); await removeFixtureTemp(capability.dir); await rm(root, { recursive: true, force: true });
+  });
+  const worker = resources.worker, send = worker.child.send;
+  // Hold only the disposal IPC to model a slower clean exit without building a
+  // large TEMP tree. The real resource owner must still remove its directory.
+  worker.child.send = function (message, ...args) {
+    if (message.type !== 'dispose') return send.call(this, message, ...args);
+    setTimeout(() => { if (this.connected) send.call(this, message, ...args); }, 3000);
+    return true;
+  };
+  await resources.close(true); await worker.closed;
+  await assert.rejects(access(capability.dir), { code: 'ENOENT' });
 });
 
 test('Host shutdown waits for the replacement subprocess owner before releasing session TEMP', {

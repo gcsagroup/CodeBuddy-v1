@@ -1,6 +1,5 @@
 import { spawn } from 'node:child_process';
 import { resolve } from 'node:path';
-import { setTimeout as delay } from 'node:timers/promises';
 import { fileURLToPath } from 'node:url';
 import { LocalSandboxProvider } from '@deepseek-ai/dsh-sandbox-local';
 import { SandboxUnavailableError } from '@deepseek-ai/dsh-sandbox';
@@ -19,8 +18,7 @@ export default class WindowsSandboxProvider extends LocalSandboxProvider {
   constructor(ctx, config) {
     super(ctx, config);
     this.nativeConfig = config;
-    this.workers = new Map();
-    this.retiring = new Set();
+    this.slots = new Map();
     this.sequence = 0;
     this.workerSequence = 0;
     const sharedTemps = ctx.get('codebuddyWindowsSessionTemps');
@@ -35,44 +33,42 @@ export default class WindowsSandboxProvider extends LocalSandboxProvider {
 
   workerKey(workspaceRoot, mode) { return resolve(workspaceRoot).toLowerCase() + '\0' + mode; }
 
-  async acquireHelper(policy, signal, deadlineAt) {
+  slotFor(policy) {
+    if (this.closed) throw new Error('Windows sandbox provider is closed');
     const key = this.workerKey(policy.workspaceRoot, policy.mode);
-    if (!this.workers.has(key) && this.workers.size + this.retiring.size >= 4) {
-      const idle = [...this.workers.values()].find(worker => !worker.active);
-      if (idle) {
-        this.retire(idle, 'idle');
-        await Promise.race([idle.closed, delay(Math.max(1, Math.min(2100, deadlineAt - performance.now())), undefined, { signal })]);
-      }
+    let slot = this.slots.get(key);
+    if (slot) return slot;
+    if (this.slots.size < 4) slot = { queue: [] };
+    else {
+      slot = [...this.slots.values()].find(candidate => !candidate.queue.length && !candidate.worker?.active);
+      if (!slot) throw new Error('Windows sandbox preparation is busy. Retry after another preparation finishes.');
+      this.slots.delete(slot.key);
+      if (slot.worker) this.retire(slot.worker, 'idle');
     }
-    signal?.throwIfAborted();
-    if (performance.now() >= deadlineAt) throw new Error('Preparation deadline expired while waiting for a process slot.');
-    return this.helper(policy.workspaceRoot, policy.mode);
+    Object.assign(slot, { key, root: resolve(policy.workspaceRoot), mode: policy.mode });
+    this.slots.set(key, slot);
+    return slot;
   }
 
-  helper(workspaceRoot = process.cwd(), mode = 'read-only') {
-    if (this.closed) throw new Error('Windows sandbox provider is closed');
-    const key = this.workerKey(workspaceRoot, mode);
-    const existing = this.workers.get(key);
-    if (existing) return existing;
-    // Bound native processes and queued work. Evict only idle providers; active
-    // commands are launched by Harness, outside these preparation Jobs.
-    if (this.workers.size + this.retiring.size >= 4) {
-      throw new Error('Windows sandbox preparation is busy. Retry after another preparation finishes.');
-    }
+  startWorker(slot) {
     const child = spawn(process.execPath, [fileURLToPath(new URL('./windows-sandbox-process.mjs', import.meta.url))], {
       windowsHide: true, stdio: ['ignore', 'ignore', 'ignore', 'ipc'],
     });
     const completion = Promise.withResolvers();
-    const worker = { id: ++this.workerSequence, key, root: resolve(workspaceRoot), mode, child, queue: [], phase: 'startup', closed: completion.promise };
-    this.workers.set(key, worker);
+    const worker = { id: ++this.workerSequence, child, phase: 'startup', closed: completion.promise };
+    slot.worker = worker;
     child.on('error', () => this.retire(worker, 'process-error'));
     child.on('close', () => {
       worker.exited = true;
       worker.releaseJob?.();
       this.retire(worker, 'process-exit');
       clearTimeout(worker.forceTimer);
-      this.retiring.delete(worker);
       completion.resolve();
+      // The slot owns its FIFO across process generations. Only its old
+      // child's close event can release the physical process allowance.
+      slot.worker = undefined;
+      if (slot.queue.length) this.dispatch(slot);
+      else this.slots.delete(slot.key);
     });
     child.on('message', message => {
       const entry = worker.active;
@@ -85,8 +81,10 @@ export default class WindowsSandboxProvider extends LocalSandboxProvider {
       if (message.error) {
         if (message.error.code === 'CODEBUDDY_WORKSPACE_CHANGED') {
           this.sessionTemps.invalidate(entry.policy);
-          worker.active = undefined;
-          this.retire(worker, 'workspace-replaced');
+          this.retire(worker, 'workspace-replaced', this.preparationError(entry, worker.phase, message.error.message));
+          // Requests admitted before replacement referred to the old root.
+          for (const queued of [...slot.queue]) queued.finish(this.preparationError(queued, 'queue', message.error.message));
+          return;
         }
         entry.finish(this.preparationError(entry, worker.phase, message.error.message));
       } else entry.finish(null, message.result);
@@ -110,15 +108,19 @@ export default class WindowsSandboxProvider extends LocalSandboxProvider {
   log(worker, entry, status) {
     // The desktop captures stderr in its rotating runtime.log. Keep stdout
     // available to callers using it as a JSON or stdio protocol channel.
-    console.error('[Windows sandbox preparation]', JSON.stringify({ worker: worker.id,
-      request: entry.id, phase: worker.phase, status, elapsedMs: Math.round(performance.now() - entry.started) }));
+    console.error('[Windows sandbox preparation]', JSON.stringify({ worker: worker?.id,
+      request: entry.id, phase: worker?.phase ?? 'queue', status, elapsedMs: Math.round(performance.now() - entry.started) }));
   }
 
-  dispatch(worker) {
-    if (worker.retiring || worker.active) return;
-    const entry = worker.queue.shift();
+  dispatch(slot) {
+    if (this.closed || slot.worker?.retiring || slot.worker?.active) return;
+    const entry = slot.queue[0];
     if (!entry) return;
     if (performance.now() >= entry.deadlineAt) { entry.expire(); return; }
+    let worker;
+    try { worker = slot.worker ?? this.startWorker(slot); }
+    catch (error) { entry.finish(this.preparationError(entry, 'startup', error.message)); return; }
+    slot.queue.shift();
     worker.active = entry;
     worker.phase = 'startup';
     this.log(worker, entry, 'started');
@@ -143,13 +145,11 @@ export default class WindowsSandboxProvider extends LocalSandboxProvider {
     }
   }
 
-  retire(worker, reason) {
+  retire(worker, reason, error) {
     if (worker.retiring) return;
     worker.retiring = true;
-    if (this.workers.get(worker.key) === worker) this.workers.delete(worker.key);
-    this.retiring.add(worker);
-    for (const entry of [worker.active, ...worker.queue].filter(Boolean))
-      entry.finish(this.preparationError(entry, worker.phase, `Preparation process retired (${reason}).`));
+    const active = worker.active;
+    if (active) active.finish(error ?? this.preparationError(active, worker.phase, `Preparation process retired (${reason}).`));
     if (worker.exited) return;
     // Let the label helper finish restoring the current object's temporary
     // DACL first. The Job is the final bound for an unresponsive native call.
@@ -167,11 +167,12 @@ export default class WindowsSandboxProvider extends LocalSandboxProvider {
     const timeoutMs = this.internals.preparationTimeoutMs ?? 120000;
     const deadlineAt = started + timeoutMs;
     const details = { mode: policy.mode, started };
-    let worker;
-    try { worker = await this.acquireHelper(policy, signal, deadlineAt); }
+    // Admission and enqueue run in one stack. An idle-eviction decision must
+    // already see every previous request, including one for a warm worker.
+    let slot;
+    try { slot = this.slotFor(policy); }
     catch (error) { signal?.throwIfAborted(); throw this.preparationError(details, 'startup', error.message); }
-    if (worker.retiring || this.closed) throw this.preparationError(details, 'startup', 'Preparation process closed before dispatch.');
-    if (worker.queue.length >= 16) throw this.preparationError(details, 'queue', 'Preparation queue is full.');
+    if (slot.queue.length >= 16) throw this.preparationError(details, 'queue', 'Preparation queue is full.');
     return new Promise((resolve, reject) => {
       let settled = false;
       const entry = { ...details, id: ++this.sequence, argv, policy, signal, deadlineAt };
@@ -183,47 +184,46 @@ export default class WindowsSandboxProvider extends LocalSandboxProvider {
         settled = true;
         clearTimeout(timer); clearInterval(heartbeat);
         signal?.removeEventListener('abort', abort);
-        worker.queue = worker.queue.filter(item => item !== entry);
-        if (worker.active === entry) worker.active = undefined;
+        const worker = slot.worker;
+        slot.queue = slot.queue.filter(item => item !== entry);
+        if (worker?.active === entry) worker.active = undefined;
         this.log(worker, entry, error ? 'failed' : 'ready');
         error ? reject(error) : resolve(result);
-        this.dispatch(worker);
+        this.dispatch(slot);
       };
-      const abort = () => {
-        const active = worker.active === entry;
-        if (active) { worker.active = undefined; this.retire(worker, 'cancelled'); }
-        finish(signal.reason ?? new DOMException('Sandbox preparation cancelled', 'AbortError'));
+      const stop = (reason, error) => {
+        if (slot.worker?.active === entry) this.retire(slot.worker, reason, error);
+        else finish(error);
       };
+      const abort = () => stop('cancelled', signal.reason ?? new DOMException('Sandbox preparation cancelled', 'AbortError'));
       entry.expire = () => {
-        const error = this.preparationError(entry, worker.active === entry ? worker.phase : 'queue',
-          `The ${timeoutMs}ms preparation deadline expired.`);
-        if (worker.active === entry) {
-          // Seal the worker before settling: late argv must never start a command.
-          worker.queue = worker.queue.filter(item => item !== entry);
-          worker.active = undefined;
-          this.retire(worker, 'deadline');
-        }
-        finish(error);
+        const phase = slot.worker?.active === entry ? slot.worker.phase : 'queue';
+        stop('deadline', this.preparationError(entry, phase, `The ${timeoutMs}ms preparation deadline expired.`));
       };
       const timer = setTimeout(entry.expire, Math.max(1, deadlineAt - performance.now()));
-      const heartbeat = setInterval(() => this.log(worker, entry, worker.active === entry ? 'waiting' : 'queued'), 5000);
+      const heartbeat = setInterval(() => this.log(slot.worker, entry, slot.worker?.active === entry ? 'waiting' : 'queued'), 5000);
       signal?.addEventListener('abort', abort, { once: true });
-      worker.queue.push(entry);
+      slot.queue.push(entry);
       if (signal?.aborted) abort();
-      else this.dispatch(worker);
+      else this.dispatch(slot);
     });
   }
 
   async closePreparation() {
     this.closed = true;
-    for (const worker of this.workers.values()) this.retire(worker, 'provider-closed');
+    const workers = [];
+    for (const slot of this.slots.values()) {
+      if (slot.worker) { workers.push(slot.worker); this.retire(slot.worker, 'provider-closed'); }
+      for (const entry of [...slot.queue]) entry.finish(this.preparationError(entry, 'queue', 'Preparation provider closed.'));
+    }
     let timer;
     try {
       // Even OS teardown must not hold the embedded Host's shutdown forever.
-      await Promise.race([Promise.all([...this.retiring].map(worker => worker.closed)),
+      await Promise.race([Promise.all(workers.map(worker => worker.closed)),
         new Promise(resolve => { timer = setTimeout(resolve, 2500); })]);
     } finally { clearTimeout(timer); }
-    if (this.retiring.size) console.warn('[Windows sandbox preparation]', JSON.stringify({
-      status: 'cleanup-exit-unconfirmed', workers: this.retiring.size }));
+    const remaining = workers.filter(worker => !worker.exited).length;
+    if (remaining) console.warn('[Windows sandbox preparation]', JSON.stringify({
+      status: 'cleanup-exit-unconfirmed', workers: remaining }));
   }
 }

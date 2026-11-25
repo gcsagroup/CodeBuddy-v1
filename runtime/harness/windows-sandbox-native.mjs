@@ -1,6 +1,6 @@
 import { execFile } from 'node:child_process';
 import { isAbsolute, join, parse, relative, resolve, sep } from 'node:path';
-import { watch, readFileSync } from 'node:fs';
+import { readFileSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import { promisify } from 'node:util';
 import { lstat, mkdtemp, rm, writeFile, readFile } from 'node:fs/promises';
@@ -8,6 +8,7 @@ import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
 import { LocalSandboxProvider } from '@deepseek-ai/dsh-sandbox-local';
 import { AclWriteGrant, assertTempRootOutsideWorkspace, workspaceWriteSid } from '@deepseek-ai/dsh-sandbox-windows-acl';
+import { createNamespaceObserver } from './windows-namespace-observer.mjs';
 
 const run = promisify(execFile);
 const helper = fileURLToPath(new URL('./WorkspaceLabelAccess.cs', import.meta.url));
@@ -23,9 +24,7 @@ export default class NativeWindowsSandboxProvider extends LocalSandboxProvider {
   constructor(ctx, config) {
     super(ctx, config);
     this.labelStates = new Map();
-    ctx.effect(() => () => {
-      for (const state of this.labelStates.values()) state.watcher?.close();
-    });
+    ctx.effect(() => () => Promise.all([...this.labelStates.values()].map(state => state.watcher?.close())));
   }
 
   noteFileMutation(path) {
@@ -39,30 +38,35 @@ export default class NativeWindowsSandboxProvider extends LocalSandboxProvider {
   }
 
   async labelState(root) {
-    const info = await lstat(root, { bigint: true });
-    const identity = `${info.dev}:${info.ino}`;
     const key = root.toLowerCase();
     const previous = this.labelStates.get(key);
+    const changed = () => Object.assign(new Error('Workspace directory identity changed; retry with a fresh preparation process.'),
+      { code: 'CODEBUDDY_WORKSPACE_CHANGED' });
+    let info;
+    try { info = await lstat(root, { bigint: true }); }
+    catch (error) {
+      if (previous && ['ENOENT', 'ENOTDIR'].includes(error.code)) throw changed();
+      throw error;
+    }
+    const identity = `${info.dev}:${info.ino}`;
     if (previous) {
       // The native provider also caches its root grant. A replacement requires
       // a fresh provider, rather than just a fresh label scan.
-      if (previous.identity !== identity) throw Object.assign(new Error('Workspace directory identity changed; retry with a fresh preparation process.'),
-        { code: 'CODEBUDDY_WORKSPACE_CHANGED' });
+      previous.watcher?.drain();
+      if (previous.identity !== identity || previous.rootInvalidated) throw changed();
       return previous;
     }
     const state = { root, identity, hasBaseline: false, generation: 0, dirty: new Set(), deferred: new Set() };
     const invalidate = () => { state.hasBaseline = false; state.generation++; state.dirty.clear(); state.deferred.clear(); };
     try {
-      // On Windows this is one native subtree notification handle. It does not
-      // enumerate the project. Notifications optimize availability, not access:
-      // every selected object still passes the original pinned-handle checks.
-      state.watcher = watch(root, { recursive: true }, (event, filename) => {
-        if (!filename) invalidate(); // Includes native notification overflow.
-        else if (event === 'rename') this.noteFileMutation(resolve(root, filename));
-        // A modification is not evidence of a new object. Watching namespace
-        // changes also avoids reacting to this helper's own security writes.
+      // libuv also subscribes to SECURITY. Our own ACL writes can overflow its
+      // buffer and falsely invalidate every completed baseline. Subscribe only
+      // to namespace changes, retaining real loss/overflow as full invalidation.
+      state.watcher = createNamespaceObserver(root, path => this.noteFileMutation(path), error => {
+        invalidate();
+        if (error.code === 'CODEBUDDY_NAMESPACE_ROOT_CHANGED' ||
+          error.api === 'CreateFileW' && [2, 3].includes(error.win32Code)) state.rootInvalidated = true;
       });
-      state.watcher.on('error', () => { state.watcher?.close(); state.watcher = undefined; invalidate(); });
     } catch { /* No reliable observer: retain bounded full checks per call. */ }
     this.labelStates.set(key, state);
     return state;
@@ -116,7 +120,7 @@ export default class NativeWindowsSandboxProvider extends LocalSandboxProvider {
     // Preserve notifications received during preparation for a later pass.
     do {
       signal?.throwIfAborted();
-      const full = !state.hasBaseline || !state.watcher;
+      const full = !state.hasBaseline || !state.watcher?.active;
       if (!full && !state.dirty.size && !state.deferred.size) { this.onPreparationPhase?.('labels-current'); return; }
       const paths = full ? undefined : [...new Set([...state.dirty, ...state.deferred])];
       const generation = state.generation;
@@ -125,15 +129,20 @@ export default class NativeWindowsSandboxProvider extends LocalSandboxProvider {
       this.onPreparationPhase?.(full ? 'existing-file-labels' : 'changed-file-labels');
       try {
         const result = await this.runLabelPreparation(root, paths, signal);
+        // This is the final async handoff barrier: verify the same root and
+        // consume known namespace changes before deciding whether to rescan.
+        await this.labelState(root);
         for (const path of result.DeferredPaths) state.deferred.add(path);
-        state.hasBaseline = Boolean(state.watcher) && state.generation === generation && !result.DeferredOverflow;
+        state.hasBaseline = Boolean(state.watcher?.active) && state.generation === generation && !result.DeferredOverflow;
         if (state.deferred.size || result.DeferredOverflow) this.onPreparationPhase?.('labels-deferred');
         // Retry locked objects next time, without holding unrelated commands
         // behind them or repeating a full tree in this invocation on overflow.
         if (result.DeferredOverflow) return;
       } catch (error) { state.hasBaseline = false; throw error; }
-      // A missing observer cannot become reliable by rescanning in a loop.
-      if (!state.watcher) return;
+      // If observation was lost during a selected-path pass, repair the
+      // unobserved namespace once before this handoff. A full pass without an
+      // observer cannot become reliable by repeating it in the same call.
+      if (!state.watcher?.active && full) return;
     } while (!state.hasBaseline || state.dirty.size);
   }
 

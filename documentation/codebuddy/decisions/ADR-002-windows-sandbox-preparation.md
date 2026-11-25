@@ -49,6 +49,9 @@ flowchart LR
 13. Win32 32/33 共享/锁冲突返回结构化 `partial` 与 `DeferredPaths`，不把该对象缓存为已修复，也不阻断无关命令。最多保留 64 项、4096 个 UTF-16 字符；溢出使下一次调用重做完整枚举，不在本次自旋。延后路径与新变更队列分开，每次调用重试一次；用户命令仍由同一 OS 权限边界判定。结果经私有 control 目录的显式 UTF-8 文件传回，避免 Windows PowerShell stdout 编码破坏 Unicode 路径。取消、期限和真实检查错误仍不交出 argv。
 14. 父进程在派发与最终成功交接时都检查同一个单调时钟期限，不能仅依赖到期定时器先运行。跨进程预算以剩余时间交给子进程，成功 IPC 先于到期 timer 被处理也不能绕过最终交接检查。
 15. 已固定句柄的最终路径检查使用 `[Out] char[]`，按本次期望路径的 UTF-16 长度加 NUL 分配；不足时依据 Win32 返回的 required size 有界重试，仍拒绝失败、截断、超出原上限或完整路径不匹配。替代逐对象 32768 字符 `StringBuilder`，不改变句柄、访问掩码、链接/所有者/保护策略、对象锁或 DACL 还原。短路径 501 对象回归先测出约67.3MB累计分配，再降到约1.6MB；独立4041对象实验约540.4MB降至9.7MB。它们是累计托管分配而非驻留峰值，也不是18万对象墙钟预测；原生通知溢出与首次初始化仍需单独验证。
+16. Windows x64 原生 namespace observer 替代 `fs.watch`：后者锁版 libuv 同时订阅 SECURITY，标签写入可冲溢出4096字节缓冲，使已完成扫描被自己的写入反复否定。新适配复用已安装 Koffi，只订阅 FILE_NAME/DIR_NAME，64KiB缓冲，创建、删除、重命名仍保留。先同步成功 arm 再建立基线；复制完成批次后先 rearm 再分发。真实 overflow、无效记录、读失败仍使基线失效；不把安全通知丢失伪装成成功。未支持平台/不可用观察器回到有界完整检查，不改变对象权限。
+17. Win32 overlapped 的 buffer 和 OVERLAPPED 使用稳定原生内存，不能让系统在调用返回后继续写可移动的 JS Buffer。取消后以非阻塞 GetOverlappedResult 确认真实完成才释放；一秒关闭期限不够时保留内存并拒绝 close，由准备进程 Job 负责最终隔离。timer不阻塞主线程；每次主动 drain有批次上限，持续变化使基线失效。上下文销毁等待同一 close Promise；根路径身份和链接状态在显式交接点复核，8.3通知候选展开为长路径，再由原helper固定句柄并裁决权限。
+18. 真实标签结果后的最后异步身份/通知检查位于基线决策之前，已知的新路径仍由同次循环处理；根目录替换或消失返回 WORKSPACE_CHANGED，回收原生Provider及缓存。若在增量准备途中永久失去观察，本次补一次完整检查；没有可靠观察器的完整检查完成即返回，不在同次自旋。延后列表溢出仍保留下一次调用回退语义。监听器不提供文件系统事务快照，交接后并发外部操作仍可能先被OS拒绝。
 
 ## 比较与边界
 
@@ -59,6 +62,7 @@ flowchart LR
 - **共享冲突一律抛出并使全局基线失败**：独立反例证明一个无关 IDE/数据库文件可持续阻断整个工作区，拒绝。改为有界定点延后，解锁后无需重命名即可恢复。
 - **按路径名单排除 `.artifacts`、`.git` 或依据命令字符串判断修改范围**：会改变权限检查范围，且无法覆盖同类工作区，拒绝。
 - **盲目缓存成功，或把文件监听当成权限权威**：拒绝。采用成功回执的确定性失效、原生目录通知和明确的全量回退；最终能否修改对象仍由相同的原生句柄检查与受限令牌判定。监听没有文件系统事务快照保证，外部操作与准备并发时仍可能先得到权限失败，不能据此扩大权限或保证所有外部写入立即可用。NTFS USN 需要额外平台和卷权限支持，本轮不引入。
+- **忽略 libuv 的无文件名回调**：会把真正丢失的 namespace 事件一并忽略，拒绝。单独 .NET FileSystemWatcher 进程也能过滤，但需要额外启动、IPC、存活和退出合同；现有准备进程内的 Win32 overlapped 适配能复用已有 Koffi/Job。保留真实通知丢失的完整回退。
 - **给旧低完整性目录直接添加继承位**：本地 Modify 权限夹具证实能让后续宿主新文件可写，但旧显式低标签无法可靠区分用户策略和历史补丁来源；继承也可能覆盖原本跳过的子项。因此拒绝以这个兼容性风险替换原来的逐对象边界，采用定点补齐。
 - **整体升级 DSH 或替换 Windows 后端**：需要一致依赖集及平台能力验收。公开 Codex MXC 后端避免宿主 ACL 修改，但要求 PSEC/MXC 环境，不是当前锁版 DSH 的直接替换。本轮不安装 SDK 或混用版本。
 - **照搬 Claude Code 的 Windows 路径**：官方文档的 sandbox 支持 macOS、Linux 和 WSL2，原生 Windows 命令在 sandbox 外运行；不能把它当成当前 Windows 受限执行的等价替代。
@@ -77,6 +81,7 @@ Job 强制终止不等于权限事务回滚。官方工作区授权本来就持�
 
 - `windows-sandbox-lifecycle.test.mjs`：真实受限命令跨 worker 回收、取消、准备崩溃保持 TEMP；资源 owner 崩溃或 IPC 无响应后旧命令继续、新代使用新目录；同键等待者独立取消；跨期限成功 IPC 被拒绝；已取得 argv 的新启动在 drain 后被拒绝；真实 Host 后台命令及 subprocess 替换后的进程均先退出，才删除 TEMP。
 - `windows-label-incremental.test.mjs`：持锁时无关受限命令可运行，Unicode/emoji 长路径保留，解锁后定点恢复；有界列表溢出不在当前调用自旋，下一调用恢复完整基线。原生目录通知丢失可能要求额外全量检查，因此不把具体 watcher 回调次数当作合同。
+- namespace 回归：4000个无外部变化的真实 Modify 文件先测出两次全扫，修复后一次建立并复用；真实外部批量创建冲溢出仍执行全量回退；增量期间真实关闭观察器、移入策略合格文件，原版runner EPERM，补一次全查后同一runner写入成功。单元覆盖500次真实安全写无namespace事件、Unicode/create/rename/移树、真实overflow恢复、根替换/权限拒绝及pending read关闭；独立审查补测256个通知、8.3、junction外部隔离和200次关闭句柄净增0。
 - 独立审查实际复核双会话 TEMP 写隔离、单独重载 sandbox 后原 TEMP 复用，以及给替换后的原生进程排空注入 750ms 延迟时的清理顺序；未制造系统内核死锁，未做桌面、大项目冷启动或安装包验收。
 
 真实原生锁等待下的跨工作区/模式隔离、独立准备期限、队列取消、助手崩溃后恢复、宿主退出清理；标签预算/取消后的 DACL 还原和再次执行；工作区外写入、受保护对象及链接边界；无变化基线复用、宿主和外部新文件的真实受限修改、定点检查不枚举兄弟项、监听溢出/失败和根目录替换后的失效恢复；模型收到 shell 超时后在同轮改用文件工具。自动回归、受控模型交互、源码预览启动和真实模型/桌面验收分别记录。
@@ -99,5 +104,7 @@ GLM-5.3 与 DeepSeek-v4.1-flash 的真实调用补充命令选择、参数纠错
 - [Microsoft：StringBuilder P/Invoke 拷贝与 Out 数组](https://learn.microsoft.com/en-us/dotnet/standard/native-interop/best-practices#string-parameters)
 - [Microsoft：增量 Change Journals](https://learn.microsoft.com/en-us/windows/win32/fileio/change-journals)
 - [libuv：Windows 递归目录通知及溢出回调](https://github.com/libuv/libuv/blob/v1.x/src/win/fs-event.c)
+- [Microsoft：ReadDirectoryChangesW 的过滤与丢失回退](https://learn.microsoft.com/en-us/windows/win32/api/winbase/nf-winbase-readdirectorychangesw)、[CancelIoEx 完成边界](https://learn.microsoft.com/en-us/windows/win32/api/ioapiset/nf-ioapiset-cancelioex)
+- [Koffi：stable pointers](https://koffi.dev/output#stable-pointers)
 - [Codex：原生 MXC 后端的要求与职责](https://github.com/openai/codex/blob/main/codex-rs/mxc-sandbox/README.md)
 - [Claude Code：sandbox 平台支持与边界](https://code.claude.com/docs/en/sandboxing)

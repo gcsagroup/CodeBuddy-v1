@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { execFile, spawn } from 'node:child_process';
+import { execFile, spawn, execFileSync } from 'node:child_process';
 import { once } from 'node:events';
 import { promisify } from 'node:util';
 import { mkdtemp, mkdir, writeFile, rm, link, symlink, rename } from 'node:fs/promises';
@@ -16,9 +16,69 @@ const { default: NativeWindowsSandboxProvider } = await import('../harness/windo
 const run = promisify(execFile);
 const require = createRequire(new URL('../harness/package.json', import.meta.url));
 const { Context } = await import(pathToFileURL(require.resolve('@deepseek-ai/cordis')));
+
+test('security-only initial preparation completes one baseline and subsequent calls do not rescan it', {
+  skip: process.platform !== 'win32' || process.arch !== 'x64', timeout: 30000,
+}, async t => {
+  const root = await mkdtemp(join(tmpdir(), 'codebuddy-label-security-events-'));
+  for (let n = 0; n < 4000; n++) await writeFile(join(root, `existing-${n}.txt`), 'fixture');
+  const { stdout } = await ps('[Security.Principal.WindowsIdentity]::GetCurrent().User.Value');
+  await run('icacls.exe', [root, '/grant:r', '*' + stdout.trim() + ':(OI)(CI)(M)'], { windowsHide: true });
+  await run('icacls.exe', [root, '/inheritance:r'], { windowsHide: true });
+  const context = new Context(); await context.plugin(NativeWindowsSandboxProvider, {});
+  t.after(async () => { await context.fiber.dispose(); await rm(root, { recursive: true, force: true }); });
+  const sandbox = context.sandbox, phases = [];
+  sandbox.onPreparationPhase = phase => phases.push(phase);
+  const policy = { mode: 'workspace-write', workspaceRoot: root, sessionId: 'security-only' };
+  sandbox.preparationDeadline = Date.now() + 25000;
+  await sandbox.confine(['pwsh.exe'], policy);
+  assert.equal(phases.filter(phase => phase === 'existing-file-labels').length, 1,
+    'own label security writes must not invalidate a completed namespace baseline');
+  await sandbox.confine(['pwsh.exe'], policy);
+  assert.equal(phases.filter(phase => phase === 'existing-file-labels').length, 1);
+  assert.ok(phases.includes('labels-current'));
+});
 const ps = (script, env = {}) => run('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command', "$ErrorActionPreference='Stop';" + script],
   { windowsHide: true, timeout: 30000, env: { ...process.env, ...env,
     PSModulePath: join(process.env.SystemRoot, 'System32/WindowsPowerShell/v1.0/Modules') } });
+
+test('observation lost during an incremental pass repairs unseen files before returning the same command', {
+  skip: process.platform !== 'win32' || process.arch !== 'x64', timeout: 20000,
+}, async t => {
+  const base = await mkdtemp(join(tmpdir(), 'codebuddy-label-observer-loss-'));
+  const root = join(base, 'work'), incoming = join(base, 'incoming.txt');
+  await mkdir(root); await writeFile(incoming, 'created before workspace initialization');
+  const { stdout } = await ps('[Security.Principal.WindowsIdentity]::GetCurrent().User.Value');
+  await run('icacls.exe', [root, '/grant:r', '*' + stdout.trim() + ':(OI)(CI)(M)'], { windowsHide: true });
+  await run('icacls.exe', [root, '/inheritance:r'], { windowsHide: true });
+  const context = new Context(); await context.plugin(NativeWindowsSandboxProvider, {});
+  t.after(async () => { await context.fiber.dispose(); await rm(base, { recursive: true, force: true }); });
+  const sandbox = context.sandbox;
+  const policy = { mode: 'workspace-write', workspaceRoot: root, sessionId: 'observer-loss' };
+  sandbox.preparationDeadline = Date.now() + 15000;
+  await sandbox.confine(['pwsh.exe'], policy);
+  const known = join(root, 'known.txt'), unseen = join(root, 'unseen.txt');
+  await writeFile(known, 'known'); sandbox.noteFileMutation(known);
+  const state = [...sandbox.labelStates.values()][0], original = sandbox.runLabelPreparation.bind(sandbox), passes = [];
+  t.mock.method(sandbox, 'runLabelPreparation', async (root, paths, signal) => {
+    passes.push(paths ? 'incremental' : 'full');
+    if (passes.length === 1) {
+      assert.ok(paths, 'the fixture must enter a real incremental pass');
+      await state.watcher.close();
+      await rename(incoming, unseen);
+      // A same-volume move retains its former DACL. Give this eligible fixture
+      // the existing workspace inheritance, isolating the missing label repair
+      // from the independent upstream grant-refresh limitation.
+      await run('icacls.exe', [unseen, '/reset'], { windowsHide: true });
+    }
+    return original(root, paths, signal);
+  });
+  const confined = await sandbox.confine([process.execPath, '-e',
+    "require('node:fs').writeFileSync(process.argv[1],'updated');console.log('REPAIRED')", unseen], policy);
+  const result = await run(confined.argv[0], confined.argv.slice(1), { cwd: root, windowsHide: true, timeout: 5000 });
+  assert.match(result.stdout, /REPAIRED/);
+  assert.deepEqual(passes, ['incremental', 'full']);
+});
 
 test('changed-path labels pin ancestors, preserve policy and never enumerate unrelated siblings', {
   skip: process.platform !== 'win32', timeout: 45000,
@@ -95,10 +155,14 @@ test('a complete baseline is reused, new host and external files are repaired in
   await restrictedWrite(external);
   assert.equal(phases.filter(phase => phase === 'existing-file-labels').length, 1);
   const state = [...sandbox.labelStates.values()][0];
-  state.watcher.emit('change', 'change', null); // Native overflow has no filename.
+  // Hold this JS process while a real external burst exceeds the 64KiB native
+  // notification buffer. No fabricated EventEmitter overflow or filename.
+  execFileSync(process.execPath, ['-e', `const fs=require('node:fs'),p=require('node:path');
+    for(let n=0;n<1200;n++)fs.writeFileSync(p.join(process.argv[1],'external-burst-'+n+'-'.repeat(48)+'.txt'),'fixture');`, root],
+  { windowsHide: true, timeout: 7000 });
   await restrictedWrite(external);
   assert.equal(phases.filter(phase => phase === 'existing-file-labels').length, 2);
-  state.watcher.emit('error', new Error('Fixture observer lost'));
+  await state.watcher.close();
   await restrictedWrite(external);
   assert.equal(phases.filter(phase => phase === 'existing-file-labels').length, 3);
   await rename(root, join(base, 'previous')); await mkdir(root);

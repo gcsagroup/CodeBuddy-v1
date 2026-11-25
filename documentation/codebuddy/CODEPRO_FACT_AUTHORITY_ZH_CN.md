@@ -97,6 +97,8 @@ Store 唯一持有小型持久化删除标记及读取屏蔽；Compat 在既有�
 
 ## 2026-11-09 已批准：Windows 工作区标签权限修复
 
+真实Aegis只读扩展验证后补齐显式Host装配：工具定义继续拥有`timeoutMs`声明，`dsh-tool-call-timeout-policy`在原生工具体执行阶段消费它，沿原有`exec.signal`发出协作取消并等待下游收束，自己的期限到达时保留原生`TOOL_TIMEOUT`结构。`glob/grep`及`web_fetch`已有30秒声明，不新增第二套计时器或按目录排除；调用者先取消仍由原有错误合同结算。未声明定义级期限的PowerShell仍由自己的逐调用预算和后台作业管理；预审批与排队仍由原owner处理。该插件已存在于一致的生产依赖闭包，分发按显式profile收集。没有修改Aegis、受限权限或公共协议。
+
 2026-11-25 同批编码修复：CodeBuddy PowerShell 适配在原生 `confine` 期限内逐次只读探测实际主版本，原生 subprocess 仍持有启动、取消与退出事实。默认 Windows ACL carrier 仅初始化自己新建的隐藏 console，保留重定向句柄；PS Core 使用启动前双CP65001和公开无BOM getter，5.1保留输入兼容和明确的Unicode局限。自定义 runner 与完全权限不参与该适配。探针失败不派发用户命令，preload失败使用锁版原生runner错误合同，真实用户进程回执不重写。私有接缝锁定指纹，不引入长期版本缓存、命令重放、语言模式提升或新的执行 owner。详见 `decisions/ADR-003-windows-pwsh-byte-stream.md`。
 
 2026-11-25 按本轮修复授权调整检查调度：原生 Harness 继续持有权限模式、工具执行、取消与终止事实；CodeBuddy 将同步原生权限准备放到按工作区及模式隔离的辅助进程，设置独立期限、取消与 Job 清理。标签准备进程持有已枚举对象的内存基线，瞬时锁定目标单独保留为有界 deferred 集合，每次调用定点重试一次；它不表示所有文件均已可写。原生文件工具成功回执的规范绝对路径经 `commandEvidence` 使对应路径失效，原生目录通知补充外部新建与移动。定点检查继续逐层固定原生句柄并遵守下述对象边界；监听丢失、事件或延后列表溢出、真实检查失败回到有界完整检查，根目录身份变化则丢弃工作区原生 Provider。替代下文“每次命令前重新检查”的全树调度，不改变标签无继承位的规则、受限令牌或授权范围。没有新增持久化缓存及 ACP 合同。设计、来源与限制见 `decisions/ADR-002-windows-sandbox-preparation.md`。

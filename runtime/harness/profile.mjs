@@ -61,6 +61,9 @@ export function profileEntries(dataDir, cwd, instructionsHome = dataDir, sharedS
       includeRuntimeContext: true,
     }),
     entry('tools', 'dsh-tools', { mode: 'native' }),
+    // Search/web tools declare their own budgets. An explicit Host profile
+    // must also mount the native consumer; metadata alone cannot cancel I/O.
+    entry('tool-timeout-policy', 'dsh-tool-call-timeout-policy'),
     entry('user-questions', 'dsh-user-questions'),
     entry('plan-mode', 'dsh-plan-mode', { section: 'Plan mode is active. Inspect and research the task, clarify requirements, and produce a concrete implementation and verification plan. Do not edit project files, run mutating commands, or execute the plan before user review. Present the finished plan with exit_plan_mode; only continue implementation after the user approves. Existing tool permissions and sandbox policy still apply.' }),
     entry('tool-ask-user', 'dsh-tool-ask-user', { mode: 'timed', timeout: 120 }),

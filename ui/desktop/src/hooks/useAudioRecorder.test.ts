@@ -162,7 +162,7 @@ describe('useAudioRecorder typed preferences and lifecycle', () => {
     await act(async () => result.current.startRecording());
     act(() => {
       workletNodes[0].port.onmessage?.({
-        data: new Float32Array([0.5, 0.5]),
+        data: new Float32Array(3200).fill(0.1),
       } as MessageEvent<Float32Array>);
       result.current.stopRecording();
     });
@@ -343,7 +343,7 @@ describe('useAudioRecorder typed preferences and lifecycle', () => {
 
     act(() => {
       workletNodes[0].port.onmessage?.({
-        data: new Float32Array([0.5, 0.5]),
+        data: new Float32Array(3200).fill(0.1),
       } as MessageEvent<Float32Array>);
       result.current.stopRecording();
     });
@@ -355,7 +355,7 @@ describe('useAudioRecorder typed preferences and lifecycle', () => {
     expect(onTranscription).not.toHaveBeenCalled();
     expect(onError).not.toHaveBeenCalled();
   });
-  it('holds silent audio until release and ignores a transcription after changing conversations', async () => {
+  it('holds audible audio until release and ignores a transcription after changing conversations', async () => {
     const { stream } = makeStream();
     getUserMedia.mockResolvedValue(stream);
     mocks.getDictationConfig.mockResolvedValue({ remote: { configured: true } });
@@ -368,7 +368,7 @@ describe('useAudioRecorder typed preferences and lifecycle', () => {
     await waitUntilEnabled(result);
     await act(async () => result.current.startRecording());
     act(() => {
-      workletNodes[0].port.onmessage?.({ data: new Float32Array(3200) } as MessageEvent<Float32Array>);
+      workletNodes[0].port.onmessage?.({ data: new Float32Array(3200).fill(0.1) } as MessageEvent<Float32Array>);
     });
     expect(mocks.transcribeDictation).not.toHaveBeenCalled();
     act(() => result.current.stopRecording());
@@ -411,6 +411,53 @@ describe('useAudioRecorder typed preferences and lifecycle', () => {
     expect(getUserMedia).not.toHaveBeenCalled();
     expect(result.current.isStarting).toBe(false);
     expect(result.current.isRecording).toBe(false);
+  });
+
+  it.each(['silence', 'low-noise', 'click', 'no-frames'])('does not upload %s and offers a retry', async kind => {
+    getUserMedia.mockResolvedValue(makeStream().stream);
+    const onTranscription = vi.fn();
+    const { result } = renderHook(() => useAudioRecorder({ onTranscription, onError: vi.fn(), pushToTalk: true }));
+    await waitUntilEnabled(result);
+    await act(async () => result.current.startRecording());
+    const audio = new Float32Array(16000);
+    if (kind === 'low-noise') audio.fill(0.002);
+    if (kind === 'click') audio.fill(0.8, 0, 320);
+    act(() => {
+      if (kind !== 'no-frames') workletNodes[0].port.onmessage?.({ data: audio } as MessageEvent<Float32Array>);
+      result.current.stopRecording();
+    });
+    expect(mocks.transcribeDictation).not.toHaveBeenCalled();
+    expect(onTranscription).not.toHaveBeenCalled();
+    expect(result.current.notice).toBe('no-speech');
+    expect(result.current.isTranscribing).toBe(false);
+    await act(async () => result.current.startRecording());
+    expect(result.current.notice).toBeNull();
+    act(() => {
+      workletNodes[1].port.onmessage?.({ data: new Float32Array(3200).fill(0.1) } as MessageEvent<Float32Array>);
+      result.current.stopRecording();
+    });
+    await waitFor(() => expect(onTranscription).toHaveBeenCalledWith('transcribed'));
+    expect(mocks.transcribeDictation).toHaveBeenCalledOnce();
+  });
+
+  it.each(['', '   \n'])('shows an empty-transcript notice without inserting %j', async text => {
+    getUserMedia.mockResolvedValue(makeStream().stream);
+    mocks.transcribeDictation.mockResolvedValue(text);
+    const onTranscription = vi.fn();
+    const { result, rerender } = renderHook(({ scopeId }) => useAudioRecorder({
+      onTranscription, onError: vi.fn(), pushToTalk: true, scopeId,
+    }), { initialProps: { scopeId: 'first' } });
+    await waitUntilEnabled(result);
+    await act(async () => result.current.startRecording());
+    act(() => {
+      workletNodes[0].port.onmessage?.({ data: new Float32Array(3200).fill(0.1) } as MessageEvent<Float32Array>);
+      result.current.stopRecording();
+    });
+    await waitFor(() => expect(result.current.notice).toBe('empty-transcript'));
+    expect(onTranscription).not.toHaveBeenCalled();
+    expect(result.current.isTranscribing).toBe(false);
+    rerender({ scopeId: 'second' });
+    expect(result.current.notice).toBeNull();
   });
 
   it('times out a microphone permission prompt and releases a stream returned later', async () => {

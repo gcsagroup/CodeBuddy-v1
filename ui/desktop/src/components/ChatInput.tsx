@@ -835,7 +835,10 @@ export default function ChatInput({
   }>(null);
 
   // Audio recorder hook for voice dictation
+  const voiceButtonRef = useRef<HTMLButtonElement>(null);
   const {
+    notice: voiceNotice,
+    clearNotice: clearVoiceNotice,
     isStarting,
     startupStage,
     waveform,
@@ -2563,9 +2566,10 @@ export default function ChatInput({
           />
 
         </div>
-        {(isRecording || isStarting || isTranscribing) && (
+        {(isRecording || isStarting || isTranscribing || voiceNotice) && (
           <div className="px-2 pb-2">
-            <VoiceInputStatus recording={isRecording} starting={isStarting} startupStage={startupStage} transcribing={isTranscribing} waveform={waveform} />
+            <VoiceInputStatus recording={isRecording} starting={isStarting} startupStage={startupStage} transcribing={isTranscribing} waveform={waveform}
+              notice={voiceNotice} onDismiss={clearVoiceNotice} onRetry={() => { clearVoiceNotice(); voiceButtonRef.current?.focus(); }} />
           </div>
         )}
       </form>
@@ -2651,6 +2655,7 @@ export default function ChatInput({
           )}
           {!actionVisibility.showStop && !hasSubmittableContent && !continueAction && (
             <Button type="button" size="sm" shape="round" variant="ghost"
+              ref={voiceButtonRef}
               aria-label={isRecording ? '松开结束录音' : isTranscribing ? '正在识别语音' : '按住说话'}
               title="按住说话，或在空输入框中长按空格"
               disabled={isTranscribing || submissionDisabled}

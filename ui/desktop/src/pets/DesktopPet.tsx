@@ -161,7 +161,8 @@ export default function DesktopPet() {
   const sendingRef = useRef(false);
   const input = useRef<HTMLTextAreaElement>(null);
   const [voiceError, setVoiceError] = useState('');
-  const { isRecording, isStarting, startupStage, waveform, isTranscribing, startRecording, stopRecording } = useAudioRecorder({
+  const voiceButtonRef = useRef<HTMLButtonElement>(null);
+  const { notice, clearNotice, isRecording, isStarting, startupStage, waveform, isTranscribing, startRecording, stopRecording } = useAudioRecorder({
     pushToTalk: true,
     scopeId: composing ? 'pet-composer' : 'closed',
     onTranscription: text => setMessage(current => current ? `${current} ${text}` : text),
@@ -516,7 +517,8 @@ export default function DesktopPet() {
                   )}
                 </p>
               )}
-              <VoiceInputStatus recording={isRecording} starting={isStarting} startupStage={startupStage} transcribing={isTranscribing} waveform={waveform} />
+              <VoiceInputStatus recording={isRecording} starting={isStarting} startupStage={startupStage} transcribing={isTranscribing} waveform={waveform}
+                notice={notice} onDismiss={clearNotice} onRetry={() => { clearNotice(); voiceButtonRef.current?.focus(); }} />
               {voiceError && <p role="alert">{voiceError}</p>}
               {sendError && (
                 <p role="alert">
@@ -555,6 +557,7 @@ export default function DesktopPet() {
                 </span>
                 {!message.trim() && !attachments.length ? (
                   <button type="button" className="pet-send-button" disabled={sending || isTranscribing}
+                    ref={voiceButtonRef}
                     aria-label={isRecording ? '松开结束录音' : isTranscribing ? '正在识别语音' : '按住说话'}
                     style={{ touchAction: 'none' }}
                     onPointerDown={event => { if (event.button !== 0) return; event.preventDefault(); event.currentTarget.setPointerCapture(event.pointerId); setVoiceError(''); beginVoice(); }}

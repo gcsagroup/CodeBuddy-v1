@@ -19,6 +19,21 @@ const MIN_SPEECH_MS = 200;
 // without clipping early speech onsets. Determined empirically for 16kHz mono input.
 const RMS_THRESHOLD = 0.015;
 
+export type VoiceInputNotice = 'no-speech' | 'empty-transcript';
+
+// Count audible time, not recording time: a brief click followed by silence
+// must not qualify an otherwise empty recording for remote transcription.
+function hasAudibleSpeech(samples: Float32Array): boolean {
+  const frameSize = SAMPLE_RATE * 0.02;
+  let audibleSamples = 0;
+  for (let offset = 0; offset < samples.length; offset += frameSize) {
+    const frame = samples.subarray(offset, offset + frameSize);
+    if (rms(frame) > RMS_THRESHOLD) audibleSamples += frame.length;
+    if (audibleSamples >= SAMPLE_RATE * MIN_SPEECH_MS / 1000) return true;
+  }
+  return false;
+}
+
 // Resolve worklet URL at runtime from window.location so it works under both
 // the dev server (http://localhost) and packaged builds (file://).
 const WORKLET_URL = new URL('audio-capture-worklet.js', window.location.href.split('#')[0]).href;
@@ -145,6 +160,9 @@ export const useAudioRecorder = ({ onTranscription, onError, pushToTalk = false,
   const scopeRef = useRef({ id: scopeId });
   if (scopeRef.current.id !== scopeId) scopeRef.current = { id: scopeId };
   const recordingScope = useRef(scopeRef.current);
+  const [noticeState, setNoticeState] = useState<{ scope: object; kind: VoiceInputNotice } | null>(null);
+  const clearNotice = useCallback(() => setNoticeState(null), []);
+  const submittedRecording = useRef(false);
   const recordingProvider = useRef<DictationProvider | null>(null);
   const [startupStage, setStartupStage] = useState('');
   const [isStarting, setIsStarting] = useState(false);
@@ -224,8 +242,13 @@ export const useAudioRecorder = ({ onTranscription, onError, pushToTalk = false,
         const requestStarted = performance.now();
         const text = await transcribeDictation(base64, 'audio/wav', selectedProvider);
         console.debug('[voice-input] transcription round trip ms', Math.round(performance.now() - requestStarted));
-        if (mountedRef.current && scopeRef.current === transcriptionScope && text) {
-          onTranscriptionRef.current(text);
+        if (mountedRef.current && scopeRef.current === transcriptionScope) {
+          if (text.trim()) {
+            setNoticeState(null);
+            onTranscriptionRef.current(text.trim());
+          } else {
+            setNoticeState({ scope: transcriptionScope, kind: 'empty-transcript' });
+          }
         }
       } catch (reason) {
         if (mountedRef.current && scopeRef.current === transcriptionScope) onErrorRef.current(errorMessage(reason));
@@ -241,7 +264,6 @@ export const useAudioRecorder = ({ onTranscription, onError, pushToTalk = false,
 
   const flush = useCallback(() => {
     const chunks = samplesRef.current;
-    if (chunks.length === 0) return;
 
     const total = chunks.reduce((n, c) => n + c.length, 0);
     const merged = new Float32Array(total);
@@ -251,6 +273,13 @@ export const useAudioRecorder = ({ onTranscription, onError, pushToTalk = false,
       off += c.length;
     }
     samplesRef.current = [];
+    if (!hasAudibleSpeech(merged)) {
+      if (!submittedRecording.current && mountedRef.current && scopeRef.current === recordingScope.current) {
+        setNoticeState({ scope: recordingScope.current, kind: 'no-speech' });
+      }
+      return;
+    }
+    submittedRecording.current = true;
     void transcribeChunk(merged);
   }, [transcribeChunk]);
 
@@ -335,7 +364,7 @@ export const useAudioRecorder = ({ onTranscription, onError, pushToTalk = false,
   }, []);
 
   const stopRecording = useCallback(() => {
-    if (isSpeakingRef.current && samplesRef.current.length > 0) {
+    if (isRecordingRef.current) {
       flushRef.current();
     }
     captureGenerationRef.current++;
@@ -456,6 +485,8 @@ export const useAudioRecorder = ({ onTranscription, onError, pushToTalk = false,
     if (isRecordingRef.current) return Promise.resolve();
 
     setIsStarting(true);
+    setNoticeState(null);
+    submittedRecording.current = false;
     recordingScope.current = scopeRef.current;
     const generation = ++captureGenerationRef.current;
     const promise = runStartAttempt(generation);
@@ -497,6 +528,8 @@ export const useAudioRecorder = ({ onTranscription, onError, pushToTalk = false,
   }, [applyDictationState, cleanupCapture]);
 
   return {
+    notice: noticeState?.scope === scopeRef.current ? noticeState.kind : null,
+    clearNotice,
     isStarting,
     startupStage,
     waveform,

@@ -135,7 +135,22 @@ export async function createHarnessDriver({ dataDir, cwd = process.cwd(), instru
   const approvalCalls = new Map();
   let skillRefresh = Promise.resolve();
   let selection = { provider: 'codebuddy-unconfigured', model: 'unconfigured' };
+  const sessionTemps = process.platform === 'win32'
+    ? new (await import('./windows-session-temps.mjs')).WindowsSessionTemps() : undefined;
   const ctx = await boot('codebuddy-harness', configPath, [], host => {
+    if (sessionTemps) {
+      host.provide('codebuddyWindowsSessionTemps', sessionTemps);
+      host.effect(() => async () => {
+        // Root ownership survives plugin replacement. The stable resource
+        // owner retains native drain barriers from every subprocess generation.
+        let quiesced = false;
+        try {
+          if (sessionTemps.hasProcessOwner) { await sessionTemps.quiesceProcesses(); quiesced = true; }
+        } finally {
+          await sessionTemps.close(quiesced);
+        }
+      });
+    }
     if (projectFolders) host.provide('codebuddyProjectFolders', projectFolders);
     // Both phases precede the transport observer. A stalled phase must be
     // identifiable even if the first model request is never constructed.

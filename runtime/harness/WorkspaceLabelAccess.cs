@@ -68,6 +68,8 @@ public static class WorkspaceLabelAccess
         public string Status = "complete";
         public int Visited;
         public int Changed;
+        public string[] DeferredPaths = new string[0];
+        public bool DeferredOverflow;
     }
 
     sealed class LabelScan
@@ -76,8 +78,17 @@ public static class WorkspaceLabelAccess
         readonly Stopwatch watch = Stopwatch.StartNew();
         readonly int budget;
         readonly string cancelFile;
+        readonly List<string> deferred = new List<string>();
+        int deferredCharacters;
         long nextCancellationCheck;
         public LabelScan(int budgetMs, string cancellationFile) { budget = budgetMs; cancelFile = cancellationFile; }
+        public void Defer(string path)
+        {
+            Result.Status = "partial";
+            if (deferred.Count >= 64 || deferredCharacters + path.Length > 4096) { Result.DeferredOverflow = true; return; }
+            deferred.Add(path); deferredCharacters += path.Length;
+            Result.DeferredPaths = deferred.ToArray();
+        }
         public void Check()
         {
             long elapsed = watch.ElapsedMilliseconds;
@@ -183,7 +194,7 @@ public static class WorkspaceLabelAccess
         if (scan != null) { scan.Check(); scan.Result.Visited++; }
         using (var handle = CreateFileW(@"\\?\" + path, ReadControl | WriteDac | 2, 3, IntPtr.Zero, OpenExisting, DirectoryNoFollow, IntPtr.Zero))
         {
-            if (handle.IsInvalid) return 0;
+            if (handle.IsInvalid) { DeferTransientOpenFailure(scan, path); return 0; }
             FileInformation info;
             if (!GetFileInformationByHandle(handle, out info)) return 0;
             if ((info.Attributes & (uint)(FileAttributes.ReparsePoint | FileAttributes.ReadOnly)) != 0 || info.Links > 1) return 0;
@@ -237,7 +248,7 @@ public static class WorkspaceLabelAccess
                     {
                         using (var labelHandle = CreateFileW(@"\\?\" + path, WriteOwner, 3, IntPtr.Zero, OpenExisting, DirectoryNoFollow, IntPtr.Zero))
                         {
-                            if (labelHandle.IsInvalid) return 0;
+                            if (labelHandle.IsInvalid) { DeferTransientOpenFailure(scan, path); return 0; }
                             IntPtr low; uint size;
                             // No inheritance flags: never propagate through skipped children.
                             if (!ConvertStringSecurityDescriptorToSecurityDescriptorW("S:(ML;;NW;;;LW)", 1, out low, out size)) throw new Win32Exception();
@@ -274,6 +285,14 @@ public static class WorkspaceLabelAccess
             return changed;
             }
         }
+    }
+
+    static void DeferTransientOpenFailure(LabelScan scan, string path)
+    {
+        int error = Marshal.GetLastWin32Error();
+        // An unrelated lock must not disable the workspace. Keep this target
+        // pending for the next invocation; never spin on it within this scan.
+        if (scan != null && (error == 32 || error == 33)) scan.Defer(path);
     }
 
     public static bool Prepare(string path)

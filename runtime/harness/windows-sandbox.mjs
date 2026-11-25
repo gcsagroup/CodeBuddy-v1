@@ -4,28 +4,8 @@ import { setTimeout as delay } from 'node:timers/promises';
 import { fileURLToPath } from 'node:url';
 import { LocalSandboxProvider } from '@deepseek-ai/dsh-sandbox-local';
 import { SandboxUnavailableError } from '@deepseek-ai/dsh-sandbox';
-import { extendWin32ProcessBindings, isNullPtr, throwLastError } from '@deepseek-ai/dsh-win32-process';
-
-function ownPreparationProcess(pid) {
-  const api = extendWin32ProcessBindings(({ kernel32, bind }) => ({
-    openProcess: bind(kernel32, 'OpenProcess', 'void *', ['uint32', 'int', 'uint32']),
-  }));
-  const job = api.createJobObjectW(null, null);
-  if (isNullPtr(job)) throwLastError(api, 'CreateJobObjectW');
-  let processHandle;
-  try {
-    // Same x64 JOB_OBJECT_EXTENDED_LIMIT_INFORMATION layout and kill-on-close
-    // contract as the pinned native process owner. No ACL work starts before IPC.
-    const limits = Buffer.alloc(144); limits.writeUInt32LE(0x2000, 16);
-    if (!api.setInformationJobObject(job, 9, limits, limits.length)) throwLastError(api, 'SetInformationJobObject');
-    processHandle = api.openProcess(0x101, 0, pid); // PROCESS_SET_QUOTA | PROCESS_TERMINATE
-    if (isNullPtr(processHandle)) throwLastError(api, 'OpenProcess');
-    if (!api.assignProcessToJobObject(job, processHandle)) throwLastError(api, 'AssignProcessToJobObject');
-  } catch (error) { api.closeHandle(job); throw error; }
-  finally { if (!isNullPtr(processHandle)) api.closeHandle(processHandle); }
-  let closed = false;
-  return () => { if (!closed) { closed = true; api.closeHandle(job); } };
-}
+import { ownSandboxHelper } from './windows-sandbox-job.mjs';
+import { WindowsSessionTemps } from './windows-session-temps.mjs';
 
 // The native provider owns grants, SIDs, locks and restricted runner argv.
 // Its synchronous Win32 ACL propagation can walk millions of descendants.
@@ -40,7 +20,14 @@ export default class WindowsSandboxProvider extends LocalSandboxProvider {
     this.retiring = new Set();
     this.sequence = 0;
     this.workerSequence = 0;
-    ctx.effect(() => () => this.closePreparation());
+    const sharedTemps = ctx.get('codebuddyWindowsSessionTemps');
+    this.sessionTemps = sharedTemps ?? new WindowsSessionTemps();
+    ctx.effect(() => async () => {
+      await this.closePreparation();
+      // In a Host this is owned above plugin reloads and is released only
+      // after the actual subprocess owner's shutdown barrier.
+      if (!sharedTemps) await this.sessionTemps.close();
+    });
   }
 
   workerKey(workspaceRoot, mode) { return resolve(workspaceRoot).toLowerCase() + '\0' + mode; }
@@ -58,17 +45,17 @@ export default class WindowsSandboxProvider extends LocalSandboxProvider {
     }
   }
 
-  async acquireHelper(policy, signal, deadline) {
+  async acquireHelper(policy, signal, deadlineAt) {
     const key = this.workerKey(policy.workspaceRoot, policy.mode);
     if (!this.workers.has(key) && this.workers.size + this.retiring.size >= 4) {
       const idle = [...this.workers.values()].find(worker => !worker.active);
       if (idle) {
         this.retire(idle, 'idle');
-        await Promise.race([idle.closed, delay(Math.max(1, Math.min(2100, deadline - Date.now())), undefined, { signal })]);
+        await Promise.race([idle.closed, delay(Math.max(1, Math.min(2100, deadlineAt - performance.now())), undefined, { signal })]);
       }
     }
     signal?.throwIfAborted();
-    if (Date.now() >= deadline) throw new Error('Preparation deadline expired while waiting for a process slot.');
+    if (performance.now() >= deadlineAt) throw new Error('Preparation deadline expired while waiting for a process slot.');
     return this.helper(policy.workspaceRoot, policy.mode);
   }
 
@@ -107,6 +94,7 @@ export default class WindowsSandboxProvider extends LocalSandboxProvider {
       }
       if (message.error) {
         if (message.error.code === 'CODEBUDDY_WORKSPACE_CHANGED') {
+          this.sessionTemps.invalidate(entry.policy);
           worker.active = undefined;
           this.retire(worker, 'workspace-replaced');
         }
@@ -115,7 +103,7 @@ export default class WindowsSandboxProvider extends LocalSandboxProvider {
     });
     try {
       if (!child.pid) throw new Error('Preparation process did not start');
-      worker.releaseJob = ownPreparationProcess(child.pid);
+      worker.releaseJob = ownSandboxHelper(child.pid);
     } catch (error) { this.retire(worker, 'process-start'); child.kill(); throw error; }
     return worker;
   }
@@ -140,13 +128,29 @@ export default class WindowsSandboxProvider extends LocalSandboxProvider {
     if (worker.retiring || worker.active) return;
     const entry = worker.queue.shift();
     if (!entry) return;
+    if (performance.now() >= entry.deadlineAt) { entry.expire(); return; }
     worker.active = entry;
     worker.phase = 'startup';
     this.log(worker, entry, 'started');
-    worker.child.send({ type: 'confine', id: entry.id, argv: entry.argv, policy: entry.policy,
-      config: this.nativeConfig, deadline: entry.deadline }, error => {
-      if (error) this.retire(worker, 'ipc-failure');
-    });
+    void this.prepareInvocation(worker, entry);
+  }
+
+  async prepareInvocation(worker, entry) {
+    try {
+      let tempCapability;
+      if (entry.policy.mode === 'workspace-write' && entry.policy.sessionId !== undefined && !this.nativeConfig.runnerCommand?.length) {
+        worker.phase = 'session-temp';
+        tempCapability = await this.sessionTemps.acquire(entry.policy, entry.signal, entry.deadlineAt);
+      }
+      if (worker.retiring || worker.active !== entry) return;
+      if (performance.now() >= entry.deadlineAt) { entry.expire(); return; }
+      worker.child.send({ type: 'confine', id: entry.id, argv: entry.argv, policy: entry.policy, tempCapability,
+        config: this.nativeConfig, deadline: Date.now() + Math.max(0, entry.deadlineAt - performance.now()) }, error => {
+        if (error) this.retire(worker, 'ipc-failure');
+      });
+    } catch (error) {
+      if (worker.active === entry) entry.finish(this.preparationError(entry, worker.phase, error.message));
+    }
   }
 
   retire(worker, reason) {
@@ -171,18 +175,21 @@ export default class WindowsSandboxProvider extends LocalSandboxProvider {
     // shorter signal wins; a separate cap also bounds callers without one.
     // Do not truncate normal first-time provisioning at 30s on large projects.
     const timeoutMs = this.internals.preparationTimeoutMs ?? 120000;
-    const deadline = Date.now() + timeoutMs;
+    const deadlineAt = started + timeoutMs;
     const details = { mode: policy.mode, started };
     let worker;
-    try { worker = await this.acquireHelper(policy, signal, deadline); }
+    try { worker = await this.acquireHelper(policy, signal, deadlineAt); }
     catch (error) { signal?.throwIfAborted(); throw this.preparationError(details, 'startup', error.message); }
     if (worker.retiring || this.closed) throw this.preparationError(details, 'startup', 'Preparation process closed before dispatch.');
     if (worker.queue.length >= 16) throw this.preparationError(details, 'queue', 'Preparation queue is full.');
     return new Promise((resolve, reject) => {
       let settled = false;
-      const entry = { ...details, id: ++this.sequence, argv, policy, deadline };
+      const entry = { ...details, id: ++this.sequence, argv, policy, signal, deadlineAt };
       const finish = entry.finish = (error, result) => {
         if (settled) return;
+        // A due timer may run after an IPC callback. The final successful
+        // handoff must enforce the same monotonic deadline independently.
+        if (!error && performance.now() >= deadlineAt) { entry.expire(); return; }
         settled = true;
         clearTimeout(timer); clearInterval(heartbeat);
         signal?.removeEventListener('abort', abort);
@@ -197,7 +204,7 @@ export default class WindowsSandboxProvider extends LocalSandboxProvider {
         if (active) { worker.active = undefined; this.retire(worker, 'cancelled'); }
         finish(signal.reason ?? new DOMException('Sandbox preparation cancelled', 'AbortError'));
       };
-      const timer = setTimeout(() => {
+      entry.expire = () => {
         const error = this.preparationError(entry, worker.active === entry ? worker.phase : 'queue',
           `The ${timeoutMs}ms preparation deadline expired.`);
         if (worker.active === entry) {
@@ -207,7 +214,8 @@ export default class WindowsSandboxProvider extends LocalSandboxProvider {
           this.retire(worker, 'deadline');
         }
         finish(error);
-      }, Math.max(1, deadline - Date.now()));
+      };
+      const timer = setTimeout(entry.expire, Math.max(1, deadlineAt - performance.now()));
       const heartbeat = setInterval(() => this.log(worker, entry, worker.active === entry ? 'waiting' : 'queued'), 5000);
       signal?.addEventListener('abort', abort, { once: true });
       worker.queue.push(entry);

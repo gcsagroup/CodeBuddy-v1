@@ -34,9 +34,11 @@ process.on('message', message => {
       context = new Context();
       await context.plugin(NativeWindowsSandboxProvider, message.config);
       provider = context.sandbox;
+      provider.externalSessionTemps = true;
     }
     controller.signal.throwIfAborted();
     provider.preparationDeadline = message.deadline;
+    provider.sessionTempCapability = message.tempCapability;
     provider.onPreparationPhase = phase => send({ id: message.id, phase });
     const result = await provider.confine(message.argv, message.policy, controller.signal);
     controller.signal.throwIfAborted();

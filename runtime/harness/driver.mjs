@@ -767,8 +767,6 @@ export async function createHarnessDriver({ dataDir, cwd = process.cwd(), instru
   });
   ctx.on('tools/result', (exec, result) => {
     const run = runs.get(exec.agent.id);
-    const fact = commandEvidence(exec, result, { native: nativeDefinitions.has(ctx.tools.get(exec.name, exec.agent)) });
-    if (fact?.path) ctx.sandbox?.noteFileMutation?.(fact.path);
     const script = approvalCalls.get(`${exec.agent.id}\0${exec.callId}`)?.projectScript;
     if (script && !script.result.continueTask && script.lookup === scriptLookups.get(exec.agent) &&
         !result.isError && ['foreground', 'background', 'promoted'].includes(result.value?.kind)) {
@@ -781,6 +779,7 @@ export async function createHarnessDriver({ dataDir, cwd = process.cwd(), instru
     }
     let executionFailed;
     if (run && !directCalls.has(exec.callId)) {
+      const fact = commandEvidence(exec, result, { native: nativeDefinitions.has(ctx.tools.get(exec.name, exec.agent)) });
       if (fact) {
         const receipts = run.recentReceipts ??= [];
         receipts.push(fact);

@@ -1,5 +1,5 @@
 import { spawn } from 'node:child_process';
-import { isAbsolute, relative, resolve, sep } from 'node:path';
+import { resolve } from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
 import { fileURLToPath } from 'node:url';
 import { LocalSandboxProvider } from '@deepseek-ai/dsh-sandbox-local';
@@ -34,19 +34,6 @@ export default class WindowsSandboxProvider extends LocalSandboxProvider {
   }
 
   workerKey(workspaceRoot, mode) { return resolve(workspaceRoot).toLowerCase() + '\0' + mode; }
-
-  noteFileMutation(path) {
-    for (const worker of this.workers.values()) {
-      if (worker.mode !== 'workspace-write') continue;
-      const inside = relative(worker.root, resolve(path));
-      if (!inside || isAbsolute(inside) || inside === '..' || inside.startsWith('..' + sep)) continue;
-      // IPC preserves order with the following confine. A lost invalidation
-      // retires the cache instead of letting a host write race the observer.
-      worker.child.send({ type: 'file-mutation', path }, error => {
-        if (error) this.retire(worker, 'invalidation-failure');
-      });
-    }
-  }
 
   async acquireHelper(policy, signal, deadlineAt) {
     const key = this.workerKey(policy.workspaceRoot, policy.mode);

@@ -20,7 +20,6 @@ async function close() {
 
 process.on('disconnect', () => { void close(); });
 process.on('message', message => {
-  if (message.type === 'file-mutation') { provider?.noteFileMutation(message.path); return; }
   if (message.type === 'cancel') { controllers.get(message.id)?.abort(); return; }
   if (message.type === 'dispose') { void close(); return; }
   if (message.type !== 'confine' || closing) return;

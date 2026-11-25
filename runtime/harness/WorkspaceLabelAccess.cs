@@ -1,6 +1,5 @@
 using System;
 using System.ComponentModel;
-using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Runtime.InteropServices;
@@ -77,7 +76,7 @@ public static class WorkspaceLabelAccess
     // every ancestor during traversal. Never follow junctions or hard links.
     public static int PrepareExisting(string root)
     {
-        return PrepareExistingCore(root, null, null);
+        return PrepareExistingCore(root, null);
     }
 
     public sealed class LabelPreparationResult
@@ -85,8 +84,7 @@ public static class WorkspaceLabelAccess
         public string Status = "complete";
         public int Visited;
         public int Changed;
-        public string[] DeferredPaths = new string[0];
-        public bool DeferredOverflow;
+        public int Deferred;
     }
 
     sealed class LabelScan
@@ -95,17 +93,9 @@ public static class WorkspaceLabelAccess
         readonly Stopwatch watch = Stopwatch.StartNew();
         readonly int budget;
         readonly string cancelFile;
-        readonly List<string> deferred = new List<string>();
-        int deferredCharacters;
         long nextCancellationCheck;
         public LabelScan(int budgetMs, string cancellationFile) { budget = budgetMs; cancelFile = cancellationFile; }
-        public void Defer(string path)
-        {
-            Result.Status = "partial";
-            if (deferred.Count >= 64 || deferredCharacters + path.Length > 4096) { Result.DeferredOverflow = true; return; }
-            deferred.Add(path); deferredCharacters += path.Length;
-            Result.DeferredPaths = deferred.ToArray();
-        }
+        public void Defer() { Result.Status = "partial"; Result.Deferred++; }
         public void Check()
         {
             long elapsed = watch.ElapsedMilliseconds;
@@ -154,64 +144,27 @@ public static class WorkspaceLabelAccess
     {
         if (budgetMs <= 0) throw new ArgumentOutOfRangeException("budgetMs");
         var scan = new LabelScan(budgetMs, cancellationFile);
-        try { PrepareExistingCore(root, scan, null); }
+        try { PrepareExistingCore(root, scan); }
         catch (OperationCanceledException) { scan.Result.Status = "cancelled"; }
         catch (TimeoutException) { scan.Result.Status = "deadline"; }
         return scan.Result;
     }
 
-    sealed class PathSelection
-    {
-        public bool WholeTree;
-        public readonly Dictionary<string, PathSelection> Children = new Dictionary<string, PathSelection>(StringComparer.OrdinalIgnoreCase);
-    }
-
-    // Changed targets use the same pinned ancestor and policy checks as a full
-    // traversal. Validate the complete selection before touching any object.
-    public static LabelPreparationResult PrepareChangedBounded(string root, string[] paths, int budgetMs, string cancellationFile)
-    {
-        if (budgetMs <= 0) throw new ArgumentOutOfRangeException("budgetMs");
-        if (paths == null) throw new ArgumentNullException("paths");
-        root = Path.GetFullPath(root).TrimEnd('\\');
-        var selection = new PathSelection();
-        foreach (string target in paths)
-        {
-            string path = Path.GetFullPath(target).TrimEnd('\\');
-            if (String.Equals(root, path, StringComparison.OrdinalIgnoreCase)) { selection.WholeTree = true; continue; }
-            if (!path.StartsWith(root + "\\", StringComparison.OrdinalIgnoreCase)) throw new ArgumentException("Changed path is outside the workspace");
-            var node = selection;
-            foreach (string component in path.Substring(root.Length + 1).Split('\\'))
-            {
-                if (component.Length == 0 || component.IndexOf(':') >= 0) throw new ArgumentException("Invalid changed path");
-                PathSelection child;
-                if (!node.Children.TryGetValue(component, out child)) node.Children.Add(component, child = new PathSelection());
-                node = child;
-            }
-            node.WholeTree = true;
-        }
-        var scan = new LabelScan(budgetMs, cancellationFile);
-        try { if (paths.Length != 0) PrepareExistingCore(root, scan, selection); }
-        catch (OperationCanceledException) { scan.Result.Status = "cancelled"; }
-        catch (TimeoutException) { scan.Result.Status = "deadline"; }
-        return scan.Result;
-    }
-
-    static int PrepareExistingCore(string root, LabelScan scan, PathSelection selection)
+    static int PrepareExistingCore(string root, LabelScan scan)
     {
         if (scan != null) scan.Check();
         root = Path.GetFullPath(root).TrimEnd('\\');
         if (root.Length < 4 || root[1] != ':' || root[2] != '\\') return 0;
         using (var identity = WindowsIdentity.GetCurrent())
-            return LabelExisting(root, identity.User, true, scan, selection);
+            return LabelExisting(root, identity.User, true, scan);
     }
 
-    static int LabelExisting(string path, SecurityIdentifier user, bool root, LabelScan scan, PathSelection selection)
+    static int LabelExisting(string path, SecurityIdentifier user, bool root, LabelScan scan)
     {
-        if (selection != null && selection.WholeTree) selection = null;
         if (scan != null) { scan.Check(); scan.Result.Visited++; }
         using (var handle = CreateFileW(@"\\?\" + path, ReadControl | WriteDac | 2, 3, IntPtr.Zero, OpenExisting, DirectoryNoFollow, IntPtr.Zero))
         {
-            if (handle.IsInvalid) { DeferTransientOpenFailure(scan, path); return 0; }
+            if (handle.IsInvalid) { DeferTransientOpenFailure(scan); return 0; }
             FileInformation info;
             if (!GetFileInformationByHandle(handle, out info)) return 0;
             if ((info.Attributes & (uint)(FileAttributes.ReparsePoint | FileAttributes.ReadOnly)) != 0 || info.Links > 1) return 0;
@@ -263,7 +216,7 @@ public static class WorkspaceLabelAccess
                     {
                         using (var labelHandle = CreateFileW(@"\\?\" + path, WriteOwner, 3, IntPtr.Zero, OpenExisting, DirectoryNoFollow, IntPtr.Zero))
                         {
-                            if (labelHandle.IsInvalid) { DeferTransientOpenFailure(scan, path); return 0; }
+                            if (labelHandle.IsInvalid) { DeferTransientOpenFailure(scan); return 0; }
                             IntPtr low; uint size;
                             // No inheritance flags: never propagate through skipped children.
                             if (!ConvertStringSecurityDescriptorToSecurityDescriptorW("S:(ML;;NW;;;LW)", 1, out low, out size)) throw new Win32Exception();
@@ -290,10 +243,7 @@ public static class WorkspaceLabelAccess
             {
                 try
                 {
-                    if (selection == null)
-                        foreach (string child in Directory.EnumerateFileSystemEntries(path)) changed += LabelExisting(child, user, false, scan, null);
-                    else
-                        foreach (var child in selection.Children) changed += LabelExisting(Path.Combine(path, child.Key), user, false, scan, child.Value);
+                    foreach (string child in Directory.EnumerateFileSystemEntries(path)) changed += LabelExisting(child, user, false, scan);
                 }
                 catch (UnauthorizedAccessException) { /* Leave inaccessible subtrees untouched. */ }
             }
@@ -302,12 +252,12 @@ public static class WorkspaceLabelAccess
         }
     }
 
-    static void DeferTransientOpenFailure(LabelScan scan, string path)
+    static void DeferTransientOpenFailure(LabelScan scan)
     {
         int error = Marshal.GetLastWin32Error();
         // An unrelated lock must not disable the workspace. Keep this target
-        // pending for the next invocation; never spin on it within this scan.
-        if (scan != null && (error == 32 || error == 33)) scan.Defer(path);
+        // for the next full check; never spin on it within this scan.
+        if (scan != null && (error == 32 || error == 33)) scan.Defer();
     }
 
     public static bool Prepare(string path)

@@ -149,11 +149,11 @@ for (const disruption of ['cancellation', 'preparation crash', 'resource owner c
     const policy = { mode: 'workspace-write', workspaceRoot: root, sessionId: 'survivor' };
     const worker = sandbox.workers.get(sandbox.workerKey(root, policy.mode));
     if (disruption === 'cancellation') {
-      const file = join(root, 'new.txt'); await writeFile(file, 'new'); sandbox.noteFileMutation(file);
+      const file = join(root, 'new.txt'); await writeFile(file, 'new');
       const abort = new AbortController();
       const pending = sandbox.confine(['pwsh.exe'], policy, abort.signal);
       const rejected = assert.rejects(pending, error => error.name === 'AbortError');
-      await until(() => worker.phase === 'changed-file-labels', 'The cancellation did not reach label preparation');
+      await until(() => worker.phase === 'existing-file-labels', 'The cancellation did not reach label preparation');
       abort.abort(); await rejected; await worker.closed;
     } else if (disruption === 'preparation crash') { worker.child.kill(); await worker.closed; }
     else {

@@ -131,6 +131,7 @@ const i18n = defineMessages({
     id: 'conversation.turnStoppedAfter',
     defaultMessage: 'Stopped after {duration}',
   },
+  stopping: { id: 'runAdvice.stopping', defaultMessage: 'Stopping…' },
   toolRecords: {
     id: 'progressiveMessageList.toolRecords',
     defaultMessage: 'Tool records {count}',
@@ -1900,8 +1901,13 @@ function ProgressiveMessageListContent({
           );
           const timedEnd = Number.isFinite(elapsed) && elapsed >= 0;
           const liveTime = timedTurn && streaming && !hasTerminalBoundary;
+          const turnCancelling = Boolean(cancelling && latest);
           let processLabel: React.ReactNode;
-          if (timedEnd) {
+          // Local sealing inserts a terminal before the native cancellation
+          // barrier settles. It cannot confirm that execution has stopped.
+          if (turnCancelling) {
+            processLabel = intl.formatMessage(i18n.stopping);
+          } else if (timedEnd) {
             processLabel = terminal?.user_requested_stop || terminal?.status === 'cancelled'
               ? intl.formatMessage(i18n.turnStoppedAfter, { duration: formatElapsed(intl, elapsed) })
               : intl.formatMessage(i18n.turnDuration, { minutes: Math.floor(elapsed / 60), seconds: elapsed % 60 });
@@ -2006,7 +2012,7 @@ function ProgressiveMessageListContent({
               <TurnProcessHistory
                 settled={!continued && settled && hasHistory}
                 label={processLabel}
-                showTime={timedEnd || liveTime}
+                showTime={timedEnd || liveTime || turnCancelling}
                 storageKey={`turn-process-${chat.sessionId}-${turn[0]?.id ?? start}`}
               >
                 {renderSlice(

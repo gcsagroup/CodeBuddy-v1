@@ -127,6 +127,31 @@ describe('processes between public replies', () => {
       expect(screen.getByText(status === 'cancelled' ? 'Stopped after 1 min 1 sec' : 'Time spent 1 min 1 sec')).toBeVisible();
     } finally { vi.useRealTimers(); }
   });
+  it('waits for native cancellation before displaying a stopped duration, without changing earlier turns', () => {
+    const end = (source: Message, id: string, finished: number) => assistant(id, [{
+      type: 'systemNotification', notificationType: 'turnTerminal', msg: '',
+      data: {
+        schema_version: 1, session_id: 'between-replies', run_id: id,
+        terminal_message_id: id, source_user_message_id: source.id, status: 'cancelled',
+        checkpoint_id: null, retry_strategy: 'not_available', visible_text_available: false,
+        tool_action_count: 1, copy_artifact_ref: null, finished_at: new Date(finished).toISOString(),
+      },
+    }]);
+    const earlier = { ...user, id: 'earlier', created: 0 };
+    const messages = [earlier, end(earlier, 'earlier-stop', 30_000), user,
+      assistant('read', [request('one')]), end(user, 'local-stop', 62_000)];
+    const view = render(<ProgressiveMessageList messages={messages} cancelling
+      chat={{ sessionId: 'between-replies' }} isUserMessage={m => m.role === 'user'} />,
+      { wrapper: IntlTestWrapper });
+    expect(screen.getByText('Stopping…')).toBeVisible();
+    expect(screen.queryByText('Stopped after 1 min 1 sec')).not.toBeInTheDocument();
+    expect(screen.getByText('Stopped after 30 sec')).toBeVisible();
+
+    view.rerender(<ProgressiveMessageList messages={messages} cancelling={false}
+      chat={{ sessionId: 'between-replies' }} isUserMessage={m => m.role === 'user'} />);
+    expect(screen.queryByText('Stopping…')).not.toBeInTheDocument();
+    expect(screen.getByText('Stopped after 1 min 1 sec')).toBeVisible();
+  });
   it('does not include unbound historical receipts in the latest completed turn footer', () => {
     const answer = assistant('math-answer', [{ type: 'text', text: '899' }]);
     answer.metadata.usage = { inputTokens: 59, outputTokens: 16, totalTokens: 93389 };

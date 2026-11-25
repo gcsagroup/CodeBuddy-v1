@@ -534,6 +534,18 @@ describe('compact queue presentation', () => {
     expect(screen.getByText('First queued request')).toBeVisible();
   });
 
+  it('lets an unsent queued message be removed while waiting for cancellation', () => {
+    const remove = vi.fn();
+    render(<MessageQueue queuedMessages={[item]} onRemoveMessage={remove}
+      onClearQueue={vi.fn()} onSendNow={vi.fn()} waitingMessageId={item.id}
+      blockedReason="Waiting for cancellation" />, { wrapper: IntlTestWrapper });
+    expect(screen.getByRole('button', { name: 'Send now' })).toBeDisabled();
+    const button = screen.getByRole('button', { name: 'Remove this message from queue' });
+    expect(button).toBeEnabled();
+    fireEvent.click(button);
+    expect(remove).toHaveBeenCalledWith(item.id);
+  });
+
   it('keeps an uncertain delivery and its confirmation controls directly visible', async () => {
     const confirmNotSent = vi.fn();
     render(

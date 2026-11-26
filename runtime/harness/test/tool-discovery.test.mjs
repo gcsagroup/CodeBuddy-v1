@@ -35,6 +35,10 @@ test('interactive discovery defers schemas while preserving native skill summary
   const found = await search.execute({ names: ['read', 'skill', 'edit'] });
   assert.deepEqual(found.missingNames, ['edit']);
   assert.deepEqual(JSON.parse(search.output.render({}, found)[0].text).tools, ['read', 'skill']);
+  const receipt = JSON.parse(search.output.render({}, found)[0].text);
+  assert.equal(receipt.discoveryOnly, true);
+  assert.equal(receipt.stage, 'schemas_loaded');
+  assert.match(receipt.guidance, /none of these tools has executed/);
   assert.deepEqual((await assemble()).tools.map(t => t.name), ['read', 'skill', 'search_mcp_tools']);
   assert.deepEqual(await step(), messages);
   hooks.get('session/event')(agent.session, { type: 'turn/end' });
@@ -401,7 +405,7 @@ test('optional Git and role tools load through the same registry and restore onl
  assert.deepEqual((await hook({}, {}, async()=>assembly())).tools.map(t=>t.name),['read','git_status']);
 });
 
-test('MCP discovery reduces first request, loads callable schemas, preserves permissions and restart', {timeout:60000}, async t=>{
+for (const toolCount of [10, 100, 1000]) test(`MCP discovery stays bounded with ${toolCount} tools and preserves permissions and restart`, {timeout:60000}, async t=>{
  const requests=[],calls=[];let initializations=0;
  const server=http.createServer(async(req,res)=>{
   if(req.method!=='POST'){res.writeHead(405).end();return;}
@@ -411,43 +415,44 @@ test('MCP discovery reduces first request, loads callable schemas, preserves per
    if(!('id' in m)){res.writeHead(202).end();return;}
    let result;
    if(m.method==='initialize'){initializations++;result={protocolVersion:'2025-03-26',capabilities:{tools:{}},serverInfo:{name:'catalog',version:'1'},instructions:'SERVER_GUIDANCE_ONLY_WHEN_LOADED'};}
-   else if(m.method==='tools/list')result={tools:Array.from({length:200},(_,i)=>({name:'tool_'+i,description:(i===137?'Read verification marker. ':'Catalog documentation. ')+ 'schema notes '.repeat(120),inputSchema:{type:'object',properties:{}}}))};
+   else if(m.method==='tools/list')result={tools:Array.from({length:toolCount},(_,i)=>({name:'tool_'+i,description:(i===7?'Read verification marker. ':'Catalog documentation. ')+ 'schema notes '.repeat(120),inputSchema:{type:'object',properties:{}}}))};
    else if(m.method==='tools/call'){calls.push(m.params.name);result={content:[{type:'text',text:'VERIFIED_MARKER'}]};}
    else {res.writeHead(200,{'content-type':'application/json'}).end(JSON.stringify({jsonrpc:'2.0',id:m.id,result:{}}));return;}
    res.writeHead(200,{'content-type':'application/json'}).end(JSON.stringify({jsonrpc:'2.0',id:m.id,result}));return;
   }
   requests.push(m);res.writeHead(200,{'content-type':'text/event-stream'});
   const emit=(delta,finish_reason=null)=>res.write(`data: ${JSON.stringify({id:'test',object:'chat.completion.chunk',created:1,model:m.model,choices:[{index:0,delta,finish_reason}]})}\n\n`);
-  const last=m.messages.findLast(x=>x.role==='user');const prompt=JSON.stringify(last?.content);
+  const last=m.messages.findLast(x=>x.role==='user' && ['hello','hello again','discover verification marker'].includes(typeof x.content === 'string' ? x.content : x.content?.map(b=>b.text??'').join('')));const prompt=JSON.stringify(last?.content);
   const toolResults=m.messages.slice(m.messages.indexOf(last)+1).filter(x=>x.role==='tool');
-  if(prompt.includes('discover')&&!toolResults.length){emit({tool_calls:[{index:0,id:'search',type:'function',function:{name:'search_mcp_tools',arguments:JSON.stringify({names:['mcp__catalog__tool_137']})}}]});emit({},'tool_calls');}
-  else if(prompt.includes('discover')&&toolResults.length===1){emit({tool_calls:[{index:0,id:'call',type:'function',function:{name:'mcp__catalog__tool_137',arguments:'{}'}}]});emit({},'tool_calls');}
+  if(prompt.includes('discover')&&!toolResults.length){emit({tool_calls:[{index:0,id:'search',type:'function',function:{name:'search_mcp_tools',arguments:JSON.stringify({names:['mcp__catalog__tool_7']})}}]});emit({},'tool_calls');}
+  else if(prompt.includes('discover')&&toolResults.length===1){emit({tool_calls:[{index:0,id:'call',type:'function',function:{name:'mcp__catalog__tool_7',arguments:'{}'}}]});emit({},'tool_calls');}
   else {emit({content:'done'});emit({},'stop');}res.end('data: [DONE]\n\n');
  });
  await new Promise(r=>server.listen(0,'127.0.0.1',r));
  const root=await mkdtemp(path.join(tmpdir(),'harness-discovery-'));let driver=await createHarnessDriver({dataDir:path.join(root,'state'),cwd:root});
  t.after(async()=>{await driver.close();server.closeAllConnections();await new Promise(r=>server.close(r));});
  const provider={id:'fixture',baseUrl:`http://127.0.0.1:${server.address().port}/v1`,contextWindow:65536};
- const options={mcpServers:[{serverName:'catalog',transport:'streamable-http',url:`http://127.0.0.1:${server.address().port}/mcp`}]};
+ const options={mainAgentRole:{baseline:()=>null,input:()=>null},mcpServers:[{serverName:'catalog',transport:'streamable-http',url:`http://127.0.0.1:${server.address().port}/mcp`}]};
  const create=()=>driver.createSession({cwd:root,provider,model:'fixture',options});
  const a=await create();await driver.prompt(a.sessionId,'hello');
  assert.equal(requests.at(-1).tools.filter(x=>x.function.name.startsWith('mcp__')).length,0);
  assert.doesNotMatch(JSON.stringify(requests.at(-1).messages),/SERVER_GUIDANCE_ONLY_WHEN_LOADED/);
- assert.ok(JSON.stringify(requests.at(-1)).length<50000);
- assert.equal((await driver.listTools(a.sessionId)).filter(x=>x.name.startsWith('mcp__')).length,200);
+ assert.ok(JSON.stringify(requests.at(-1)).length < 14000, 'assembled first request must stay bounded');
+ assert.doesNotMatch(JSON.stringify(requests.at(-1).messages), /schema notes/);
+ assert.equal((await driver.listTools(a.sessionId)).filter(x=>x.name.startsWith('mcp__')).length,toolCount);
  const events=[];
  await driver.prompt(a.sessionId,'discover verification marker',{onPermission:async()=>true,onEvent:event=>events.push(event)});
  assert.ok(events.some(event=>event.type==='tool_call'&&event.name==='search_mcp_tools'&&event.internalControl), 'Schema discovery remains an internal receipt, not a project operation');
- assert.ok(events.some(event=>event.type==='tool_call'&&event.name==='mcp__catalog__tool_137'&&!event.internalControl), 'The discovered tool execution remains visible');
- assert.ok(calls.includes('tool_137'));
+ assert.ok(events.some(event=>event.type==='tool_call'&&event.name==='mcp__catalog__tool_7'&&!event.internalControl), 'The discovered tool execution remains visible');
+ assert.ok(calls.includes('tool_7'));
  assert.match(JSON.stringify(requests.at(-1).messages),/SERVER_GUIDANCE_ONLY_WHEN_LOADED/);
  assert.equal(requests.at(-1).tools.filter(x=>x.function.name.startsWith('mcp__')).length,1);
  const afterDiscovery=requests.at(-1);
- const definition=afterDiscovery.tools.find(tool=>tool.function.name==='mcp__catalog__tool_137').function;
+ const definition=afterDiscovery.tools.find(tool=>tool.function.name==='mcp__catalog__tool_7').function;
  assert.match(definition.description,/schema notes/);
  assert.deepEqual(definition.parameters,{type:'object',properties:{}});
  const receipts=afterDiscovery.messages.filter(message=>message.role==='tool');
- assert.match(JSON.stringify(receipts),/mcp__catalog__tool_137/);
+ assert.match(JSON.stringify(receipts),/mcp__catalog__tool_7/);
  assert.doesNotMatch(JSON.stringify(receipts),/schema notes/);
  const b=await create();await driver.prompt(b.sessionId,'hello');
  assert.equal(requests.at(-1).tools.filter(x=>x.function.name.startsWith('mcp__')).length,0);assert.equal(initializations,1);
@@ -455,15 +460,18 @@ test('MCP discovery reduces first request, loads callable schemas, preserves per
  const approvals=[];
  await driver.prompt(b.sessionId,'discover verification marker',{onPermission:async ({name})=>{approvals.push(name);return name==='search_mcp_tools';}});
  assert.ok(!approvals.includes('search_mcp_tools'),'loading tool schemas is read-only discovery, not an execution approval');
- assert.ok(approvals.includes('mcp__catalog__tool_137'));
+ assert.ok(approvals.includes('mcp__catalog__tool_7'));
  assert.equal(calls.length,count,'loading a tool must not bypass its execution permission');
  const explicit=await create(),explicitApprovals=[];
  await driver.prompt(explicit.sessionId,'hello');
  await driver.prompt(explicit.sessionId,'discover verification marker',{onToolPolicy:()=>({kind:'ask'}),onPermission:async ({name})=>{explicitApprovals.push(name);return name==='search_mcp_tools';}});
  assert.ok(explicitApprovals.includes('search_mcp_tools'),'an explicit ask policy still applies to discovery');
- assert.ok(explicitApprovals.includes('mcp__catalog__tool_137'));
+ assert.ok(explicitApprovals.includes('mcp__catalog__tool_7'));
  assert.equal(calls.length,count,'an explicit discovery grant does not approve the loaded tool');
  await driver.close();driver=await createHarnessDriver({dataDir:path.join(root,'state'),cwd:root});
  await driver.createSession({sessionId:a.sessionId,cwd:root,provider,model:'fixture',options});await driver.prompt(a.sessionId,'hello again');
- assert.ok(requests.at(-1).tools.some(x=>x.function.name==='mcp__catalog__tool_137'));
+ assert.ok(!requests.at(-1).tools.some(x=>x.function.name==='mcp__catalog__tool_7'), 'completed-turn schemas remain deferred after cold restore');
+ const beforeRestoreCall=calls.length;
+ await driver.prompt(a.sessionId,'discover verification marker',{onPermission:async()=>true});
+ assert.ok(calls.length > beforeRestoreCall, 'restored sessions can rediscover and call tools');
 });

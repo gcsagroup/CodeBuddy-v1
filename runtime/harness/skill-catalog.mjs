@@ -225,7 +225,7 @@ export class SkillCatalog {
           identity,
           shadowedBy,
           ...candidate
-        }) => candidate,
+        }) => ({ ...candidate, revision: this.version({ identity, rawDocument, sharedEnabled }) }),
       );
   }
 

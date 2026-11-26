@@ -45,7 +45,7 @@ test('transport timings separate response wait from reasoning and text without c
     yield { type: 'reasoning-delta', text: 'private reasoning' };
     await delay(130);
     yield { type: 'text-delta', text: 'private answer' };
-    yield { type: 'usage', usage: { inputTokens: 3000, outputTokens: 8192, reasoningTokens: 8000, secret: 'never log this' } };
+    yield { type: 'usage', usage: { inputTokens: 3000, cacheReadTokens: 2000, cacheWriteTokens: 500, totalTokens: 13692, outputTokens: 8192, reasoningTokens: 8000, secret: 'never log this' } };
     yield { type: 'finish', reason: { kind: 'stop' } };
   };
   const output = [];
@@ -67,7 +67,7 @@ test('transport timings separate response wait from reasoning and text without c
   assert.equal(end.purpose, 'compaction');
   assert.equal(end.maxTokens, 8192);
   assert.equal(end.reasoningEffort, 'low');
-  assert.deepEqual(end.usage, { inputTokens: 3000, outputTokens: 8192, reasoningTokens: 8000 });
+  assert.deepEqual(end.usage, { inputTokens: 3000, outputTokens: 8192, totalTokens: 13692, reasoningTokens: 8000, cacheReadTokens: 2000, cacheWriteTokens: 500 });
   const timing = end.timings[0];
   assert.ok(timing.headersMs - timing.bodySentMs >= 100, JSON.stringify(timing));
   assert.ok(timing.sendHeadersMs >= timing.createdMs);
@@ -114,4 +114,20 @@ test('a tool-only stream records first arguments and wall time without exposing 
   assert.equal(events.at(-1).toolCallBlocks, 1);
   assert.ok(events.every(e => Number.isSafeInteger(e.at_ms) && e.at_ms > 0));
   assert.doesNotMatch(JSON.stringify(events), /PRIVATE_CODE/);
+});
+
+
+test('assembled request sizes separate skill metadata and never expose contents', async () => {
+  const { requestContextSizes } = await import('../transport-observation.mjs');
+  const result = requestContextSizes({ messages: [
+    { role: 'system', content: 'PRIVATE_SYSTEM' },
+    { role: 'user', source: {kind: 'skill-catalog'}, content: 'PRIVATE_SKILLS' },
+    { role: 'user', content: 'ÄãºÃ' },
+    { role: 'tool', content: 'PRIVATE_RESULT' },
+  ], tools: [{name:'PRIVATE_TOOL', parameters:{}}] });
+  assert.equal(result.groups.skillCatalog.items, 1);
+  assert.equal(result.groups.system.characters, JSON.stringify('PRIVATE_SYSTEM').length);
+  assert.ok(result.groups.conversation.bytes > result.groups.conversation.characters);
+  assert.equal(result.groups.toolSchemas.items, 1);
+  assert.doesNotMatch(JSON.stringify(result), /PRIVATE_|ÄãºÃ/);
 });

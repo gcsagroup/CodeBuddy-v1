@@ -76,7 +76,7 @@ export function profileEntries(dataDir, cwd, instructionsHome = dataDir, sharedS
     { id: 'skill-modern-web-guidance', name: new URL('./modern-web-guidance-skill.mjs', import.meta.url).href },
     { id: 'skill-comfyui', name: new URL('./comfyui-skill.mjs', import.meta.url).href },
     { id: 'skill-filesystem', name: new URL('./skill-catalog.mjs', import.meta.url).href, config: { dshHome: dataDir, agentsHome: join(dataDir, 'agents'), managedWorkspaceRoot, ...(sharedSkillDir ? { sharedSkillDir } : {}) } },
-    entry('tool-skill', 'dsh-tool-skill', { catalogDescriptionMaxLength: 180 }),
+    entry('tool-skill', 'dsh-tool-skill', { catalogDescriptionMaxLength: 180, catalogIndexMaxCharacters: 640 }),
     ...(officeReady ? [
       entry('skill-office', 'dsh-skill-office', { assetRoot: officeRoot, node: process.execPath }),
       entry('tool-workspace-dependencies', 'dsh-tool-workspace-dependencies', { source: pythonRoot }),

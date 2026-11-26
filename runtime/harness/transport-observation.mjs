@@ -27,6 +27,26 @@ function codesOf(error, result = new Set(), seen = new Set()) {
   return [...result];
 }
 
+// Measures the assembled Harness request, not a tokenizer estimate or billing usage.
+// Persist only aggregate sizes; content, tool names and URLs never enter this record.
+export function requestContextSizes(options) {
+  const groups = {};
+  const add = (group, value) => {
+    const serialized = JSON.stringify(value ?? null);
+    const row = groups[group] ??= { characters: 0, bytes: 0, items: 0 };
+    row.characters += serialized.length; row.bytes += Buffer.byteLength(serialized); row.items++;
+  };
+  for (const message of options.messages ?? []) {
+    const kind = message.source?.kind;
+    const group = message.role === 'system' ? 'system' : kind === 'skill-catalog' ? 'skillCatalog'
+      : kind === 'time-context' || kind === 'runtime-context' ? 'runtimeContext'
+      : message.role === 'tool' ? 'toolResults' : 'conversation';
+    add(group, message.content);
+  }
+  for (const tool of options.tools ?? []) add('toolSchemas', tool);
+  return { version: 1, unit: 'serialized-characters-and-utf8-bytes', groups };
+}
+
 export function observeModelTransport(ctx, publish, onStreamingOutput) {
   const context = new AsyncLocalStorage();
   const requests = new WeakMap();
@@ -115,7 +135,7 @@ export function observeModelTransport(ctx, publish, onStreamingOutput) {
     });
     scope.report = report;
     return (async function* () {
-      report('start');
+      report('start', { contextSizes: requestContextSizes(options) });
       const iterator = context.run(scope, () => next()[Symbol.asyncIterator]());
       let first = false, exhausted = false, failureCode, finishKind;
       let textDeltaChars = 0, reasoningDeltaChars = 0, toolCallBlocks = 0, toolArgumentChars = 0;
@@ -137,7 +157,9 @@ export function observeModelTransport(ctx, publish, onStreamingOutput) {
           if (result.value.type === 'block-end' && result.value.block.type === 'tool-call') toolCallBlocks += 1;
           if (result.value.type === 'finish') finishKind = result.value.reason.kind;
           if (result.value.type === 'usage') {
-            usage = Object.fromEntries(['inputTokens', 'outputTokens', 'reasoningTokens', 'cachedInputTokens']
+            // Native inputTokens excludes cache reads/writes. Preserve each
+            // counter so diagnostics cannot mistake cache hits for less context.
+            usage = Object.fromEntries(['inputTokens', 'outputTokens', 'totalTokens', 'reasoningTokens', 'cacheReadTokens', 'cacheWriteTokens']
               .filter(key => Number.isFinite(result.value.usage?.[key]))
               .map(key => [key, result.value.usage[key]]));
           }

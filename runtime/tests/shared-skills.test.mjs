@@ -123,6 +123,15 @@ test('live Harness uses same catalog and existing session sees newly enabled and
   const loaded = await driver.callTool(sessionId, 'skill', { name: 'live-shared' }, { onPermission: () => true });
   assert.equal(loaded.isError, false, JSON.stringify(loaded));
   assert.match(JSON.stringify(loaded), /Shared live receipt 42/);
+  const before = (await driver.listSkills(sessionId)).find(s => s.name === 'live-shared');
+  assert.match(before.revision, /^[a-f0-9]{64}$/);
+  await put(config.sharedSkillDir, 'live-shared', raw('live-shared', 'Shared live receipt 43'));
+  await driver.refreshSkills();
+  const changed = (await driver.listSkills(sessionId)).find(s => s.name === 'live-shared');
+  assert.equal(changed.description, before.description);
+  assert.notEqual(changed.revision, before.revision, 'body-only edits invalidate the native catalog');
+  assert.equal((await driver.listSkills(sessionId)).find(s => s.name === 'live-shared').revision, changed.revision, 'unchanged catalogs retain a stable revision');
+  assert.match(JSON.stringify(await driver.callTool(sessionId, 'skill', { name: 'live-shared' }, { onPermission: () => true })), /Shared live receipt 43/);
   const enabled = (await driver.skillCatalog(root)).candidates.find(s => s.name === 'live-shared');
   await driver.setSharedSkillEnabled(root, enabled.path, await fixtureVersion(enabled), false);
   assert.ok(!(await driver.listSkills(sessionId)).some(s => s.name === 'live-shared'));

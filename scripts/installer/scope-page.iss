@@ -29,7 +29,7 @@ procedure ScopeChanged(Sender: TObject);
 var Existing: String;
 begin
   if Machine.Checked then Existing := PreviousMachine else Existing := PreviousUser;
-  if Existing <> '' then StatusText.Caption := '已安装在 ' + Existing + '，将更新此版本。'
+  if Existing <> '' then StatusText.Caption := '将覆盖升级此范围的现有 CodeBuddy，无需先卸载。' + #13#10 + '安装目录：' + Existing
   else if Machine.Checked then StatusText.Caption := '为所有用户安装需要管理员权限。'
   else StatusText.Caption := '只有当前 Windows 用户可以使用此安装。';
   UpdateScopeShield(WizardForm.CurPageID);
@@ -41,6 +41,20 @@ begin
   Result.Parent := ScopePage.Surface;
   Result.SetBounds(ScaleX(12), ScaleY(Y), ScopePage.SurfaceWidth - ScaleX(16), ScaleY(24));
   Result.Caption := Caption;
+end;
+
+procedure AddPreviousInstallation(Y: Integer; const Directory: String);
+var Info: TNewStaticText;
+begin
+  Info := TNewStaticText.Create(WizardForm);
+  Info.Parent := ScopePage.Surface;
+  Info.AutoSize := False;
+  Info.WordWrap := True;
+  Info.SetBounds(ScaleX(30), ScaleY(Y), ScopePage.SurfaceWidth - ScaleX(36), ScaleY(44));
+  if Directory <> '' then Info.Caption := '已有 CodeBuddy：' + Directory
+  else Info.Caption := '未检测到此范围的安装，将安装新副本。';
+  Info.Hint := Info.Caption;
+  Info.ShowHint := True;
 end;
 
 procedure InitializeScopePage;
@@ -64,9 +78,11 @@ begin
     ScaleY(12), ScaleX(40), ScaleY(40));
   Intro := TNewStaticText.Create(WizardForm);
   Intro.Parent := ScopePage.Surface;
-  Intro.Caption := '请选择为当前用户还是所有用户安装该软件。';
-  Machine := AddChoice(50, '为使用这台电脑的任何人安装（所有用户）');
-  Personal := AddChoice(82, '仅为我安装（' + GetUserNameString + '）');
+  Intro.Caption := '覆盖升级请选择原来的安装范围。现有用户数据会保留。';
+  Machine := AddChoice(32, '为使用这台电脑的任何人安装（所有用户）');
+  AddPreviousInstallation(58, PreviousMachine);
+  Personal := AddChoice(110, '仅为我安装（' + GetUserNameString + '）');
+  AddPreviousInstallation(136, PreviousUser);
   StatusText := TNewStaticText.Create(WizardForm);
   StatusText.Parent := ScopePage.Surface;
   StatusText.AutoSize := False;
@@ -76,6 +92,7 @@ begin
   WizardForm.BeveledLabel.Visible := True;
   Personal.OnClick := @ScopeChanged;
   Machine.OnClick := @ScopeChanged;
+  if not FixedScope then MachineRequested := (PreviousUser = '') and (PreviousMachine <> '');
   if MachineRequested then Machine.Checked := True else Personal.Checked := True;
   ScopeChanged(nil);
 end;

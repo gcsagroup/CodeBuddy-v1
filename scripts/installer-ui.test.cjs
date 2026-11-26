@@ -82,6 +82,14 @@ begin
   RequireUI(Pos('重新安装', WizardForm.SelectDirBrowseLabel.Caption) > 0, 'Existing user installation is identified');
   RequireUI(CheckSelectedLocation('${previousDirectory}') = '', 'Same-scope upgrade accepts the registered installation');
   RequireUI(CheckSelectedLocation('${otherDirectory}') <> '', 'Installations with separate uninstall records cannot share a folder');
+  RequireUI(CheckSelectedLocation(Uppercase('${previousDirectory}') + '\\') = '', 'Equivalent path with trailing separator permits upgrade');
+  RequireUI(Pos('未找到', CheckSelectedLocation('${otherDirectory}')) > 0, 'Unknown uninstaller is not mislabeled as another product');
+  OtherScopeDirectory := '${otherDirectory}';
+  RequireUI(Pos('所有用户', CheckSelectedLocation('${otherDirectory}')) > 0, 'Scope mismatch identifies the required scope');
+  RequireUI(Pos('${otherDirectory}', CheckSelectedLocation('${otherDirectory}')) > 0, 'Scope mismatch identifies the target directory');
+  RequireUI(Pos('无需先卸载', CheckSelectedLocation('${otherDirectory}')) > 0, 'Scope mismatch explains upgrade without uninstall');
+  OtherScopeDirectory := '';
+
   RequireUI(Pos('可用空间', FreeSpaceLabel.Caption) > 0, 'Available space is shown for this destination');
   DesktopShortcut.Checked := False;
   StartMenuShortcut.Checked := False;
@@ -183,6 +191,12 @@ end;`);
     .replace('  UpdateScopeShield(CurPageID);', `  UpdateScopeShield(CurPageID);
   if CurPageID = ScopePage.ID then begin
     if not Personal.Checked then RaiseException('Wrong default');
+    if Pos('覆盖升级', StatusText.Caption) = 0 then RaiseException('Existing installation must explain upgrade');
+    if Personal.Top < Machine.Top + ScaleY(68) then RaiseException('Installation directory descriptions overlap');
+    if Personal.Top + ScaleY(68) > StatusText.Top then RaiseException('Scope descriptions overlap status');
+    WizardForm.Show;
+    WizardForm.Repaint;
+    if not Exec(ExpandConstant('{sys}\\WindowsPowerShell\\v1.0\\powershell.exe'), '-NoProfile -ExecutionPolicy Bypass -File "${capture}" ' + IntToStr(WizardForm.Handle) + ' "${root}\\scope.png"', '', SW_HIDE, ewWaitUntilTerminated, InnerResult) or (InnerResult <> 0) then RaiseException('Scope capture failed');
     Machine.Checked := True;
     SaveStringToFile('${parentWindow}', AnsiString(IntToStr(WizardForm.Handle)), False);
     PostMessage(WizardForm.NextButton.Handle, 245, 0, 0);
@@ -198,7 +212,7 @@ end;`);
   const buildLauncher = (script, payload) => compile('/DInnerSetup=' + payload, '/DBundledData=' + dataSlice, '/DOutputDir=' + root,
     '/DProductIcon=' + path.join(repo, 'ui/desktop/src/images/icon.ico'),
     '/DProductImage=' + path.join(repo, 'ui/desktop/src/images/icon-512.png'),
-    '/DChineseMessages=' + tools.chineseMessages, '/DAppVersion=1.0', script);
+    '/DChineseMessages=' + tools.chineseMessages, '/DProductUninstallId=' + fixtureAppId, '/DAppVersion=1.0', script);
   buildLauncher(wrapperScript, path.join(root, 'ScopeProbe.exe'));
   const preview = spawnSync(path.join(root, 'CodeBuddy-Setup.exe'), [], { timeout: 12000 });
   assert.equal(preview.error, undefined);

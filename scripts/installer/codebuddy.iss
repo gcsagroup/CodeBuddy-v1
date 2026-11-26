@@ -182,9 +182,20 @@ function CheckSelectedLocation(const Target: String): String;
 begin
   Result := InstallLocationProblem(Target);
   if Result <> '' then Exit;
-  if FileExists(AddBackslash(Target) + 'unins000.exe') and
-     (CompareText(RemoveBackslashUnlessRoot(Target), PreviousScopeDirectory) <> 0) then
-    Result := '此文件夹已包含其他安装。请选择单独的目录，或重新打开安装包并选择原来的安装范围。';
+  if SameInstallDirectory(Target, OtherScopeDirectory) then begin
+    if IsAdminInstallMode then
+      Result := '此目录是 CodeBuddy 的“仅为我安装”版本：' + #13#10 + Target + #13#10#13#10 +
+        '要覆盖升级，请关闭当前安装向导，在安装选项中选择“仅为我安装”，再使用此目录。'
+    else
+      Result := '此目录是 CodeBuddy 的“所有用户”版本：' + #13#10 + Target + #13#10#13#10 +
+        '要覆盖升级，请关闭当前安装向导，在安装选项中选择“所有用户”，再使用此目录。';
+    Result := Result + #13#10 + '无需先卸载，现有用户数据会保留。';
+    Exit;
+  end;
+  if SameInstallDirectory(Target, PreviousScopeDirectory) then Exit;
+  if FileExists(AddBackslash(Target) + 'unins000.exe') then
+    Result := '此目录中存在卸载程序，但未找到与当前安装范围匹配的 CodeBuddy 安装记录：' + #13#10 + Target + #13#10#13#10 +
+      '为避免覆盖其他安装，暂时不能写入。请返回安装选项确认原来的安装范围和目录，或选择一个新目录。' + #13#10 + '不要手动删除卸载程序；这不会修复安装记录。';
 end;
 
 function NextButtonClick(CurPageID: Integer): Boolean;

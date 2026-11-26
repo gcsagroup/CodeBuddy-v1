@@ -1,8 +1,21 @@
 { Shared native layout, also compiled by the isolated installer UI tests. }
 var
-  PreviousScopeDirectory: String;
+  PreviousScopeDirectory, OtherScopeDirectory: String;
   ScopeDescription: String;
   FreeSpaceLabel: TNewStaticText;
+
+function NormalizedInstallDirectory(const Directory: String): String;
+begin
+  Result := '';
+  if Directory <> '' then
+    Result := RemoveBackslashUnlessRoot(ExpandFileName(Directory));
+end;
+
+function SameInstallDirectory(const Left, Right: String): Boolean;
+begin
+  Result := (Left <> '') and (Right <> '') and
+    (CompareText(NormalizedInstallDirectory(Left), NormalizedInstallDirectory(Right)) = 0);
+end;
 
 procedure UpdateLocationSummary(Sender: TObject);
 var
@@ -11,8 +24,8 @@ var
 begin
   Target := RemoveBackslashUnlessRoot(WizardDirValue);
   WizardForm.SelectDirBrowseLabel.Caption := '';
-  if (PreviousScopeDirectory <> '') and (CompareText(Target, PreviousScopeDirectory) = 0) then
-    WizardForm.SelectDirBrowseLabel.Caption := ScopeDescription + ' 将在此目录更新或重新安装现有版本。';
+  if SameInstallDirectory(Target, PreviousScopeDirectory) then
+    WizardForm.SelectDirBrowseLabel.Caption := ScopeDescription + ' 将覆盖升级或重新安装现有 CodeBuddy，无需先卸载。';
   WizardForm.SelectDirBrowseLabel.Visible := WizardForm.SelectDirBrowseLabel.Caption <> '';
   while (Target <> '') and not DirExists(Target) do
   begin
@@ -26,9 +39,17 @@ begin
 end;
 
 procedure InitializeLocationSummary;
+var Key: String;
 begin
-  RegQueryStringValue(HKA, 'Software\Microsoft\Windows\CurrentVersion\Uninstall\' +
-    ExpandConstant('{#SetupSetting("AppId")}') + '_is1', 'Inno Setup: App Path', PreviousScopeDirectory);
+  Key := 'Software\Microsoft\Windows\CurrentVersion\Uninstall\' +
+    ExpandConstant('{#SetupSetting("AppId")}') + '_is1';
+  if IsAdminInstallMode then begin
+    RegQueryStringValue(HKLM64, Key, 'Inno Setup: App Path', PreviousScopeDirectory);
+    RegQueryStringValue(HKCU64, Key, 'Inno Setup: App Path', OtherScopeDirectory);
+  end else begin
+    RegQueryStringValue(HKCU64, Key, 'Inno Setup: App Path', PreviousScopeDirectory);
+    RegQueryStringValue(HKLM64, Key, 'Inno Setup: App Path', OtherScopeDirectory);
+  end;
   if IsAdminInstallMode then ScopeDescription := '为此电脑上的所有用户安装。'
   else ScopeDescription := '仅为当前用户安装。';
   FreeSpaceLabel := TNewStaticText.Create(WizardForm);

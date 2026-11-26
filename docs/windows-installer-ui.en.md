@@ -17,3 +17,9 @@ User-provided reference screenshots inform layout and visual hierarchy while Cod
 ## Loading animation sizing
 
 The initial HTML and React startup screens use a 56px frame and 36px mark; conversation loading uses a 44px frame and 28px mark. Text is 14px with lighter shadows and tighter spacing. Centering, light/dark themes, reduced motion and ready-state transitions are preserved. Sidebar running indicators and installer/session logic are unchanged.
+
+## In-place upgrades and installation scope
+
+The scope selector shows the existing CodeBuddy directory for both current-user and all-users installations. If only an all-users installation is registered, that scope is selected by default. If both exist, current-user remains the default; installations are not migrated or combined automatically. Explicit update arguments take precedence.
+
+The location page reads the selected scope’s 64-bit installation record and compares normalized paths, ignoring case and trailing separators. A directory registered under the other scope produces a message naming the required scope, destination, and steps to return to the selector; uninstalling first is unnecessary. A directory containing an uninstaller without a matching installation record remains protected. Its filename alone does not identify it as CodeBuddy, and users are not instructed to delete the uninstaller.

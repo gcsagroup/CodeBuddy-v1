@@ -891,7 +891,7 @@ export function AppInner() {
       <RecipeParamsModalContainer />
       <div data-platform={window.electron?.platform} className="desktop-shell relative w-screen h-screen overflow-hidden bg-background-secondary flex flex-col">
         {location.pathname !== '/launcher' && location.pathname !== '/standalone-app' && <WindowMenuBar />}
-        {location.pathname !== '/launcher' && location.pathname !== '/standalone-app' && <RuntimeUpdateNotice />}
+        <RuntimeUpdateNotice enabled={location.pathname !== '/launcher' && location.pathname !== '/standalone-app'}>
         <div className="relative w-full flex-1 min-h-0">
           <CodeProRouteGuard>
             <Routes location={settingsBackgroundLocation ?? location}>
@@ -968,6 +968,7 @@ export function AppInner() {
             )}
           </CodeProRouteGuard>
         </div>
+        </RuntimeUpdateNotice>
       </div>
     </>
   );

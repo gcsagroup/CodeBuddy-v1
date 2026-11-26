@@ -2732,3 +2732,43 @@ it('retains capacity provenance across partial usage updates, but never carries 
   update(1048576);
   expect(acpChatSessionStore.getSnapshot(id)?.tokenState.contextCapacitySource).toBeUndefined();
 });
+
+it('shows an automatically delivered queued user bubble after terminal sealing without reopening duplicate input', () => {
+  const id = 'queued-human-after-terminal';
+  acpChatSessionActions.startPromptAttempt(id, 'human-attempt', 'user-1');
+  acpChatSessionActions.applyAcpSessionNotification(activeRunNotification(id, 'human-run'));
+  acpChatSessionActions.applyAcpGooseSessionNotification(
+    completedSkippedTurnTerminalNotification(id, 'human-run')
+  );
+  const reminder: SessionNotification = {
+    sessionId: id,
+    update: {
+      sessionUpdate: 'user_message_chunk',
+      content: { type: 'text', text: 'NATIVE_REMINDER' },
+      messageId: 'native-source',
+      _meta: { goose: { messageId: 'native-source', queuedWhileBusy: true } },
+    },
+  };
+  const admitted = acpChatSessionActions.applyAcpSessionNotification(reminder);
+  expect(admitted.chatState).toBe(ChatState.Streaming);
+  expect(admitted.promptRequestId).toBeNull();
+  expect(
+    admitted.messages.find((message) => message.id === 'native-source')?.metadata.queuedWhileBusy
+  ).toBe(true);
+  acpChatSessionActions.applyAcpSessionNotification(activeRunNotification(id, 'native-run'));
+  const streamed = acpChatSessionActions.applyAcpSessionNotification(
+    agentMessageChunkNotification(id, 'native-answer', 'VISIBLE_NATIVE_ANSWER')
+  );
+  expect(JSON.stringify(streamed.messages)).toContain('VISIBLE_NATIVE_ANSWER');
+  const finished = acpChatSessionActions.applyAcpGooseSessionNotification(
+    completedSkippedTurnTerminalNotification(id, 'native-run', 'native-source')
+  );
+  expect(finished.chatState).toBe(ChatState.Idle);
+  acpChatSessionActions.applyAcpSessionNotification(reminder);
+  const late = acpChatSessionActions.applyAcpSessionNotification(
+    agentMessageChunkNotification(id, 'late-answer', 'MUST_NOT_REOPEN')
+  );
+  expect(late.chatState).toBe(ChatState.Idle);
+  expect(JSON.stringify(late.messages)).not.toContain('MUST_NOT_REOPEN');
+  expect(late.messages.filter((message) => message.id === 'native-source')).toHaveLength(1);
+});

@@ -3812,42 +3812,6 @@
   "goosehintsSection.title": {
     "defaultMessage": "Project instructions (AGENTS.md)"
   },
-  "groupedExtensionLoadingToast.askGoose": {
-    "defaultMessage": "Hỏi CodeBuddy"
-  },
-  "groupedExtensionLoadingToast.collapseDetails": {
-    "defaultMessage": "Thu gọn chi tiết"
-  },
-  "groupedExtensionLoadingToast.copied": {
-    "defaultMessage": "Đã sao chép!"
-  },
-  "groupedExtensionLoadingToast.copyError": {
-    "defaultMessage": "Lỗi sao chép"
-  },
-  "groupedExtensionLoadingToast.expandDetails": {
-    "defaultMessage": "Mở rộng chi tiết"
-  },
-  "groupedExtensionLoadingToast.failedToAddExtension": {
-    "defaultMessage": "Không thể thêm tiện ích mở rộng"
-  },
-  "groupedExtensionLoadingToast.failedToLoad": {
-    "defaultMessage": "{count,plural,one{# tiện ích mở rộng không tải được} other{# tiện ích mở rộng không tải được}}"
-  },
-  "groupedExtensionLoadingToast.loadingExtensions": {
-    "defaultMessage": "{count,plural,one{Đang tải # tiện ích mở rộng...} other{Đang tải # tiện ích mở rộng...}}"
-  },
-  "groupedExtensionLoadingToast.partiallyLoaded": {
-    "defaultMessage": "{totalCount,plural,one{Đã tải {successCount}/# tiện ích mở rộng} other{Đã tải {successCount}/# tiện ích mở rộng}}"
-  },
-  "groupedExtensionLoadingToast.showDetails": {
-    "defaultMessage": "Hiện chi tiết"
-  },
-  "groupedExtensionLoadingToast.showLess": {
-    "defaultMessage": "Hiện ít hơn"
-  },
-  "groupedExtensionLoadingToast.successfullyLoaded": {
-    "defaultMessage": "{count,plural,one{Đã tải thành công # tiện ích mở rộng} other{Đã tải thành công # tiện ích mở rộng}}"
-  },
   "headersSection.add": {
     "defaultMessage": "Thêm"
   },
@@ -4682,9 +4646,6 @@
   "messageQueue.removeFromQueue": {
     "defaultMessage": "Xóa tin nhắn này khỏi hàng đợi"
   },
-  "messageQueue.retrySave": {
-    "defaultMessage": "Retry saving queue"
-  },
   "messageQueue.save": {
     "defaultMessage": "Lưu"
   },
@@ -4705,12 +4666,6 @@
   },
   "messageQueue.steer": {
     "defaultMessage": "Chỉ dẫn"
-  },
-  "messageQueue.storageConflict": {
-    "defaultMessage": "This queue changed in another window. Sending and saving are paused to avoid overwriting it. Keep this window open and compare the queued messages."
-  },
-  "messageQueue.storageFailure": {
-    "defaultMessage": "The queue could not be saved or restored. Messages and attachments in this window are kept in memory. Keep this window open to avoid losing them."
   },
   "messageQueue.verifyDelivery": {
     "defaultMessage": "Sending result unknown. Check the conversation before retrying."
@@ -10274,17 +10229,11 @@
   "modelInventory.acknowledge": {
     "defaultMessage": "Đã hiểu"
   },
-  "modelInventory.actionFailed": {
-    "defaultMessage": "Thao tác thất bại. Mô hình đã chọn không thay đổi. Hãy thử lại."
-  },
   "modelInventory.changed": {
     "defaultMessage": "{model}: nhà cung cấp đã thay đổi {fields}. Hãy kiểm tra cài đặt mô hình."
   },
   "modelInventory.context": {
     "defaultMessage": "dung lượng ngữ cảnh"
-  },
-  "modelInventory.failed": {
-    "defaultMessage": "Không thể làm mới kết nối. Danh sách trước được giữ lại; điều này không có nghĩa là mô hình đã bị gỡ bỏ."
   },
   "modelInventory.image": {
     "defaultMessage": "đầu vào hình ảnh"
@@ -10304,13 +10253,31 @@
   "modelInventory.thinking": {
     "defaultMessage": "tùy chọn suy luận"
   },
-  "modelInventory.title": {
-    "defaultMessage": "Cập nhật kết nối mô hình"
-  },
   "modelInventory.tools": {
     "defaultMessage": "gọi công cụ"
   },
   "thinkingEffortPicker.unsupportedLabel": {
     "defaultMessage": "Không thể điều chỉnh"
+  },
+  "modelInventory.capabilityTitle": {
+    "defaultMessage": "Khả năng của mô hình đã thay đổi"
+  },
+  "modelInventory.collapse": {
+    "defaultMessage": "Tạm ẩn"
+  },
+  "modelInventory.details": {
+    "defaultMessage": "Xem chi tiết"
+  },
+  "modelInventory.refreshSummary": {
+    "defaultMessage": "Giữ nguyên danh sách đã lưu. Điều này không có nghĩa là mô hình đã bị gỡ bỏ."
+  },
+  "modelInventory.refreshTitle": {
+    "defaultMessage": "Không thể làm mới danh sách mô hình"
+  },
+  "modelInventory.reviewTitle": {
+    "defaultMessage": "Một số mô hình không còn trong danh sách"
+  },
+  "modelInventory.selectionSummary": {
+    "defaultMessage": "Lựa chọn mô hình không thay đổi. Hãy xem chi tiết trước khi tiếp tục."
   }
 }

@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { currentLocale } from '../i18n';
 import { selectNativeText } from '../utils/nativeLocalization';
 import { PetSprite } from './PetSprite';
+import './petSettings.css';
 import { petStates, type PetAnimation, type PetPreferences, type PetSnapshot } from './petTypes';
 
 const t = (en: string, cn: string, tw: string) => selectNativeText(currentLocale, en, cn, tw);
@@ -51,7 +52,7 @@ export default function PetSettings() {
     t('Look', '观察', '觀察'),
   ];
   return (
-    <section className="space-y-6 text-text-primary">
+    <section className="pet-settings space-y-4 text-text-primary">
       <div className="flex items-center justify-between gap-3">
         <p className="text-sm text-text-secondary">
           {t(
@@ -70,9 +71,10 @@ export default function PetSettings() {
             : t('Show pet', '显示宠物', '顯示寵物')}
         </button>
       </div>
-      <div className="flex min-h-64 flex-col items-center justify-center rounded-2xl border border-border-subtle bg-background-default p-6">
+      <div className="pet-settings-preview rounded-xl border border-border-subtle bg-background-default">
+        <div className="pet-settings-stage">
         {pet && (
-          <div style={{ width: 192, height: 208 }}>
+          <div style={{ width: 144, height: 156 }}>
             <PetSprite
               pet={pet}
               animation={animation}
@@ -81,10 +83,12 @@ export default function PetSettings() {
             />
           </div>
         )}
+        </div>
+        <div className="pet-settings-info">
         <p className="font-medium">
           {pet?.name || t('No pet selected', '尚未选择宠物', '尚未選擇寵物')}
         </p>
-        <p className="mt-1 max-w-lg break-words text-center text-sm text-text-muted">
+        <p className="mt-1 break-words text-sm leading-relaxed text-text-muted">
           {pet?.description ||
             (!pet &&
               t(
@@ -93,7 +97,8 @@ export default function PetSettings() {
                 '在下方預覽喜歡的形象，點擊「設為桌面寵物」即可顯示。'
               ))}
         </p>
-        <label className="mt-3 flex items-center gap-2 text-sm">
+        <div className="pet-settings-preview-actions">
+        <label className="flex items-center gap-2 text-sm">
           {t('Preview animation', '预览动作', '預覽動作')}
           <select
             className="rounded border border-border-subtle bg-background-primary p-1"
@@ -109,14 +114,16 @@ export default function PetSettings() {
           </select>
         </label>
         <button
-          className={`${button} mt-2`}
+          className={button}
           disabled={!pet}
           onClick={() => setPreviewPlayback((value) => value + 1)}
         >
           {t('Replay animation', '重播动作', '重播動作')}
         </button>
+        </div>
+        </div>
       </div>
-      <div className="flex flex-wrap items-center gap-5 text-sm">
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm">
         <label className="flex items-center gap-2">
           {t('Size', '大小', '大小')}
           <select

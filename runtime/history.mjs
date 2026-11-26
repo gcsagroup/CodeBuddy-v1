@@ -8,10 +8,72 @@ const invalid = message => Object.assign(new Error(message), { code: -32602 });
 const text = value => typeof value === 'string' ? value : JSON.stringify(value) ?? '';
 const timestamp = (value, fallback) => typeof value === 'string' && Number.isFinite(Date.parse(value)) ? new Date(value).toISOString() : fallback;
 
+export const normalizeHistoryQuery = value => String(value ?? '').normalize('NFKC').toLocaleLowerCase().replace(/\s+/gu, ' ').trim();
+
+async function searchableHistory(directory, session) {
+  const chunks = new Map();
+  for (const [index, update] of (session.updates ?? []).entries()) {
+    if (update.content?.type !== 'text' || ![undefined, 'user_message_chunk', 'agent_message_chunk'].includes(update.sessionUpdate)) continue;
+    if (update._meta?.goose?.userVisible === false) continue;
+    const key = JSON.stringify([update.sessionUpdate, update.messageId ?? index]);
+    const parts = chunks.get(key) ?? [];
+    parts.push(update.content.text ?? ''); chunks.set(key, parts);
+  }
+  const documents = [...chunks.values()].map(parts => normalizeHistoryQuery(parts.join('')));
+  const conversation = session.legacyHistory
+    ? await loadLegacyConversation(directory, session.legacyHistory) : session.historyConversation ?? [];
+  for (const message of conversation) {
+    if (message.metadata?.userVisible === false) continue;
+    documents.push(normalizeHistoryQuery((message.content ?? []).filter(block => block.type === 'text').map(block => block.text).join('')));
+  }
+  return documents;
+}
+
+export async function matchesHistorySearch(directory, session, query) {
+  query = normalizeHistoryQuery(query);
+  return [session.title, session.cwd].some(value => normalizeHistoryQuery(value).includes(query)) ||
+    (await searchableHistory(directory, session)).some(value => value.includes(query));
+}
+
 // These are display projections only. Import never creates a Harness session,
 // a CodePro run, a permission receipt, or a resumable execution context.
 export class HistoryService {
-  constructor(store) { this.store = store; }
+  constructor(store) { this.store = store; this.searchCache = new Map(); this.searchBytes = 0; }
+
+  async matches(session, query, live) {
+    query = normalizeHistoryQuery(query);
+    if ([session.title, session.cwd].some(value => normalizeHistoryQuery(value).includes(query))) return true;
+    const version = this.store.sessionVersion?.(session.id);
+    if (version === undefined) return matchesHistorySearch(this.store.directory, withLiveTranscript(session, live), query);
+    let cached = this.searchCache.get(session.id);
+    if (cached?.version !== version) {
+      if (cached) { this.searchBytes -= cached.bytes; this.searchCache.delete(session.id); }
+      const saved = this.store.readSession(session.id, { fields: ['updates', 'historyConversation', 'legacyHistory'] });
+      if (!saved) return false;
+      const documents = await searchableHistory(this.store.directory, saved);
+      const bytes = documents.reduce((size, text) => size + text.length * 2, 0);
+      cached = { version, documents, bytes };
+      const limit = 64 * 1024 * 1024;
+      while (this.searchCache.size && this.searchBytes + bytes > limit) {
+        const [id, entry] = this.searchCache.entries().next().value;
+        this.searchBytes -= entry.bytes; this.searchCache.delete(id);
+      }
+      // A concurrent commit must not publish an obsolete entry as the new version.
+      if (bytes <= limit && this.store.sessionVersion(session.id) === version) {
+        const prior = this.searchCache.get(session.id);
+        if (prior) this.searchBytes -= prior.bytes;
+        this.searchCache.set(session.id, cached); this.searchBytes += bytes;
+      }
+    }
+    if (cached.documents.some(text => text.includes(query))) return true;
+    return live ? matchesHistorySearch(this.store.directory, withLiveTranscript({updates:[]}, live), query) : false;
+  }
+
+  pruneSearch(ids) {
+    for (const [id, entry] of this.searchCache) if (!ids.has(id)) {
+      this.searchCache.delete(id); this.searchBytes -= entry.bytes;
+    }
+  }
 
   async request(method, params = {}, liveReplay) {
     if (method === 'session/export') {

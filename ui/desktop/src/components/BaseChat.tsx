@@ -39,7 +39,6 @@ import RecipeActivities from './recipes/RecipeActivities';
 import {
   getTextAndImageContent,
   getToolRequests,
-  insertPresentedUserMessage,
   type Message,
   type UserInput,
 } from '../types/message';
@@ -186,7 +185,6 @@ export default function BaseChat({
     updateSession,
     handleSubmit,
     resumeAfterWorkspace,
-    onSteerQueuedMessage,
     submitElicitationResponse,
     pendingElicitationRequests,
     stopStreaming,
@@ -202,9 +200,7 @@ export default function BaseChat({
     promptActivity,
     cancelling,
     activeRunId,
-    pauseQueueOnStop,
     queueProcessingBlocked,
-    canSubmitQueuedMessageWhileLoading,
     onMessageUpdate,
   } = useChatSession({
     sessionId,
@@ -224,25 +220,7 @@ export default function BaseChat({
       ),
     [messages, pendingElicitationRequests]
   );
-  const pendingSession = useRef(sessionId);
-  pendingSession.current = sessionId;
-  const [pendingMessage, setPendingMessage] = useState<{
-    sessionId: string;
-    message: Message;
-  }>();
-  const onPendingMessageChange = useCallback(
-    (sourceSessionId: string, message: Message | undefined) => {
-      if (sourceSessionId !== pendingSession.current) return;
-      setPendingMessage(message ? { sessionId: sourceSessionId, message } : undefined);
-    },
-    []
-  );
-  const presentedHistory = useMemo(() => {
-    const history = elicitationPresentation.history;
-    const pending = pendingMessage?.sessionId === sessionId ? pendingMessage.message : undefined;
-    if (!pending || history.some((item) => item.id === pending.id)) return history;
-    return insertPresentedUserMessage(history, pending);
-  }, [elicitationPresentation.history, pendingMessage, sessionId]);
+  const presentedHistory = elicitationPresentation.history;
   const [workspaceReconfirmationPending, setWorkspaceReconfirmationPending] = useState(false);
   const [workspaceReconfirmationError, setWorkspaceReconfirmationError] = useState<string | null>(
     null
@@ -1077,20 +1055,12 @@ export default function BaseChat({
                   !loadingHistory && !cancelling && !queueProcessingBlocked && !acpRecovering &&
                   !modeSaving && !workspaceReconfirmation
                   ? () => onMessageUpdate(stoppedRequest, '', 'resume_stopped') : undefined}
-                onPendingMessageChange={onPendingMessageChange}
-                onSteerQueuedMessage={onSteerQueuedMessage}
-                automaticSteeringAllowed={Boolean(activeRunId) && !cancelling && !acpRecovering &&
-                  !loadingHistory && !modeSaving && !workspaceReconfirmation}
                 globalConversation={session?.global_conversation}
-                pauseQueueOnStop={pauseQueueOnStop}
                 queueProcessingBlocked={
                   queueProcessingBlocked || acpRecovering || modeSaving || !!workspaceReconfirmation
                 }
                 queueBlockedReason={
                   modeSaving ? intl.formatMessage(i18n.changingPermissions) : undefined
-                }
-                canSubmitQueuedMessageWhileLoading={
-                  canSubmitQueuedMessageWhileLoading && !acpRecovering && !loadingHistory
                 }
                 commandHistory={commandHistory}
                 initialValue={initialPrompt}

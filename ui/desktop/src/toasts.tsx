@@ -1,14 +1,10 @@
-import { cssTransition, toast, ToastOptions } from 'react-toastify';
+import { toast, ToastOptions } from 'react-toastify';
 import './components/extension-toast.css';
 import { Button } from './components/ui/button';
 import { Tooltip, TooltipContent, TooltipTrigger } from './components/ui/Tooltip';
 import Copy from './components/icons/Copy';
 import { startNewSession } from './sessions';
 import { useNavigation } from './hooks/useNavigation';
-import {
-  GroupedExtensionLoadingToast,
-  ExtensionLoadingStatus,
-} from './components/GroupedExtensionLoadingToast';
 import { getInitialWorkingDir } from './utils/workingDir';
 import { defineMessages, useIntl } from './i18n';
 
@@ -23,11 +19,6 @@ const i18n = defineMessages({
   },
 });
 
-const extensionToastTransition = cssTransition({
-  enter: 'codepro-extension-toast-enter',
-  exit: 'codepro-extension-toast-exit',
-  collapseDuration: 280,
-});
 
 export interface ToastServiceOptions {
   silent?: boolean;
@@ -90,60 +81,6 @@ class ToastService {
   }
 
   /**
-   * Create a grouped extension loading toast that can be updated as extensions load
-   */
-  extensionLoading(
-    extensions: ExtensionLoadingStatus[],
-    totalCount: number,
-    isComplete: boolean = false
-  ): string | number {
-    if (this.silent) {
-      return 'silent';
-    }
-
-    const toastId = 'extension-loading';
-    const options: ToastOptions = {
-      autoClose: isComplete ? 5000 : false,
-      closeButton: true,
-      closeOnClick: false,
-      pauseOnHover: true,
-      pauseOnFocusLoss: false,
-      transition: extensionToastTransition,
-    };
-
-    // Check if toast already exists
-    if (toast.isActive(toastId)) {
-      // Update existing toast
-      toast.update(toastId, {
-        render: (
-          <GroupedExtensionLoadingToast
-            extensions={extensions}
-            totalCount={totalCount}
-            isComplete={isComplete}
-          />
-        ),
-        ...options,
-      });
-    } else {
-      // Create new toast
-      toast(
-        <GroupedExtensionLoadingToast
-          extensions={extensions}
-          totalCount={totalCount}
-          isComplete={isComplete}
-        />,
-        {
-          ...commonToastOptions,
-          toastId,
-          ...options,
-        }
-      );
-    }
-
-    return toastId;
-  }
-
-  /**
    * Handle errors with consistent logging and toast notifications
    * Consolidates the functionality of the original handleError function
    */
@@ -160,8 +97,6 @@ class ToastService {
 // Export a singleton instance for use throughout the app
 export const toastService = ToastService.getInstance();
 
-// Re-export ExtensionLoadingStatus for convenience
-export type { ExtensionLoadingStatus };
 
 const commonToastOptions: ToastOptions = {
   position: 'top-right',

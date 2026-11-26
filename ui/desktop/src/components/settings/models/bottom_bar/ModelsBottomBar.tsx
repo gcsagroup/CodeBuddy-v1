@@ -10,13 +10,14 @@ import {
   Settings,
 } from 'lucide-react';
 import { DropdownChevron } from '../../../ui/DropdownChevron';
+import { selectNativeText } from '../../../../utils/nativeLocalization';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useModelAndProvider } from '../../../ModelAndProviderContext';
 import { ModelThinkingMenu } from '../../../ThinkingEffortPicker';
 import { acpListProviderDetails, acpRefreshProviderModels } from '../../../../acp/providers';
 import { acpErrorData } from '../../../../acp/errors';
 import { NetworkAccessCancelled } from '../../../../utils/networkAccess';
-import { connectionMessages } from '../../providers/connectionMessages';
+import { connectionMessages, connectionNetworkReason } from '../../providers/connectionMessages';
 import {
   providerActivationDisabledReason,
   type ProviderDetails,
@@ -84,7 +85,7 @@ function refreshFailureReason(error: unknown, intl: ReturnType<typeof useIntl>) 
   if (http === 403) reason = connectionMessages.permissionDenied;
   if (http === 429) reason = connectionMessages.rateLimited;
   if (http && http >= 500) reason = connectionMessages.serviceUnavailable;
-  return [http && `HTTP ${http}`, intl.formatMessage(reason ?? i18n.unknownReason)].filter(Boolean).join(' · ');
+  return [http && `HTTP ${http}`, connectionNetworkReason(data?.networkCode, intl.locale) ?? intl.formatMessage(reason ?? i18n.unknownReason)].filter(Boolean).join(' · ');
 }
 type RefreshResult = {
   total: number;
@@ -132,6 +133,7 @@ export default function ModelsBottomBar({
     if (openRequest > 0) setOpen(true);
   }, [openRequest]);
   const [providers, setProviders] = useState<ProviderDetails[]>([]);
+  const [disabledProviders, setDisabledProviders] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
   const [loadError, setLoadError] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
@@ -163,7 +165,6 @@ export default function ModelsBottomBar({
   }, []);
   currentSession.current = sessionId;
   useEffect(() => {
-    if (!open) return;
     let active = true;
     const versions = loadVersion;
     const version = ++versions.current;
@@ -173,8 +174,9 @@ export default function ModelsBottomBar({
     void acpListProviderDetails()
       .then((all) => {
         if (!active || version !== versions.current) return;
+        setDisabledProviders(all.filter(provider => provider.enabled === false).map(provider => provider.name));
         const configured = all.filter(
-          (provider) => provider.is_configured && !providerActivationDisabledReason(provider)
+          (provider) => provider.enabled !== false && provider.is_configured && !providerActivationDisabledReason(provider)
         );
         setProviders(configured);
       })
@@ -189,6 +191,11 @@ export default function ModelsBottomBar({
       ++versions.current;
     };
   }, [open, retry]);
+  const currentDisabled = currentProvider !== null && disabledProviders.includes(currentProvider);
+  const disabledNotice = selectNativeText(intl.locale,
+    'This provider is disabled. Choose another model or enable it in settings before sending.',
+    '当前厂商已停用，请切换模型或在设置中重新启用后再发送。',
+    '目前廠商已停用，請切換模型或在設定中重新啟用後再傳送。');
   const refreshModels = async () => {
     if (refreshInFlight.current || loading || switching || !providers.length) return;
     refreshInFlight.current = true;
@@ -212,7 +219,7 @@ export default function ModelsBottomBar({
       if (!mounted.current || version !== loadVersion.current) return;
       setProviders(
         all.filter(
-          (provider) => provider.is_configured && !providerActivationDisabledReason(provider)
+          (provider) => provider.enabled !== false && provider.is_configured && !providerActivationDisabledReason(provider)
         )
       );
     } catch {
@@ -332,6 +339,7 @@ export default function ModelsBottomBar({
                     <span className="min-w-0 max-w-44 truncate @max-[20rem]/composer:hidden">
                       {getModelDisplayName(currentModel)}
                     </span>
+                    {currentDisabled && <span title={disabledNotice} className="text-text-danger">{selectNativeText(intl.locale, 'Disabled', '已停用', '已停用')}</span>}
                   </>
                 }
               />
@@ -374,6 +382,7 @@ export default function ModelsBottomBar({
             className="composer-menu-surface z-[100] flex max-h-[var(--radix-popover-content-available-height)] w-[min(17.6rem,calc(100vw-2rem))] flex-col overflow-hidden rounded-md border border-border-primary p-[5px] text-text-primary shadow-md"
           >
             <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+              {currentDisabled && <p role="status" className="p-2 text-xs text-text-danger">{disabledNotice}</p>}
               <div className="flex shrink-0 items-center gap-1">
                 <input
                   type="search"

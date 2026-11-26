@@ -1,6 +1,19 @@
 <!-- 2026-11-16 已批准：对话 sidebarPlacement 由 Compat 唯一写入，导航只消费；归属与 cwd 分离。目录切换沿用原有 Harness owner 和运行中拒绝规则。详见 docs/conversation-drag-drop.zh-CN.md。 -->
 ## 2026-11-22 已批准：启动模型清单与变更提示
 
+## 2026-11-25 已批准：立即切换与待发送队列
+
+本节覆盖下文旧“本地队列 / onSteerQueuedMessage / 立即发送不取消”描述。用户已明确批准整模块修复：普通输入排队；“立即切换”和“全部立即发送”持久化所选消息后取消当前执行，等待原轮次及子任务结算，再开始新轮次。
+
+`runtime/input-queue.mjs` 是进入原生执行前的交付账本 owner，通过现有 Session store 保存版本、独立消息身份、选择批次和命令去重记录。它调用既有 Compat prompt/cancel，不拥有模型执行、工具权限、目标完成或原生 Inbox。Harness 原生 `user/message` 消费回执是已消费的唯一依据；ACK 仅确认队列操作。批量输入经原生 maintenance barrier 接入 next-step，同一次新调用保留每条消息身份、顺序与附件。
+
+编辑、删除、清空、排序通过同一版本校验；切换中的选择冻结。Stop 暂停剩余草稿；冷启动不自动重放；不明交付先与原生消费/当前 Inbox 核对，确认未接入后才允许用户重新排队。前端只展示后台快照，旧 localStorage 仅作一次迁移和未确认命令恢复，不再独立调度。桌面 generation 沿用入队版本，显式立即发送才更新版本。
+
+繁體：待發送交付帳本由 runtime 管理，普通訊息依序等待；立即切換先取消並等待舊輪結束，再按獨立身份交付所選訊息。原生消費回執決定是否移出佇列；停止及重啟保留草稿，不自動重播不明結果。
+
+English: Runtime owns the pre-admission delivery ledger. Ordinary inputs wait in order; explicit switching cancels and settles the old execution before admitting the selected messages with separate identities. Native consumption receipts determine removal. Stop and restart preserve drafts; uncertain deliveries are never automatically replayed.
+
+
 `runtime/model-inventory.mjs` 是启动及手动模型刷新、连接身份校验、成功基线和待确认变化的唯一 writer；`providers.mjs` 只提供服务发现和能力事实。可选 `providers[].inventoryState` 在成功刷新时建立，旧状态无需迁移。`runtime/status` 投影提示与修订，桌面翻译展示，不重新裁决下架、失败或能力变化。默认模型、会话模型和用户能力覆盖仍由既有设置 owner 写入；刷新不能代替用户换模型。在途请求必须校验连接身份，关闭后禁止提交，通知确认绑定版本。详见 `docs/model-inventory-refresh.zh-CN.md`。
 
 繁體：執行階段統一持有模型清單、基線和提示；桌面僅展示，不自動切換模型。English: The runtime owns inventory, baselines and notices; the desktop only presents them and never changes model selection automatically.
@@ -1083,3 +1096,13 @@ English: Store selects run rows and metadata before cloning and still returns de
 繁體：連線事實仍歸 bridge／原生 scope；通知只去重。原始碼指紋僅供預覽診斷，不決定任務或權限。啟動與離線設定寫入沿用 profile 鎖與 Settings writer。
 
 English: Connection facts remain owned by the bridge/native scope. Notification deduplication is presentation-only. Source fingerprints are preview diagnostics, not task or permission decisions. Launch and offline settings updates reuse profile leases and the existing Settings writer.
+
+## 2026-11-24：技能目录的有界展示与内容版本
+
+原生 `dsh-tool-skill` 继续持有完整目录、发布摘要、历史及加载权限。锁定版本的适配仅为主 Agent 的目录正文提供有界索引，完整 `source.entries` 保留；`search_mcp_tools(kind="skills")` 从原生、按 scope 过滤的快照分页返回候选，不加载正文、不授予执行权限。工具定义查询回执明确标记 `discoveryOnly`，真实业务结果仍来自工具执行回执。
+
+文件技能目录沿用已有文档版本哈希，注册表适配从原生已选候选转交可选 `revision`；正文变化参与原生目录摘要，触发重新加载提示。可选 `source.presentation` 标识展示版本，支持冷恢复及配置回退；旧记录缺省时原生 owner 重新发布，历史消息不删除。未提供内容版本的其他技能 provider 保留原有失效语义。实现和回退边界见 `docs/context-discovery-sdk.zh-CN.md`。
+
+繁體：原生技能外掛仍擁有完整目錄、歷史、載入與權限；有界索引及分頁搜尋只改展示。檔案技能的既有版本雜湊透過原生候選傳遞，正文變更觸發目錄更新與重新載入提示。可選展示版本支援冷恢復與回退，不刪除歷史、不建立第二套註冊表。其他 provider 未提供版本時沿用既有失效語義；查詢定義的回執不代表執行完成。
+
+English: The native skill plugin retains the complete catalog, history, loading and permissions. Bounded indexes and paginated scoped discovery are presentation only. Filesystem skill revisions reuse the existing document hash and pass through native winning candidates; body changes republish the catalog with reload guidance. Optional presentation metadata supports cold restoration and rollback without rewriting history. Providers without content revisions keep existing invalidation semantics. Schema-discovery receipts never establish tool execution results.

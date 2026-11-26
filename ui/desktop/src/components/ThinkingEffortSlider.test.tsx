@@ -22,7 +22,7 @@ const initial = (thinking: ModelThinkingSettings) => ({
   contextSource: 'catalog' as const,
 });
 
-it('keeps a saved effort visible when the endpoint has no verified controls', () => {
+it('hides unverified effort in the composer and explains it only inside the popup', () => {
   render(
     <ModelThinkingMenu
       provider="p"
@@ -34,8 +34,10 @@ it('keeps a saved effort visible when the endpoint has no verified controls', ()
     />,
     { wrapper: IntlTestWrapper }
   );
-  expect(screen.getByRole('button', { name: 'Custom Qwen' })).toHaveTextContent('Extra high');
-  expect(screen.getByText(/No verified controls/)).toBeVisible();
+  expect(screen.getByRole('button', { name: 'Custom Qwen' })).not.toHaveTextContent('Extra high');
+  expect(screen.queryByText(/Adjustable levels have not been confirmed/)).toBeNull();
+  fireEvent.click(screen.getByRole('button', { name: 'Custom Qwen' }));
+  expect(screen.getByText(/Adjustable levels have not been confirmed/)).toBeVisible();
   expect(screen.queryByRole('slider')).not.toBeInTheDocument();
 });
 const slider = () => screen.getByRole('slider', { name: 'Thinking effort' });
@@ -54,11 +56,14 @@ it('keeps service default outside the strength scale and explains that it is not
     { wrapper: IntlTestWrapper }
   );
   fireEvent.click(screen.getByRole('button', { name: 'Thinking effort: Service default' }));
-  expect(screen.queryByRole('slider')).not.toBeInTheDocument();
+  expect(slider()).toBeInTheDocument();
+  expect(acpSaveThinkingEffort).not.toHaveBeenCalled();
   expect(screen.getByText(/This does not turn thinking off/)).toBeVisible();
   expect(screen.getByText(/does not offer an off setting.*Low/)).toBeVisible();
   expect(screen.queryByRole('button', { name: 'Off' })).not.toBeInTheDocument();
-  fireEvent.click(screen.getByRole('button', { name: 'Low' }));
+  fireEvent.pointerDown(slider(), { pointerId: 1, buttons: 1 });
+  fireEvent.change(slider(), { target: { value: '0' } });
+  fireEvent.pointerUp(slider(), { pointerId: 1 });
   await waitFor(() =>
     expect(acpSaveThinkingEffort).toHaveBeenCalledExactlyOnceWith('low', 'p', 'always-on')
   );
@@ -68,7 +73,7 @@ it('keeps service default outside the strength scale and explains that it is not
   await waitFor(() =>
     expect(acpSaveThinkingEffort).toHaveBeenLastCalledWith('default', 'p', 'always-on')
   );
-  expect(screen.queryByRole('slider')).not.toBeInTheDocument();
+  expect(slider()).toBeInTheDocument();
 });
 
 it('the leftmost point sends low, not default or off, when off is unavailable', async () => {
@@ -134,7 +139,9 @@ it('shows Not adjustable for a model explicitly without thinking and does not in
     />,
     { wrapper: IntlTestWrapper }
   );
-  expect(screen.getByRole('button', { name: 'Plain model' })).toHaveTextContent('Not adjustable');
+  expect(screen.getByRole('button', { name: 'Plain model' })).not.toHaveTextContent('Not adjustable');
+  fireEvent.click(screen.getByRole('button', { name: 'Plain model' }));
+  expect(screen.getByText('This model does not support adjustable thinking.')).toBeVisible();
   expect(screen.queryByRole('slider')).not.toBeInTheDocument();
 });
 const release = (value: number) => {

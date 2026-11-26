@@ -21,8 +21,17 @@ export default class AgentSkillRegistry extends SkillRegistry {
   async list(options) { return (await this.snapshot(options)).skills; }
   async snapshot(options) {
     const value = await super.snapshot(options);
+    // Native summaries omit provider revisions. Reuse its cached winning
+    // candidates so body-only edits invalidate the native published catalog,
+    // without loading instructions or building a second skill registry.
+    const revision = this.revision;
+    const collected = await this.collect(options);
     const policies = agentPolicyFor(options?.scope);
-    return { ...value, skills: value.skills.filter(skill => policies.every(p => p.skills.includes(skill.name))) };
+    return { ...value, complete: value.complete && collected.cacheable && revision === this.revision,
+      skills: value.skills.filter(skill => policies.every(p => p.skills.includes(skill.name))).map(skill => {
+        const contentRevision = collected.entries.get(skill.name)?.candidate.revision;
+        return typeof contentRevision === 'string' ? { ...skill, revision: contentRevision } : skill;
+      }) };
   }
   async get(name, options) {
     if (agentPolicyFor(options?.scope).some(p => !p.skills.includes(name))) return undefined;

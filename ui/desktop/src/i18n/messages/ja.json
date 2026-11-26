@@ -3812,42 +3812,6 @@
   "goosehintsSection.title": {
     "defaultMessage": "Project instructions (AGENTS.md)"
   },
-  "groupedExtensionLoadingToast.askGoose": {
-    "defaultMessage": "CodeBuddyに聞く"
-  },
-  "groupedExtensionLoadingToast.collapseDetails": {
-    "defaultMessage": "詳細を折りたたむ"
-  },
-  "groupedExtensionLoadingToast.copied": {
-    "defaultMessage": "コピーしました！"
-  },
-  "groupedExtensionLoadingToast.copyError": {
-    "defaultMessage": "エラーをコピー"
-  },
-  "groupedExtensionLoadingToast.expandDetails": {
-    "defaultMessage": "詳細を展開"
-  },
-  "groupedExtensionLoadingToast.failedToAddExtension": {
-    "defaultMessage": "拡張機能の追加に失敗しました"
-  },
-  "groupedExtensionLoadingToast.failedToLoad": {
-    "defaultMessage": "{count,plural,one{# 個の拡張機能の読み込みに失敗しました} other{# 個の拡張機能の読み込みに失敗しました}}"
-  },
-  "groupedExtensionLoadingToast.loadingExtensions": {
-    "defaultMessage": "{count,plural,one{# 個の拡張機能を読み込み中...} other{# 個の拡張機能を読み込み中...}}"
-  },
-  "groupedExtensionLoadingToast.partiallyLoaded": {
-    "defaultMessage": "{totalCount,plural,one{{successCount}/# 個の拡張機能を読み込みました} other{{successCount}/# 個の拡張機能を読み込みました}}"
-  },
-  "groupedExtensionLoadingToast.showDetails": {
-    "defaultMessage": "詳細を表示"
-  },
-  "groupedExtensionLoadingToast.showLess": {
-    "defaultMessage": "表示を減らす"
-  },
-  "groupedExtensionLoadingToast.successfullyLoaded": {
-    "defaultMessage": "{count,plural,one{# 個の拡張機能を読み込みました} other{# 個の拡張機能を読み込みました}}"
-  },
   "headersSection.add": {
     "defaultMessage": "追加"
   },
@@ -4682,9 +4646,6 @@
   "messageQueue.removeFromQueue": {
     "defaultMessage": "このメッセージをキューから削除"
   },
-  "messageQueue.retrySave": {
-    "defaultMessage": "Retry saving queue"
-  },
   "messageQueue.save": {
     "defaultMessage": "保存"
   },
@@ -4705,12 +4666,6 @@
   },
   "messageQueue.steer": {
     "defaultMessage": "指示を追加"
-  },
-  "messageQueue.storageConflict": {
-    "defaultMessage": "This queue changed in another window. Sending and saving are paused to avoid overwriting it. Keep this window open and compare the queued messages."
-  },
-  "messageQueue.storageFailure": {
-    "defaultMessage": "The queue could not be saved or restored. Messages and attachments in this window are kept in memory. Keep this window open to avoid losing them."
   },
   "messageQueue.verifyDelivery": {
     "defaultMessage": "Sending result unknown. Check the conversation before retrying."
@@ -10274,17 +10229,11 @@
   "modelInventory.acknowledge": {
     "defaultMessage": "確認しました"
   },
-  "modelInventory.actionFailed": {
-    "defaultMessage": "操作に失敗しました。選択中のモデルは変更されていません。再試行してください。"
-  },
   "modelInventory.changed": {
     "defaultMessage": "{model}：提供元が{fields}を変更しました。モデル設定を確認してください。"
   },
   "modelInventory.context": {
     "defaultMessage": "コンテキスト容量"
-  },
-  "modelInventory.failed": {
-    "defaultMessage": "接続を更新できませんでした。前回の一覧を保持しています。モデルが廃止されたという意味ではありません。"
   },
   "modelInventory.image": {
     "defaultMessage": "画像入力"
@@ -10304,13 +10253,31 @@
   "modelInventory.thinking": {
     "defaultMessage": "思考オプション"
   },
-  "modelInventory.title": {
-    "defaultMessage": "モデル接続の更新"
-  },
   "modelInventory.tools": {
     "defaultMessage": "ツール呼び出し"
   },
   "thinkingEffortPicker.unsupportedLabel": {
     "defaultMessage": "調整非対応"
+  },
+  "modelInventory.capabilityTitle": {
+    "defaultMessage": "モデルの機能が変更されました"
+  },
+  "modelInventory.collapse": {
+    "defaultMessage": "一時的に閉じる"
+  },
+  "modelInventory.details": {
+    "defaultMessage": "詳細を見る"
+  },
+  "modelInventory.refreshSummary": {
+    "defaultMessage": "保存済みのモデル一覧を保持しています。モデルが削除されたという意味ではありません。"
+  },
+  "modelInventory.refreshTitle": {
+    "defaultMessage": "モデル一覧を更新できませんでした"
+  },
+  "modelInventory.reviewTitle": {
+    "defaultMessage": "一覧に表示されなくなったモデルがあります"
+  },
+  "modelInventory.selectionSummary": {
+    "defaultMessage": "選択中のモデルは変更していません。詳細を確認してから続行してください。"
   }
 }

@@ -11,7 +11,6 @@ vi.mock('../acpConnection', () => ({
   getAcpClient: vi.fn(async () => ({ prompt: transportPrompt })),
   isAcpRecovering: vi.fn(() => false),
 }));
-vi.mock('../../utils/extensionErrorUtils', () => ({ showExtensionLoadResults: vi.fn() }));
 vi.mock('../chatSessionStore', () => ({
   subscribeToAcpChatSession: vi.fn(() => () => undefined),
   acpChatSessionStore: { getSnapshot: vi.fn() },

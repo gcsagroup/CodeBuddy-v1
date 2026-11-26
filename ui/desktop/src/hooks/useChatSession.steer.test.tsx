@@ -3,8 +3,6 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { IntlTestWrapper } from '../i18n/test-utils';
 import { ChatState } from '../types/chatState';
 import type { Message, UserInput } from '../types/message';
-import { acpSteerSession } from '../acp/prompt';
-import { acpChatSessionActions } from '../acp/chatSessionStore';
 import { acpChatSessionController } from '../acp/chatSessionController';
 import { useChatSession } from './useChatSession';
 
@@ -160,10 +158,7 @@ describe('useChatSession steering acceptance', () => {
     expect(acpChatSessionController.submitMessage).toHaveBeenCalledOnce();
   });
 
-  it('pauses pending queued messages when the user stops the current turn', () => {
-    const { result } = setup();
-    expect(result.current.pauseQueueOnStop).toBe(true);
-  });
+
 
   beforeEach(() => {
     vi.clearAllMocks();
@@ -178,90 +173,6 @@ describe('useChatSession steering acceptance', () => {
     };
   });
 
-  it.each([null, 'run-2'])(
-    'honors successful acceptance after the original run changes to %s',
-    async (nextRunId) => {
-      vi.mocked(acpSteerSession).mockImplementation(async () => {
-        state.snapshot = { ...state.snapshot, activeRunId: nextRunId };
-        return { runId: 'run-1', messageId: 'accepted-steer' };
-      });
-      const { result } = setup();
-      await expect(result.current.onSteerQueuedMessage!(input)).resolves.toBe(true);
-      expect(acpSteerSession).toHaveBeenCalledOnce();
-      expect(acpChatSessionActions.addPendingLocalSteerMessage).not.toHaveBeenCalled();
-    }
-  );
-
-  it('retains the original exception so the queue pauses instead of falling back to resend', async () => {
-    const failure = new Error('Connection ended before the acceptance receipt');
-    vi.mocked(acpSteerSession).mockRejectedValue(failure);
-    const { result } = setup();
-    await expect(result.current.onSteerQueuedMessage!(input)).rejects.toBe(failure);
-    expect(acpSteerSession).toHaveBeenCalledOnce();
-    expect(acpChatSessionActions.addPendingLocalSteerMessage).not.toHaveBeenCalled();
-  });
-
-  it('adds a pending local message only when the accepted run is still current', async () => {
-    vi.mocked(acpSteerSession).mockResolvedValue({ runId: 'run-1', messageId: 'accepted-steer' });
-    const { result } = setup();
-    await expect(result.current.onSteerQueuedMessage!({ ...input, queuedWhileBusy: true })).resolves.toBe(true);
-    expect(acpSteerSession).toHaveBeenCalledWith('session-1', expect.objectContaining({
-      content: expect.arrayContaining([expect.objectContaining({ text: input.msg })]),
-      metadata: expect.objectContaining({ queuedWhileBusy: true }),
-    }), 'run-1');
-    expect(acpChatSessionActions.addPendingLocalSteerMessage).toHaveBeenCalledWith(
-      'session-1',
-      expect.objectContaining({
-        id: 'accepted-steer',
-        metadata: expect.objectContaining({ steer: true, queuedWhileBusy: true }),
-      })
-    );
-  });
-
-  it('submits an image-only reminder through the native steer endpoint', async () => {
-    vi.mocked(acpSteerSession).mockResolvedValue({ runId: 'run-1', messageId: 'image-steer' });
-    const { result } = setup();
-    await expect(
-      result.current.onSteerQueuedMessage!({
-        msg: '',
-        images: [{ data: 'aW1hZ2U=', mimeType: 'image/png' }],
-      })
-    ).resolves.toBe(true);
-    expect(acpSteerSession).toHaveBeenCalledWith(
-      'session-1',
-      expect.objectContaining({
-        content: expect.arrayContaining([expect.objectContaining({ type: 'image' })]),
-      }),
-      'run-1'
-    );
-  });
-
-  it.each(['no run', 'cancelling', 'slash command'] as const)(
-    'returns false only before sending: %s',
-    async (reason) => {
-      if (reason === 'no run') state.snapshot.activeRunId = null;
-      if (reason === 'cancelling') state.snapshot.pendingCancelPromptAttemptId = 'cancel-1';
-      const request = reason === 'slash command' ? { msg: '/clear', images: [] } : input;
-      const { result } = setup();
-      await expect(result.current.onSteerQueuedMessage!(request)).resolves.toBe(false);
-      expect(acpSteerSession).not.toHaveBeenCalled();
-    }
-  );
-
-  it.each([ChatState.Thinking, ChatState.Streaming])(
-    'allows queue recovery only for stale runnable state: %s',
-    (chatState) => {
-      state.snapshot = {
-        ...state.snapshot,
-        activeRunId: null,
-        activePromptAttemptId: null,
-        chatState,
-      };
-
-      const { result } = setup();
-      expect(result.current.canSubmitQueuedMessageWhileLoading).toBe(true);
-    }
-  );
 
   it.each([
     ['interrupted', 'paused', true, false, false],
@@ -329,20 +240,4 @@ describe('useChatSession steering acceptance', () => {
     }
   );
 
-  it.each([
-    ChatState.WaitingForUserInput,
-    ChatState.Compacting,
-    ChatState.LoadingConversation,
-    ChatState.RestartingAgent,
-  ])('does not bypass queue safety for non-runnable state: %s', (chatState) => {
-    state.snapshot = {
-      ...state.snapshot,
-      activeRunId: null,
-      activePromptAttemptId: null,
-      chatState,
-    };
-
-    const { result } = setup();
-    expect(result.current.canSubmitQueuedMessageWhileLoading).toBe(false);
-  });
 });

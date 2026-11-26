@@ -3812,42 +3812,6 @@
   "goosehintsSection.title": {
     "defaultMessage": "Project instructions (AGENTS.md)"
   },
-  "groupedExtensionLoadingToast.askGoose": {
-    "defaultMessage": "पूछें CodeBuddy"
-  },
-  "groupedExtensionLoadingToast.collapseDetails": {
-    "defaultMessage": "विवरण संक्षिप्त करें"
-  },
-  "groupedExtensionLoadingToast.copied": {
-    "defaultMessage": "नकल की गई!"
-  },
-  "groupedExtensionLoadingToast.copyError": {
-    "defaultMessage": "प्रतिलिपि त्रुटि"
-  },
-  "groupedExtensionLoadingToast.expandDetails": {
-    "defaultMessage": "विवरण विस्तृत करें"
-  },
-  "groupedExtensionLoadingToast.failedToAddExtension": {
-    "defaultMessage": "एक्सटेंशन जोड़ने में विफल"
-  },
-  "groupedExtensionLoadingToast.failedToLoad": {
-    "defaultMessage": "{count,plural,one{# एक्सटेंशन लोड होने में विफल रहा} other{# एक्सटेंशन लोड होने में विफल रहे}}"
-  },
-  "groupedExtensionLoadingToast.loadingExtensions": {
-    "defaultMessage": "{count,plural,one{# एक्सटेंशन लोड हो रहा है...} other{# एक्सटेंशन लोड हो रहा है...}}"
-  },
-  "groupedExtensionLoadingToast.partiallyLoaded": {
-    "defaultMessage": "{totalCount,plural,one{{successCount}/# एक्सटेंशन लोड किया गया} other{{successCount}/# एक्सटेंशन लोड किए गए}}"
-  },
-  "groupedExtensionLoadingToast.showDetails": {
-    "defaultMessage": "विवरण दिखाएँ"
-  },
-  "groupedExtensionLoadingToast.showLess": {
-    "defaultMessage": "कम दिखाओ"
-  },
-  "groupedExtensionLoadingToast.successfullyLoaded": {
-    "defaultMessage": "{count,plural,one{# एक्सटेंशन सफलतापूर्वक लोड हो गया} other{# एक्सटेंशन सफलतापूर्वक लोड हो गए}}"
-  },
   "headersSection.add": {
     "defaultMessage": "जोड़ें"
   },
@@ -4682,9 +4646,6 @@
   "messageQueue.removeFromQueue": {
     "defaultMessage": "इस संदेश को कतार से हटाएँ"
   },
-  "messageQueue.retrySave": {
-    "defaultMessage": "Retry saving queue"
-  },
   "messageQueue.save": {
     "defaultMessage": "सहेजें"
   },
@@ -4705,12 +4666,6 @@
   },
   "messageQueue.steer": {
     "defaultMessage": "दिशा दें"
-  },
-  "messageQueue.storageConflict": {
-    "defaultMessage": "This queue changed in another window. Sending and saving are paused to avoid overwriting it. Keep this window open and compare the queued messages."
-  },
-  "messageQueue.storageFailure": {
-    "defaultMessage": "The queue could not be saved or restored. Messages and attachments in this window are kept in memory. Keep this window open to avoid losing them."
   },
   "messageQueue.verifyDelivery": {
     "defaultMessage": "Sending result unknown. Check the conversation before retrying."
@@ -10274,17 +10229,11 @@
   "modelInventory.acknowledge": {
     "defaultMessage": "समझ गया"
   },
-  "modelInventory.actionFailed": {
-    "defaultMessage": "कार्रवाई विफल हुई। चुना गया मॉडल नहीं बदला गया। फिर प्रयास करें।"
-  },
   "modelInventory.changed": {
     "defaultMessage": "{model}: प्रदाता ने {fields} बदल दिया है। मॉडल की सेटिंग जाँचें।"
   },
   "modelInventory.context": {
     "defaultMessage": "कॉन्टेक्स्ट क्षमता"
-  },
-  "modelInventory.failed": {
-    "defaultMessage": "कनेक्शन रीफ़्रेश नहीं हुआ। पिछली सूची रखी गई है; इसका अर्थ यह नहीं है कि मॉडल हटा दिए गए हैं।"
   },
   "modelInventory.image": {
     "defaultMessage": "चित्र इनपुट"
@@ -10304,13 +10253,31 @@
   "modelInventory.thinking": {
     "defaultMessage": "सोचने के विकल्प"
   },
-  "modelInventory.title": {
-    "defaultMessage": "मॉडल कनेक्शन अपडेट"
-  },
   "modelInventory.tools": {
     "defaultMessage": "टूल कॉल"
   },
   "thinkingEffortPicker.unsupportedLabel": {
     "defaultMessage": "बदला नहीं जा सकता"
+  },
+  "modelInventory.capabilityTitle": {
+    "defaultMessage": "मॉडल की क्षमताएँ बदल गई हैं"
+  },
+  "modelInventory.collapse": {
+    "defaultMessage": "अभी छिपाएँ"
+  },
+  "modelInventory.details": {
+    "defaultMessage": "विवरण देखें"
+  },
+  "modelInventory.refreshSummary": {
+    "defaultMessage": "सहेजी गई मॉडल सूची रखी गई है। इसका अर्थ यह नहीं कि मॉडल हटा दिए गए हैं।"
+  },
+  "modelInventory.refreshTitle": {
+    "defaultMessage": "मॉडल सूची रीफ़्रेश नहीं हो सकी"
+  },
+  "modelInventory.reviewTitle": {
+    "defaultMessage": "कुछ मॉडल अब सूची में नहीं हैं"
+  },
+  "modelInventory.selectionSummary": {
+    "defaultMessage": "आपका मॉडल चयन नहीं बदला है। आगे बढ़ने से पहले विवरण देखें।"
   }
 }

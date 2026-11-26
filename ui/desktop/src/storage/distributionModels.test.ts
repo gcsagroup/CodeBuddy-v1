@@ -36,7 +36,7 @@ describe('distribution model defaults', () => {
     const provider = JSON.parse(
       fs.readFileSync(path.join(dir, 'custom_providers/custom_codebuddy_lan.json'), 'utf8')
     );
-    expect(provider.base_url).toBe('http://192.168.9.101:8001');
+    expect(provider.base_url).toBe('http://192.168.50.231:8001');
     expect(provider.requires_auth).toBe(false);
     expect(provider.preserves_thinking).toBe(true);
     expect(configureDistributionModel(dir, defaultModel)).toBe(false);

@@ -1,6 +1,6 @@
 {
   "providerId": "custom_codebuddy_lan",
-  "baseUrl": "http://192.168.9.101:8001",
+  "baseUrl": "http://192.168.50.231:8001",
   "modelId": "gemma-4-26B-A4B-it-uncensored-FP8-W8A16",
   "contextWindow": 65536,
   "imageInput": true,

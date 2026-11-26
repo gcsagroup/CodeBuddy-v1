@@ -34,27 +34,37 @@ for (const transport of ['streamable-http', 'stdio']) for (const permit of [true
     let delta;
     if (step===0) delta=tool('checkpoint',{phase:'add'});
     if (step===1) {
-      assert.match(messages,/reconcile-ledger/,'new skill summary must reach the next model request');
+      assert.match(messages,/Updated skill index/,'native catalog publishes the changed availability');
       assert.doesNotMatch(messages,/never-enabled/,'installing a shared skill does not enable it');
       assert.doesNotMatch(messages,/PRIVATE_RECONCILIATION_BODY/,'new skill bodies remain deferred');
       assert.match(messages,/ledger/,'new MCP is visible as ready or connecting');
       assert.ok(!body.tools.some(t=>t.function.name==='mcp__ledger__balance'),'new service does not dump its schemas');
+      delta=tool('search_mcp_tools',{kind:'skills',query:'reconcile'});
+    }
+    if (step===2) {
+      assert.match(JSON.stringify(body.messages.filter(m=>m.role==='tool').at(-1)),/reconcile-ledger/,'new skill must be discoverable beyond the bounded index');
+      assert.doesNotMatch(messages,/PRIVATE_RECONCILIATION_BODY/,'discovery does not load skill instructions');
       delta=tool('search_mcp_tools',{servers:['ledger']});
     }
-    if (step===2) delta=tool('skill',{name:'reconcile-ledger'});
-    if (step===3) {
+    if (step===3) delta=tool('skill',{name:'reconcile-ledger'});
+    if (step===4) {
       assert.match(messages,/PRIVATE_RECONCILIATION_BODY/);
       delta=tool('search_mcp_tools',{names:['mcp__ledger__balance']});
     }
-    if (step===4) {
+    if (step===5) {
       assert.ok(body.tools.some(t=>t.function.name==='mcp__ledger__balance'));
       delta=tool('mcp__ledger__balance');
     }
-    if (step===5) delta=tool('checkpoint',{phase:'remove'});
-    if (step===6) {
+    if (step===6) delta=tool('checkpoint',{phase:'remove'});
+    if (step===7) {
       assert.ok(!body.tools.some(t=>t.function.name==='mcp__ledger__balance'),'removed tool schema must disappear');
       const system=JSON.stringify(body.messages.filter(m=>m.role==='system'));
       assert.doesNotMatch(system,/mcp__ledger__balance/,'current directory must not retain removed tool');
+      delta=tool('search_mcp_tools',{kind:'skills',query:'reconcile'});
+    }
+    if (step===8) {
+      const receipt=body.messages.filter(m=>m.role==='tool').at(-1);
+      assert.equal(JSON.parse(receipt.content).totalMatches,0,'removed skills disappear from current discovery');
       delta={content:'DONE'};
     }
     assert.ok(delta,`Unexpected extra model request ${step}`);
@@ -93,7 +103,7 @@ for (const transport of ['streamable-http', 'stdio']) for (const permit of [true
   });
   assert.deepEqual(errors,[]);
   assert.equal(result.stopReason,'end_turn');
-  assert.equal(requests.length,7,'one prompt continues without another user message');
+  assert.equal(requests.length,9,'one prompt continues without another user message');
   assert.deepEqual(approvals,['mcp__ledger__balance']);
   assert.equal(calls.length,permit?1:0,'discovery never grants execution permission');
   assert.ok(!(await driver.listSkills(sessionId)).some(s=>s.name==='reconcile-ledger'));

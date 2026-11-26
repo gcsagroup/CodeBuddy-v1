@@ -8,7 +8,6 @@ import { ChatState } from '../../types/chatState';
 import { createUserMessage } from '../../types/message';
 import { petTaskFromSnapshot } from '../../pets/petTaskAdapter';
 
-vi.mock('../../utils/extensionErrorUtils', () => ({ showExtensionLoadResults: vi.fn() }));
 vi.mock('../prompt', () => ({ acpPromptSession: vi.fn(), acpCancelPrompt: vi.fn() }));
 vi.mock('../acpConnection', () => ({ isAcpRecovering: vi.fn(() => false) }));
 vi.mock('../permissionRequests', () => ({

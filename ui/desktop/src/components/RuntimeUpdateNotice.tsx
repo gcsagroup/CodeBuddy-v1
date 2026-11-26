@@ -1,9 +1,9 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import { useIntl } from 'react-intl';
 import { getAcpControlClient } from '../acp/acpConnection';
 import { ModelInventoryNotice, parseInventoryNotices, type InventoryNotice } from './ModelInventoryNotice';
 
-export function RuntimeUpdateNotice() {
+export function RuntimeUpdateNotice({ children, enabled = true }: { children?: ReactNode; enabled?: boolean }) {
   const intl = useIntl();
   const [restartRequired, setRestartRequired] = useState(false);
   const [notices, setNotices] = useState<InventoryNotice[]>([]);
@@ -11,6 +11,7 @@ export function RuntimeUpdateNotice() {
   const inventoryRevision = useRef<unknown>(undefined);
   const refreshNotices = useCallback(() => poll.current(), []);
   useEffect(() => {
+    if (!enabled) return;
     let active = true, pending = false;
     const refresh = async () => {
       if (pending) return;
@@ -39,8 +40,8 @@ export function RuntimeUpdateNotice() {
     const timer = window.setInterval(() => void refresh(), 5000);
     window.addEventListener('focus', refresh);
     return () => { active = false; window.clearInterval(timer); window.removeEventListener('focus', refresh); };
-  }, []);
-  return <>{restartRequired && <div role="status" data-runtime-update className="shrink-0 px-4 py-2 text-sm bg-background-secondary text-text-default border-b border-border-default">
+  }, [enabled]);
+  return <>{enabled && restartRequired && <div role="status" data-runtime-update className="shrink-0 px-4 py-2 text-sm bg-background-secondary text-text-default border-b border-border-default">
     {intl.formatMessage({ id: 'runtime.sourceChanged', defaultMessage: 'The runtime has been updated. Finish active tasks, then close and restart CodeBuddy to load the changes.' })}
-  </div>}<ModelInventoryNotice notices={notices} refresh={refreshNotices} /></>;
+  </div>}{enabled && <ModelInventoryNotice notices={notices} refresh={refreshNotices} />}{children}</>;
 }

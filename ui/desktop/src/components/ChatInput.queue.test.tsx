@@ -1,5 +1,6 @@
+import { inputQueueRequest } from '../acp/inputQueue';
 import { deliverMainConversationMessage } from '../pets/mainConversation';
-import { act, fireEvent, render, screen, within, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { IntlTestWrapper } from '../i18n/test-utils';
@@ -17,6 +18,8 @@ import type { ToolboxItem } from '../types/toolbox';
 import * as conversion from '../utils/conversionUtils';
 import { ATTACH_WORKSPACE_IMAGE } from '../workspace-panel/workspaceFilePanel';
 import { conversationMention } from './conversationMention';
+
+vi.mock('../acp/inputQueue', () => ({ inputQueueRequest: vi.fn(async () => ({ version: 1, revision: 0, paused: false, activeRunId: null, items: [], selection: null })) }));
 
 const selection = vi.hoisted(() => ({ item: null as ToolboxItem | null }));
 vi.mock('../acp/session-extensions', () => ({
@@ -144,16 +147,6 @@ function setup(
       rerender();
     },
   };
-}
-
-async function queue(text: string) {
-  const input = screen.getByTestId('chat-input');
-  fireEvent.change(input, { target: { value: text } });
-  fireEvent.keyDown(input, { key: 'Enter' });
-  expandQueueIfPresent();
-  const saved = screen.queryByRole('button', { name: 'Expand saved drafts' });
-  if (saved) fireEvent.click(saved);
-  await screen.findByText(text.replace(/\s+/g, ' ').trim());
 }
 
 const sendNow = () => {
@@ -328,23 +321,6 @@ describe('workspace images added to the composer', () => {
     expect(new QueuedMessageStorage(localStorage, 'queue-test').read()).toEqual([]);
   });
 
-  it('persists pet main conversation messages while busy and drains them in order once idle', async () => {
-    const submit = vi.fn(async (_input: UserInput, lifecycle?: MessageSubmissionLifecycle) => lifecycle?.onAccepted());
-    const view = setup(submit);
-    await act(async () => {
-      await Promise.all(Array.from({ length: 3 }, () => deliverMainConversationMessage('queue-test', { msg: 'pet first', images: [], messageId: 'pet-delivery-first' })));
-      await deliverMainConversationMessage('queue-test', { msg: 'pet second', images: [] });
-    });
-    expect(submit).not.toHaveBeenCalled();
-    const saved = new QueuedMessageStorage(localStorage, 'queue-test').read();
-    expect(saved.map(message => message.content)).toEqual(['pet first', 'pet second']);
-    view.changeState(ChatState.Idle);
-    await waitFor(() => expect(submit).toHaveBeenCalledTimes(2));
-    expect(submit.mock.calls.map(([input]) => input.msg)).toEqual(['pet first', 'pet second']);
-    expect(submit.mock.calls[0][0].messageId).toBe('pet-delivery-first');
-    expect(new QueuedMessageStorage(localStorage, 'queue-test').read()).toEqual([]);
-  });
-
   it('keeps the image as a draft until Send and never transfers it into another session', async () => {
     const normalize = vi
       .spyOn(conversion, 'compressImageDataUrl')
@@ -466,8 +442,8 @@ describe('compact queue presentation', () => {
     await userEvent.click(screen.getByText(item.content));
     expect(sendNow()).toBeDisabled();
     expect(editing.current).toBe(item.id);
-    await userEvent.click(screen.getAllByTitle('Remove this message from queue')[0]);
-    expect(remove).toHaveBeenCalledWith(item.id);
+    expect(screen.getByTitle('Remove this message from queue')).toBeDisabled();
+    expect(remove).not.toHaveBeenCalled();
     view.rerender(<MessageQueue {...props} queuedMessages={[second]} />);
     await waitFor(() => expect(editing.current).toBeNull());
     expect(screen.queryByRole('textbox')).toBeNull();
@@ -584,219 +560,6 @@ describe('ChatInput queue delivery', () => {
     expect(screen.queryByRole('button', { name: 'Remove reference: Previous task' })).toBeNull();
   });
 
-  it('preserves a reference-only message through queue persistence and reload', async () => {
-    const reference = conversationMention('native-source', 'Previous task').trim();
-    const submit = vi.fn(async (_input: UserInput, lifecycle?: MessageSubmissionLifecycle) => lifecycle?.onAccepted());
-    const view = setup(submit, undefined, false, false, { initialValue: reference });
-    fireEvent.keyDown(screen.getByTestId('chat-input'), { key: 'Enter' });
-    await waitFor(() => expect(new QueuedMessageStorage(localStorage, 'queue-test').read()[0]?.content).toBe(reference));
-    expect(screen.queryByRole('button', { name: 'Remove reference: Previous task' })).toBeNull();
-    view.unmount();
-    const restored = setup(submit);
-    restored.changeState(ChatState.Idle);
-    await userEvent.click(sendNow());
-    await waitFor(() => expect(submit).toHaveBeenCalledOnce());
-    expect(submit.mock.calls[0][0].msg).toBe(reference);
-  });
-
-  it('persists the original desktop generation and keeps it on automatic delivery after Escape', async () => {
-    updateDesktopOwnership({ paused: false, revision: null, generation: 'before', owner: null, queue: [] });
-    const submit = vi.fn(async (_input: UserInput, lifecycle?: MessageSubmissionLifecycle) => lifecycle?.onAccepted());
-    const initial = setup(submit);
-    await queue('Observe then complete independent work');
-    expect(new QueuedMessageStorage(localStorage, 'queue-test').read()[0].desktopGeneration).toBe('before');
-    expect(new QueuedMessageStorage(localStorage, 'queue-test').read()[0].queuedWhileBusy).toBe(true);
-    updateDesktopOwnership({ paused: true, revision: 'escape', generation: 'escape', pauseReason: 'escape', owner: null, queue: [] });
-    initial.changeState(ChatState.Idle);
-    await waitFor(() => expect(submit).toHaveBeenCalledOnce());
-    expect(submit.mock.calls[0][0]).toMatchObject({ msg: 'Observe then complete independent work', desktopGeneration: 'before', queuedWhileBusy: true });
-    updateDesktopOwnership({ paused: false, revision: null, generation: '', owner: null, queue: [] });
-  });
-  it.each([true, false])('delivers a supplement to a running tool through native steering; accepted=%s', async accepted => {
-    updateDesktopOwnership({ paused: false, revision: null, generation: '', owner: null, queue: [] });
-    const submit = vi.fn();
-    const steer = vi.fn(async (_input: UserInput) => accepted);
-    const running: Message = {
-      id: 'running-assistant', role: 'assistant', created: 1,
-      metadata: { userVisible: true, agentVisible: true },
-      content: [{ type: 'toolRequest', id: 'running-tool', toolCall: { name: 'pwsh', arguments: {} }, metadata: { status: 'in_progress' } }],
-    };
-    const view = setup(submit, steer, false, false, { messages: [running], automaticSteeringAllowed: true });
-    view.changeBlocked(true); // A real prompt is active; only ordinary delivery is blocked.
-    fireEvent.change(screen.getByTestId('chat-input'), { target: { value: 'Add a file after this tool' } });
-    fireEvent.keyDown(screen.getByTestId('chat-input'), { key: 'Enter' });
-    await waitFor(() => expect(steer).toHaveBeenCalledOnce());
-    expect(steer.mock.calls[0][0]).toMatchObject({ msg: 'Add a file after this tool', queuedWhileBusy: true });
-    await waitFor(() => expect(new QueuedMessageStorage(localStorage, 'queue-test').read()).toHaveLength(accepted ? 0 : 1));
-    view.changeState(ChatState.Idle);
-    await act(async () => {});
-    expect(submit).not.toHaveBeenCalled();
-    expect(steer).toHaveBeenCalledOnce();
-  });
-  it('does not mistake a discovery tool response for new human input when the next pending tool shares its assistant message', async () => {
-    updateDesktopOwnership({ paused: false, revision: null, generation: '', owner: null, queue: [] });
-    const steer = vi.fn(async () => true), submit = vi.fn();
-    const original: Message = { id: 'original', role: 'user', created: 1, metadata: { userVisible: true, agentVisible: true }, content: [{ type: 'text', text: 'Run the command' }] };
-    const tools: Message = { id: 'tool-batch', role: 'assistant', created: 2, metadata: { userVisible: true, agentVisible: true }, content: [
-      { type: 'toolRequest', id: 'discover', toolCall: { name: 'search_mcp_tools', arguments: {} }, metadata: { status: 'completed' } },
-      { type: 'toolRequest', id: 'execute', toolCall: { name: 'pwsh', arguments: {} }, metadata: { status: 'in_progress' } },
-    ] };
-    const discovery: Message = { id: 'tool-reply', role: 'user', created: 3, metadata: { userVisible: true, agentVisible: true }, content: [
-      { type: 'toolResponse', id: 'discover', toolResult: { status: 'success' } },
-    ] };
-    const view = setup(submit, steer, false, false, { messages: [original, tools, discovery], automaticSteeringAllowed: true });
-    view.changeBlocked(true);
-    await queue('After that command, add one file');
-    await waitFor(() => expect(steer).toHaveBeenCalledOnce());
-    expect(submit).not.toHaveBeenCalled();
-  });
-  it.each(['historical', 'returned', 'paused', 'stale', 'cancelled'] as const)('does not automatically steer through a %s tool boundary', async boundary => {
-    updateDesktopOwnership({ paused: boundary === 'paused', revision: null, generation: 'current', owner: null, queue: [] });
-    const submit = vi.fn(async (_input: UserInput, lifecycle?: MessageSubmissionLifecycle) => lifecycle?.onAccepted());
-    const steer = vi.fn(async () => true);
-    const tool: Message = { id: 'tool-message', role: 'assistant', created: 1,
-      metadata: { userVisible: true, agentVisible: true },
-      content: [{ type: 'toolRequest', id: 'old-tool', toolCall: { name: 'pwsh', arguments: {} }, metadata: { status: 'in_progress' } }] };
-    const currentUser: Message = { id: 'current-user', role: 'user', created: 2,
-      metadata: { userVisible: true, agentVisible: true }, content: [{ type: 'text', text: 'Current work' }] };
-    const messages = boundary === 'historical' ? [tool, currentUser] : [currentUser, tool];
-    if (boundary === 'returned') tool.content.push({ type: 'toolResponse', id: 'old-tool', toolResult: { status: 'success' } });
-    if (boundary === 'stale') {
-      const storage = new QueuedMessageStorage(localStorage, 'queue-test'); storage.read();
-      storage.write([{ id: 'stale', content: 'Kept input', images: [], timestamp: 1, queuedWhileBusy: true, desktopGeneration: 'old' }]);
-    }
-    const view = setup(submit, steer, false, false, { messages, automaticSteeringAllowed: boundary !== 'cancelled' });
-    view.changeBlocked(true);
-    if (boundary !== 'stale') await queue('Kept input');
-    const saved = screen.queryByRole('button', { name: 'Expand saved drafts' });
-    if (saved) fireEvent.click(saved);
-    await screen.findByText('Kept input');
-    await act(async () => {});
-    expect(steer).not.toHaveBeenCalled();
-    expect(submit).not.toHaveBeenCalled();
-    view.unmount();
-    updateDesktopOwnership({ paused: false, revision: null, generation: '', owner: null, queue: [] });
-  });
-  it('snapshots all waiting messages for Send now, waits for an idle turn when steering is unavailable, then resumes later ordinary input', async () => {
-    const pending = deferred<void>();
-    let lifecycle!: MessageSubmissionLifecycle;
-    const submit = vi.fn((_input: UserInput, callbacks?: MessageSubmissionLifecycle) => {
-      lifecycle = callbacks!;
-      return pending.promise;
-    });
-    const view = setup(submit);
-    await queue('first supplement');
-    await queue('second supplement');
-    view.changeBlocked(true);
-    await userEvent.click(sendNow());
-    expect(view.onStop).not.toHaveBeenCalled();
-    expect(submit).not.toHaveBeenCalled();
-    expect(new QueuedMessageStorage(localStorage, 'queue-test').read()).toEqual([
-      expect.objectContaining({ content: 'first supplement\n\nsecond supplement' }),
-    ]);
-    await queue('arrived after the click');
-    view.changeState(ChatState.Idle);
-    expect(submit).not.toHaveBeenCalled();
-    view.changeBlocked(false);
-    await waitFor(() => expect(submit).toHaveBeenCalledOnce());
-    expect(submit.mock.calls[0][0].msg).toBe('first supplement\n\nsecond supplement');
-    act(() => lifecycle.onAccepted());
-    view.changeState(ChatState.Streaming);
-    await act(async () => pending.resolve());
-    expect(submit).toHaveBeenCalledOnce();
-    submit.mockImplementation(async (_input, callbacks) => callbacks?.onAccepted());
-    view.changeState(ChatState.Idle);
-    await waitFor(() => expect(submit).toHaveBeenCalledTimes(2));
-    expect(submit.mock.calls[1][0].msg).toBe('arrived after the click');
-  });
-
-  it('preserves merged text and image order after rejection and reload without automatically retrying', async () => {
-    const first = { data: 'Zmlyc3Q=', mimeType: 'image/png' };
-    const second = { data: 'c2Vjb25k', mimeType: 'image/png' };
-    new QueuedMessageStorage(localStorage, 'queue-test').read();
-    const storage = new QueuedMessageStorage(localStorage, 'queue-test');
-    storage.read();
-    storage.write([
-      { id: 'a', content: 'image A', timestamp: 1, images: [first] },
-      { id: 'b', content: 'image B', timestamp: 2, images: [second] },
-    ]);
-    const submit = vi.fn(async (_input: UserInput, lifecycle?: MessageSubmissionLifecycle) =>
-      lifecycle?.onRejectedBeforeAcceptance()
-    );
-    const view = setup(submit);
-    view.changeState(ChatState.Idle);
-    expect(submit).not.toHaveBeenCalled();
-    await userEvent.click(sendNow());
-    await waitFor(() => expect(submit).toHaveBeenCalledOnce());
-    expect(submit.mock.calls[0][0]).toMatchObject({
-      msg: 'image A\n\nimage B',
-      images: [first, second],
-    });
-    await screen.findByRole('button', { name: 'Expand saved drafts' });
-    view.unmount();
-    const restored = setup(submit);
-    restored.changeState(ChatState.Idle);
-    expect(submit).toHaveBeenCalledOnce();
-    expect(new QueuedMessageStorage(localStorage, 'queue-test').read()).toEqual([
-      expect.objectContaining({
-        content: 'image A\n\nimage B',
-        images: [first, second],
-        delivery: 'pending',
-      }),
-    ]);
-  });
-
-  it('never includes an unknown delivery in an explicit batch or automatically replays it afterwards', async () => {
-    const storage = new QueuedMessageStorage(localStorage, 'queue-test');
-    storage.read();
-    storage.write([
-      {
-        id: 'unknown',
-        content: 'possibly already sent',
-        timestamp: 1,
-        images: [],
-        delivery: 'submitting',
-      },
-      { id: 'a', content: 'waiting A', timestamp: 2, images: [] },
-      { id: 'b', content: 'waiting B', timestamp: 3, images: [] },
-    ]);
-    const submit = vi.fn(async (_input: UserInput, lifecycle?: MessageSubmissionLifecycle) =>
-      lifecycle?.onAccepted()
-    );
-    const view = setup(submit);
-    await userEvent.click(sendNow());
-    view.changeState(ChatState.Idle);
-    await waitFor(() => expect(submit).toHaveBeenCalledOnce());
-    expect(submit.mock.calls[0][0].msg).toBe('waiting A\n\nwaiting B');
-    expect(new QueuedMessageStorage(localStorage, 'queue-test').read()).toEqual([
-      expect.objectContaining({
-        id: 'unknown',
-        content: 'possibly already sent',
-        delivery: 'submitting',
-      }),
-    ]);
-    expect(
-      screen.getByText('Sending result unknown. Check the conversation before retrying.')
-    ).toBeVisible();
-  });
-
-  it('an explicit Stop revokes the pending Send now without losing its text', async () => {
-    const submit = vi.fn();
-    const view = setup(submit, undefined, false, true);
-    await queue('supplement A');
-    await queue('supplement B');
-    view.changeBlocked(true);
-    await userEvent.click(sendNow());
-    expect(screen.queryByRole('button', { name: '按住说话' })).not.toBeInTheDocument();
-    await userEvent.click(screen.getByRole('button', { name: /^Stop$/ }));
-    view.changeState(ChatState.Idle);
-    view.changeBlocked(false);
-    expect(submit).not.toHaveBeenCalled();
-    expect(new QueuedMessageStorage(localStorage, 'queue-test').read()).toEqual([
-      expect.objectContaining({ content: 'supplement A\n\nsupplement B' }),
-    ]);
-  });
-
   it.each(['accepted', 'rejected', 'uncertain', 'switched'] as const)(
     'resumes reading only for an accepted explicit send in the same view: %s',
     async (outcome) => {
@@ -827,18 +590,6 @@ describe('ChatInput queue delivery', () => {
       await act(async () => pending.resolve());
     }
   );
-
-  it('keeps reading position when an automatically queued message is accepted', async () => {
-    const follow = vi.fn();
-    const submit = vi.fn((_input: UserInput, receipt?: MessageSubmissionLifecycle) =>
-      receipt?.onAccepted()
-    );
-    const view = setup(submit, undefined, false, false, { onSubmissionAccepted: follow });
-    await queue('automatic delivery must not scroll');
-    view.changeState(ChatState.Idle);
-    await waitFor(() => expect(submit).toHaveBeenCalledOnce());
-    expect(follow).not.toHaveBeenCalled();
-  });
 
   it('clears the received draft before the turn finishes and leaves later input intact', async () => {
     const pending = deferred<void>();
@@ -988,25 +739,6 @@ describe('ChatInput queue delivery', () => {
     await screen.findByText(/The command did not complete/);
     expect(textarea).toHaveValue('/goal pause');
   });
-  it('keeps pending input paused after Stop and sends it once on explicit resume', async () => {
-    const submit = vi.fn(async (_input: UserInput, lifecycle?: MessageSubmissionLifecycle) =>
-      lifecycle?.onAccepted()
-    );
-    const view = setup(submit, undefined, false, true);
-    await queue('preserve pending request');
-    await userEvent.click(screen.getByRole('button', { name: /^Stop$/ }));
-    expect(view.onStop).toHaveBeenCalledOnce();
-    view.changeState(ChatState.Idle);
-    await screen.findByRole('button', { name: 'Expand saved drafts' });
-    expect(submit).not.toHaveBeenCalled();
-    expect(screen.queryByRole('button', { name: 'Send now' })).toBeNull();
-    fireEvent.click(screen.getByRole('button', { name: 'Expand saved drafts' }));
-    expect(screen.getByText('preserve pending request')).toBeVisible();
-    await userEvent.click(sendNow());
-    await waitFor(() => expect(submit).toHaveBeenCalledOnce());
-    expect(submit.mock.calls[0][0].msg).toBe('preserve pending request');
-    expect(screen.queryByText('preserve pending request')).toBeNull();
-  });
 
   afterEach(() => vi.unstubAllGlobals());
   beforeEach(() => {
@@ -1136,831 +868,73 @@ describe('ChatInput queue delivery', () => {
     expect(screen.queryByRole('button', { name: /^Stop$/ })).toBeNull();
     expect(screen.getByRole('button', { name: 'Model selector' })).toBeVisible();
   });
+});
 
-  it('restores unsent messages paused after the conversation is remounted', async () => {
-    const submit = vi.fn();
-    const first = setup(submit, undefined, false, true);
-    await queue('survive renderer reload');
-    first.unmount();
-    const restored = setup(submit, undefined, false, true);
-    restored.changeState(ChatState.Idle);
-    await screen.findByRole('button', { name: 'Expand saved drafts' });
-    expect(screen.getByText('1 saved draft')).toBeVisible();
-    expect(screen.queryByRole('button', { name: 'Send now' })).toBeNull();
-    expect(new QueuedMessageStorage(localStorage, 'queue-test').read()[0].content).toBe(
-      'survive renderer reload'
-    );
-    expect(submit).not.toHaveBeenCalled();
+describe('server owned queue controls', () => {
+  it('keeps the queue editor open when the server refuses the edit', async () => {
+    const edit = vi.fn(async () => false);
+    render(<MessageQueue queuedMessages={[{id:'a',content:'original',images:[],timestamp:1}]} onRemoveMessage={vi.fn()} onClearQueue={vi.fn()} onEditMessage={edit} />, {wrapper:IntlTestWrapper});
+    fireEvent.click(screen.getByRole('button',{name:'original'}));
+    fireEvent.change(screen.getByRole('textbox'),{target:{value:'revised'}});
+    fireEvent.click(screen.getByRole('button',{name:'Save'}));
+    await waitFor(()=>expect(edit).toHaveBeenCalledWith('a','revised'));
+    expect(screen.getByRole('textbox')).toHaveValue('revised');
   });
-
-  it.each(['stop', 'reload'] as const)(
-    'holds multiple queued inputs as collapsed drafts after %s, edits safely and sends only explicitly',
-    async (operation) => {
-      const submit = vi.fn(async (_input: UserInput, lifecycle?: MessageSubmissionLifecycle) =>
-        lifecycle?.onAccepted()
-      );
-      const steer = vi.fn(async () => true);
-      let view = setup(submit, steer, false, true);
-      await queue('草稿甲：17×23');
-      await queue('草稿乙：保留换行\n第二行');
-      const original = new QueuedMessageStorage(localStorage, 'queue-test').read();
-      if (operation === 'stop') {
-        await userEvent.click(screen.getByRole('button', { name: /^Stop$/ }));
-        view.changeBlocked(true);
-      } else {
-        view.unmount();
-        view = setup(submit, steer, false, true);
-      }
-      expect(screen.getByTestId('saved-message-drafts')).toBeVisible();
-      expect(screen.queryByTestId('message-queue')).toBeNull();
-      expect(screen.getByText('2 saved drafts')).toBeVisible();
-      expect(screen.queryByRole('button', { name: 'Send all now' })).toBeNull();
-      expect(screen.queryByText('草稿甲：17×23')).toBeNull();
-      expect(new QueuedMessageStorage(localStorage, 'queue-test').read()).toEqual(original);
-      fireEvent.click(screen.getByRole('button', { name: 'Expand saved drafts' }));
-      expect(screen.getByRole('button', { name: 'Send saved drafts' })).toBeDisabled();
-      view.changeState(ChatState.Idle);
-      view.changeBlocked(false);
-      expect(submit).not.toHaveBeenCalled();
-      expect(steer).not.toHaveBeenCalled();
-      await userEvent.click(screen.getByText('草稿甲：17×23'));
-      const editor = screen
-        .getAllByRole('textbox')
-        .find((node) => node !== screen.getByTestId('chat-input'))!;
-      fireEvent.change(editor, { target: { value: '草稿甲：已编辑，17×23' } });
-      await userEvent.click(screen.getByRole('button', { name: 'Save' }));
-      expect(submit).not.toHaveBeenCalled();
-      const edited = new QueuedMessageStorage(localStorage, 'queue-test').read();
-      expect(edited).toEqual([{ ...original[0], content: '草稿甲：已编辑，17×23' }, original[1]]);
-      await userEvent.click(screen.getByRole('button', { name: 'Send saved drafts' }));
-      await waitFor(() => expect(submit).toHaveBeenCalledOnce());
-      expect(submit.mock.calls[0][0].msg).toBe('草稿甲：已编辑，17×23\n\n草稿乙：保留换行\n第二行');
-      expect(steer).not.toHaveBeenCalled();
-      expect(new QueuedMessageStorage(localStorage, 'queue-test').read()).toEqual([]);
-    }
-  );
-
-  it('restores an uncertain submission blocked until the user checks it', async () => {
-    const pending = deferred<void>();
-    const submit = vi.fn(() => pending.promise);
-    const first = setup(submit);
-    await queue('check delivery');
-    first.changeState(ChatState.Idle);
-    await waitFor(() => expect(submit).toHaveBeenCalledOnce());
-    first.unmount();
-    const restored = setup(submit);
-    restored.changeState(ChatState.Idle);
-    await screen.findByText('check delivery');
-    expect(sendNow()).toBeDisabled();
-    expect(submit).toHaveBeenCalledOnce();
-    await userEvent.click(screen.getByRole('button', { name: 'Confirmed sent: remove' }));
-    expect(screen.queryByText('check delivery')).toBeNull();
-    expect(submit).toHaveBeenCalledOnce();
-    await act(async () => pending.resolve());
+  it('blocks edit delete clear and duplicate switching while a selected batch is in flight', () => {
+    render(<MessageQueue queuedMessages={[{id:'a',content:'original',images:[],timestamp:1}]} sendingMessageIds={new Set(['a'])} onRemoveMessage={vi.fn()} onClearQueue={vi.fn()} onSendNow={vi.fn()} onSteerMessage={vi.fn()} onEditMessage={vi.fn()} />, {wrapper:IntlTestWrapper});
+    expect(screen.getByRole('button',{name:'Clear All'})).toBeDisabled();
+    expect(screen.getByRole('button',{name:'Remove this message from queue'})).toBeDisabled();
+    expect(screen.getByRole('button',{name:'Switch now'})).toBeDisabled();
   });
+});
 
-  it('does not restore a message after its acceptance receipt', async () => {
-    const submit = vi.fn(async (_input: UserInput, lifecycle?: MessageSubmissionLifecycle) =>
-      lifecycle?.onAccepted()
-    );
-    const first = setup(submit);
-    await queue('accepted once');
-    first.changeState(ChatState.Idle);
-    await waitFor(() => expect(screen.queryByText('accepted once')).toBeNull());
-    first.unmount();
-    const restored = setup(submit);
-    restored.changeState(ChatState.Idle);
-    expect(screen.queryByText('accepted once')).toBeNull();
-    expect(submit).toHaveBeenCalledOnce();
-  });
 
-  it('removes an accepted queued send from its original session after switching conversations', async () => {
-    const pending = deferred<void>();
-    let lifecycle!: MessageSubmissionLifecycle;
-    const submit = vi.fn((_input: UserInput, callbacks?: MessageSubmissionLifecycle) => {
-      lifecycle = callbacks!;
-      return pending.promise;
-    });
-    const view = setup(submit);
-    await queue('accepted in the original conversation');
-    fireEvent.click(sendNow());
-    view.changeState(ChatState.Idle);
-    await waitFor(() => expect(submit).toHaveBeenCalledOnce());
-    view.changeSession('another-session');
-    act(() => lifecycle.onAccepted());
-    await act(async () => pending.resolve());
-    view.changeSession('queue-test');
-    expect(screen.queryByText('accepted in the original conversation')).toBeNull();
-    expect(new QueuedMessageStorage(localStorage, 'queue-test').read()).toEqual([]);
-  });
+it('accepts a new draft while the consumed queue snapshot is still catching up', async () => {
+  localStorage.clear();
+  const snapshot = {version:1 as const,revision:1,paused:false,activeRunId:null,selection:null,items:[{id:'old',content:'previous',images:[],timestamp:1,desktopGeneration:'',state:'dispatching' as const}]};
+  vi.mocked(inputQueueRequest).mockResolvedValue(snapshot);
+  const submit=vi.fn();const view=setup(submit);
+  await screen.findByText('previous');view.changeState(ChatState.Idle);
+  const input=screen.getByTestId('chat-input');fireEvent.change(input,{target:{value:'next instruction'}});fireEvent.keyDown(input,{key:'Enter'});
+  await waitFor(()=>expect(inputQueueRequest).toHaveBeenCalledWith('queue-test',expect.objectContaining({action:'enqueue',items:[expect.objectContaining({content:'next instruction'})]})));
+  await waitFor(()=>expect(input).toHaveValue(''));expect(submit).not.toHaveBeenCalled();
+});
 
-  it('keeps an unsaved queue in memory and blocks dispatch on storage failure', async () => {
-    const submit = vi.fn();
-    const view = setup(submit);
-    const fail = vi.spyOn(window.Storage.prototype, 'setItem').mockImplementation(() => {
-      throw new Error('quota');
-    });
-    try {
-      await queue('do not lose this request');
-      expect(screen.getByRole('alert')).toHaveTextContent('could not be saved or restored');
-      view.changeState(ChatState.Idle);
-      expect(submit).not.toHaveBeenCalled();
-      expect(screen.getByText('do not lose this request')).toBeVisible();
-    } finally {
-      fail.mockRestore();
-    }
-  });
+it('clears staged queued input immediately and never clears newer text on delayed acknowledgement', async()=>{
+ localStorage.clear();
+ vi.mocked(inputQueueRequest).mockClear();
+ const snap={version:1 as const,revision:0,paused:false,activeRunId:'old',selection:null,items:[]};
+ let release!:(value:typeof snap)=>void;
+ vi.mocked(inputQueueRequest).mockImplementation(async(_id,c)=>c.action==='get'?snap:new Promise(resolve=>{release=resolve;}));
+ const view=setup(vi.fn());view.changeState(ChatState.Streaming);
+ const input=screen.getByTestId('chat-input');
+ await waitFor(()=>expect(inputQueueRequest).toHaveBeenCalled());
+ await act(async()=>{});
+ fireEvent.change(input,{target:{value:'first queued'}});fireEvent.keyDown(input,{key:'Enter'});
+ await waitFor(()=>expect(release).toBeDefined());
+ expect(input).toHaveValue('');
+ fireEvent.change(input,{target:{value:'next draft'}});
+ fireEvent.keyDown(input,{key:'Enter'});
+ expect(vi.mocked(inputQueueRequest).mock.calls.filter(([,c])=>c.action==='enqueue')).toHaveLength(1);
+ expect(input).toHaveValue('next draft');
+ await act(async()=>{release({...snap,revision:1});});
+ expect(input).toHaveValue('next draft');
+});
 
-  it('restores image bytes and submits them only after explicit send', async () => {
-    const images = [{ data: 'aW1hZ2U=', mimeType: 'image/png' }];
-    const storage = new QueuedMessageStorage(localStorage, 'queue-test');
-    storage.read();
-    storage.write([
-      { id: 'image-queue', content: 'inspect restored image', timestamp: 123, images },
-    ]);
-    const submit = vi.fn(async (_input: UserInput, lifecycle?: MessageSubmissionLifecycle) =>
-      lifecycle?.onAccepted()
-    );
-    const view = setup(submit);
-    view.changeState(ChatState.Idle);
-    expect(submit).not.toHaveBeenCalled();
-    await userEvent.click(sendNow());
-    await waitFor(() => expect(submit).toHaveBeenCalledOnce());
-    expect(submit.mock.calls[0][0].images).toEqual(images);
-  });
-
-  it('shows damaged snapshot failures without replacing the stored data', async () => {
-    const key = 'codepro-queue:v1:queue-test';
-    localStorage.setItem(key, '{damaged');
-    const submit = vi.fn();
-    const view = setup(submit);
-    expect(screen.getByRole('alert')).toHaveTextContent('could not be saved or restored');
-    await queue('still in this window');
-    view.changeState(ChatState.Idle);
-    expect(localStorage.getItem(key)).toBe('{damaged');
-    expect(screen.getByText('still in this window')).toBeVisible();
-    expect(submit).not.toHaveBeenCalled();
-  });
-
-  it('detects another window changing the queue before dispatch', async () => {
-    const submit = vi.fn();
-    const view = setup(submit);
-    await queue('local pending request');
-    const key = 'codepro-queue:v1:queue-test';
-    localStorage.setItem(
-      key,
-      JSON.stringify({
-        version: 1,
-        sessionId: 'queue-test',
-        revision: 'other-window',
-        messages: [],
-      })
-    );
-    act(() => window.dispatchEvent(new StorageEvent('storage', { key })));
-    view.changeState(ChatState.Idle);
-    expect(screen.getByRole('alert')).toHaveTextContent('changed in another window');
-    fireEvent.click(screen.getByRole('button', { name: 'Expand saved drafts' }));
-    expect(screen.getByText('local pending request')).toBeVisible();
-    expect(submit).not.toHaveBeenCalled();
-    expect(localStorage.getItem(key)).toContain('other-window');
-  });
-
-  it('retains an in-flight message until acceptance and does not send it twice', async () => {
-    const pending = deferred<void>();
-    let lifecycle!: MessageSubmissionLifecycle;
-    const submit = vi.fn((_input: UserInput, callbacks?: MessageSubmissionLifecycle) => {
-      lifecycle = callbacks!;
-      return pending.promise;
-    });
-    const view = setup(submit);
-    await queue('queued request');
-    view.changeState(ChatState.Idle);
-    await waitFor(() => expect(submit).toHaveBeenCalledOnce());
-    expect(screen.getByText('queued request')).toBeVisible();
-    expect(sendNow()).toBeDisabled();
-    fireEvent.click(sendNow());
-    const draft = screen.getByTestId('chat-input');
-    fireEvent.change(draft, { target: { value: 'new draft while queue submits' } });
-    fireEvent.keyDown(draft, { key: 'Enter' });
-    expect(submit).toHaveBeenCalledOnce();
-    expect(draft).toHaveValue('new draft while queue submits');
-    act(() => lifecycle.onAccepted());
-    expect(screen.queryByText('queued request')).toBeNull();
-    await act(async () => pending.resolve());
-  });
-
-  it.each(['reject callback', 'throw', 'no acceptance'] as const)(
-    'retains queued input without automatically retrying: %s',
-    async (failure) => {
-      const submit = vi.fn(async (_input: UserInput, lifecycle?: MessageSubmissionLifecycle) => {
-        if (failure === 'reject callback') lifecycle?.onRejectedBeforeAcceptance();
-        if (failure === 'throw') throw new Error('provider unavailable');
-      });
-      const view = setup(submit);
-      await queue('retry me');
-      view.changeState(ChatState.Idle);
-      if (failure === 'reject callback') {
-        await screen.findByRole('button', { name: 'Expand saved drafts' });
-        fireEvent.click(screen.getByRole('button', { name: 'Expand saved drafts' }));
-      } else {
-        await screen.findByText('Sending result unknown. Check the conversation before retrying.');
-      }
-      expect(screen.getByText('retry me')).toBeVisible();
-      expect(submit).toHaveBeenCalledOnce();
-      submit.mockImplementation(async (_input, lifecycle) => lifecycle?.onAccepted());
-      if (failure === 'reject callback') {
-        expect(sendNow()).not.toBeDisabled();
-        expect(
-          screen.queryByText('Sending result unknown. Check the conversation before retrying.')
-        ).toBeNull();
-      } else {
-        expect(sendNow()).toBeDisabled();
-        await userEvent.click(
-          screen.getByRole('button', { name: 'Confirmed not sent: queue again' })
-        );
-      }
-      await userEvent.click(sendNow());
-      await waitFor(() => expect(screen.queryByText('retry me')).toBeNull());
-      expect(submit).toHaveBeenCalledTimes(2);
-    }
-  );
-
-  it('does not retry a rejected head message merely because another queued message was edited', async () => {
-    const submit = vi.fn(async (_input: UserInput, lifecycle?: MessageSubmissionLifecycle) =>
-      lifecycle?.onRejectedBeforeAcceptance()
-    );
-    const view = setup(submit);
-    await queue('rejected head');
-    await queue('editable second');
-    view.changeState(ChatState.Idle);
-    await screen.findByRole('button', { name: 'Expand saved drafts' });
-    expect(submit).toHaveBeenCalledOnce();
-    fireEvent.click(screen.getByRole('button', { name: 'Expand saved drafts' }));
-    await userEvent.click(screen.getByText('editable second'));
-    const editor = screen
-      .getAllByRole('textbox')
-      .find((element) => element !== screen.getByTestId('chat-input'))!;
-    fireEvent.change(editor, { target: { value: 'edited second' } });
-    await userEvent.click(screen.getByRole('button', { name: 'Save' }));
-    await act(async () => {
-      await new Promise((resolve) => setTimeout(resolve, 150));
-    });
-    expect(submit).toHaveBeenCalledOnce();
-    expect(screen.getByRole('button', { name: 'Collapse saved drafts' })).toBeVisible();
-    expect(screen.getByText('rejected head')).toBeVisible();
-    expect(screen.getByText('edited second')).toBeVisible();
-  });
-
-  it('sends the edited text after saving, never the old text when the task finishes', async () => {
-    const submit = vi.fn(async (_input: UserInput, lifecycle?: MessageSubmissionLifecycle) =>
-      lifecycle?.onAccepted()
-    );
-    const view = setup(submit);
-    await queue('original queue text');
-    await userEvent.click(screen.getByText('original queue text'));
-    view.changeState(ChatState.Idle);
-    expect(submit).not.toHaveBeenCalled();
-    const editor = screen
-      .getAllByRole('textbox')
-      .find((element) => element !== screen.getByTestId('chat-input'))!;
-    fireEvent.change(editor, { target: { value: 'edited queue text' } });
-    await userEvent.click(screen.getByRole('button', { name: 'Save' }));
-    await waitFor(() => expect(submit).toHaveBeenCalledOnce());
-    expect(submit.mock.calls[0][0].msg).toBe('edited queue text');
-  });
-
-  it('waits for an idle turn and acceptance without a steer handler before removing Send Now input', async () => {
-    const pending = deferred<void>();
-    let lifecycle!: MessageSubmissionLifecycle;
-    const submit = vi.fn((_input: UserInput, callbacks?: MessageSubmissionLifecycle) => {
-      lifecycle = callbacks!;
-      return pending.promise;
-    });
-    const view = setup(submit);
-    await queue('queued priority request');
-    await userEvent.click(sendNow());
-    expect(view.onStop).not.toHaveBeenCalled();
-    expect(submit).not.toHaveBeenCalled();
-    view.changeState(ChatState.Idle);
-    await waitFor(() => expect(submit).toHaveBeenCalledOnce());
-    expect(screen.getByText('queued priority request')).toBeVisible();
-    act(() => lifecycle.onAccepted());
-    await act(async () => pending.resolve());
-    expect(screen.queryByText('queued priority request')).toBeNull();
-  });
-
-  it('publishes a pending follow-up before release and submits that same identity only once', async () => {
-    const observed = vi.fn();
-    const pending = deferred<void>();
-    let accepted!: MessageSubmissionLifecycle;
-    const submit = vi.fn((_input: UserInput, lifecycle?: MessageSubmissionLifecycle) => {
-      accepted = lifecycle!;
-      return pending.promise;
-    });
-    const anchor: Message = {
-      id: 'last-output',
-      role: 'assistant',
-      created: 1,
-      content: [{ type: 'text', text: 'Working' }],
-      metadata: { userVisible: true, agentVisible: true },
-    };
-    const view = setup(submit, undefined, false, false, {
-      messages: [anchor],
-      onPendingMessageChange: observed,
-    });
-    await queue('Please stop and reconsider');
-    view.changeBlocked(true);
-    await userEvent.click(sendNow());
-    const staged = observed.mock.calls.slice(-1)[0][1] as Message;
-    expect(staged.metadata).toMatchObject({
-      agentVisible: false,
-      pendingDelivery: 'pending',
-      presentation: { afterMessageId: anchor.id },
-    });
-    expect(view.onStop).not.toHaveBeenCalled();
-    view.changeState(ChatState.Idle);
-    expect(submit).not.toHaveBeenCalled();
-    view.changeBlocked(false);
-    await waitFor(() => expect(submit).toHaveBeenCalledOnce());
-    expect(submit.mock.calls[0][0]).toMatchObject({
-      messageId: staged.id,
-      presentation: staged.metadata.presentation,
-    });
-    act(() => accepted.onAccepted());
-    await act(async () => pending.resolve());
-    expect(observed).toHaveBeenLastCalledWith('queue-test', undefined);
-  });
-
-  it('keeps an unaccepted pending follow-up across reload, isolates chats and reconciles a lost acknowledgement', async () => {
-    const observed = vi.fn();
-    const submit = vi.fn(async (_input: UserInput, lifecycle?: MessageSubmissionLifecycle) =>
-      lifecycle?.onRejectedBeforeAcceptance()
-    );
-    const anchor: Message = {
-      id: 'last-output',
-      role: 'assistant',
-      created: 1,
-      content: [{ type: 'text', text: 'Working' }],
-      metadata: { userVisible: true, agentVisible: true },
-    };
-    const props = { messages: [anchor], onPendingMessageChange: observed };
-    const view = setup(submit, undefined, false, false, props);
-    await queue('Keep this until admitted');
-    await userEvent.click(sendNow());
-    const staged = observed.mock.calls.slice(-1)[0][1] as Message;
-    view.changeState(ChatState.Idle);
-    await waitFor(() => expect(submit).toHaveBeenCalledOnce());
-    await waitFor(() => expect(observed).toHaveBeenLastCalledWith('queue-test', undefined));
-    view.unmount();
-    const restored = setup(submit, undefined, false, false, props);
-    expect(observed).toHaveBeenLastCalledWith('queue-test', undefined);
-    expect(new QueuedMessageStorage(localStorage, 'queue-test').read()[0].id).toBe(staged.id);
-    restored.changeState(ChatState.Idle);
-    expect(submit).toHaveBeenCalledOnce();
-    restored.changeSession('another-chat');
-    expect(observed).toHaveBeenLastCalledWith('another-chat', undefined);
-    expect(
-      observed.mock.calls.some(([owner, message]) => owner === 'another-chat' && message)
-    ).toBe(false);
-    restored.changeSession('queue-test');
-    restored.changeMessages([
-      anchor,
-      { ...staged, metadata: { userVisible: true, agentVisible: true } },
-    ]);
-    await waitFor(() => expect(observed).toHaveBeenLastCalledWith('queue-test', undefined));
-    expect(new QueuedMessageStorage(localStorage, 'queue-test').read()).toEqual([]);
-    expect(submit).toHaveBeenCalledOnce();
-  });
-
-  it.each([false, true])(
-    'keeps FIFO at ordinary completion after an earlier Stop: %s',
-    async (priorStop) => {
-      const observed = vi.fn();
-      const submit = vi.fn(async (_input: UserInput, lifecycle?: MessageSubmissionLifecycle) =>
-        lifecycle?.onAccepted()
-      );
-      const view = setup(submit, undefined, false, true, {
-        messages: [
-          {
-            id: 'answer',
-            role: 'assistant',
-            created: 1,
-            metadata: { userVisible: true, agentVisible: true },
-            content: [{ type: 'text', text: 'Done' }],
-          },
-        ],
-        onPendingMessageChange: observed,
-      });
-      if (priorStop) {
-        await userEvent.click(screen.getByRole('button', { name: /^Stop$/ }));
-        view.changeBlocked(true);
-        view.changeState(ChatState.Idle);
-        view.changeBlocked(false);
-        view.changeState(ChatState.Thinking);
-      }
-      await queue('earlier queued request');
-      view.changeBlocked(true);
-      view.changeState(ChatState.Idle);
-      await queue('later request at completion');
-      expect(observed).toHaveBeenLastCalledWith('queue-test', undefined);
-      expect(submit).not.toHaveBeenCalled();
-      view.changeBlocked(false);
-      await waitFor(() => expect(submit).toHaveBeenCalledTimes(2));
-      expect(submit.mock.calls.map(([input]) => input.msg)).toEqual([
-        'earlier queued request',
-        'later request at completion',
-      ]);
-      expect(view.onStop).toHaveBeenCalledTimes(priorStop ? 1 : 0);
-    }
-  );
-
-  it('drains accepted ordinary messages in order without losing the next item', async () => {
-    const submit = vi.fn(async (_input: UserInput, lifecycle?: MessageSubmissionLifecycle) =>
-      lifecycle?.onAccepted()
-    );
-    const view = setup(submit);
-    await queue('first request');
-    await queue('second request');
-    view.changeState(ChatState.Idle);
-    await waitFor(() => expect(submit).toHaveBeenCalledTimes(2));
-    expect(submit.mock.calls.map(([input]) => input.msg)).toEqual([
-      'first request',
-      'second request',
-    ]);
-    expect(screen.queryByText('Message Queue')).toBeNull();
-  });
-
-  it('[retest-20261016] defers Send Now while transport is settling without dispatching twice', async () => {
-    const submit = vi.fn(async (_input: UserInput, lifecycle?: MessageSubmissionLifecycle) =>
-      lifecycle?.onAccepted()
-    );
-    const view = setup(submit);
-    await queue('replacement after stop');
-    view.changeBlocked(true);
-    view.changeState(ChatState.Idle);
-    await userEvent.click(sendNow());
-    await userEvent.click(sendNow());
-    expect(view.onStop).not.toHaveBeenCalled();
-    expect(submit).not.toHaveBeenCalled();
-    view.changeBlocked(false);
-    await waitFor(() => expect(submit).toHaveBeenCalledOnce());
-    expect(submit.mock.calls[0][0].msg).toBe('replacement after stop');
-  });
-
-  it('steers only the selected message and drains the rest in order while collapsed', async () => {
-    const steer = vi.fn(async (_input: UserInput) => true);
-    const submit = vi.fn(async (_input: UserInput, lifecycle?: MessageSubmissionLifecycle) => lifecycle?.onAccepted());
-    const view = setup(submit, steer);
-    for (const text of ['first', 'middle', 'last']) await queue(text);
-    const row = screen.getByText('middle').closest('[data-queue-row]')! as HTMLElement;
-    await userEvent.click(within(row).getByRole('button', { name: 'Steer' }));
-    expect(steer.mock.calls.map(([input]) => input.msg)).toEqual(['middle']);
-    expect(screen.queryByText('middle')).toBeNull();
-    await userEvent.click(screen.getByRole('button', { name: 'Collapse queue' }));
-    expect(screen.queryByText('last')).toBeNull();
-    view.changeState(ChatState.Idle);
-    await waitFor(() => expect(submit.mock.calls.map(([input]) => input.msg)).toEqual(['first', 'last']));
-  });
-
-  it('steers the running turn without cancelling or waiting for its prompt RPC to finish', async () => {
-    const submit = vi.fn(async (_input: UserInput, lifecycle?: MessageSubmissionLifecycle) =>
-      lifecycle?.onAccepted()
-    );
-    const acceptance = deferred<boolean>();
-    const steer = vi.fn((_input: UserInput) => acceptance.promise);
-    const view = setup(submit, steer);
-    await queue('supplement the current task');
-    view.changeBlocked(true);
-    await userEvent.click(sendNow());
-    expect(view.onStop).not.toHaveBeenCalled();
-    expect(steer).toHaveBeenCalledOnce();
-    expect(steer.mock.calls[0]?.[0]).toMatchObject({ msg: 'supplement the current task' });
-    await userEvent.click(sendNow());
-    expect(steer).toHaveBeenCalledOnce();
-    view.changeState(ChatState.Idle);
-    expect(submit).not.toHaveBeenCalled();
-    expect(new QueuedMessageStorage(localStorage, 'queue-test').read()[0].delivery).toBe(
-      'submitting'
-    );
-    await act(async () => acceptance.resolve(true));
-    view.changeBlocked(false);
-    expect(new QueuedMessageStorage(localStorage, 'queue-test').read()).toEqual([]);
-    view.changeState(ChatState.Idle);
-    expect(submit).not.toHaveBeenCalled();
-  });
-
-  it.each(['refused', 'uncertain'] as const)(
-    'keeps a %s steer without falling back to Stop or a fresh turn',
-    async (outcome) => {
-      const submit = vi.fn();
-      const steer = vi.fn(async () => {
-        if (outcome === 'uncertain') throw new Error('receipt lost');
-        return false;
-      });
-      const view = setup(submit, steer);
-      await queue('keep my reminder');
-      await userEvent.click(sendNow());
-      expect(steer).toHaveBeenCalledOnce();
-      expect(view.onStop).not.toHaveBeenCalled();
-      view.changeState(ChatState.Idle);
-      expect(submit).not.toHaveBeenCalled();
-      expect(new QueuedMessageStorage(localStorage, 'queue-test').read()).toEqual([
-        expect.objectContaining({
-          content: 'keep my reminder',
-          delivery: outcome === 'uncertain' ? 'submitting' : 'pending',
-        }),
-      ]);
-    }
-  );
-
-  it('steers a still-running accepted queued turn and keeps later ordinary input waiting', async () => {
-    const running = deferred<void>();
-    const submit = vi.fn((_input: UserInput, lifecycle?: MessageSubmissionLifecycle) => {
-      lifecycle?.onAccepted();
-      return running.promise;
-    });
-    const steer = vi.fn(async () => true);
-    const view = setup(submit, steer);
-    await queue('initial queued task');
-    view.changeState(ChatState.Idle);
-    await waitFor(() => expect(submit).toHaveBeenCalledOnce());
-    view.changeState(ChatState.Streaming);
-    view.changeBlocked(true);
-    await queue('supplement one');
-    await queue('supplement two');
-    await userEvent.click(sendNow());
-    expect(steer).toHaveBeenCalledWith(
-      expect.objectContaining({ msg: 'supplement one\n\nsupplement two' })
-    );
-    expect(view.onStop).not.toHaveBeenCalled();
-    await queue('next task');
-    expect(submit).toHaveBeenCalledOnce();
-    expect(steer).toHaveBeenCalledOnce();
-    await act(async () => running.resolve());
-    view.changeState(ChatState.Idle);
-    view.changeBlocked(false);
-    await waitFor(() => expect(submit).toHaveBeenCalledTimes(2));
-    expect(submit.mock.calls[1][0].msg).toBe('next task');
-  });
-
-  it('keeps ordinary and stop-like text queued without cancelling until the whole request settles', async () => {
-    const submit = vi.fn(async (_input: UserInput, lifecycle?: MessageSubmissionLifecycle) =>
-      lifecycle?.onAccepted()
-    );
-    const view = setup(submit);
-    await queue('stop');
-    expect(view.onStop).not.toHaveBeenCalled();
-    view.changeBlocked(true);
-    view.changeState(ChatState.Idle);
-    await queue('another request during teardown');
-    expect(submit).not.toHaveBeenCalled();
-    expect(
-      screen.getByText(
-        'Waiting for the previous request to finish. Your queued message has not been sent.'
-      )
-    ).toBeVisible();
-    view.changeBlocked(false);
-    await waitFor(() => expect(submit).toHaveBeenCalledTimes(2));
-    expect(submit.mock.calls.map(([input]) => input.msg)).toEqual([
-      'stop',
-      'another request during teardown',
-    ]);
-  });
-
-  it('waits for a queued request to finish without a steer handler without losing the next input', async () => {
-    const pending = deferred<void>();
-    let lifecycle!: MessageSubmissionLifecycle;
-    const submit = vi.fn((_input: UserInput, callbacks?: MessageSubmissionLifecycle) => {
-      lifecycle = callbacks!;
-      return pending.promise;
-    });
-    const view = setup(submit);
-    await queue('first queued run');
-    view.changeState(ChatState.Idle);
-    await waitFor(() => expect(submit).toHaveBeenCalledOnce());
-    act(() => lifecycle.onAccepted());
-    view.changeState(ChatState.Streaming);
-    view.changeBlocked(true);
-    await queue('second priority run');
-    await userEvent.click(sendNow());
-    expect(view.onStop).not.toHaveBeenCalled();
-    expect(submit).toHaveBeenCalledOnce();
-    await userEvent.click(sendNow());
-    expect(view.onStop).not.toHaveBeenCalled();
-    view.changeState(ChatState.Idle);
-    view.changeBlocked(false);
-    expect(submit).toHaveBeenCalledOnce();
-    submit.mockImplementation(async (_input, callbacks) => callbacks?.onAccepted());
-    await act(async () => pending.resolve());
-    await waitFor(() => expect(submit).toHaveBeenCalledTimes(2));
-    expect(submit.mock.calls[1][0].msg).toBe('second priority run');
-  });
-
-  it('keeps an unacknowledged input paused while sending only the explicit replacement', async () => {
-    const pending = deferred<void>();
-    let firstLifecycle!: MessageSubmissionLifecycle;
-    const submit = vi.fn((_input: UserInput, lifecycle?: MessageSubmissionLifecycle) => {
-      firstLifecycle = lifecycle!;
-      return pending.promise;
-    });
-    const view = setup(submit);
-    await queue('unacknowledged original');
-    view.changeState(ChatState.Idle);
-    await waitFor(() => expect(submit).toHaveBeenCalledOnce());
-    view.changeState(ChatState.Streaming);
-    view.changeBlocked(true);
-    await queue('explicit replacement');
-    await userEvent.click(sendNow());
-    expect(view.onStop).not.toHaveBeenCalled();
-    view.changeState(ChatState.Idle);
-    act(() => firstLifecycle.onRejectedBeforeAcceptance());
-    submit.mockImplementation(async (_input, lifecycle) => lifecycle?.onAccepted());
-    await act(async () => pending.resolve());
-    expect(submit).toHaveBeenCalledOnce();
-    view.changeBlocked(false);
-    await waitFor(() => expect(submit).toHaveBeenCalledTimes(2));
-    expect(submit.mock.calls.map(([input]) => input.msg)).toEqual([
-      'unacknowledged original',
-      'explicit replacement',
-    ]);
-    expect(screen.getByText('1 saved draft')).toBeVisible();
-    fireEvent.click(screen.getByRole('button', { name: 'Expand saved drafts' }));
-    expect(screen.getByText('unacknowledged original')).toBeVisible();
-    expect(new QueuedMessageStorage(localStorage, 'queue-test').read()).toEqual([
-      expect.objectContaining({ content: 'unacknowledged original', delivery: 'pending' }),
-    ]);
-  });
-
-  it('retains an uncertain send paused and never automatically replays it after transport returns', async () => {
-    const submit = vi.fn(async (_input: UserInput, lifecycle?: MessageSubmissionLifecycle) =>
-      lifecycle?.onDeliveryUncertain?.()
-    );
-    const view = setup(submit);
-    await queue('uncertain transport');
-    view.changeState(ChatState.Idle);
-    await screen.findByText('Sending result unknown. Check the conversation before retrying.');
-    view.changeBlocked(true);
-    view.changeBlocked(false);
-    expect(submit).toHaveBeenCalledOnce();
-    expect(screen.getByText('uncertain transport')).toBeVisible();
-    expect(sendNow()).toBeDisabled();
-  });
-
-  it('submits once when restored UI is stale but no prompt or run is active', async () => {
-    const submit = vi.fn(async (_input: UserInput, lifecycle?: MessageSubmissionLifecycle) =>
-      lifecycle?.onAccepted()
-    );
-    const steer = vi.fn(async () => false);
-    const view = setup(submit, steer, true);
-
-    await queue('resume restored queue');
-    await userEvent.click(sendNow());
-
-    await waitFor(() => expect(screen.queryByText('resume restored queue')).toBeNull());
-    expect(submit).toHaveBeenCalledOnce();
-    expect(submit.mock.calls[0][0].msg).toBe('resume restored queue');
-    expect(steer).not.toHaveBeenCalled();
-    expect(view.onStop).not.toHaveBeenCalled();
-
-    view.changeState(ChatState.Idle);
-    expect(screen.queryByText('Messages kept. Send now when you are ready.')).toBeNull();
-    expect(submit).toHaveBeenCalledOnce();
-  });
-
-  it('does not carry an in-memory queue into another session', async () => {
-    const submit = vi.fn();
-    const view = setup(submit);
-
-    await queue('belongs only to session A');
-    view.changeSession('queue-test-b');
-
-    await waitFor(() => expect(screen.queryByText('belongs only to session A')).toBeNull());
-    expect(submit).not.toHaveBeenCalled();
-  });
-
-  it('ignores late completion from the previous session without pausing the new queue', async () => {
-    const firstSubmission = deferred<void>();
-    let firstLifecycle!: MessageSubmissionLifecycle;
-    const submit = vi.fn((input: UserInput, lifecycle?: MessageSubmissionLifecycle) => {
-      if (input.msg === 'session A in flight') {
-        firstLifecycle = lifecycle!;
-        return firstSubmission.promise;
-      }
-      lifecycle?.onAccepted();
-      return Promise.resolve();
-    });
-    const view = setup(submit, undefined, true);
-
-    await queue('session A in flight');
-    await userEvent.click(sendNow());
-    expect(submit).toHaveBeenCalledOnce();
-
-    view.changeSession('queue-test-b');
-    await waitFor(() => expect(screen.queryByText('session A in flight')).toBeNull());
-    await queue('session B queued');
-
-    act(() => firstLifecycle.onAccepted());
-    await act(async () => firstSubmission.resolve());
-    expect(screen.getByText('session B queued')).toBeVisible();
-    expect(screen.queryByText('Messages kept. Send now when you are ready.')).toBeNull();
-
-    await userEvent.click(sendNow());
-    await waitFor(() => expect(screen.queryByText('session B queued')).toBeNull());
-    expect(submit).toHaveBeenCalledTimes(2);
-  });
-
-  it('preserves rejected queued image bytes across reload until an explicit retry', async () => {
-    const images = [{ data: 'aW1hZ2U=', mimeType: 'image/png' }];
-    const storage = new QueuedMessageStorage(localStorage, 'queue-test');
-    storage.read();
-    storage.write([
-      { id: 'rejected-image', content: 'inspect this image', timestamp: 456, images },
-    ]);
-    const submit = vi.fn(async (_input: UserInput, lifecycle?: MessageSubmissionLifecycle) => {
-      lifecycle?.onRejectedBeforeAcceptance();
-    });
-    const initial = setup(submit);
-    initial.changeState(ChatState.Idle);
-    await userEvent.click(sendNow());
-    await waitFor(() => expect(submit).toHaveBeenCalledOnce());
-    expect(submit.mock.calls[0][0]).toEqual({ msg: 'inspect this image', images, messageId: 'rejected-image', desktopGeneration: '' });
-    initial.unmount();
-    const restored = setup(submit);
-    restored.changeState(ChatState.Idle);
-    expect(screen.getByRole('button', { name: 'Expand saved drafts' })).toBeVisible();
-    expect(submit).toHaveBeenCalledOnce();
-    submit.mockImplementation(async (_input, lifecycle) => lifecycle?.onAccepted());
-    expect(
-      screen.queryByText('Sending result unknown. Check the conversation before retrying.')
-    ).toBeNull();
-    await userEvent.click(sendNow());
-    await waitFor(() => expect(submit).toHaveBeenCalledTimes(2));
-    expect(submit.mock.calls[1][0]).toEqual(submit.mock.calls[0][0]);
-  });
-
-  it('does not requeue an accepted image when the provider subsequently rejects it', async () => {
-    const images = [{ data: 'aW1hZ2U=', mimeType: 'image/png' }];
-    const storage = new QueuedMessageStorage(localStorage, 'queue-test');
-    storage.read();
-    storage.write([
-      { id: 'accepted-image', content: 'image rejected by provider', timestamp: 789, images },
-    ]);
-    const submit = vi.fn(async (_input: UserInput, lifecycle?: MessageSubmissionLifecycle) => {
-      lifecycle?.onAccepted();
-      throw new Error('provider rejected image input');
-    });
-    const initial = setup(submit);
-    initial.changeState(ChatState.Idle);
-    await userEvent.click(sendNow());
-    await waitFor(() => expect(submit).toHaveBeenCalledOnce());
-    expect(submit.mock.calls[0][0].images).toEqual(images);
-    expect(screen.queryByText('image rejected by provider')).toBeNull();
-    initial.unmount();
-    const restored = setup(submit);
-    restored.changeState(ChatState.Idle);
-    expect(screen.queryByText('image rejected by provider')).toBeNull();
-    expect(submit).toHaveBeenCalledOnce();
-    expect(new QueuedMessageStorage(localStorage, 'queue-test').read()).toEqual([]);
-  });
-
-  it('presents input after Stop as a new pending chat message and sends once cancellation settles', async () => {
-    const submit = vi.fn(async (_input: UserInput, lifecycle?: MessageSubmissionLifecycle) =>
-      lifecycle?.onAccepted()
-    );
-    const pending = vi.fn();
-    const anchor: Message = {
-      id: 'old-answer',
-      role: 'assistant',
-      created: 1,
-      metadata: { userVisible: true, agentVisible: true },
-      content: [{ type: 'text', text: 'Old work' }],
-    };
-    const view = setup(submit, undefined, false, true, {
-      messages: [anchor],
-      onPendingMessageChange: pending,
-    });
-    await userEvent.click(screen.getByRole('button', { name: /^Stop$/ }));
-    expect(view.onStop).toHaveBeenCalledOnce();
-    view.changeBlocked(true);
-    view.changeState(ChatState.Idle);
-    const input = screen.getByTestId('chat-input');
-    fireEvent.change(input, { target: { value: 'Inspect only the saved files' } });
-    fireEvent.keyDown(input, { key: 'Enter' });
-    await waitFor(() =>
-      expect(pending).toHaveBeenLastCalledWith(
-        'queue-test',
-        expect.objectContaining({
-          metadata: expect.objectContaining({
-            pendingDelivery: 'pending',
-            presentation: { afterMessageId: 'old-answer' },
-          }),
-        })
-      )
-    );
-    expect(screen.queryByRole('button', { name: 'Send now' })).toBeNull();
-    expect(submit).not.toHaveBeenCalled();
-    view.changeBlocked(false);
-    await waitFor(() => expect(submit).toHaveBeenCalledOnce());
-    expect(submit.mock.calls[0][0].msg).toBe('Inspect only the saved files');
-  });
+it('keeps the list expanded across async edit admission and focuses only the queue editor',async()=>{
+ const items=Array.from({length:6},(_,i)=>({id:`layout-${i}`,content:`layout text ${i}`,images:[],timestamp:i}));
+ let resolve!:(ok:boolean)=>void;
+ const begin=vi.fn(()=>new Promise<boolean>(r=>{resolve=r;}));
+ const props={queuedMessages:items,onRemoveMessage:vi.fn(),onClearQueue:vi.fn(),onEditMessage:vi.fn(async()=>true),onBeginEdit:begin};
+ const view=render(<MessageQueue {...props}/>,{wrapper:IntlTestWrapper});
+ fireEvent.click(screen.getByRole('button',{name:'layout text 5'}));
+ view.rerender(<MessageQueue {...props} isPaused/>);
+ expect(screen.getByText('layout text 0')).toBeVisible();
+ await act(async()=>{resolve(true);});
+ const editor=screen.getByRole('textbox',{name:'Edit message'});
+ expect(editor).toHaveFocus();expect(editor).toHaveValue('layout text 5');
+ expect(editor.closest('[data-queue-row]')?.querySelector('[aria-label="Remove this message from queue"]')).toBeNull();
+ fireEvent.click(screen.getByRole('button',{name:'Cancel'}));
+ expect(screen.getByRole('button',{name:'layout text 5'})).toHaveFocus();
+ expect(props.onEditMessage).not.toHaveBeenCalled();
 });

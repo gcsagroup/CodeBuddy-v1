@@ -1621,6 +1621,10 @@ export type ProviderInventoryEntryDto = {
    */
   configured: boolean;
   /**
+   * Whether this connection is enabled. Missing means enabled for older servers.
+   */
+  enabled?: boolean;
+  /**
    * Provider classification such as `Preferred`, `Builtin`, `Declarative`, or `Custom`.
    */
   providerType: string;

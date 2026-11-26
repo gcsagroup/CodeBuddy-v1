@@ -7,16 +7,19 @@ import { desktopNetworkAllowed } from './desktop-network-consent.mjs';
 // and sessions and are deliberately never written here.
 export class ModelInventory {
   constructor(store) { this.store = store; this.pending = new Map(); this.failures = new Map(); this.closed = false; this.revision = 0; }
+  connectionChanged(id) { this.failures.delete(id); this.revision++; }
   status() {
     return this.store.read(['providers']).providers.flatMap(provider => {
+      if (provider.enabled === false) return [];
       const saved = provider.inventoryState;
       const valid = saved?.connection === modelConnectionIdentity(provider);
       const lastFailure = this.failures.get(provider.id);
       const failure = lastFailure?.connection === modelConnectionIdentity(provider) ? lastFailure.details : undefined;
       const changes = valid ? saved.changes ?? [] : [];
-      if (!failure && !changes.length) return [];
+      const loading = this.pending.has(provider.id);
+      if (!failure && !changes.length && !loading) return [];
       return [{ providerId: provider.id, providerName: provider.displayName, changes,
-        noticeId: valid ? saved.noticeId : undefined, ...(failure ?? {}) }];
+        noticeId: valid ? saved.noticeId : undefined, ...(failure ?? {}), loading }];
     });
   }
   async acknowledge(providerId, noticeId) {
@@ -53,16 +56,18 @@ export class ModelInventory {
     const state = this.store.read(['providers', 'defaults']);
     const provider = state.providers.find(p => p.id === id);
     if (!provider) throw invalid('Unknown provider');
+    if (provider.enabled === false) throw invalid('Provider is disabled', { code: 'provider_disabled' });
     const connection = modelConnectionIdentity(provider);
     try {
       const models = await discover(provider, provider, { refreshMetadata: true, allowEmpty: true, timeoutMs: 10000 });
+      if (this.store.read(['providers']).providers.find(p => p.id === id)?.enabled === false) return;
       if (state.defaults?.providerId === id && models.includes(state.defaults.modelId))
         await resolvedModelInfo({ ...provider, models }, state.defaults.modelId);
       const capabilities = discoveredModelCapabilities(provider, models);
       if (this.closed) return;
       await this.store.update(current => {
         const saved = current.providers.find(p => p.id === id);
-        if (!saved || modelConnectionIdentity(saved) !== connection || this.closed) return;
+        if (!saved || saved.enabled === false || modelConnectionIdentity(saved) !== connection || this.closed) return;
         const previous = saved.inventoryState?.connection === connection ? saved.inventoryState : undefined;
         const changes = [...(previous?.changes ?? [])];
         const add = change => {
@@ -98,7 +103,8 @@ export class ModelInventory {
     } catch (error) {
       const current = this.store.read(['providers']).providers.find(p => p.id === id);
       if (!this.closed && current && modelConnectionIdentity(current) === connection)
-        this.failures.set(id, { connection, details: { failed: true, httpStatus: error?.data?.httpStatus } });
+        this.failures.set(id, { connection, details: { failed: true, httpStatus: error?.data?.httpStatus,
+          errorCode: error?.data?.code, networkCode: error?.data?.networkCode } });
       throw error;
     }
   }

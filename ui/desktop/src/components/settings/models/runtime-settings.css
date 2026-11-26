@@ -36,6 +36,9 @@
 .runtime-feature button[data-entry='connections'] {
   background-image: linear-gradient(115deg, #1e3543, #285b64);
 }
+.runtime-feature button[data-entry='speech'] {
+  background-image: radial-gradient(ellipse at 95% 5%, #7773a266, transparent 65%), linear-gradient(120deg, #35364f, #494365);
+}
 .runtime-feature button[data-entry='generation'] {
   background-image:
     linear-gradient(95deg, rgba(26, 25, 53, 0.93), rgba(34, 35, 72, 0.54)),
@@ -165,7 +168,7 @@
     grid-column: 1 / -1;
   }
   .runtime-feature .runtime-entries {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 20px;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 14px;
   }
 }

@@ -1,6 +1,6 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import type { ComponentProps } from 'react';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { IntlTestWrapper } from '../i18n/test-utils';
 import userEvent from '@testing-library/user-event';
 import { ToolCallExpandable } from './ToolCallExpandable';
@@ -226,5 +226,48 @@ describe('ToolCallExpandable', () => {
         'true'
       )
     );
+  });
+});
+
+describe('tool display preference', () => {
+  it('opens detailed history, stays open on completion, and applies setting changes after manual choices', async () => {
+    let style = 'detailed';
+    const mock = vi.spyOn(window.electron, 'getSetting').mockImplementation(async () => style);
+    try {
+      const show = (settled: boolean) => (
+        <ToolCallExpandable
+          compact
+          respectToolDisplayStyle
+          label="Preference history"
+          storageKey="preference-regression"
+          collapseOnSettle={settled}
+          resetOnSettle
+        >
+          <p>Visible receipt</p>
+        </ToolCallExpandable>
+      );
+      const view = render(show(false), { wrapper: IntlTestWrapper });
+      const toggle = screen.getByRole('button', { name: 'Preference history' });
+      await waitFor(() => expect(toggle).toHaveAttribute('aria-expanded', 'true'));
+      view.rerender(show(true));
+      expect(toggle).toHaveAttribute('aria-expanded', 'true');
+      fireEvent.click(toggle);
+      expect(toggle).toHaveAttribute('aria-expanded', 'false');
+      style = 'concise';
+      fireEvent(window, new Event('responseStyleChanged'));
+      await waitFor(() =>
+        expect(window.sessionStorage.getItem('codepro-operation:preference-regression')).toBeNull()
+      );
+      expect(toggle).toHaveAttribute('aria-expanded', 'false');
+      style = 'detailed';
+      fireEvent(window, new Event('responseStyleChanged'));
+      await waitFor(() => expect(toggle).toHaveAttribute('aria-expanded', 'true'));
+      fireEvent.click(toggle);
+      expect(toggle).toHaveAttribute('aria-expanded', 'false');
+      view.unmount();
+    } finally {
+      mock.mockRestore();
+      window.sessionStorage.removeItem('codepro-operation:preference-regression');
+    }
   });
 });

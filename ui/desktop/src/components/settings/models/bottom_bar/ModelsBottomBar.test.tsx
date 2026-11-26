@@ -183,6 +183,21 @@ beforeEach(() => {
   });
 });
 describe('direct model selection', () => {
+  it('keeps the model list focused and switches when thinking capabilities are unknown', async () => {
+    vi.mocked(acpReadModelDisplaySettings).mockResolvedValue({
+      thinking: { options: [], value: null, toggle: false, state: 'unknown' },
+      contextWindow: 32768,
+      contextSource: 'service',
+    });
+    const user = userEvent.setup();
+    const { changed } = setup();
+    await user.click(await screen.findByRole('button', { name: 'model-A' }));
+    await user.click(screen.getAllByRole('button', { name: 'model-A' }).slice(-1)[0]);
+    const search = await screen.findByRole('searchbox');
+    await waitFor(() => expect(search).toHaveFocus());
+    await user.click(await screen.findByRole('button', { name: 'model-B' }));
+    await waitFor(() => expect(changed).toHaveBeenCalledWith({ model: 'model-B', provider: 'p' }));
+  });
   it('makes the current chat model the default when its provider differs from the saved selection', async () => {
     mocks.configModel = 'model-B';
     const user = userEvent.setup();
@@ -311,7 +326,7 @@ describe('direct model selection', () => {
     expect(screen.queryByRole('slider')).toBeNull();
     expect(mocks.change).not.toHaveBeenCalled();
   });
-  it('opens model selection directly when the model has no thinking controls', async () => {
+  it('opens model selection from the capability card when the model has no thinking controls', async () => {
     vi.mocked(acpReadModelDisplaySettings).mockResolvedValue({
       thinking: { options: [], value: null, toggle: false },
       contextWindow: 32768,
@@ -320,6 +335,7 @@ describe('direct model selection', () => {
     const user = userEvent.setup();
     setup();
     await user.click(await screen.findByRole('button', { name: 'model-A' }));
+    await user.click(screen.getAllByRole('button', { name: 'model-A' }).slice(-1)[0]);
     expect(await screen.findByRole('button', { name: 'model-B' })).toBeVisible();
     expect(screen.queryByRole('slider')).toBeNull();
   });
@@ -437,7 +453,7 @@ describe('direct model selection', () => {
     expect(view.changed).not.toHaveBeenCalled();
   });
   it('reports model-list load failure and retries without using stale choices', async () => {
-    vi.mocked(acpListProviderDetails).mockRejectedValueOnce(new Error('private path'));
+    vi.mocked(acpListProviderDetails).mockRejectedValueOnce(new Error('private path')).mockRejectedValueOnce(new Error('private path'));
     const user = userEvent.setup();
     setup();
     await openModels(user);

@@ -1,0 +1,11 @@
+.welcome-heading { display:flex; align-items:center; gap:20px; padding-inline-start:48px; }
+.welcome-orbit { position:relative; width:76px; height:76px; flex:none; display:grid; place-items:center; isolation:isolate; }
+.welcome-orbit-glow { position:absolute; inset:12px; border-radius:50%; background:radial-gradient(circle at 25% 25%,#a9c9ff88, #d9b7ff55 65%,transparent); filter:blur(7px); }
+.welcome-orbit-rings { position:absolute; inset:-2px; width:80px; height:80px; overflow:visible; }
+.welcome-orbit-track { transform-origin:40px 40px; animation:welcome-orbit-turn 7s linear infinite; }
+.welcome-orbit-track-secondary { animation-duration:10s; animation-direction:reverse; }
+.welcome-orbit-mark { position:relative; width:36px; height:36px; }
+.welcome-copy { margin-left:96px; }
+@keyframes welcome-orbit-turn { to { transform:rotate(360deg); } }
+@media(max-width:640px) { .welcome-heading { gap:14px; padding-inline-start:0; } .welcome-orbit { width:60px;height:60px; } .welcome-orbit-rings { width:64px;height:64px; } .welcome-copy { margin-left:0; } }
+@media(prefers-reduced-motion:reduce) { .welcome-orbit-track { animation:none; } }

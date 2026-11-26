@@ -9,7 +9,6 @@ import { AppEvents } from '../constants/events';
 import { ChatState } from '../types/chatState';
 import type { Session } from '../types/session';
 import { acpErrorData, errorMessage } from '../utils/conversionUtils';
-import { showExtensionLoadResults } from '../utils/extensionErrorUtils';
 import {
   createUserMessage,
   getTextAndImageContent,
@@ -248,7 +247,6 @@ async function createSession(
   const { sessionId, sessionInfo, meta } = await acpNewSession(cwd, gooseExtensions, recipe);
   const session = sessionInfoToSession(sessionInfo, meta);
 
-  showExtensionLoadResults(meta.extensionResults);
   window.dispatchEvent(
     new CustomEvent(AppEvents.SESSION_EXTENSIONS_LOADED, { detail: { sessionId } })
   );
@@ -296,7 +294,6 @@ async function reconfirmCodeProWorkspace(
       confirmWorkspace: (input) => window.electron.confirmCodeProWorkspace(input),
       loadSession: async (sessionId, options) => {
         const { sessionInfo, meta } = await acpLoadSession(sessionId, options);
-        showExtensionLoadResults(meta.extensionResults);
         window.dispatchEvent(
           new CustomEvent(AppEvents.SESSION_EXTENSIONS_LOADED, { detail: { sessionId } })
         );
@@ -337,7 +334,6 @@ async function restoreSessionFromServer(sessionId: string): Promise<boolean> {
     try {
       const { sessionInfo, meta } = await acpLoadSession(sessionId);
 
-      showExtensionLoadResults(meta.extensionResults);
       window.dispatchEvent(
         new CustomEvent(AppEvents.SESSION_EXTENSIONS_LOADED, { detail: { sessionId } })
       );

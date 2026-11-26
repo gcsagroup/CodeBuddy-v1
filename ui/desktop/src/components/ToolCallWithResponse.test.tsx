@@ -1,6 +1,6 @@
 import chineseCatalog from '../i18n/messages/zh-CN.json';
 import computerUnknown from './fixtures/computer-unknown.json';
-import { fireEvent, render, screen, within } from '@testing-library/react';
+import { fireEvent, render, screen, within, waitFor } from '@testing-library/react';
 import { IntlProvider } from 'react-intl';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { isAcpPermissionRequestPending } from '../acp/permissionRequests';
@@ -35,65 +35,194 @@ describe('tool response completion evidence', () => {
       { id: 'poll-2', operation: 'status', status: 'running' },
       { id: 'poll-3', operation: 'status', status: 'completed' },
     ];
-    render(<IntlProvider locale="zh-CN" messages={chineseMessages}>
-      {rows.map(({ id, operation, status }) => <ToolCallWithResponse
-        key={id} compact isCancelledMessage={false} isPendingApproval={false}
-        toolRequest={{ type: 'toolRequest', id, toolCall: { status: 'success', value: {
-          name: 'generate_image', arguments: { operation, job_id: 'same-job' },
-        } } }}
-        toolResponse={{ type: 'toolResponse', id, toolResult: { status: 'success', value: {
-          content: [{ type: 'text', text: JSON.stringify({ job_id: 'same-job', status, images: [] }) }],
-        } } }}
-      />)}
-    </IntlProvider>);
+    render(
+      <IntlProvider locale="zh-CN" messages={chineseMessages}>
+        {rows.map(({ id, operation, status }) => (
+          <ToolCallWithResponse
+            key={id}
+            compact
+            isCancelledMessage={false}
+            isPendingApproval={false}
+            toolRequest={{
+              type: 'toolRequest',
+              id,
+              toolCall: {
+                status: 'success',
+                value: {
+                  name: 'generate_image',
+                  arguments: { operation, job_id: 'same-job' },
+                },
+              },
+            }}
+            toolResponse={{
+              type: 'toolResponse',
+              id,
+              toolResult: {
+                status: 'success',
+                value: {
+                  content: [
+                    {
+                      type: 'text',
+                      text: JSON.stringify({ job_id: 'same-job', status, images: [] }),
+                    },
+                  ],
+                },
+              },
+            }}
+          />
+        ))}
+      </IntlProvider>
+    );
     expect(screen.getAllByText('图片生成 · 提交请求: 排队中')).toHaveLength(1);
     expect(screen.getAllByText('图片生成 · 状态查询: 生成中')).toHaveLength(2);
     expect(screen.getAllByText('图片生成 · 状态查询: 已完成')).toHaveLength(1);
     expect(screen.queryByText('已生成图片')).not.toBeInTheDocument();
   });
   it.each([
-    ['paused', '电脑操作已暂停'], ['stale', '观察已过期，等待重新观察'], ['withdrawn', '已退出排队'], ['stopped', '电脑控制已停止'],
-  ])('shows the host desktop outcome %s without classifying it as execution failure', (outcome, label) => {
-    render(<IntlProvider locale="zh-CN" messages={chineseMessages}>
-      <ToolCallWithResponse compact sessionId="desktop-outcome" isCancelledMessage={false} isPendingApproval={false}
-        toolRequest={{ type: 'toolRequest', id: 'desktop-outcome', toolCall: { status: 'success', value: { name: 'mcp__qwen_computer__get_app_state', arguments: {} } } }}
-        toolResponse={{ type: 'toolResponse', id: 'desktop-outcome', metadata: { desktopOutcome: outcome }, toolResult: { status: 'error', error: 'Host rejected this observation' } }} />
-    </IntlProvider>);
-    expect(screen.getByText(label)).toBeVisible();
-    expect(screen.queryByText('未成功')).not.toBeInTheDocument();
-  });
+    ['paused', '电脑操作已暂停'],
+    ['stale', '观察已过期，等待重新观察'],
+    ['withdrawn', '已退出排队'],
+    ['stopped', '电脑控制已停止'],
+  ])(
+    'shows the host desktop outcome %s without classifying it as execution failure',
+    (outcome, label) => {
+      render(
+        <IntlProvider locale="zh-CN" messages={chineseMessages}>
+          <ToolCallWithResponse
+            compact
+            sessionId="desktop-outcome"
+            isCancelledMessage={false}
+            isPendingApproval={false}
+            toolRequest={{
+              type: 'toolRequest',
+              id: 'desktop-outcome',
+              toolCall: {
+                status: 'success',
+                value: { name: 'mcp__qwen_computer__get_app_state', arguments: {} },
+              },
+            }}
+            toolResponse={{
+              type: 'toolResponse',
+              id: 'desktop-outcome',
+              metadata: { desktopOutcome: outcome },
+              toolResult: { status: 'error', error: 'Host rejected this observation' },
+            }}
+          />
+        </IntlProvider>
+      );
+      expect(screen.getByText(label)).toBeVisible();
+      expect(screen.queryByText('未成功')).not.toBeInTheDocument();
+    }
+  );
   it('passes a custom module through the actual compact card', () => {
-    render(<IntlProvider locale="zh-CN" messages={chineseMessages}>
-      <ToolCallWithResponse compact sessionId="custom-card" isCancelledMessage={false} isPendingApproval
-        toolRequest={{ type: 'toolRequest', id: 'custom-card', toolCall: { status: 'success', value: { name: 'mcp__custom__search', arguments: {} } } }}
-        confirmationContent={{ id: 'custom-card', toolName: 'mcp__custom__search', arguments: {}, authorizationScope: 'session', authorizationGroup: 'mcp_module', authorizationModule: { name: 'custom', displayName: '用户工具' }, availableActions: ['allow_once', 'always_allow', 'deny_once'] }} />
-    </IntlProvider>);
+    render(
+      <IntlProvider locale="zh-CN" messages={chineseMessages}>
+        <ToolCallWithResponse
+          compact
+          sessionId="custom-card"
+          isCancelledMessage={false}
+          isPendingApproval
+          toolRequest={{
+            type: 'toolRequest',
+            id: 'custom-card',
+            toolCall: { status: 'success', value: { name: 'mcp__custom__search', arguments: {} } },
+          }}
+          confirmationContent={{
+            id: 'custom-card',
+            toolName: 'mcp__custom__search',
+            arguments: {},
+            authorizationScope: 'session',
+            authorizationGroup: 'mcp_module',
+            authorizationModule: { name: 'custom', displayName: '用户工具' },
+            availableActions: ['allow_once', 'always_allow', 'deny_once'],
+          }}
+        />
+      </IntlProvider>
+    );
     expect(screen.getByRole('button', { name: '本会话允许使用用户工具 (custom)' })).toBeVisible();
     expect(screen.getByText(/用户工具 \(custom\)当前的工具及资源访问能力/)).toBeVisible();
     expect(screen.getByRole('button', { name: '仅此次允许' })).toBeVisible();
     expect(screen.getByRole('button', { name: '拒绝' })).toBeVisible();
   });
   it('shows the module permission and scope in the actual compact conversation card', () => {
-    render(<IntlProvider locale="zh-CN" messages={chineseMessages}>
-      <ToolCallWithResponse compact sessionId="module-card" isCancelledMessage={false} isPendingApproval
-        toolRequest={{ type: 'toolRequest', id: 'module-card', toolCall: { status: 'success', value: { name: 'mcp__qwen_computer__list_apps', arguments: {} } } }}
-        confirmationContent={{ id: 'module-card', toolName: 'mcp__qwen_computer__list_apps', arguments: {}, authorizationScope: 'session', authorizationGroup: 'computer_control', availableActions: ['allow_once', 'always_allow', 'deny_once'] }} />
-    </IntlProvider>);
+    render(
+      <IntlProvider locale="zh-CN" messages={chineseMessages}>
+        <ToolCallWithResponse
+          compact
+          sessionId="module-card"
+          isCancelledMessage={false}
+          isPendingApproval
+          toolRequest={{
+            type: 'toolRequest',
+            id: 'module-card',
+            toolCall: {
+              status: 'success',
+              value: { name: 'mcp__qwen_computer__list_apps', arguments: {} },
+            },
+          }}
+          confirmationContent={{
+            id: 'module-card',
+            toolName: 'mcp__qwen_computer__list_apps',
+            arguments: {},
+            authorizationScope: 'session',
+            authorizationGroup: 'computer_control',
+            availableActions: ['allow_once', 'always_allow', 'deny_once'],
+          }}
+        />
+      </IntlProvider>
+    );
     expect(screen.getByRole('button', { name: '本会话允许电脑控制' })).toBeVisible();
     expect(screen.getByText(/允许本会话使用全部电脑控制工具/)).toBeVisible();
     expect(screen.queryByRole('button', { name: '本会话允许此工具' })).not.toBeInTheDocument();
   });
   it('preserves the business scope from the Mac permission request in a compact card', () => {
-    render(<IntlProvider locale="zh-CN" messages={chineseMessages}>
-      <ToolCallWithResponse compact sessionId="business-card" isCancelledMessage={false} isPendingApproval
-        toolRequest={{ type: 'toolRequest', id: 'business-card', toolCall: { status: 'success', value: { name: 'mcp__qwen_computer__get_app_state', arguments: {} } } }}
-        confirmationContent={{ id: 'business-card', toolName: 'mcp__qwen_computer__get_app_state', arguments: {}, authorizationScope: 'session', authorizationTarget: 'mcp__qwen_computer__get_app_state', businessApproval: { id: 'computer-use', tools: ['click', 'drag', 'get_app_state', 'list_apps', 'perform_secondary_action', 'press_key', 'scroll', 'set_value', 'type_text'] }, availableActions: ['allow_once', 'always_allow', 'deny_once'] }} />
-    </IntlProvider>);
+    render(
+      <IntlProvider locale="zh-CN" messages={chineseMessages}>
+        <ToolCallWithResponse
+          compact
+          sessionId="business-card"
+          isCancelledMessage={false}
+          isPendingApproval
+          toolRequest={{
+            type: 'toolRequest',
+            id: 'business-card',
+            toolCall: {
+              status: 'success',
+              value: { name: 'mcp__qwen_computer__get_app_state', arguments: {} },
+            },
+          }}
+          confirmationContent={{
+            id: 'business-card',
+            toolName: 'mcp__qwen_computer__get_app_state',
+            arguments: {},
+            authorizationScope: 'session',
+            authorizationTarget: 'mcp__qwen_computer__get_app_state',
+            businessApproval: {
+              id: 'computer-use',
+              tools: [
+                'click',
+                'drag',
+                'get_app_state',
+                'list_apps',
+                'perform_secondary_action',
+                'press_key',
+                'scroll',
+                'set_value',
+                'type_text',
+              ],
+            },
+            availableActions: ['allow_once', 'always_allow', 'deny_once'],
+          }}
+        />
+      </IntlProvider>
+    );
     expect(screen.getByRole('button', { name: '本会话允许电脑操作' })).toBeVisible();
     expect(screen.getByTestId('business-approval-scope')).toBeVisible();
     expect(screen.getByRole('button', { name: '仅此次允许' })).toBeVisible();
     expect(screen.getByRole('button', { name: '拒绝' })).toBeVisible();
-    expect(screen.queryByRole('button', { name: '本会话允许使用读取窗口内容' })).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: '本会话允许使用读取窗口内容' })
+    ).not.toBeInTheDocument();
   });
   it.each([
     { live: true, locale: 'en', messages: {}, label: 'Interact with a window control' },
@@ -141,15 +270,37 @@ describe('tool response completion evidence', () => {
   );
 
   it('keeps generic compact tool receipts out of diagnostic drawers', () => {
-    render(<IntlProvider locale="en" messages={{}}>
-      <ToolCallWithResponse compact isCancelledMessage={false} isPendingApproval={false}
-        toolRequest={{ type: 'toolRequest', id: 'directory', toolCall: { status: 'success', value: {
-          name: 'working_directory', arguments: { internalDiagnostic: 'PRIVATE_PARAMETER' },
-        } } }}
-        toolResponse={{ type: 'toolResponse', id: 'directory', toolResult: { status: 'success', value: {
-          content: [{ type: 'text', text: 'PRIVATE_RAW_RECEIPT' }], isError: false,
-        } } }} />
-    </IntlProvider>);
+    render(
+      <IntlProvider locale="en" messages={{}}>
+        <ToolCallWithResponse
+          compact
+          isCancelledMessage={false}
+          isPendingApproval={false}
+          toolRequest={{
+            type: 'toolRequest',
+            id: 'directory',
+            toolCall: {
+              status: 'success',
+              value: {
+                name: 'working_directory',
+                arguments: { internalDiagnostic: 'PRIVATE_PARAMETER' },
+              },
+            },
+          }}
+          toolResponse={{
+            type: 'toolResponse',
+            id: 'directory',
+            toolResult: {
+              status: 'success',
+              value: {
+                content: [{ type: 'text', text: 'PRIVATE_RAW_RECEIPT' }],
+                isError: false,
+              },
+            },
+          }}
+        />
+      </IntlProvider>
+    );
     expect(screen.queryByText('Diagnostic record')).not.toBeInTheDocument();
     expect(screen.queryByText(/PRIVATE_PARAMETER|PRIVATE_RAW_RECEIPT/)).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { expanded: false })).not.toBeInTheDocument();
@@ -308,60 +459,66 @@ describe('tool response completion evidence', () => {
     expect(screen.queryByText('Failed')).not.toBeInTheDocument();
   });
 
-  it.each([true, false])('opens a child in the side panel without claiming task completion (activation: %s)', (activated) => {
-    const open = vi.fn();
-    window.addEventListener(OPEN_SUBAGENT_CONVERSATION, open);
-    render(
-      <IntlProvider locale="en" messages={{}}>
-        <ToolCallWithResponse
-          compact
-          sessionId="parent"
-          isCancelledMessage={false}
-          isPendingApproval={false}
-          toolRequest={{
-            type: 'toolRequest',
-            id: 'spawn',
-            toolCall: {
-              status: 'success',
-              value: { name: 'subagent_reviewer', arguments: { description: 'Review quantities' } },
-            },
-          }}
-          toolResponse={{
-            type: 'toolResponse',
-            id: 'spawn',
-            toolResult: {
-              status: 'success',
-              value: {
-                content: [],
-                ...(activated ? {} : { _meta: { subagent_session_id: 'child' } }),
+  it.each([true, false])(
+    'opens a child in the side panel without claiming task completion (activation: %s)',
+    (activated) => {
+      const open = vi.fn();
+      window.addEventListener(OPEN_SUBAGENT_CONVERSATION, open);
+      render(
+        <IntlProvider locale="en" messages={{}}>
+          <ToolCallWithResponse
+            compact
+            sessionId="parent"
+            isCancelledMessage={false}
+            isPendingApproval={false}
+            toolRequest={{
+              type: 'toolRequest',
+              id: 'spawn',
+              toolCall: {
+                status: 'success',
+                value: {
+                  name: 'subagent_reviewer',
+                  arguments: { description: 'Review quantities' },
+                },
               },
-            },
-            metadata: activated
-              ? { rawOutput: { kind: 'activation', subagentId: 'child' } }
-              : undefined,
-          }}
-        />
-      </IntlProvider>
-    );
-    const child = screen.getByRole('button', {
-      name: activated ? 'Started Review quantities' : 'Review quantities',
-    });
-    expect(child.querySelector('[data-subagent-avatar]')).toHaveAttribute(
-      'data-subagent-avatar',
-      'child'
-    );
-    expect(child.querySelector('.lucide-bot')).not.toBeNull();
-    expect(child.querySelector('.lucide-external-link')).toBeNull();
-    fireEvent.click(child);
-    expect(open).toHaveBeenCalledTimes(1);
-    expect((open.mock.calls[0][0] as CustomEvent).detail).toEqual({
-      parentSessionId: 'parent',
-      childSessionId: 'child',
-      title: 'Review quantities',
-    });
-    expect(screen.queryByText('Tool call completed')).not.toBeInTheDocument();
-    window.removeEventListener(OPEN_SUBAGENT_CONVERSATION, open);
-  });
+            }}
+            toolResponse={{
+              type: 'toolResponse',
+              id: 'spawn',
+              toolResult: {
+                status: 'success',
+                value: {
+                  content: [],
+                  ...(activated ? {} : { _meta: { subagent_session_id: 'child' } }),
+                },
+              },
+              metadata: activated
+                ? { rawOutput: { kind: 'activation', subagentId: 'child' } }
+                : undefined,
+            }}
+          />
+        </IntlProvider>
+      );
+      const child = screen.getByRole('button', {
+        name: activated ? 'Started Review quantities' : 'Review quantities',
+      });
+      expect(child.querySelector('[data-subagent-avatar]')).toHaveAttribute(
+        'data-subagent-avatar',
+        'child'
+      );
+      expect(child.querySelector('.lucide-bot')).not.toBeNull();
+      expect(child.querySelector('.lucide-external-link')).toBeNull();
+      fireEvent.click(child);
+      expect(open).toHaveBeenCalledTimes(1);
+      expect((open.mock.calls[0][0] as CustomEvent).detail).toEqual({
+        parentSessionId: 'parent',
+        childSessionId: 'child',
+        title: 'Review quantities',
+      });
+      expect(screen.queryByText('Tool call completed')).not.toBeInTheDocument();
+      window.removeEventListener(OPEN_SUBAGENT_CONVERSATION, open);
+    }
+  );
   it('does not render approval controls from an expired historical confirmation', () => {
     vi.mocked(isAcpPermissionRequestPending).mockReturnValue(false);
     render(
@@ -1005,22 +1162,85 @@ describe('inline project memory approval', () => {
   });
 });
 
-
 it('keeps the complete capability range and category label in inline approval cards', () => {
-  render(<IntlProvider locale="en" messages={{}}>
-    <ToolCallWithResponse compact isCancelledMessage={false} isPendingApproval
-      sessionId="future-scope-inline"
-      toolRequest={{ type: 'toolRequest', id: 'future-scope-inline-call', toolCall: { status: 'success', value: {
-        name: 'export_report', arguments: {},
-      } } }}
-      confirmationContent={{ id: 'future-scope-inline-call', toolName: 'export_report', arguments: {},
-        authorizationScope: 'session', availableActions: ['allow_once', 'always_allow', 'deny_once'],
-        businessApproval: { version: 2, id: 'report-export', name: 'Report export',
-          description: 'Only the configured report workspace', tools: ['export_report', 'inspect_report'],
-          details: [{ label: 'Workspace', value: 'isolated fixture' }] },
-      }} />
-  </IntlProvider>);
-  expect(screen.getByTestId('business-approval-scope')).toHaveTextContent('Only the configured report workspace');
-  expect(screen.getByRole('button', { name: 'Allow Report export for this session' })).toBeVisible();
-  expect(screen.queryByRole('button', { name: 'Allow this tool for this session' })).not.toBeInTheDocument();
+  render(
+    <IntlProvider locale="en" messages={{}}>
+      <ToolCallWithResponse
+        compact
+        isCancelledMessage={false}
+        isPendingApproval
+        sessionId="future-scope-inline"
+        toolRequest={{
+          type: 'toolRequest',
+          id: 'future-scope-inline-call',
+          toolCall: {
+            status: 'success',
+            value: {
+              name: 'export_report',
+              arguments: {},
+            },
+          },
+        }}
+        confirmationContent={{
+          id: 'future-scope-inline-call',
+          toolName: 'export_report',
+          arguments: {},
+          authorizationScope: 'session',
+          availableActions: ['allow_once', 'always_allow', 'deny_once'],
+          businessApproval: {
+            version: 2,
+            id: 'report-export',
+            name: 'Report export',
+            description: 'Only the configured report workspace',
+            tools: ['export_report', 'inspect_report'],
+            details: [{ label: 'Workspace', value: 'isolated fixture' }],
+          },
+        }}
+      />
+    </IntlProvider>
+  );
+  expect(screen.getByTestId('business-approval-scope')).toHaveTextContent(
+    'Only the configured report workspace'
+  );
+  expect(
+    screen.getByRole('button', { name: 'Allow Report export for this session' })
+  ).toBeVisible();
+  expect(
+    screen.queryByRole('button', { name: 'Allow this tool for this session' })
+  ).not.toBeInTheDocument();
+});
+
+it('applies detailed and concise preferences to real compact command details', async () => {
+  let style = 'detailed';
+  const mock = vi.spyOn(window.electron, 'getSetting').mockImplementation(async () => style);
+  try {
+    render(
+      <IntlProvider locale="en" messages={{}}>
+        <ToolCallWithResponse
+          compact
+          isCancelledMessage={false}
+          isPendingApproval={false}
+          toolRequest={{
+            type: 'toolRequest',
+            id: 'display-preference-command',
+            toolCall: {
+              status: 'success',
+              value: { name: 'developer__shell', arguments: { command: 'npm.cmd test' } },
+            },
+          }}
+        />
+      </IntlProvider>
+    );
+    const toggle = await screen.findByRole('button', { name: /Run command npm.cmd test/ });
+    await waitFor(() => expect(toggle).toHaveAttribute('aria-expanded', 'true'));
+    expect(screen.getByText('npm.cmd test')).toBeVisible();
+    style = 'concise';
+    fireEvent(window, new Event('responseStyleChanged'));
+    await waitFor(() => expect(toggle).toHaveAttribute('aria-expanded', 'false'));
+    fireEvent.click(toggle);
+    expect(screen.getByText('npm.cmd test')).toBeVisible();
+  } finally {
+    mock.mockRestore();
+    window.sessionStorage.removeItem('codepro-operation:display-preference-command');
+  }
 });

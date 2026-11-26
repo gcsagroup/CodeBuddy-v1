@@ -1297,7 +1297,7 @@ export async function createHarnessDriver({ dataDir, cwd = process.cwd(), instru
     }
     const fiber = agent.ctx.isolate('compaction').isolate('codebuddyCompactionFallbacks').isolate('codebuddyCompactionRequestConfig').plugin({
       name: 'codebuddy-session-capabilities',
-      inject: ['skills'],
+      inject: ['skills', 'workingDirectory'],
       async apply(scoped) {
         bindAgentPolicy(agent, settings.agentProfile);
         // Shadow only the deployment identity; shared behavior and tool policies remain.
@@ -1636,7 +1636,7 @@ export async function createHarnessDriver({ dataDir, cwd = process.cwd(), instru
       creation = work.catch(() => {});
       return work;
     },
-    async prompt(sessionId, content, { onEvent, onPermission, onToolPolicy, onToolStart, onDesktopTool, desktopMetadata, onUserQuestions, signal, requestId = randomUUID(), resumeGoal, createGoal, planMode, nativeObservationToken, queuedWhileBusy = false } = {}) {
+    async prompt(sessionId, content, { onEvent, onPermission, onToolPolicy, onToolStart, onDesktopTool, desktopMetadata, onUserQuestions, signal, requestId = randomUUID(), resumeGoal, createGoal, planMode, nativeObservationToken, queuedWhileBusy = false, inputBatch } = {}) {
       const adopted = nativeObservationToken && runs.get(sessionId)?.nativeToken === nativeObservationToken ? runs.get(sessionId) : null;
       if (runs.has(sessionId) && !adopted) throw new Error(`Session ${sessionId} already has an active prompt`);
       if (!sessionScopes.has(sessionId)) throw new Error('Configure the session before prompting');
@@ -1681,7 +1681,25 @@ export async function createHarnessDriver({ dataDir, cwd = process.cwd(), instru
         // parked notices through native step admission; mixed human queues retain FIFO.
         const mode = promptAgent?.status === 'idle' && parked.length > 0 && parked.every(message => message.source?.kind === 'subagent-settled') ? 'steer' : 'queue';
         if (adopted) adopted.attached.resolve();
-        else await ctx.sessionController.prompt({ sessionId, requestId, mode, content: parts, clientTimeZone: 'Asia/Shanghai' }, signal ?? new AbortController().signal);
+        else if (inputBatch?.length) {
+          // Admit every original message under the native maintenance barrier.
+          // Native execution starts only after the entire ordered batch is ready.
+          await promptAgent.runMaintenance(async maintenanceSignal => {
+            const previous = new Set([...promptAgent.inbox.nextStep, ...promptAgent.inbox.nextTurn].map(message => message.id));
+            try {
+              for (const input of inputBatch) {
+                signal?.throwIfAborted(); maintenanceSignal.throwIfAborted();
+                await ctx.sessionController.prompt({ sessionId, requestId: input.requestId,
+                  mode: 'steer', content: input.content, clientTimeZone: 'Asia/Shanghai' }, signal ?? maintenanceSignal);
+              }
+            } catch (error) {
+              for (const message of [...promptAgent.inbox.nextStep, ...promptAgent.inbox.nextTurn])
+                if (!previous.has(message.id) && inputBatch.some(input => input.requestId === message.source?.rpcId))
+                  promptAgent.inbox.remove(message.id);
+              throw error;
+            }
+          });
+        } else await ctx.sessionController.prompt({ sessionId, requestId, mode, content: parts, clientTimeZone: 'Asia/Shanghai' }, signal ?? new AbortController().signal);
         if (resumeGoal) await driver.controlGoal(sessionId, { action: 'resume', ...resumeGoal });
         if (signal?.aborted) cancel();
         const result = await (adopted ? adopted.promise : completion.promise);
@@ -1939,15 +1957,20 @@ export async function createHarnessDriver({ dataDir, cwd = process.cwd(), instru
         ...profile.skills.filter(name => !skills.some(skill => skill.name === name) && !DEFAULT_AGENT_SKILLS.some(skill => skill.name === name)).map(name => `Skill ${name}`),
         ...profile.mcpServers.filter(name => !servers.has(name)).map(name => `MCP ${name}`)];
     },
-    async agentInputIds(sessionId, { committedOnly = false } = {}) {
+    async agentInputIds(sessionId, { committedOnly = false, currentOnly = false } = {}) {
       if (!ctx.agents.get(sessionId) && !await ctx.sessionPersistence.stat(sessionId)) return [];
       const observation = await ctx.sessionQuery.observeSession(sessionId, { projectionMode: 'none' });
       try {
         const ids = new Set();
         for (const event of observation.events) {
           const messages = event.type === 'user/message' ? [event.data]
-            : !committedOnly && event.type === 'agent/inbox/spliced' ? event.data.inserted : [];
+            : !committedOnly && !currentOnly && event.type === 'agent/inbox/spliced' ? event.data.inserted : [];
           for (const message of messages ?? []) if (message.source?.kind === 'user' && message.source.rpcId) ids.add(message.source.rpcId);
+        }
+        if (currentOnly && !committedOnly) {
+          const agent = await resolveAgent(sessionId);
+          for (const message of [...agent.inbox.nextTurn, ...agent.inbox.nextStep])
+            if (message.source?.kind === 'user' && message.source.rpcId) ids.add(message.source.rpcId);
         }
         return [...ids];
       } finally { observation[Symbol.dispose](); }

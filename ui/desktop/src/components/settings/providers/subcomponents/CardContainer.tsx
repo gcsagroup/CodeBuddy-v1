@@ -54,7 +54,7 @@ export default function CardContainer({
     >
       {!grayedOut && <GlowingRing />}
       <div
-        className={`relative bg-background-primary rounded-lg p-3 transition-all duration-200 h-[160px] flex flex-col
+        className={`relative bg-background-primary rounded-lg p-3 transition-all duration-200 min-h-[160px] h-full flex flex-col gap-3
                    ${header ? 'justify-between' : 'justify-center'}
                    ${borderStyle === 'dashed' ? 'border-2 border-dashed' : 'border'}
                    ${

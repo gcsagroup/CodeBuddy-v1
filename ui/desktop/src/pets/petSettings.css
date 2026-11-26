@@ -1,0 +1,15 @@
+.pet-settings { container-type: inline-size; }
+.pet-settings-preview { display: grid; grid-template-columns: 160px minmax(0, 1fr); align-items: center; gap: 20px; padding: 16px 20px; }
+.pet-settings-stage { display: grid; place-items: center; min-height: 156px; }
+.pet-settings-info { min-width: 0; }
+.pet-settings-preview-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin-top: 12px; }
+.pet-settings-preview-actions button { padding-block: 6px; }
+.pet-settings-preview-actions select { min-height: 32px; }
+@container (max-width: 32rem) {
+  .pet-settings-preview { grid-template-columns: 112px minmax(0, 1fr); gap: 12px; padding: 12px; }
+  .pet-settings-stage > div { zoom: 0.78; }
+}
+@container (max-width: 23rem) {
+  .pet-settings-preview { grid-template-columns: 1fr; gap: 8px; }
+  .pet-settings-stage { min-height: 122px; }
+}

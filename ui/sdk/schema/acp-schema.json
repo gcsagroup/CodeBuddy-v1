@@ -3679,6 +3679,10 @@
           "type": "boolean",
           "description": "Whether Goose has enough configuration to use this provider."
         },
+        "enabled": {
+          "type": "boolean",
+          "description": "Whether this connection is enabled. Missing means enabled for older servers."
+        },
         "providerType": {
           "type": "string",
           "description": "Provider classification such as `Preferred`, `Builtin`, `Declarative`, or `Custom`."

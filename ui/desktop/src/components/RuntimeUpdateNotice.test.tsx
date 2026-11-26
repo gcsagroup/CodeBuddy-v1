@@ -1,4 +1,4 @@
-import { act, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { expect, it, vi } from 'vitest';
 import { IntlTestWrapper } from '../i18n/test-utils';
 import { RuntimeUpdateNotice } from './RuntimeUpdateNotice';
@@ -28,4 +28,14 @@ it('identifies an older backend by its structured unsupported-method response', 
   rpc.mockReset().mockRejectedValue(Object.assign(new Error('Method not found'), { code: -32601 }));
   render(<RuntimeUpdateNotice />, { wrapper: IntlTestWrapper });
   await screen.findByRole('status');
+});
+
+it('renders inventory once outside the composer with one status poll', async () => {
+  rpc.mockReset().mockResolvedValue({ modelInventory: [{ providerId: 'p', providerName: 'P', failed: true, changes: [] }] });
+  render(<RuntimeUpdateNotice><div data-testid="composer" /></RuntimeUpdateNotice>, { wrapper: IntlTestWrapper });
+  fireEvent.click(await screen.findByRole('button', { name: 'Model connection notifications' }));
+  const notice = await screen.findByRole('status');
+  expect(screen.getByTestId('composer')).not.toContainElement(notice);
+  expect(screen.getAllByRole('status')).toHaveLength(1);
+  expect(rpc).toHaveBeenCalledTimes(1);
 });

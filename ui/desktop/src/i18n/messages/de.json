@@ -3812,42 +3812,6 @@
   "goosehintsSection.title": {
     "defaultMessage": "Project instructions (AGENTS.md)"
   },
-  "groupedExtensionLoadingToast.askGoose": {
-    "defaultMessage": "CodeBuddy fragen"
-  },
-  "groupedExtensionLoadingToast.collapseDetails": {
-    "defaultMessage": "Details einklappen"
-  },
-  "groupedExtensionLoadingToast.copied": {
-    "defaultMessage": "Kopiert!"
-  },
-  "groupedExtensionLoadingToast.copyError": {
-    "defaultMessage": "Kopierfehler"
-  },
-  "groupedExtensionLoadingToast.expandDetails": {
-    "defaultMessage": "Details ausklappen"
-  },
-  "groupedExtensionLoadingToast.failedToAddExtension": {
-    "defaultMessage": "Hinzufügen der Erweiterung fehlgeschlagen"
-  },
-  "groupedExtensionLoadingToast.failedToLoad": {
-    "defaultMessage": "{count,plural,one{# Erweiterung konnte nicht geladen werden} other{# Erweiterungen konnten nicht geladen werden}}"
-  },
-  "groupedExtensionLoadingToast.loadingExtensions": {
-    "defaultMessage": "{count,plural,one{# Erweiterung wird geladen...} other{# Erweiterungen werden geladen...}}"
-  },
-  "groupedExtensionLoadingToast.partiallyLoaded": {
-    "defaultMessage": "{totalCount,plural,one{{successCount}/# Erweiterung geladen} other{{successCount}/# Erweiterungen geladen}}"
-  },
-  "groupedExtensionLoadingToast.showDetails": {
-    "defaultMessage": "Details anzeigen"
-  },
-  "groupedExtensionLoadingToast.showLess": {
-    "defaultMessage": "Weniger anzeigen"
-  },
-  "groupedExtensionLoadingToast.successfullyLoaded": {
-    "defaultMessage": "{count,plural,one{# Erweiterung erfolgreich geladen} other{# Erweiterungen erfolgreich geladen}}"
-  },
   "headersSection.add": {
     "defaultMessage": "Hinzufügen"
   },
@@ -4682,9 +4646,6 @@
   "messageQueue.removeFromQueue": {
     "defaultMessage": "Diese Nachricht aus der Warteschlange entfernen"
   },
-  "messageQueue.retrySave": {
-    "defaultMessage": "Retry saving queue"
-  },
   "messageQueue.save": {
     "defaultMessage": "Speichern"
   },
@@ -4705,12 +4666,6 @@
   },
   "messageQueue.steer": {
     "defaultMessage": "Aufgabe lenken"
-  },
-  "messageQueue.storageConflict": {
-    "defaultMessage": "This queue changed in another window. Sending and saving are paused to avoid overwriting it. Keep this window open and compare the queued messages."
-  },
-  "messageQueue.storageFailure": {
-    "defaultMessage": "The queue could not be saved or restored. Messages and attachments in this window are kept in memory. Keep this window open to avoid losing them."
   },
   "messageQueue.verifyDelivery": {
     "defaultMessage": "Sending result unknown. Check the conversation before retrying."
@@ -10274,17 +10229,11 @@
   "modelInventory.acknowledge": {
     "defaultMessage": "Verstanden"
   },
-  "modelInventory.actionFailed": {
-    "defaultMessage": "Aktion fehlgeschlagen. Ihre Modellauswahl wurde nicht geändert. Versuchen Sie es erneut."
-  },
   "modelInventory.changed": {
     "defaultMessage": "{model}: Der Anbieter hat {fields} geändert. Prüfen Sie die Modelleinstellungen."
   },
   "modelInventory.context": {
     "defaultMessage": "Kontextkapazität"
-  },
-  "modelInventory.failed": {
-    "defaultMessage": "Aktualisierung fehlgeschlagen. Die letzte Liste bleibt erhalten; dies bedeutet nicht, dass Modelle entfernt wurden."
   },
   "modelInventory.image": {
     "defaultMessage": "Bildeingabe"
@@ -10304,13 +10253,31 @@
   "modelInventory.thinking": {
     "defaultMessage": "Denkoptionen"
   },
-  "modelInventory.title": {
-    "defaultMessage": "Änderungen an Modellverbindungen"
-  },
   "modelInventory.tools": {
     "defaultMessage": "Werkzeugaufrufe"
   },
   "thinkingEffortPicker.unsupportedLabel": {
     "defaultMessage": "Nicht einstellbar"
+  },
+  "modelInventory.capabilityTitle": {
+    "defaultMessage": "Modellfähigkeiten geändert"
+  },
+  "modelInventory.collapse": {
+    "defaultMessage": "Vorläufig ausblenden"
+  },
+  "modelInventory.details": {
+    "defaultMessage": "Details anzeigen"
+  },
+  "modelInventory.refreshSummary": {
+    "defaultMessage": "Die gespeicherte Modellliste bleibt erhalten. Dies bedeutet nicht, dass Modelle entfernt wurden."
+  },
+  "modelInventory.refreshTitle": {
+    "defaultMessage": "Modellliste konnte nicht aktualisiert werden"
+  },
+  "modelInventory.reviewTitle": {
+    "defaultMessage": "Einige Modelle sind nicht mehr aufgeführt"
+  },
+  "modelInventory.selectionSummary": {
+    "defaultMessage": "Ihre Modellauswahl bleibt unverändert. Prüfen Sie die Details, bevor Sie fortfahren."
   }
 }

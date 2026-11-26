@@ -124,7 +124,7 @@ describe('history pagination and search generations', () => {
       );
     });
     await waitFor(() => expect(screen.queryByText('Matching title')).not.toBeInTheDocument());
-    expect(screen.getByText('No matching sessions found')).toBeVisible();
+    expect(await screen.findByText('No matching sessions found')).toBeVisible();
     expect(acpListSessions).toHaveBeenLastCalledWith(
       undefined,
       { keyword: 'Matching', includeArchived: true },
@@ -200,4 +200,26 @@ describe('history pagination and search generations', () => {
     expect(screen.queryByText('Old workspace result')).not.toBeInTheDocument();
     expect(await screen.findByText('Beta current result')).toBeVisible();
   });
+});
+
+it('reports incomplete pagination instead of silently presenting a partial search',async()=>{
+ vi.mocked(acpListSessions).mockReset();vi.mocked(acpListSessions).mockResolvedValueOnce(page(['first'],'next')).mockRejectedValueOnce(new Error('page offline'));
+ render(<SessionListView onSelectSession={vi.fn()} workspaceMode="unified"/>,{wrapper:IntlTestWrapper});
+ expect(await screen.findByText('Error Loading Sessions')).toBeVisible();
+ expect(screen.getByRole('button',{name:'Try Again'})).toBeEnabled();
+});
+
+it('hides stale results immediately while the next keyword waits for debounce and backend',async()=>{
+ vi.mocked(acpListSessions).mockReset();const next=deferredPage();vi.mocked(acpListSessions).mockImplementation(async(_cursor,filter)=>filter?.keyword==='new'?next.promise:page(['Old result']));
+ render(<SessionListView onSelectSession={vi.fn()} workspaceMode="unified"/>,{wrapper:IntlTestWrapper});await screen.findByText('Old result');
+ fireEvent.change(screen.getByRole('searchbox'),{target:{value:'new'}});expect(screen.queryByText('Old result')).toBeNull();
+ await waitFor(()=>expect(acpListSessions).toHaveBeenCalledWith(undefined,{keyword:'new',includeArchived:true},'unified'));
+ expect(screen.queryByText('Old result')).toBeNull();await act(async()=>next.resolve(page(['New result'])));expect(await screen.findByText('New result')).toBeVisible();
+});
+
+it('settles the original request if typing is cleared before debounce fires',async()=>{
+ vi.mocked(acpListSessions).mockReset();const initial=deferredPage();vi.mocked(acpListSessions).mockReturnValue(initial.promise);
+ render(<SessionListView onSelectSession={vi.fn()} workspaceMode="unified"/>,{wrapper:IntlTestWrapper});
+ const input=screen.getByRole('searchbox');fireEvent.change(input,{target:{value:'temporary'}});fireEvent.change(input,{target:{value:''}});
+ await act(async()=>initial.resolve(page(['Restored original'])));expect(await screen.findByText('Restored original')).toBeVisible();
 });

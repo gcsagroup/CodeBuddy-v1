@@ -53,3 +53,10 @@ describe('history copy capability', () => {
     expect(acpForkSession).toHaveBeenCalledWith('ordinary');
   });
 });
+
+it('disables branching imported read-only history',async()=>{
+ vi.stubGlobal('ResizeObserver',class{observe(){}unobserve(){}disconnect(){}});
+ const now=new Date().toISOString();vi.mocked(acpListSessions).mockResolvedValue({nextCursor:null,sessions:[{id:'imported',name:'Imported record',readonlyHistory:true,sessionType:'user',workingDir:'',createdAt:now,updatedAt:now,messageCount:1}]});
+ render(<SessionListView onSelectSession={vi.fn()} workspaceMode="unified"/>,{wrapper:IntlTestWrapper});await userEvent.click(await screen.findByRole('button',{name:'More actions for Imported record'}));expect(screen.getByRole('menuitem',{name:'Branch conversation'})).toHaveAttribute('aria-disabled','true');
+ vi.unstubAllGlobals();
+});

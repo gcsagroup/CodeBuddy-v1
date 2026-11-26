@@ -84,6 +84,35 @@ function memoryStore() {
   };
 }
 
+test('editing a model connection does not read or rewrite transcript roots', async t => {
+  const api = await endpoint(t);
+  const store = memoryStore();
+  await store.update(state => {
+    state.sessions = [{ id: 'retained-history', messages: ['keep this transcript'] }];
+    state.providers = [{ ...input(api.url), id: 'scoped-edit' }];
+    state.defaults = { providerId: 'scoped-edit', modelId: 'fixture-model' };
+  });
+  const history = store.read().sessions;
+  const scoped = {
+    read(keys) {
+      assert.ok(Array.isArray(keys) && !keys.includes('sessions'), 'connection probe must not clone history');
+      const state = store.read();
+      return Object.fromEntries(keys.map(key => [key, state[key]]));
+    },
+    update(fn, keys) {
+      assert.ok(Array.isArray(keys) && !keys.includes('sessions'), 'connection save must preserve cached transcript roots');
+      return store.update(async state => {
+        const draft = Object.fromEntries(keys.map(key => [key, state[key]]));
+        await fn(draft);
+        Object.assign(state, draft);
+      });
+    },
+  };
+  await saveProvider(scoped, { ...input(api.url), providerId: 'scoped-edit', displayName: 'Updated address' }, true);
+  assert.equal(store.read().providers[0].displayName, 'Updated address');
+  assert.deepEqual(store.read().sessions, history);
+});
+
 test('official endpoints resolve native catalog capabilities without guessing from names or proxy URLs', async t => {
   t.mock.method(globalThis, 'fetch', async () => new Response(JSON.stringify({
     data: [{ id: 'gpt-6.1-sol' }, { id: 'deepseek-flash' }],

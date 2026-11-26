@@ -3812,42 +3812,6 @@
   "goosehintsSection.title": {
     "defaultMessage": "Project instructions (AGENTS.md)"
   },
-  "groupedExtensionLoadingToast.askGoose": {
-    "defaultMessage": "Спросить CodeBuddy"
-  },
-  "groupedExtensionLoadingToast.collapseDetails": {
-    "defaultMessage": "Свернуть детали"
-  },
-  "groupedExtensionLoadingToast.copied": {
-    "defaultMessage": "Скопировано!"
-  },
-  "groupedExtensionLoadingToast.copyError": {
-    "defaultMessage": "Скопировать ошибку"
-  },
-  "groupedExtensionLoadingToast.expandDetails": {
-    "defaultMessage": "Развернуть детали"
-  },
-  "groupedExtensionLoadingToast.failedToAddExtension": {
-    "defaultMessage": "Не удалось добавить расширение"
-  },
-  "groupedExtensionLoadingToast.failedToLoad": {
-    "defaultMessage": "{count, plural, one {# расширение не загрузилось} few {# расширения не загрузились} many {# расширений не загрузилось} other {# расширения не загрузились}}"
-  },
-  "groupedExtensionLoadingToast.loadingExtensions": {
-    "defaultMessage": "{count, plural, one {Загрузка # расширения...} few {Загрузка # расширений...} many {Загрузка # расширений...} other {Загрузка # расширения...}}"
-  },
-  "groupedExtensionLoadingToast.partiallyLoaded": {
-    "defaultMessage": "{totalCount, plural, one {Загружено {successCount}/# расширение} few {Загружено {successCount}/# расширения} many {Загружено {successCount}/# расширений} other {Загружено {successCount}/# расширения}}"
-  },
-  "groupedExtensionLoadingToast.showDetails": {
-    "defaultMessage": "Показать детали"
-  },
-  "groupedExtensionLoadingToast.showLess": {
-    "defaultMessage": "Показать меньше"
-  },
-  "groupedExtensionLoadingToast.successfullyLoaded": {
-    "defaultMessage": "{count, plural, one {Успешно загружено # расширение} few {Успешно загружено # расширения} many {Успешно загружено # расширений} other {Успешно загружено # расширения}}"
-  },
   "headersSection.add": {
     "defaultMessage": "Добавить"
   },
@@ -4682,9 +4646,6 @@
   "messageQueue.removeFromQueue": {
     "defaultMessage": "Удалить это сообщение из очереди"
   },
-  "messageQueue.retrySave": {
-    "defaultMessage": "Retry saving queue"
-  },
   "messageQueue.save": {
     "defaultMessage": "Сохранить"
   },
@@ -4705,12 +4666,6 @@
   },
   "messageQueue.steer": {
     "defaultMessage": "Направить"
-  },
-  "messageQueue.storageConflict": {
-    "defaultMessage": "This queue changed in another window. Sending and saving are paused to avoid overwriting it. Keep this window open and compare the queued messages."
-  },
-  "messageQueue.storageFailure": {
-    "defaultMessage": "The queue could not be saved or restored. Messages and attachments in this window are kept in memory. Keep this window open to avoid losing them."
   },
   "messageQueue.verifyDelivery": {
     "defaultMessage": "Sending result unknown. Check the conversation before retrying."
@@ -10274,17 +10229,11 @@
   "modelInventory.acknowledge": {
     "defaultMessage": "Понятно"
   },
-  "modelInventory.actionFailed": {
-    "defaultMessage": "Операция не выполнена. Выбранная модель не изменена. Повторите попытку."
-  },
   "modelInventory.changed": {
     "defaultMessage": "{model}: поставщик изменил {fields}. Проверьте настройки модели."
   },
   "modelInventory.context": {
     "defaultMessage": "объём контекста"
-  },
-  "modelInventory.failed": {
-    "defaultMessage": "Не удалось обновить подключение. Сохранён предыдущий список; это не означает, что модели удалены."
   },
   "modelInventory.image": {
     "defaultMessage": "ввод изображений"
@@ -10304,13 +10253,31 @@
   "modelInventory.thinking": {
     "defaultMessage": "параметры рассуждения"
   },
-  "modelInventory.title": {
-    "defaultMessage": "Обновления подключений моделей"
-  },
   "modelInventory.tools": {
     "defaultMessage": "вызовы инструментов"
   },
   "thinkingEffortPicker.unsupportedLabel": {
     "defaultMessage": "Не регулируется"
+  },
+  "modelInventory.capabilityTitle": {
+    "defaultMessage": "Возможности модели изменились"
+  },
+  "modelInventory.collapse": {
+    "defaultMessage": "Пока скрыть"
+  },
+  "modelInventory.details": {
+    "defaultMessage": "Подробнее"
+  },
+  "modelInventory.refreshSummary": {
+    "defaultMessage": "Сохранённый список моделей оставлен. Это не означает, что модели удалены."
+  },
+  "modelInventory.refreshTitle": {
+    "defaultMessage": "Не удалось обновить список моделей"
+  },
+  "modelInventory.reviewTitle": {
+    "defaultMessage": "Некоторые модели больше не указаны в списке"
+  },
+  "modelInventory.selectionSummary": {
+    "defaultMessage": "Выбор модели не изменён. Перед продолжением проверьте подробности."
   }
 }

@@ -48,6 +48,7 @@ export type ProviderMetadata = {
 };
 
 export type ProviderDetails = {
+  enabled?: boolean;
   category?: 'agent' | 'model';
   is_configured: boolean;
   metadata: ProviderMetadata;

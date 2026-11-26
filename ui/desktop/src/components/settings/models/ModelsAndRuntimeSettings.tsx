@@ -1,8 +1,8 @@
 import './runtime-settings.css';
 import { selectNativeText } from '../../../utils/nativeLocalization';
 import { SpeechSettings } from './SpeechSettings';
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Bot, Image, ScanEye, SlidersHorizontal, Plug, RefreshCw, Layers3 } from 'lucide-react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Bot, Image, ScanEye, SlidersHorizontal, Plug, RefreshCw, Layers3, Mic } from 'lucide-react';
 import type { View } from '../../../utils/navigationUtils';
 import { defineMessages, useIntl } from '../../../i18n';
 import { Button } from '../../ui/button';
@@ -98,31 +98,45 @@ export default function ModelsAndRuntimeSettings({
   const intl = useIntl();
   const [subagentDirty, setSubagentDirty] = useState(false);
   const [compactionDirty, setCompactionDirty] = useState(false);
+  const [speechDirty, setSpeechDirty] = useState(false);
   useEffect(() => {
-    onDirtyChange?.(subagentDirty || compactionDirty);
-  }, [subagentDirty, compactionDirty, onDirtyChange]);
+    onDirtyChange?.(subagentDirty || compactionDirty || speechDirty);
+  }, [subagentDirty, compactionDirty, speechDirty, onDirtyChange]);
   const [subagentEditing, setSubagentEditing] = useState(false);
   const [providers, setProviders] = useState<ProviderDetails[]>([]);
   const [connectionsLoading, setConnectionsLoading] = useState(true);
   const [connectionsFailed, setConnectionsFailed] = useState(false);
   const [connectionsLoaded, setConnectionsLoaded] = useState(false);
+  const connectionRead = useRef(0);
 
   const loadCustomConnections = useCallback(async () => {
+    const version = ++connectionRead.current;
     setConnectionsLoading(true);
     setConnectionsFailed(false);
     try {
-      setProviders(await acpListProviderDetails());
+      const next = await acpListProviderDetails();
+      if (version !== connectionRead.current) return;
+      setProviders(next);
       setConnectionsLoaded(true);
     } catch {
+      if (version !== connectionRead.current) return;
       setConnectionsFailed(true);
     } finally {
-      setConnectionsLoading(false);
+      if (version === connectionRead.current) setConnectionsLoading(false);
     }
   }, []);
 
   useEffect(() => {
+    if (!active) return;
+    const requestVersion = connectionRead;
     void loadCustomConnections();
-  }, [loadCustomConnections]);
+    const refresh = () => { void loadCustomConnections(); };
+    window.addEventListener('codebuddy:model-inventory-updated', refresh);
+    return () => {
+      ++requestVersion.current;
+      window.removeEventListener('codebuddy:model-inventory-updated', refresh);
+    };
+  }, [active, loadCustomConnections]);
 
   const customProviders = useMemo(
     () =>
@@ -190,7 +204,7 @@ export default function ModelsAndRuntimeSettings({
         groups={[
           {
             title: selectNativeText(intl.locale, 'Model services', '模型服务', '模型服務'),
-            ids: ['connections', 'generation'],
+            ids: ['connections', 'generation', 'speech'],
           },
           {
             title: selectNativeText(intl.locale, 'Model roles', '模型分工', '模型分工'),
@@ -212,10 +226,12 @@ export default function ModelsAndRuntimeSettings({
           },
           {
             id: 'speech',
-            title: '语音识别与合成',
-            description: '配置远程语音识别与合成模型',
-            icon: <SlidersHorizontal className="h-5 w-5" />,
-            content: <SpeechSettings />,
+            keepAlive: true,
+            dirty: speechDirty,
+            title: selectNativeText(intl.locale, 'Speech recognition and synthesis', '语音识别与合成', '語音辨識與合成'),
+            description: selectNativeText(intl.locale, 'Speak to compose messages. Manage your speech service.', '按住说话，轻松输入。管理语音识别服务。', '按住說話，輕鬆輸入。管理語音辨識服務。'),
+            icon: <Mic className="h-5 w-5" />,
+            content: <SpeechSettings onDirtyChange={setSpeechDirty} />,
           },
           {
             id: 'subagents',

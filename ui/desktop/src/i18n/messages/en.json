@@ -3902,42 +3902,6 @@
   "goosehintsSection.title": {
     "defaultMessage": "Project instructions (AGENTS.md)"
   },
-  "groupedExtensionLoadingToast.askGoose": {
-    "defaultMessage": "Ask CodeBuddy"
-  },
-  "groupedExtensionLoadingToast.collapseDetails": {
-    "defaultMessage": "Collapse details"
-  },
-  "groupedExtensionLoadingToast.copied": {
-    "defaultMessage": "Copied!"
-  },
-  "groupedExtensionLoadingToast.copyError": {
-    "defaultMessage": "Copy error"
-  },
-  "groupedExtensionLoadingToast.expandDetails": {
-    "defaultMessage": "Expand details"
-  },
-  "groupedExtensionLoadingToast.failedToAddExtension": {
-    "defaultMessage": "Failed to add extension"
-  },
-  "groupedExtensionLoadingToast.failedToLoad": {
-    "defaultMessage": "{count,plural,one{# extension failed to load} other{# extensions failed to load}}"
-  },
-  "groupedExtensionLoadingToast.loadingExtensions": {
-    "defaultMessage": "{count,plural,one{Loading # extension...} other{Loading # extensions...}}"
-  },
-  "groupedExtensionLoadingToast.partiallyLoaded": {
-    "defaultMessage": "{totalCount,plural,one{Loaded {successCount}/# extension} other{Loaded {successCount}/# extensions}}"
-  },
-  "groupedExtensionLoadingToast.showDetails": {
-    "defaultMessage": "Show details"
-  },
-  "groupedExtensionLoadingToast.showLess": {
-    "defaultMessage": "Show less"
-  },
-  "groupedExtensionLoadingToast.successfullyLoaded": {
-    "defaultMessage": "{count,plural,one{Successfully loaded # extension} other{Successfully loaded # extensions}}"
-  },
   "headersSection.add": {
     "defaultMessage": "Add"
   },
@@ -4772,9 +4736,6 @@
   "messageQueue.removeFromQueue": {
     "defaultMessage": "Remove this message from queue"
   },
-  "messageQueue.retrySave": {
-    "defaultMessage": "Retry saving queue"
-  },
   "messageQueue.save": {
     "defaultMessage": "Save"
   },
@@ -4794,13 +4755,7 @@
     "defaultMessage": "Send all waiting messages together now"
   },
   "messageQueue.steer": {
-    "defaultMessage": "Steer"
-  },
-  "messageQueue.storageConflict": {
-    "defaultMessage": "This queue changed in another window. Sending and saving are paused to avoid overwriting it. Keep this window open and compare the queued messages."
-  },
-  "messageQueue.storageFailure": {
-    "defaultMessage": "The queue could not be saved or restored. Messages and attachments in this window are kept in memory. Keep this window open to avoid losing them."
+    "defaultMessage": "Switch now"
   },
   "messageQueue.verifyDelivery": {
     "defaultMessage": "Sending result unknown. Check the conversation before retrying."
@@ -5051,17 +5006,20 @@
   "modelInventory.acknowledge": {
     "defaultMessage": "Dismiss changes"
   },
-  "modelInventory.actionFailed": {
-    "defaultMessage": "The action failed. Your model selection was not changed. Try again."
+  "modelInventory.capabilityTitle": {
+    "defaultMessage": "Model capabilities have changed"
   },
   "modelInventory.changed": {
     "defaultMessage": "{model}: the provider changed {fields}. Review the model settings before continuing."
   },
+  "modelInventory.collapse": {
+    "defaultMessage": "Hide for now"
+  },
   "modelInventory.context": {
     "defaultMessage": "context capacity"
   },
-  "modelInventory.failed": {
-    "defaultMessage": "Could not refresh this connection. Keeping the last saved list; this does not mean its models were removed."
+  "modelInventory.details": {
+    "defaultMessage": "View details"
   },
   "modelInventory.image": {
     "defaultMessage": "image input"
@@ -5072,17 +5030,26 @@
   "modelInventory.preserved": {
     "defaultMessage": "Your selected model has not been changed. If it is unavailable, choose another model manually from the model menu."
   },
+  "modelInventory.refreshSummary": {
+    "defaultMessage": "Keeping the saved model list. This does not mean models were removed."
+  },
+  "modelInventory.refreshTitle": {
+    "defaultMessage": "Model list could not be refreshed"
+  },
   "modelInventory.removed": {
     "defaultMessage": "{model} is no longer in the provider model list. It may have been removed or access may have changed."
   },
   "modelInventory.retry": {
     "defaultMessage": "Refresh again"
   },
+  "modelInventory.reviewTitle": {
+    "defaultMessage": "Some models are no longer listed"
+  },
+  "modelInventory.selectionSummary": {
+    "defaultMessage": "Your model selection is unchanged. Review the details before continuing."
+  },
   "modelInventory.thinking": {
     "defaultMessage": "thinking options"
-  },
-  "modelInventory.title": {
-    "defaultMessage": "Model connection updates"
   },
   "modelInventory.tools": {
     "defaultMessage": "tool calling"

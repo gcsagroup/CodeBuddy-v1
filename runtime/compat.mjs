@@ -1,4 +1,5 @@
 import { webAuditTool } from './web-audit-tool.mjs';
+import { InputQueue } from './input-queue.mjs';
 import { ModelInventory } from './model-inventory.mjs';
 import { developmentTools } from './development-tools.mjs';
 import { desktopNetworkAllowed } from './desktop-network-consent.mjs';
@@ -61,7 +62,7 @@ import { applyModelThinking, modelThinkingPreference } from "./model-settings.mj
 import { DEFAULT_CONTEXT_WINDOW } from './model-defaults.mjs';
 import { initialPermissionPreset, permissionPresets } from './permission-presets.mjs';
 import { mcpSessionApprovalScope, businessPresentationForClient } from './tool-session-approval.mjs';
-import { HistoryService, updatesFromConversation } from "./history.mjs";
+import { HistoryService, updatesFromConversation, normalizeHistoryQuery } from "./history.mjs";
 import { sessionLogDiagnostics } from './session-log-diagnostics.mjs';
 import { publicFailure } from './error-presentation.mjs';
 import { abortable } from './harness/abortable.mjs';
@@ -323,6 +324,10 @@ function* replayTextChunks(updates) {
 }
 
 const NAVIGATION_WORKSPACE_MOVE = Symbol('navigation-workspace-move');
+const queuePrompt = item => [
+  ...(item.content.trim() ? [{ type: 'text', text: item.content }] : []),
+  ...item.images.map(image => ({ type: 'image', data: image.data, mimeType: image.mimeType })),
+];
 
 export class Compat {
   constructor(store, driver) {
@@ -331,6 +336,17 @@ export class Compat {
     this.managedWorkspaceRoot = process.env.CODEBUDDY_WORKSPACE_ROOT ?? path.join(store.directory ?? '.', 'workspaces');
     this.sessionToolApprovals = new WeakMap();
     this.active = new Map();
+    this.inputQueue = new InputQueue(store, {
+      active: id => this.active.get(id), closing: () => this.closing,
+      inputIds: (id, committedOnly = true) => this.driver.agentInputIds(id, { committedOnly, currentOnly: !committedOnly }),
+      cancel: (id, connection, expected) => this.active.get(id) === expected
+        ? this.request('session/cancel', { sessionId: id }, connection, true) : Promise.resolve(),
+      dispatch: (id, items, connection) => this.prompt({ sessionId: id,
+        prompt: items.flatMap(item => queuePrompt(item)),
+        _meta: { 'codeagentpro/source-message-id': items[0].id,
+          'codebuddy/input-origin': 'queued-while-busy', 'codebuddy/desktop-generation': items[0].desktopGeneration },
+      }, connection, undefined, items),
+    });
     this.initialized = new Set();
     this.initializing = new Map();
     this.configurationRevision = 0;
@@ -488,6 +504,7 @@ export class Compat {
     });
   }
   async initialize() {
+    await this.inputQueue.initialize();
     const startupStarted = performance.now();
     const traceStartup = phase => console.info('[Compat startup timing]', JSON.stringify({
       phase, elapsedMs: Math.round(performance.now() - startupStarted), at_ms: Date.now(),
@@ -817,6 +834,7 @@ export class Compat {
       if (
         this.session(sessionId).providerId === id ||
         route?.main?.provider?.id === id
+        || Object.values(route?.roleModels ?? {}).some(model => model?.provider?.id === id)
       )
         throw invalid(
           "Stop active sessions before editing or removing their model provider",
@@ -833,6 +851,8 @@ export class Compat {
   }
   async sessionModel(s) {
     const provider = this.provider(s.providerId);
+    if (provider.enabled === false)
+      throw invalid('当前模型所属厂商已停用。请切换到其他厂商的模型，或在设置中重新启用后再发送。', { code: 'provider_disabled' });
     if (provider.inventoryState && !provider.models.includes(s.modelId))
       throw invalid('当前模型已不在厂商最新列表中。原模型选择已保留，请手动选择可用模型后重试。', { code: 'custom_provider_model_unavailable' });
     if (!provider.models.includes(s.modelId) || !providerStatus(provider).isConfigured)
@@ -1619,7 +1639,7 @@ export class Compat {
       onProgress,
     });
   }
-  async request(method, p = {}, connection) {
+  async request(method, p = {}, connection, queueSwitch = false) {
     if (this.closing && method !== 'session/cancel') throw invalid('Runtime is shutting down');
     if (!p || typeof p !== "object" || Array.isArray(p))
       throw invalid("RPC params must be an object");
@@ -1641,6 +1661,11 @@ export class Compat {
       connection.sessionIds ??= new Set();
       if (p.sessionId) connection.sessionIds.add(p.sessionId);
     }
+    if (method === '_codebuddy/session/input-queue') {
+      const session = this.session(p.sessionId);
+      if (session.readonlyHistory || session.archivedAt) throw invalid('This conversation cannot accept queued input');
+      return this.inputQueue.request(session.id, p, connection);
+    }
     if (this.workspaces.handles(method, p))
       return this.workspaces.request(method, p, connection);
     if (this.transcription.handles(method))
@@ -1655,6 +1680,11 @@ export class Compat {
       // under the mutation/conversation locks before publishing any changes.
       await this.ensureSession(session);
     }
+    if (method === '_codebuddy/main-conversation/clear')
+      return this.inputQueue.serial(p.sessionId, () => {
+        if (this.inputQueue.snapshot(p.sessionId).items.length) throw invalid('主对话还有待发送消息，请处理消息队列后再清空历史');
+        return this.mutateSession(p.sessionId, () => this.conversations.request(method, p));
+      });
     if (this.conversations.handles(method))
       return this.mutateSession(p.sessionId, () => this.conversations.request(method, p));
     if (this.apps.handles(method.replace(prefix, "")))
@@ -1866,27 +1896,25 @@ export class Compat {
         throw invalid("Session types must be an array");
       const query =
         typeof p._meta?.query === "string"
-          ? p._meta.query.trim().toLocaleLowerCase()
+          ? normalizeHistoryQuery(p._meta.query)
           : "";
-      // Sidebar refresh needs metadata; only explicit full-text searches need
-      // transcript content. Both paths select one consistent committed snapshot.
+      // List metadata stays lightweight. Full-text search reads committed bodies
+      // lazily and reuses normalized text until that session's version changes.
       const state = this.store.read(['sessions', 'schedules', 'codeproRuns'], {
-        ...(query ? {} : { sessionFields: sessionInfoFields }),
+        sessionFields: sessionInfoFields,
         runFields: ['sessionId', 'runId'],
       });
-      const sessions = state.sessions.filter(
+      const candidates = state.sessions.filter(
           (s) =>
             (!p.cwd || s.cwd === p.cwd) &&
             (!types?.length || types.includes(s.type)) &&
-            (p._meta?.includeArchived || !s.archivedAt) &&
-            (!query ||
-              s.title.toLocaleLowerCase().includes(query) ||
-              s.updates.some(
-                (u) =>
-                  u.content?.type === "text" &&
-                  u.content.text.toLocaleLowerCase().includes(query),
-              )),
+            (p._meta?.includeArchived || !s.archivedAt),
         );
+      const sessions = [];
+      if (query) this.history.pruneSearch(new Set(state.sessions.map(session => session.id)));
+      for (const session of candidates) {
+        if (!query || await this.history.matches(session, query, this.active.get(session.id)?.replay)) sessions.push(session);
+      }
       return {
         sessions: sessions
           .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
@@ -2198,12 +2226,16 @@ export class Compat {
     }
     if (method === "session/cancel") {
       this.session(p.sessionId);
-      const active = this.active.get(p.sessionId);
+      let active = this.active.get(p.sessionId);
       const desktopToken = p._meta?.['codebuddy/desktop-control-token'];
       // Escape stops desktop use, not the owning Harness task.
       if (desktopToken !== undefined) {
         if (matchesDesktopCancel(active, desktopToken)) this.desktop.pause(p.sessionId, desktopToken, 'escape');
         return {};
+      }
+      if (!queueSwitch) {
+        await this.inputQueue.pause(p.sessionId);
+        active = this.active.get(p.sessionId);
       }
       if (active) {
         active.userRequestedStop = true; // Presentation only; native cancellation still owns settlement.
@@ -2297,6 +2329,7 @@ export class Compat {
       )
         throw invalid("Invalid provider/model selection");
       const provider = this.provider(selection.providerId);
+      if (provider.enabled === false) throw invalid('当前厂商已停用，请选择其他厂商或重新启用。', { code: 'provider_disabled' });
       if (!provider.models.includes(selection.modelId))
         throw invalid("Unknown model");
       await this.store.updateSession(s.id, saved =>
@@ -2900,6 +2933,7 @@ export class Compat {
         return {};
       case "defaults/save": {
         const provider = this.provider(p.providerId);
+        if (provider.enabled === false) throw invalid('当前厂商已停用，请选择其他厂商或重新启用。', { code: 'provider_disabled' });
         if (!provider.models.includes(p.modelId))
           throw invalid("Select a model from the provider");
         await this.store.update(
@@ -2918,6 +2952,18 @@ export class Compat {
             )
             .map(inventory),
         };
+      case "providers/set-enabled": {
+        if (typeof p.enabled !== 'boolean') throw invalid('enabled must be a boolean');
+        this.provider(p.providerId);
+        this.checkProviderMutation(p.providerId);
+        await this.store.update(state => {
+          this.checkProviderMutation(p.providerId);
+          state.providers.find(provider => provider.id === p.providerId).enabled = p.enabled;
+        }, ['providers'], { skipUnchanged: true });
+        this.initialized.clear();
+        this.modelInventory.connectionChanged(p.providerId);
+        return { providerId: p.providerId, enabled: p.enabled };
+      }
       case "providers/supported-models/list": {
         const provider = this.provider(p.providerId);
         return {
@@ -2969,8 +3015,8 @@ export class Compat {
         const skipped = [];
         for (const id of ids) {
           const provider = providers.find((x) => x.id === id);
-          if (!provider) {
-            skipped.push({ providerId: id, reason: "unknown_provider" });
+          if (!provider || provider.enabled === false) {
+            skipped.push({ providerId: id, reason: provider ? "provider_disabled" : "unknown_provider" });
             continue;
           }
           await this.modelInventory.refresh(id);
@@ -3073,7 +3119,7 @@ export class Compat {
         throw unsupported(method);
     }
   }
-  async prompt(p, connection, nativeObservationToken) {
+  async prompt(p, connection, nativeObservationToken, queueBatch) {
     if (!desktopNetworkAllowed()) throw invalid('Network access requires permission.');
     if (this.closing) throw invalid('Runtime is shutting down');
     const receivedAtMs = Date.now();
@@ -3201,13 +3247,15 @@ export class Compat {
     const presentation = typeof afterMessageId === 'string' && afterMessageId.length > 0 &&
       afterMessageId.length <= 2048 && afterMessageId !== userId ? { afterMessageId,
         ...(p._meta?.['codebuddy/message-presentation']?.continuation === true ? { continuation: true } : {}) } : undefined;
-    const users = p.prompt.map((content) => ({
+    const users = (queueBatch ? queueBatch.flatMap(item => queuePrompt(item).map(content => ({ content, id: item.id })))
+      : p.prompt.map(content => ({ content, id: userId }))).map(({ content, id }) => ({
       sessionUpdate: "user_message_chunk",
       content,
-      messageId: userId,
-      _meta: { goose: { messageId: userId, created,
+      messageId: id,
+      _meta: { goose: { messageId: id, created,
         ...(s.globalConversation && s.modelId ? { inference: { provider: s.providerId, requestedModel: s.modelId } } : {}),
-        ...(nativeObservationToken ? { scheduled: true } : {}), ...(presentation ? { presentation } : {}) } },
+        ...(nativeObservationToken ? { scheduled: true } : {}),
+        ...(queueBatch ? { queuedWhileBusy: true } : {}), ...(presentation ? { presentation } : {}) } },
     }));
     let promptError;
     let titleProposal;
@@ -3262,7 +3310,7 @@ export class Compat {
       // with the durable role binding, but settle both before admission or
       // cleanup so a late initializer cannot race a retry after a save failure.
       const preparation = await Promise.allSettled([
-        nativeObservationToken ? undefined : bindAgentInput(this.store, s.id, userId, { profile: promptEntry.agentProfile }),
+        nativeObservationToken ? undefined : Promise.all((queueBatch?.map(item => item.id) ?? [userId]).map(id => bindAgentInput(this.store, s.id, id, { profile: promptEntry.agentProfile }))),
         this.ensureSession(s),
       ]);
       for (const step of preparation) if (step.status === 'rejected') throw step.reason;
@@ -3271,12 +3319,11 @@ export class Compat {
       controller.signal.throwIfAborted();
       const active = this.active.get(s.id);
       active.driverStarted = true;
-      const prepared = await this.prepareModelContent(
-        s,
-        content,
-        controller.signal,
-        promptEntry.visionProgress,
-      );
+      const preparedBatch = queueBatch ? await Promise.all(queueBatch.map(async item => ({
+        requestId: item.id, content: (await this.prepareModelContent(s, harnessPrompt(queuePrompt(item)), controller.signal, promptEntry.visionProgress)).content,
+      }))) : undefined;
+      const prepared = preparedBatch ? { content: preparedBatch.flatMap(item => item.content) }
+        : await this.prepareModelContent(s, content, controller.signal, promptEntry.visionProgress);
       trace('content_ready');
       if (s.type === "code_pro" && !manualCompact) {
         const run = this.runs.latest(s.id);
@@ -3371,6 +3418,7 @@ export class Compat {
               event.event.type === 'turn/end' && event.event.data.reason.kind === 'error')
             nativeFailureCodes.add(event.event.data.reason.error.code);
           if (event.type === 'agent_input' && event.sessionId === s.id) {
+            await this.inputQueue.consumed(s.id, event.requestId);
             // This is an invalidation receipt, not a second role snapshot.
             // current() continues to derive adoption from the native log.
             connection.notify('session/update', { sessionId: s.id, update: {
@@ -3634,6 +3682,7 @@ export class Compat {
       } else {
         trace('native_prompt_dispatched');
         result = await this.driver.prompt(s.id, prepared.content, {
+          ...(preparedBatch ? { inputBatch: preparedBatch } : {}),
           ...callbacks, ...(nativeObservationToken ? { nativeObservationToken } : {}),
           queuedWhileBusy: p._meta?.['codebuddy/input-origin'] === 'queued-while-busy',
         });

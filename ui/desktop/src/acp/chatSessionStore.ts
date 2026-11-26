@@ -713,11 +713,12 @@ function createAcpChatSessionStoreInternal(): AcpChatSessionStoreInternal {
       notification.update.sessionUpdate === 'user_message_chunk'
         ? (notification.update.messageId ?? nativeSource.messageId)
         : undefined;
-    // A new Host-delivered reminder starts a display turn without a renderer
-    // prompt request. Replays and repeated delivery chunks cannot reopen it.
+    // Host-delivered reminders and queued human inputs have no renderer prompt
+    // request. Their first chunk must open the display boundary before the
+    // native-consumption receipt arrives; replay/duplicates cannot reopen it.
     if (
       !entry.sessionReplayActive &&
-      nativeSource.scheduled &&
+      (nativeSource.scheduled || nativeSource.queuedWhileBusy) &&
       scheduledMessageId &&
       entry.activePromptAttemptId === null &&
       entry.activeRunId === null &&

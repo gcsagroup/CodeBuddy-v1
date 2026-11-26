@@ -1,0 +1,121 @@
+import { mkdirSync } from 'node:fs';
+import { expect, test as base } from './fixtures';
+const test=base.extend({isolatedProfileRoot:async({},use,testInfo)=>{const root=testInfo.outputPath('profile');mkdirSync(root,{recursive:true});await use(root);}});
+// Source preview startup can exceed four minutes while another desktop is running.
+// Interaction assertions retain their existing deadlines.
+test.setTimeout(600_000);
+test('Queue controls switch edit delete clear batch and Stop in the real desktop',async({appPage},testInfo)=>{
+ const input=()=>appPage.locator('[data-testid="chat-input"]:visible:not([readonly])');
+ const rows=()=>appPage.locator('[data-queue-row]');
+ const send=async(text:string)=>{await input().fill(text);await expect(appPage.getByRole('button',{name:'发送',exact:true})).toBeEnabled();await input().press('Enter');await expect(input()).toHaveValue('');};
+ await send('QUEUE_HOLD initial');
+ await expect.poll(()=>new URL(appPage.url()).hash).toContain('resumeSessionId');
+ await expect(appPage.getByText('正在思考',{exact:true}).first()).toBeVisible();
+ await send('EDIT_ME'); await send('DELETE_ME');await expect(rows()).toHaveCount(2);
+ await rows().filter({hasText:'EDIT_ME'}).getByRole('button',{name:'EDIT_ME',exact:true}).click();
+ await rows().getByRole('textbox').fill('REVISED');
+ await rows().getByRole('button',{name:'保存',exact:true}).click();
+ await expect(rows().filter({hasText:'REVISED'})).toBeVisible();
+ await rows().filter({hasText:'DELETE_ME'}).getByRole('button',{name:'将此消息从队列中移除'}).click();
+ await expect(rows()).toHaveCount(1);
+ const started=Date.now();
+ await rows().getByRole('button',{name:'立即切换',exact:true}).click();
+ await expect(appPage.getByText(/QUEUE_RECEIVED:.*REVISED/).last()).toBeVisible();
+ await expect(appPage.getByText('REVISED',{exact:true})).toHaveCount(1);
+ expect(Date.now()-started).toBeLessThan(15000);
+ await expect(appPage.getByText('正在思考',{exact:true})).toHaveCount(0);
+ await expect(rows()).toHaveCount(0);
+ await send('QUEUE_HOLD second');await expect(appPage.getByRole('button',{name:'停止',exact:true})).toBeVisible();
+ await send('CLEAR_ME');await send('CLEAR_TOO');
+ await appPage.getByRole('button',{name:'清空',exact:true}).click();await expect(rows()).toHaveCount(0);
+ await send('BATCH_A');await send('BATCH_B');
+ await rows().filter({hasText:'BATCH_B'}).dragTo(rows().filter({hasText:'BATCH_A'}));
+ await expect(rows().first()).toContainText('BATCH_B');
+ await appPage.getByRole('button',{name:'全部立即发送',exact:true}).click();
+ await expect(appPage.getByText(/QUEUE_RECEIVED:.*BATCH_B.*BATCH_A/).last()).toBeVisible();
+ await expect(rows()).toHaveCount(0);
+ await send('QUEUE_HOLD stop');await send('AFTER_STOP');
+ await appPage.getByRole('button',{name:'停止',exact:true}).click();
+ await expect(appPage.getByTestId('saved-message-drafts')).toBeVisible();
+ await appPage.reload();
+ await expect(appPage.getByTestId('saved-message-drafts')).toBeVisible();
+ await appPage.getByRole('button',{name:'展开已保留的草稿',exact:true}).click();
+ await appPage.getByRole('button',{name:'发送草稿',exact:true}).click();
+ await expect(appPage.getByText(/QUEUE_RECEIVED:.*AFTER_STOP/).last()).toBeVisible();
+ await send('QUEUE_FINITE');await send('AUTO_A');await send('AUTO_B');
+ await expect(appPage.getByText(/QUEUE_RECEIVED:.*AUTO_A.*AUTO_B/).last()).toBeVisible();
+ await expect(rows()).toHaveCount(0);
+ await expect(appPage.getByText('AUTO_A',{exact:true})).toHaveCount(1);
+ await expect(appPage.getByText('AUTO_B',{exact:true})).toHaveCount(1);
+
+ await appPage.screenshot({path:testInfo.outputPath('queue-complete.png')});
+});
+
+test('Queue controls preserve repeated user text after automatic delivery and reload',async({appPage},testInfo)=>{
+ const input=()=>appPage.locator('[data-testid="chat-input"]:visible:not([readonly])');
+ const send=async(text:string)=>{await input().fill(text);await expect(appPage.getByRole('button',{name:'发送',exact:true})).toBeEnabled();await input().press('Enter');await expect(input()).toHaveValue('');};
+ await send('QUEUE_FINITE');
+ await expect(appPage.getByRole('button',{name:'停止',exact:true})).toBeVisible();
+ await send('1');await send('1');await send('11111');
+ await expect(appPage.locator('[data-queue-row]')).toHaveCount(3);
+ await expect(appPage.locator('[data-queue-row]')).toHaveCount(0);
+ await expect(appPage.getByRole('button',{name:'停止',exact:true})).toHaveCount(0);
+ await expect(appPage.locator('.message').getByText('1',{exact:true})).toHaveCount(2);
+ await expect(appPage.locator('.message').getByText('11111',{exact:true})).toHaveCount(1);
+ await appPage.locator('.message').getByText('11111',{exact:true}).scrollIntoViewIfNeeded();
+ await appPage.screenshot({path:testInfo.outputPath('duplicate-bubbles.png')});
+ await appPage.reload();
+ await expect(appPage.locator('.message').getByText('1',{exact:true})).toHaveCount(2);
+ await expect(appPage.locator('.message').getByText('11111',{exact:true})).toHaveCount(1);
+ await expect(appPage.locator('[data-queue-row]')).toHaveCount(0);
+
+});
+test('Queue controls clear staged composer while acknowledgement is delayed',async({appPage},info)=>{
+ let queued=0;const bodies:any[]=[];const pending=new Set<any>();let acknowledge=false;
+ await appPage.routeWebSocket(/\/acp/,ws=>{
+  const server=ws.connectToServer();
+  ws.onMessage(raw=>{try{const m=JSON.parse(raw.toString());if(m.method==='_codebuddy/session/input-queue'&&m.params.action==='enqueue'){queued++;bodies.push(m.params);pending.add(m.id);}}catch{} server.send(raw);});
+  server.onMessage(raw=>{let delayed=false;try{const m=JSON.parse(raw.toString());if(pending.delete(m.id)){delayed=true;setTimeout(()=>{acknowledge=true;ws.send(raw);},3000);}}catch{}if(!delayed)ws.send(raw);});
+ });
+ await appPage.reload();
+ const input=appPage.locator('[data-testid="chat-input"]:visible:not([readonly])');
+ await input.fill('QUEUE_HOLD composer');await input.press('Enter');
+ await expect(appPage.getByText('正在思考',{exact:true}).first()).toBeVisible();
+ await input.fill('FIRST_MESSAGE');await input.press('Enter');
+ await expect(input).toHaveValue('',{timeout:1000});
+ expect(acknowledge).toBe(false);
+ await input.fill('NEXT_DRAFT');
+ await expect(appPage.getByRole('button',{name:'发送',exact:true})).toBeDisabled();
+ await expect.poll(()=>acknowledge).toBe(true);
+ await expect(input).toHaveValue('NEXT_DRAFT');
+ await expect(appPage.getByRole('button',{name:'发送',exact:true})).toBeEnabled();
+ await input.press('Enter');await expect(input).toHaveValue('',{timeout:1000});
+ await expect.poll(()=>queued).toBe(2);
+ expect(bodies.map(p=>p.items[0].content)).toEqual(['FIRST_MESSAGE','NEXT_DRAFT']);
+ await expect(appPage.locator('[data-queue-row]')).toHaveCount(2);
+ await appPage.screenshot({path:info.outputPath('composer-cleared.png')});
+
+ await appPage.getByRole('button',{name:'停止',exact:true}).click();
+});
+test('Queue controls stable long list editor save cancel and focus',async({appPage},info)=>{
+ const input=appPage.locator('[data-testid="chat-input"]:visible:not([readonly])');
+ const send=async(text:string)=>{await input.fill(text);await expect(appPage.getByRole('button',{name:'发送',exact:true})).toBeEnabled();await input.press('Enter');await expect(input).toHaveValue('');};
+ await send('QUEUE_HOLD editor');await expect(appPage.getByText('正在思考',{exact:true}).first()).toBeVisible();
+ for(let i=0;i<8;i++)await send('EDIT_LAYOUT_'+i);
+ const list=appPage.getByTestId('queue-message-list');const rows=appPage.locator('[data-queue-row]');
+ await expect(rows).toHaveCount(8);
+ const trigger=rows.last().getByRole('button',{name:'EDIT_LAYOUT_7',exact:true});await expect(trigger).toBeEnabled();await trigger.scrollIntoViewIfNeeded();
+ const before={list:await list.boundingBox(),input:await input.boundingBox()};
+ await trigger.click();const editor=rows.getByRole('textbox');await expect(editor).toBeFocused();
+ await expect(appPage.getByTestId('saved-message-drafts')).toBeVisible();
+ const after={list:await list.boundingBox(),input:await input.boundingBox()};
+ expect(Math.abs(before.list!.height-after.list!.height)).toBeLessThan(2);expect(Math.abs(before.input!.y-after.input!.y)).toBeLessThan(2);
+ expect(await editor.evaluate(e=>getComputedStyle(e).resize)).toBe('none');
+ await expect(rows.last().getByRole('button',{name:'将此消息从队列中移除'})).toHaveCount(0);
+ await expect(rows.first().getByRole('button',{name:'将此消息从队列中移除'})).toBeDisabled();
+ await editor.fill('EDIT_LAYOUT_SAVED\n第二行补充');await appPage.screenshot({path:info.outputPath('editor-open.png')});
+ await rows.getByRole('button',{name:'保存',exact:true}).click();const saved=rows.last().getByRole('button',{name:'EDIT_LAYOUT_SAVED 第二行补充',exact:true});await expect(saved).toBeFocused();
+ await saved.click();await expect(editor).toBeFocused();await editor.fill('SHOULD_NOT_SAVE');await rows.getByRole('button',{name:'取消',exact:true}).click();await expect(saved).toBeFocused();await expect(rows).toHaveCount(8);
+ await appPage.screenshot({path:info.outputPath('editor-cancelled.png')});
+ await appPage.getByRole('button',{name:'停止',exact:true}).click();
+});

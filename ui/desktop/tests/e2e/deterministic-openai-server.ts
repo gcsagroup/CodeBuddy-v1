@@ -22,6 +22,7 @@ type Completion =
   | { type: 'tool'; name: string; arguments: Record<string, unknown> };
 
 export type DeterministicScenario =
+  | 'queue-controls'
   | 'default'
   | 'p0-repair'
   | 'permission-persistence'
@@ -1105,6 +1106,22 @@ function streamCompletion(
             { index: 0, message: { role: 'assistant', content: completion.text }, finish_reason: 'stop' },
           ],
         });
+        return;
+      }
+      if (scenario === 'queue-controls') {
+        const users = (body.messages ?? []).filter(message => message.role === 'user').map(message => typeof message.content === 'string' ? message.content : JSON.stringify(message.content));
+        const inputs = users.filter(text => /QUEUE_HOLD|QUEUE_FINITE|REVISED|BATCH_|AFTER_STOP|AUTO_/.test(text));
+        const latest = inputs[inputs.length - 1] ?? '';
+        console.log('[queue-evidence]', JSON.stringify({ inputs, stream: body.stream }));
+        if (latest.includes('QUEUE_HOLD')) {
+          response.writeHead(200, { 'content-type': 'text/event-stream' });
+          const tick = () => response.write('data: ' + JSON.stringify({id:'queue-held',object:'chat.completion.chunk',model:MODEL,choices:[{index:0,delta:{reasoning_content:'正在等待后续指令。'},finish_reason:null}]}) + '\n\n');
+          tick(); const timer = setInterval(tick, 300);
+          response.on('close', () => clearInterval(timer));
+        } else if (latest.includes('QUEUE_FINITE')) {
+          const timer = setTimeout(() => writeCompletion(response, {type:'text',text:'FINITE_DONE'}), 6000);
+          response.on('close', () => clearTimeout(timer));
+        } else writeCompletion(response, {type:'text',text:'QUEUE_RECEIVED: ' + inputs.slice(-2).join(' | ')});
         return;
       }
       if (requestText(body).includes('LONG_TURN_USAGE_FIXTURE')) {

@@ -50,6 +50,7 @@ interface GooseSessionInfoMeta {
 }
 
 export interface SessionListItem {
+  readonlyHistory?: boolean;
   globalConversation?: boolean;
   agentProfile?: Session['agent_profile'];
   sidebarPlacement?: 'tasks' | 'project';
@@ -169,6 +170,7 @@ function sessionInfoToListItem(s: SessionInfo): SessionListItem {
   return {
     id: String(s.sessionId),
     globalConversation: meta.globalConversation === true,
+    readonlyHistory: meta.readonlyHistory === true,
     name: s.title ?? DEFAULT_CHAT_TITLE,
     workingDir: meta.workspaceBinding === 'unbound' ? '' : s.cwd,
     updatedAt: s.updatedAt ?? '',

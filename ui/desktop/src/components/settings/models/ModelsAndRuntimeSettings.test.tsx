@@ -88,6 +88,24 @@ const unfinishedCustomProvider = {
 };
 
 describe('ModelsAndRuntimeSettings', () => {
+  it('opens speech settings from the grouped model services menu', async () => {
+    render(<ModelsAndRuntimeSettings setView={vi.fn()} active />);
+    fireEvent.click(screen.getByRole('button', { name: 'Speech recognition and synthesis' }));
+    expect(await screen.findByText('Endpoint URL')).toBeVisible();
+    expect(screen.getByText('Voice playback is not connected yet. No setup is needed; existing settings are retained.')).toBeVisible();
+  });
+  it('reloads connections when settings reopen and ignores an older response', async () => {
+    let resolveOld!: (value: typeof customProvider[]) => void;
+    vi.mocked(acpListProviderDetails).mockReturnValueOnce(new Promise(resolve => { resolveOld = resolve; }));
+    const view = render(<ModelsAndRuntimeSettings setView={vi.fn()} active />);
+    view.rerender(<ModelsAndRuntimeSettings setView={vi.fn()} active={false} />);
+    vi.mocked(acpListProviderDetails).mockResolvedValue([{ ...customProvider, name: 'latest-disabled', enabled: false }]);
+    view.rerender(<ModelsAndRuntimeSettings setView={vi.fn()} active />);
+    fireEvent.click(screen.getByRole('button', { name: 'Models and connections' }));
+    await waitFor(() => expect(screen.getByTestId('custom-provider-grid')).toHaveTextContent('latest-disabled'));
+    await act(async () => resolveOld([customProvider]));
+    expect(screen.getByTestId('custom-provider-grid')).toHaveTextContent('latest-disabled');
+  });
   beforeEach(() => {
     vi.clearAllMocks();
     vi.mocked(acpReadConfig).mockImplementation(async (key) =>

@@ -3902,42 +3902,6 @@
   "goosehintsSection.title": {
     "defaultMessage": "项目说明（AGENTS.md）"
   },
-  "groupedExtensionLoadingToast.askGoose": {
-    "defaultMessage": "问问 CodeBuddy"
-  },
-  "groupedExtensionLoadingToast.collapseDetails": {
-    "defaultMessage": "收起详情"
-  },
-  "groupedExtensionLoadingToast.copied": {
-    "defaultMessage": "已复制！"
-  },
-  "groupedExtensionLoadingToast.copyError": {
-    "defaultMessage": "复制错误"
-  },
-  "groupedExtensionLoadingToast.expandDetails": {
-    "defaultMessage": "展开详情"
-  },
-  "groupedExtensionLoadingToast.failedToAddExtension": {
-    "defaultMessage": "添加扩展失败"
-  },
-  "groupedExtensionLoadingToast.failedToLoad": {
-    "defaultMessage": "{count,plural,one{# 个扩展加载失败} other{# 个扩展加载失败}}"
-  },
-  "groupedExtensionLoadingToast.loadingExtensions": {
-    "defaultMessage": "{count,plural,one{正在加载 # 个扩展…} other{正在加载 # 个扩展…}}"
-  },
-  "groupedExtensionLoadingToast.partiallyLoaded": {
-    "defaultMessage": "{totalCount,plural,one{已加载 {successCount}/# 个扩展} other{已加载 {successCount}/# 个扩展}}"
-  },
-  "groupedExtensionLoadingToast.showDetails": {
-    "defaultMessage": "显示详情"
-  },
-  "groupedExtensionLoadingToast.showLess": {
-    "defaultMessage": "显示更少"
-  },
-  "groupedExtensionLoadingToast.successfullyLoaded": {
-    "defaultMessage": "{count,plural,one{成功加载 # 个扩展} other{成功加载 # 个扩展}}"
-  },
   "headersSection.add": {
     "defaultMessage": "添加"
   },
@@ -4772,9 +4736,6 @@
   "messageQueue.removeFromQueue": {
     "defaultMessage": "将此消息从队列中移除"
   },
-  "messageQueue.retrySave": {
-    "defaultMessage": "重试保存队列"
-  },
   "messageQueue.save": {
     "defaultMessage": "保存"
   },
@@ -4794,13 +4755,7 @@
     "defaultMessage": "将所有待发送消息一并发送"
   },
   "messageQueue.steer": {
-    "defaultMessage": "引导"
-  },
-  "messageQueue.storageConflict": {
-    "defaultMessage": "另一窗口已修改此队列。为避免覆盖，已暂停发送和保存。请保持本窗口打开并核对两边的待发消息。"
-  },
-  "messageQueue.storageFailure": {
-    "defaultMessage": "队列无法保存或恢复。本窗口中的消息和附件仍保留在内存中，请保持窗口打开，以免丢失。"
+    "defaultMessage": "立即切换"
   },
   "messageQueue.verifyDelivery": {
     "defaultMessage": "发送结果尚不确定，请先核对对话中的记录，再决定是否重试。"
@@ -10274,17 +10229,11 @@
   "modelInventory.acknowledge": {
     "defaultMessage": "知道了"
   },
-  "modelInventory.actionFailed": {
-    "defaultMessage": "操作未完成，原模型选择未更改，请重试。"
-  },
   "modelInventory.changed": {
     "defaultMessage": "{model}：厂商报告的{fields}已变化，请检查模型设置后继续。"
   },
   "modelInventory.context": {
     "defaultMessage": "上下文容量"
-  },
-  "modelInventory.failed": {
-    "defaultMessage": "此连接刷新失败，已保留上次成功的模型列表；这不代表模型已下架。"
   },
   "modelInventory.image": {
     "defaultMessage": "图片输入能力"
@@ -10304,13 +10253,31 @@
   "modelInventory.thinking": {
     "defaultMessage": "思考选项"
   },
-  "modelInventory.title": {
-    "defaultMessage": "模型连接有更新"
-  },
   "modelInventory.tools": {
     "defaultMessage": "工具调用能力"
   },
   "thinkingEffortPicker.unsupportedLabel": {
     "defaultMessage": "不支持调节"
+  },
+  "modelInventory.reviewTitle": {
+    "defaultMessage": "部分模型已不在服务列表中"
+  },
+  "modelInventory.refreshTitle": {
+    "defaultMessage": "模型列表刷新失败"
+  },
+  "modelInventory.capabilityTitle": {
+    "defaultMessage": "模型能力有变化"
+  },
+  "modelInventory.refreshSummary": {
+    "defaultMessage": "已保留上次的模型列表，不代表模型已下架。"
+  },
+  "modelInventory.selectionSummary": {
+    "defaultMessage": "当前模型选择未更改，请查看详情确认后继续。"
+  },
+  "modelInventory.details": {
+    "defaultMessage": "查看详情"
+  },
+  "modelInventory.collapse": {
+    "defaultMessage": "暂时收起"
   }
 }

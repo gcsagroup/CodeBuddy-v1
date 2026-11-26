@@ -6,6 +6,7 @@ import {
 import { useLocation, useNavigate } from 'react-router-dom';
 import ChatInput from '../ChatInput';
 import { CodeBuddyMark } from '../CodeBuddyMark';
+import './welcome-orbit.css';
 import { DirSwitcher } from '../bottom_menu/DirSwitcher';
 import { useConfig } from '../ConfigContext';
 import { AppEvents } from '../../constants/events';
@@ -414,19 +415,29 @@ export function CodeProHub({ launchIntent }: { launchIntent?: CodeProLaunchInten
           </div>
         )}
         <div hidden={showPendingMessage} className="mx-auto flex w-full max-w-2xl flex-1 flex-col justify-center py-8 hidden:hidden">
-          <div className="mb-6 flex size-14 items-center justify-center rounded-2xl bg-gradient-to-br from-blue-100/70 to-violet-100/50 text-text-primary dark:from-blue-950/60 dark:to-violet-950/40">
-            <CodeBuddyMark className="size-8" />
+          <div className="welcome-heading">
+            <div className="welcome-orbit" aria-hidden="true">
+              <span className="welcome-orbit-glow" />
+              <svg className="welcome-orbit-rings" viewBox="0 0 80 80" fill="none">
+                <g className="welcome-orbit-track">
+                  <ellipse cx="40" cy="40" rx="34" ry="22" stroke="#8cb4ff" strokeOpacity=".6" strokeWidth=".7" />
+                  <circle cx="74" cy="40" r="2.6" fill="#9ccaff" />
+                </g>
+                <g className="welcome-orbit-track welcome-orbit-track-secondary">
+                  <ellipse cx="40" cy="40" rx="23" ry="35" stroke="#bea2ff" strokeOpacity=".5" strokeWidth=".7" />
+                  <circle cx="40" cy="5" r="2" fill="#b9a0ff" />
+                </g>
+              </svg>
+              <CodeBuddyMark className="welcome-orbit-mark" />
+            </div>
+            <h1 id="codepro-title" className="text-2xl font-semibold tracking-tight text-text-primary sm:text-3xl">
+              {intl.formatMessage(i18n.title)}
+            </h1>
           </div>
-          <h1
-            id="codepro-title"
-            className="text-2xl font-semibold tracking-tight text-text-primary sm:text-3xl"
-          >
-            {intl.formatMessage(i18n.title)}
-          </h1>
-          <p className="mt-3 max-w-xl text-base leading-7 text-text-secondary">
+          <p className="welcome-copy mt-3 max-w-xl text-base leading-7 text-text-secondary">
             {intl.formatMessage(i18n.introduction)}
           </p>
-          <ul className="mt-7 flex flex-wrap gap-2 text-sm text-text-secondary">
+          <ul className="welcome-copy mt-7 flex flex-wrap gap-2 text-sm text-text-secondary">
             {[i18n.code, i18n.data, i18n.tasks].map(message => (
               <li key={message.id} className="rounded-full border border-border-primary/70 bg-background-secondary/60 px-3 py-1.5">
                 {intl.formatMessage(message)}
@@ -434,6 +445,7 @@ export function CodeProHub({ launchIntent }: { launchIntent?: CodeProLaunchInten
             ))}
           </ul>
         </div>
+
 
         <fieldset
           disabled={inputBlocked}

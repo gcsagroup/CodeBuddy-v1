@@ -29,3 +29,13 @@ it('reports queue persistence errors instead of acknowledging delivery', async (
   await expect(deliverMainConversationMessage('failed', { msg: 'keep draft', images: [] })).rejects.toThrow('disk full');
   dispose();
 });
+it('waits for asynchronous runtime acceptance and propagates persistence rejection', async () => {
+ let reject!: (error:Error)=>void;
+ const accepted=vi.fn();
+ const dispose=receiveMainConversationMessages('async-failed',()=>new Promise<void>((_resolve,no)=>{reject=no;}));
+ const delivery=deliverMainConversationMessage('async-failed',{msg:'keep this draft',images:[],messageId:'async-id'});
+ void delivery.then(accepted,()=>{});
+ await Promise.resolve();expect(accepted).not.toHaveBeenCalled();
+ reject(new Error('runtime save failed'));
+ await expect(delivery).rejects.toThrow('runtime save failed');dispose();
+});

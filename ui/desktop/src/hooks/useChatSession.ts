@@ -33,7 +33,6 @@ import {
   type AcpChatSessionSnapshot,
   useAcpChatSessionSnapshot,
 } from '../acp/chatSessionStore';
-import { acpSteerSession } from '../acp/prompt';
 import { isAcpRecovering, subscribeToAcpRecovery } from '../acp/acpConnection';
 import type { CodeProWorkspaceInspection } from '../codepro/projectWorkspace';
 
@@ -49,10 +48,6 @@ const initialTokenState: TokenState = {
 
 function isClearCommand(message: string): boolean {
   return message.trim() === '/clear';
-}
-
-function isSlashCommand(message: string): boolean {
-  return message.trim().startsWith('/');
 }
 
 function isStaleRunnableSnapshot(snapshot: AcpChatSessionSnapshot | undefined): boolean {
@@ -95,7 +90,6 @@ export function useChatSession({
   const tokenState = acpSnapshot?.tokenState ?? initialTokenState;
   const queueProcessingBlocked =
     acpSnapshot?.pendingCancelPromptAttemptId != null || acpSnapshot?.promptRequestId != null;
-  const canSubmitQueuedMessageWhileLoading = isStaleRunnableSnapshot(acpSnapshot);
 
   const snapshotRef = useRef(acpSnapshot);
   snapshotRef.current = acpSnapshot;
@@ -310,58 +304,6 @@ export function useChatSession({
     [getCurrentSnapshot, onFinish, sessionId]
   );
 
-  const onSteerQueuedMessage = useCallback(
-    async (input: UserInput): Promise<boolean> => {
-      if (isAcpRecovering()) return false;
-      const { msg: userMessage, images } = input;
-      const hasTextContent = userMessage.trim().length > 0;
-      const hasNewMessage = hasTextContent || images.length > 0;
-      if (!hasNewMessage) {
-        return false;
-      }
-
-      if (isSlashCommand(userMessage)) {
-        return false;
-      }
-
-      const sessionSnapshot = acpChatSessionStore.getSnapshot(sessionId) ?? getCurrentSnapshot();
-      if (sessionSnapshot?.pendingCancelPromptAttemptId) {
-        return false;
-      }
-      const activeRunId = sessionSnapshot?.activeRunId;
-      if (!activeRunId) {
-        return false;
-      }
-
-      try {
-        const steeredMessage = createUserMessage(userMessage, images);
-        if (input.queuedWhileBusy === true) steeredMessage.metadata.queuedWhileBusy = true;
-        const response = await acpSteerSession(sessionId, steeredMessage, activeRunId);
-        const localSteerMessage: Message = {
-          ...steeredMessage,
-          id: response.messageId,
-          metadata: { ...steeredMessage.metadata, steer: true },
-        };
-        const latestSnapshot = acpChatSessionStore.getSnapshot(sessionId) ?? getCurrentSnapshot();
-        if (latestSnapshot?.activeRunId !== activeRunId) {
-          return true;
-        }
-
-        const currentMessages = latestSnapshot.messages;
-
-        if (!currentMessages.some((message) => message.id === response.messageId)) {
-          acpChatSessionActions.addPendingLocalSteerMessage(sessionId, localSteerMessage);
-        }
-
-        return true;
-      } catch (error) {
-        console.warn('Failed to steer ACP session:', error);
-        throw error;
-      }
-    },
-    [getCurrentSnapshot, sessionId]
-  );
-
   const submitElicitationResponse = useCallback(
     async (
       elicitationId: string,
@@ -452,7 +394,6 @@ export function useChatSession({
     updateSession,
     handleSubmit,
     resumeAfterWorkspace,
-    onSteerQueuedMessage,
     submitElicitationResponse,
     stopStreaming,
     tokenState,
@@ -466,9 +407,7 @@ export function useChatSession({
     promptActivity: acpSnapshot?.promptActivity,
     cancelling: acpSnapshot?.pendingCancelPromptAttemptId != null,
     activeRunId: acpSnapshot?.activeRunId,
-    pauseQueueOnStop: true,
     queueProcessingBlocked,
-    canSubmitQueuedMessageWhileLoading,
     onMessageUpdate,
   };
 }

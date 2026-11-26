@@ -110,6 +110,8 @@ export async function openStore(dataDir, { replaceFile = rename, defaultModel, o
   let serializedRoots = new Map();
   // Keys are committed session objects; writers and readers receive copies.
   let serializedSessions = new Map();
+  const sessionVersions = new WeakMap();
+  let nextSessionVersion = 0;
   const report = (measurement) => {
     try { Promise.resolve(onTiming?.(measurement)).catch(() => {}); } catch {}
   };
@@ -265,6 +267,14 @@ export async function openStore(dataDir, { replaceFile = rename, defaultModel, o
   };
   return {
     directory: path.resolve(dataDir),
+    // Ephemeral cache token: changes only when a new committed object is published.
+    // Failed writes cannot invalidate readers; no state is persisted or exposed.
+    sessionVersion(id) {
+      const session = deletions.has(id) ? undefined : state.sessions.find(session => session.id === id);
+      if (!session) return undefined;
+      if (!sessionVersions.has(session)) sessionVersions.set(session, ++nextSessionVersion);
+      return sessionVersions.get(session);
+    },
     // Settings requests must not clone every conversation and tool receipt.
     // Both forms return detached snapshots of the last committed state.
     read: (keys, { sessionFields, runFields, runSessionId, runId } = {}) => {

@@ -29,6 +29,7 @@ export interface GooseMessageMeta {
   presentation?: Message['metadata']['presentation'];
   transcriptReplayStarted?: boolean;
   scheduled?: true;
+  queuedWhileBusy?: true;
 }
 
 export interface ToolIdentity {
@@ -99,6 +100,7 @@ export function getGooseMessageMeta(update: { _meta?: unknown }): GooseMessageMe
     messageId: typeof goose.messageId === 'string' ? goose.messageId : undefined,
     steer: goose.steer === true ? true : undefined,
     scheduled: goose.scheduled === true ? true : undefined,
+    queuedWhileBusy: goose.queuedWhileBusy === true ? true : undefined,
     presentation:
       isRecord(goose.presentation) &&
       typeof goose.presentation.afterMessageId === 'string' &&

@@ -214,7 +214,7 @@ export class TranscriptionService {
     const def = providerDefinition(provider);
     if (provider === "remote") {
       const config = this.store.read(["config"]).config ?? {};
-      const endpoint = validEndpoint(config.SPEECH_SERVICES?.value?.REMOTE_ASR_URL ?? "http://192.168.9.101:18003/v1/audio/transcriptions");
+      const endpoint = validEndpoint(config.SPEECH_SERVICES?.value?.REMOTE_ASR_URL ?? "http://192.168.50.231:18003/v1/audio/transcriptions");
       return { endpoint, configured: true, apiKey: includeSecrets ? await revealSecret(config.REMOTE_ASR_API_KEY?.secret) : undefined };
     }
     if (provider === "openai") {
@@ -385,15 +385,16 @@ export class TranscriptionService {
   }
 
   startAvailabilityCheck(provider) {
+    const cached = this.availabilityChecks.get(provider);
+    if (cached && (cached.expiresAt <= Date.now() ||
+        cached.settings !== remoteAvailabilityKey(this.store))) this.availabilityChecks.delete(provider);
     if (!this.availabilityChecks.has(provider)) {
+      const entry = { settings: remoteAvailabilityKey(this.store), expiresAt: Infinity };
       const result = this.probeAvailability(provider).then(
-        () => ({ available: true }),
-        () => ({ available: false }),
+        () => { entry.expiresAt = Date.now() + 60000; return { available: true }; },
+        error => { entry.expiresAt = Date.now() + 5000; return { available: false, error }; },
       );
-      this.availabilityChecks.set(provider, {
-        result,
-        settings: remoteAvailabilityKey(this.store),
-      });
+      this.availabilityChecks.set(provider, Object.assign(entry, { result }));
     }
     return this.availabilityChecks.get(provider).result;
   }
@@ -404,10 +405,10 @@ export class TranscriptionService {
     const result = await pending;
     if (this.availabilityChecks.get(provider).result !== pending) return this.check(provider);
     if (provider === "remote" && this.availabilityChecks.get(provider).settings !== remoteAvailabilityKey(this.store)) {
-      throw invalid("语音服务配置已修改，请在设置中点击“重新检测服务”。", { reason: "dictation_settings_changed" });
+      return this.check(provider, true);
     }
     if (!result.available) {
-      throw invalid("语音识别服务不可用（最近一次检测失败）。请在设置中的“语音识别与合成”点击“重新检测服务”。", { reason: "dictation_service_unavailable" });
+      throw result.error;
     }
     return result;
   }
@@ -427,10 +428,13 @@ export class TranscriptionService {
       });
       await response.body?.cancel();
       // Transcription routes commonly accept POST only. A 405 still confirms reachability.
-      if (!response.ok && response.status !== 405) throw new Error("Unavailable");
+      if (!response.ok && response.status !== 405) throw invalid(`语音识别服务不可用：HTTP ${response.status}。${response.status === 401 || response.status === 403 ? '请检查凭据和访问权限。' : response.status === 404 ? '请检查转写接口路径。' : response.status === 429 ? '请求过于频繁，请稍后重试。' : '请检查服务状态后重试。'}`, { reason: 'dictation_service_unavailable', status: response.status });
       return { available: true };
-    } catch {
-      throw invalid("语音识别服务不可用，请检查服务地址和连接后重试。", { reason: "dictation_service_unavailable" });
+    } catch (error) {
+      if (error?.code === -32602) throw error;
+      const code = error?.cause?.code ?? error?.code;
+      const detail = controller.signal.aborted ? '连接检测超时（3 秒）。' : code === 'ECONNREFUSED' ? '目标端口拒绝连接，请确认服务已启动。' : code === 'ENOTFOUND' ? '无法解析服务主机名。' : code === 'EHOSTUNREACH' || code === 'ENETUNREACH' ? '无法访问服务所在网络，请检查局域网或 VPN。' : '连接检测失败，请检查网络和服务地址。';
+      throw invalid(`语音识别服务不可用：${detail}`, { reason: "dictation_service_unavailable" });
     } finally {
       clearTimeout(timer);
       this.active.delete(row);

@@ -956,6 +956,7 @@ function ToolCallView({
     const details = webSearchDetails(toolCall.arguments ?? {}, toolResponse);
     return (
       <ToolCallExpandable
+        respectToolDisplayStyle
         compact={compact}
         storageKey={requestId}
         label={toolLabel}
@@ -1039,6 +1040,7 @@ function ToolCallView({
     }
     return (
       <ToolCallExpandable
+        respectToolDisplayStyle
         compact
         icon={<ToolActivityIcon name={toolCall.name} status={toolCallStatus} />}
         storageKey={requestId}

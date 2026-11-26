@@ -29,9 +29,6 @@ import {
   sessionInfoToSession,
 } from '../sessions';
 
-vi.mock('../../utils/extensionErrorUtils', () => ({
-  showExtensionLoadResults: vi.fn(),
-}));
 
 vi.mock('../chatSessionStore', () => ({
   subscribeToAcpChatSession: vi.fn(() => () => undefined),

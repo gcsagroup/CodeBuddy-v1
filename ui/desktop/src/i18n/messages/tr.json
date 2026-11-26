@@ -3812,42 +3812,6 @@
   "goosehintsSection.title": {
     "defaultMessage": "Project instructions (AGENTS.md)"
   },
-  "groupedExtensionLoadingToast.askGoose": {
-    "defaultMessage": "CodeBuddy'a sorun"
-  },
-  "groupedExtensionLoadingToast.collapseDetails": {
-    "defaultMessage": "Ayrıntıları daralt"
-  },
-  "groupedExtensionLoadingToast.copied": {
-    "defaultMessage": "Kopyalandı!"
-  },
-  "groupedExtensionLoadingToast.copyError": {
-    "defaultMessage": "Kopyalama hatası"
-  },
-  "groupedExtensionLoadingToast.expandDetails": {
-    "defaultMessage": "Ayrıntıları genişlet"
-  },
-  "groupedExtensionLoadingToast.failedToAddExtension": {
-    "defaultMessage": "Uzantı eklenemedi"
-  },
-  "groupedExtensionLoadingToast.failedToLoad": {
-    "defaultMessage": "{count,plural,one{# uzantı yüklenemedi} other{# uzantı yüklenemedi}}"
-  },
-  "groupedExtensionLoadingToast.loadingExtensions": {
-    "defaultMessage": "{count,plural,one{# uzantı yükleniyor...} other{# uzantı yükleniyor...}}"
-  },
-  "groupedExtensionLoadingToast.partiallyLoaded": {
-    "defaultMessage": "{totalCount,plural,one{{successCount}/# uzantı yüklendi} other{{successCount}/# uzantı yüklendi}}"
-  },
-  "groupedExtensionLoadingToast.showDetails": {
-    "defaultMessage": "Ayrıntıları göster"
-  },
-  "groupedExtensionLoadingToast.showLess": {
-    "defaultMessage": "Daha az göster"
-  },
-  "groupedExtensionLoadingToast.successfullyLoaded": {
-    "defaultMessage": "{count,plural,one{# uzantı başarıyla yüklendi} other{# uzantı başarıyla yüklendi}}"
-  },
   "headersSection.add": {
     "defaultMessage": "Ekle"
   },
@@ -4682,9 +4646,6 @@
   "messageQueue.removeFromQueue": {
     "defaultMessage": "Bu mesajı sıradan kaldır"
   },
-  "messageQueue.retrySave": {
-    "defaultMessage": "Retry saving queue"
-  },
   "messageQueue.save": {
     "defaultMessage": "Kaydet"
   },
@@ -4705,12 +4666,6 @@
   },
   "messageQueue.steer": {
     "defaultMessage": "Yönlendir"
-  },
-  "messageQueue.storageConflict": {
-    "defaultMessage": "This queue changed in another window. Sending and saving are paused to avoid overwriting it. Keep this window open and compare the queued messages."
-  },
-  "messageQueue.storageFailure": {
-    "defaultMessage": "The queue could not be saved or restored. Messages and attachments in this window are kept in memory. Keep this window open to avoid losing them."
   },
   "messageQueue.verifyDelivery": {
     "defaultMessage": "Sending result unknown. Check the conversation before retrying."
@@ -10274,17 +10229,11 @@
   "modelInventory.acknowledge": {
     "defaultMessage": "Anladım"
   },
-  "modelInventory.actionFailed": {
-    "defaultMessage": "İşlem başarısız oldu. Model seçiminiz değiştirilmedi. Tekrar deneyin."
-  },
   "modelInventory.changed": {
     "defaultMessage": "{model}: sağlayıcı {fields} bilgisini değiştirdi. Model ayarlarını kontrol edin."
   },
   "modelInventory.context": {
     "defaultMessage": "bağlam kapasitesi"
-  },
-  "modelInventory.failed": {
-    "defaultMessage": "Bağlantı yenilenemedi. Son liste korunuyor; bu, modellerin kaldırıldığı anlamına gelmez."
   },
   "modelInventory.image": {
     "defaultMessage": "görüntü girişi"
@@ -10304,13 +10253,31 @@
   "modelInventory.thinking": {
     "defaultMessage": "düşünme seçenekleri"
   },
-  "modelInventory.title": {
-    "defaultMessage": "Model bağlantısı güncellemeleri"
-  },
   "modelInventory.tools": {
     "defaultMessage": "araç çağrıları"
   },
   "thinkingEffortPicker.unsupportedLabel": {
     "defaultMessage": "Ayarlanamaz"
+  },
+  "modelInventory.capabilityTitle": {
+    "defaultMessage": "Model yetenekleri değişti"
+  },
+  "modelInventory.collapse": {
+    "defaultMessage": "Şimdilik gizle"
+  },
+  "modelInventory.details": {
+    "defaultMessage": "Ayrıntıları göster"
+  },
+  "modelInventory.refreshSummary": {
+    "defaultMessage": "Kayıtlı model listesi korunuyor. Bu, modellerin kaldırıldığı anlamına gelmez."
+  },
+  "modelInventory.refreshTitle": {
+    "defaultMessage": "Model listesi yenilenemedi"
+  },
+  "modelInventory.reviewTitle": {
+    "defaultMessage": "Bazı modeller artık listede yok"
+  },
+  "modelInventory.selectionSummary": {
+    "defaultMessage": "Model seçiminiz değişmedi. Devam etmeden önce ayrıntıları inceleyin."
   }
 }

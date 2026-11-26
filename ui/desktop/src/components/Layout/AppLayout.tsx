@@ -1,3 +1,5 @@
+import { SessionSearchDialog } from '../sessions/SessionSearchDialog';
+import { selectNativeText } from '../../utils/nativeLocalization';
 import { PanelResizeHandle } from '../../workspace-panel/PanelResizeHandle';
 import { NativeScheduleDetails } from '../schedule/NativeScheduleDetails';
 import { useNativeSchedulePanel } from '../schedule/useNativeSchedulePanel';
@@ -11,8 +13,8 @@ import {
 } from '../../workspace-panel/workspaceFilePanel';
 import React, { useEffect, useRef, useState } from 'react';
 import { IpcRendererEvent } from 'electron';
-import { Outlet, useLocation } from 'react-router-dom';
-import { PanelLeft } from 'lucide-react';
+import { Outlet, useLocation, useNavigate } from 'react-router-dom';
+import { PanelLeft, Search } from 'lucide-react';
 import { motion, useReducedMotion } from 'framer-motion';
 import { defineMessages, useIntl } from '../../i18n';
 import { Button } from '../ui/button';
@@ -126,6 +128,8 @@ const AppLayoutContent: React.FC<AppLayoutContentProps> = ({ activeSessions }) =
   const intl = useIntl();
   const reducedMotion = useReducedMotion();
   const location = useLocation();
+  const navigate = useNavigate();
+  const [searchOpen, setSearchOpen] = useState(false);
   const safeIsMacOS = (window?.electron?.platform || 'darwin') === 'darwin';
   const chatContext = useChatContext();
   const isOnPairRoute = location.pathname === '/pair' || location.pathname === '/codepro/pair';
@@ -304,6 +308,7 @@ const AppLayoutContent: React.FC<AppLayoutContentProps> = ({ activeSessions }) =
         } as React.CSSProperties
       }
     >
+      <SessionSearchDialog open={searchOpen} onOpenChange={setSearchOpen} onSelect={id => navigate(`${workspaceMode === 'codepro' ? '/codepro/pair' : '/pair'}?resumeSessionId=${encodeURIComponent(id)}`)} />
       {/* The sidebar shares the canvas and uses only its resize divider. */}
       <div className="flex flex-1 w-full h-full min-h-0 flex-row">
         <NavigationSidebar
@@ -319,18 +324,18 @@ const AppLayoutContent: React.FC<AppLayoutContentProps> = ({ activeSessions }) =
         <div className="relative w-0 shrink-0" style={{ zIndex: Z_INDEX.HEADER }}>
           <Button
             ref={navigationToggleRef}
-            onClick={() => handleNavigationExpandedChange(!isNavExpanded)}
+            onClick={() => isNavExpanded ? setSearchOpen(true) : handleNavigationExpandedChange(true)}
             className={cn(
               'no-drag absolute top-2 text-text-secondary hover:!bg-background-tertiary hover:text-text-primary',
               isNavExpanded ? '-left-12' : needsTrafficLightInset ? 'left-[96px]' : 'left-3'
             )}
             variant="ghost"
             size="xs"
-            title={navToggleTitle}
-            aria-label={navToggleTitle}
-            aria-expanded={isNavExpanded}
+            title={isNavExpanded ? selectNativeText(intl.locale, 'Search conversations', '搜索会话', '搜尋對話') : navToggleTitle}
+            aria-label={isNavExpanded ? selectNativeText(intl.locale, 'Search conversations', '搜索会话', '搜尋對話') : navToggleTitle}
+            aria-expanded={isNavExpanded ? searchOpen : false}
           >
-            <PanelLeft className="size-[18px]" />
+            {isNavExpanded ? <Search className="size-[18px]" /> : <PanelLeft className="size-[18px]" />}
           </Button>
         </div>
 

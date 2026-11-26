@@ -611,7 +611,7 @@ export const test = base.extend<GooseTestFixtures>({
     if (profileMode === 'isolated') {
       const permissionPersistenceScenario = testInfo.title.startsWith('Permission ');
       deterministicServer = await startDeterministicOpenAiServer({
-        scenario: testInfo.title.startsWith('P0 ')
+        scenario: testInfo.title.startsWith('Queue controls ') ? 'queue-controls' : testInfo.title.startsWith('P0 ')
           ? 'p0-repair'
           : testInfo.title.startsWith('Toolbox MCP ')
             ? 'mcp-filesystem'
@@ -884,7 +884,7 @@ export const test = base.extend<GooseTestFixtures>({
       } catch {
         // Process cleanup still has the launcher-tree fallback below.
       }
-      if (deterministicServer && (testInfo.title.startsWith('Message identity ') ||
+      if (deterministicServer && (testInfo.title.startsWith('Queue controls ') || testInfo.title.startsWith('Message identity ') ||
           testInfo.title.startsWith('Question attention ') || testInfo.title.startsWith('Long turn status ') ||
           testInfo.title.startsWith('Website handoff:'))) {
         await page.evaluate(async (url) => {

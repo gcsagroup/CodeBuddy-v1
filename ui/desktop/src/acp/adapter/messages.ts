@@ -69,6 +69,7 @@ export function applyContentChunk(
         ...(role === 'user' && gooseMeta.presentation?.continuation ? { userVisible: false } : {}),
         ...(gooseMeta.steer ? { steer: true } : {}),
         ...(role === 'user' && gooseMeta.scheduled ? { scheduled: true } : {}),
+        ...(role === 'user' && gooseMeta.queuedWhileBusy ? { queuedWhileBusy: true } : {}),
         ...(role === 'user' && gooseMeta.presentation
           ? { presentation: gooseMeta.presentation }
           : {}),

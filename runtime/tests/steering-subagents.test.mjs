@@ -137,3 +137,34 @@ test('explicit parent cancellation stops its active child and retains both nativ
   assert.equal((await f.driver.listSubagentChildren(f.sessionId)).length, 1, 'stopping must not delete the child');
   assert.deepEqual(f.failures, []);
 });
+
+test('replacement cancels the running model and admits an ordered batch with independent native identities', { timeout: 20000 }, async t => {
+  const f = await fixture(t);
+  await f.driver.cancel(f.sessionId);
+  assert.equal((await f.running).stopReason, 'cancelled');
+  const ids = [randomUUID(), randomUUID()];
+  const before = f.requests.length;
+  const result = await f.driver.prompt(f.sessionId, 'replacement batch', {
+    requestId: ids[0], inputBatch: ids.map((requestId, index) => ({ requestId,
+      content: [{ type: 'text', text: `REPLACEMENT_${index}` }] })), onPermission: () => true,
+  });
+  assert.equal(result.stopReason, 'end_turn');
+  const request = f.requests.slice(before).find(row => row.messages.some(message => JSON.stringify(message).includes('REPLACEMENT_0')));
+  assert.ok(request);
+  const texts = request.messages.filter(message => message.role === 'user').map(message => JSON.stringify(message.content));
+  assert.ok(texts.findIndex(text => text.includes('REPLACEMENT_0')) < texts.findIndex(text => text.includes('REPLACEMENT_1')));
+  assert.ok(texts.some(text => text.includes('REPLACEMENT_1')), 'both messages must reach the same first replacement call');
+  const accepted = await f.driver.agentInputIds(f.sessionId, { committedOnly: true });
+  assert.ok(ids.every(id => accepted.includes(id)));
+});
+
+test('failed native batch admission rolls back its own pending inputs and permits explicit retry', {timeout:20000}, async t=>{
+ const f=await fixture(t);await f.driver.cancel(f.sessionId);await f.running;
+ const ids=[randomUUID(),randomUUID()];
+ await assert.rejects(f.driver.prompt(f.sessionId,'invalid batch',{requestId:ids[0],inputBatch:[{requestId:ids[0],content:[{type:'text',text:'REPLACEMENT_0'}]},{requestId:ids[1],content:[]}]}));
+ const admitted=await f.driver.agentInputIds(f.sessionId,{currentOnly:true});
+ assert.ok(ids.every(id=>!admitted.includes(id)), 'failed batch must not remain queued or consumed');
+ const result=await f.driver.prompt(f.sessionId,'retry',{requestId:ids[0],inputBatch:ids.map((requestId,index)=>({requestId,content:[{type:'text',text:`REPLACEMENT_${index}`}]}))});
+ assert.equal(result.stopReason,'end_turn');
+ const consumed=await f.driver.agentInputIds(f.sessionId,{committedOnly:true});assert.ok(ids.every(id=>consumed.includes(id)));
+});

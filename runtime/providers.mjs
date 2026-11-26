@@ -338,10 +338,13 @@ async function requestJson(
       signal: AbortSignal.timeout(timeoutMs),
       ...(payload ? { body: JSON.stringify(payload) } : {}),
     });
-  } catch {
+  } catch (error) {
+    const transport = error?.cause?.code ?? error?.code;
+    const networkCode = ['ECONNREFUSED', 'ENOTFOUND', 'EHOSTUNREACH', 'ENETUNREACH', 'ETIMEDOUT', 'UND_ERR_CONNECT_TIMEOUT', 'CERT_HAS_EXPIRED', 'DEPTH_ZERO_SELF_SIGNED_CERT'].includes(transport) ? transport : error?.name === 'TimeoutError' ? 'ETIMEDOUT' : undefined;
     throw providerError(
       "endpoint_unreachable",
       "Could not reach the model endpoint.",
+      { networkCode },
     );
   } finally {
     if (metadataStage) console.info('[Provider metadata request]', JSON.stringify({
@@ -410,6 +413,7 @@ async function requestJson(
 }
 
 export async function discover(input, stored, { timeoutMs, authPending, refreshMetadata = false, allowEmpty = false } = {}) {
+  if (stored?.enabled === false || input.enabled === false) throw invalid('Provider is disabled', { code: 'provider_disabled' });
   const provider = { ...stored, ...input };
   const endpoint = endpoints(provider);
   const auth = await (authPending ?? credentials(
@@ -475,6 +479,7 @@ export function discoveredModelCapabilities(provider, models) {
 export const modelConnectionIdentity = provider => listingKey(provider);
 
 async function resolveContext(provider, model, authPending, retryAfterRefresh = true) {
+  if (provider.enabled === false) return undefined;
   if (!model || !desktopNetworkAllowed()) return undefined;
   const catalogProviderId = providerCatalog(provider);
   const key = listingKey(provider);
@@ -686,17 +691,18 @@ async function validateSelection(provider, stored, legacyThinking) {
 }
 
 export async function saveProvider(store, input, update = false) {
-  const previousDefaults = store.read().defaults;
+  // Connection edits must not clone the transcript archive while probing a model.
+  const snapshot = store.read(['defaults', 'providers', 'preferences']);
+  const previousDefaults = snapshot.defaults;
   const current = update
-    ? store
-        .read()
-        .providers.find((provider) => provider.id === input.providerId)
+    ? snapshot.providers.find((provider) => provider.id === input.providerId)
     : null;
   if (update && !current) throw invalid("Provider not found");
   if (input.basePath != null && typeof input.basePath !== "string")
     throw invalid("basePath must be a string");
   const provider = {
     id: current?.id ?? `custom_${randomUUID()}`,
+    enabled: current?.enabled !== false,
     engine: engineName(input.engine),
     displayName: requireString(input.displayName, "displayName"),
     apiUrl: requireString(input.apiUrl, "apiUrl"),
@@ -717,7 +723,7 @@ export async function saveProvider(store, input, update = false) {
   const auth = await validateSelection(
     { ...provider, apiKey: input.apiKey, headers: input.headers },
     current,
-    store.read().preferences?.gooseThinkingEffort,
+    snapshot.preferences?.gooseThinkingEffort,
   );
   provider.secret = await protectSecret(auth.key);
   provider.headersProtected = Object.keys(auth.customHeaders).length
@@ -730,6 +736,7 @@ export async function saveProvider(store, input, update = false) {
       // A connection probe may outlive an independent budget edit. Keep that
       // model preference from the latest committed provider, not its old snapshot.
       if (state.providers[index].outputBudgets) provider.outputBudgets = state.providers[index].outputBudgets;
+      provider.enabled = state.providers[index].enabled !== false;
       state.providers[index] = provider;
     }
     if (current && state.defaults?.providerId === provider.id &&
@@ -737,7 +744,7 @@ export async function saveProvider(store, input, update = false) {
       (provider.models[0] !== current.models[0] || !provider.models.includes(state.defaults.modelId))) {
       state.defaults = { providerId: provider.id, modelId: provider.models[0] };
     }
-  });
+  }, ['providers', 'defaults']);
   return {
     providerId: provider.id,
     status: providerStatus(provider),
@@ -748,7 +755,7 @@ export async function saveProvider(store, input, update = false) {
 export function providerStatus(provider) {
   return {
     providerId: provider.id,
-    isConfigured: !provider.requiresAuth || Boolean(provider.secret),
+    isConfigured: provider.enabled !== false && (!provider.requiresAuth || Boolean(provider.secret)),
   };
 }
 
@@ -760,6 +767,7 @@ export function inventory(provider) {
     description: "Model connection used by CodeBuddy",
     defaultModel: models[0] ?? "",
     configured: providerStatus(provider).isConfigured,
+    enabled: provider.enabled !== false,
     providerType: "Custom",
     category: "model",
     configKeys: [],
@@ -935,6 +943,7 @@ export function outputBudgetProfile(provider, model) {
 }
 
 export async function driverProvider(provider, model, { legacyThinking = false } = {}) {
+  if (provider.enabled === false) throw invalid('Provider is disabled', { code: 'provider_disabled' });
   const started = performance.now();
   const metadataCached = Boolean(cachedModels(provider));
   let credentialsMs, metadataMs;

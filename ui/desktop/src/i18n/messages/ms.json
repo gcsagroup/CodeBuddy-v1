@@ -3812,42 +3812,6 @@
   "goosehintsSection.title": {
     "defaultMessage": "Project instructions (AGENTS.md)"
   },
-  "groupedExtensionLoadingToast.askGoose": {
-    "defaultMessage": "Tanya CodeBuddy"
-  },
-  "groupedExtensionLoadingToast.collapseDetails": {
-    "defaultMessage": "Runtuhkan butiran"
-  },
-  "groupedExtensionLoadingToast.copied": {
-    "defaultMessage": "Disalin!"
-  },
-  "groupedExtensionLoadingToast.copyError": {
-    "defaultMessage": "Ralat salin"
-  },
-  "groupedExtensionLoadingToast.expandDetails": {
-    "defaultMessage": "Kembangkan butiran"
-  },
-  "groupedExtensionLoadingToast.failedToAddExtension": {
-    "defaultMessage": "Gagal menambah sambungan"
-  },
-  "groupedExtensionLoadingToast.failedToLoad": {
-    "defaultMessage": "{count,plural,one{# sambungan gagal dimuatkan} other{# sambungan gagal dimuatkan}}"
-  },
-  "groupedExtensionLoadingToast.loadingExtensions": {
-    "defaultMessage": "{count,plural,one{Memuatkan # sambungan...} other{Memuatkan # sambungan...}}"
-  },
-  "groupedExtensionLoadingToast.partiallyLoaded": {
-    "defaultMessage": "{totalCount,plural,one{Dimuatkan {successCount}/# sambungan} other{Dimuatkan {successCount}/# sambungan}}"
-  },
-  "groupedExtensionLoadingToast.showDetails": {
-    "defaultMessage": "Tunjukkan butiran"
-  },
-  "groupedExtensionLoadingToast.showLess": {
-    "defaultMessage": "Tunjukkan kurang"
-  },
-  "groupedExtensionLoadingToast.successfullyLoaded": {
-    "defaultMessage": "{count,plural,one{Berjaya memuatkan # sambungan} other{Berjaya memuatkan # sambungan}}"
-  },
   "headersSection.add": {
     "defaultMessage": "Tambah"
   },
@@ -4682,9 +4646,6 @@
   "messageQueue.removeFromQueue": {
     "defaultMessage": "Buang mesej ini daripada baris gilir"
   },
-  "messageQueue.retrySave": {
-    "defaultMessage": "Retry saving queue"
-  },
   "messageQueue.save": {
     "defaultMessage": "Simpan"
   },
@@ -4705,12 +4666,6 @@
   },
   "messageQueue.steer": {
     "defaultMessage": "Beri arahan"
-  },
-  "messageQueue.storageConflict": {
-    "defaultMessage": "This queue changed in another window. Sending and saving are paused to avoid overwriting it. Keep this window open and compare the queued messages."
-  },
-  "messageQueue.storageFailure": {
-    "defaultMessage": "The queue could not be saved or restored. Messages and attachments in this window are kept in memory. Keep this window open to avoid losing them."
   },
   "messageQueue.verifyDelivery": {
     "defaultMessage": "Sending result unknown. Check the conversation before retrying."
@@ -10274,17 +10229,11 @@
   "modelInventory.acknowledge": {
     "defaultMessage": "Faham"
   },
-  "modelInventory.actionFailed": {
-    "defaultMessage": "Tindakan gagal. Pilihan model tidak berubah. Cuba lagi."
-  },
   "modelInventory.changed": {
     "defaultMessage": "{model}: pembekal mengubah {fields}. Semak tetapan model."
   },
   "modelInventory.context": {
     "defaultMessage": "kapasiti konteks"
-  },
-  "modelInventory.failed": {
-    "defaultMessage": "Sambungan tidak dapat disegarkan. Senarai terakhir dikekalkan; ini tidak bermakna model telah dibuang."
   },
   "modelInventory.image": {
     "defaultMessage": "input imej"
@@ -10304,13 +10253,31 @@
   "modelInventory.thinking": {
     "defaultMessage": "pilihan penaakulan"
   },
-  "modelInventory.title": {
-    "defaultMessage": "Kemas kini sambungan model"
-  },
   "modelInventory.tools": {
     "defaultMessage": "panggilan alat"
   },
   "thinkingEffortPicker.unsupportedLabel": {
     "defaultMessage": "Tidak boleh dilaras"
+  },
+  "modelInventory.capabilityTitle": {
+    "defaultMessage": "Keupayaan model telah berubah"
+  },
+  "modelInventory.collapse": {
+    "defaultMessage": "Sembunyikan buat masa ini"
+  },
+  "modelInventory.details": {
+    "defaultMessage": "Lihat butiran"
+  },
+  "modelInventory.refreshSummary": {
+    "defaultMessage": "Senarai model tersimpan dikekalkan. Ini tidak bermakna model telah dibuang."
+  },
+  "modelInventory.refreshTitle": {
+    "defaultMessage": "Senarai model tidak dapat disegarkan"
+  },
+  "modelInventory.reviewTitle": {
+    "defaultMessage": "Sesetengah model tidak lagi disenaraikan"
+  },
+  "modelInventory.selectionSummary": {
+    "defaultMessage": "Pilihan model anda tidak berubah. Semak butiran sebelum meneruskan."
   }
 }

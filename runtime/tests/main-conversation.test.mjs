@@ -138,3 +138,12 @@ test('one main conversation survives concurrent opens and reopening; only its to
   const ordinary = { ...main, id: 'ordinary', globalConversation: false, cwd: project };
   assert.ok(!(await host.sessionOptions(ordinary)).tools.some(tool => tool.name === 'workspace_memory'));
 });
+
+test('clearing the main conversation cannot discard authoritative queued drafts', async t => {
+ const f=await interruptedMain(t);
+ f.host.ensureSession=async()=>{};
+ await f.host.inputQueue.pause(f.sessionId);
+ await f.host.request('_codebuddy/session/input-queue',{sessionId:f.sessionId,action:'enqueue',commandId:'queued-draft',revision:1,items:[{id:'draft',content:'preserve',images:[],timestamp:1}]},{});
+ await assert.rejects(f.host.request('_codebuddy/main-conversation/clear',{sessionId:f.sessionId},{}),/待发送消息/);
+ assert.equal(f.host.inputQueue.snapshot(f.sessionId).items[0].content,'preserve');
+});

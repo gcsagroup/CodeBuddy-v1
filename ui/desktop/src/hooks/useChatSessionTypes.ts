@@ -38,7 +38,6 @@ export interface UseChatSessionResult {
   updateSession: (updater: (session: Session) => Session) => void;
   handleSubmit: (input: UserInput, lifecycle?: MessageSubmissionLifecycle) => Promise<void>;
   resumeAfterWorkspace: (sourceMessage: Message, sourceRunId: string) => Promise<void>;
-  onSteerQueuedMessage?: (input: UserInput) => Promise<boolean>;
   submitElicitationResponse: (
     elicitationId: string,
     userData: Record<string, unknown>,
@@ -52,9 +51,7 @@ export interface UseChatSessionResult {
   clearPromptError: () => void;
   tokenState: TokenState;
   notifications: Map<string, NotificationEvent[]>;
-  pauseQueueOnStop: boolean;
   queueProcessingBlocked: boolean;
-  canSubmitQueuedMessageWhileLoading: boolean;
   onMessageUpdate: (
     messageId: string,
     newContent: string,

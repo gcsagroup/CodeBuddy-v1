@@ -227,6 +227,7 @@ const EditSessionModal = React.memo<EditSessionModalProps>(
       if (!session || disabled) return;
 
       const trimmedDescription = description.trim();
+      if (!trimmedDescription || isUpdating) return;
       if (trimmedDescription === session.name) {
         onClose();
         return;
@@ -244,11 +245,10 @@ const EditSessionModal = React.memo<EditSessionModalProps>(
         const errMsg = errorMessage(error, 'Unknown error occurred');
         console.error('Failed to update session description:', errMsg);
         toast.error(intl.formatMessage(i18n.sessionUpdateFailed, { error: errMsg }));
-        setDescription(session.name);
       } finally {
         setIsUpdating(false);
       }
-    }, [session, description, onSave, onClose, disabled, intl]);
+    }, [session, description, onSave, onClose, disabled, isUpdating, intl]);
 
     const handleCancel = useCallback(() => {
       if (!isUpdating) {
@@ -275,8 +275,8 @@ const EditSessionModal = React.memo<EditSessionModalProps>(
 
     return (
       <div className="fixed inset-0 z-[300] flex items-center justify-center bg-black/50">
-        <div className="bg-background-primary border border-border-primary rounded-lg p-6 w-[500px] max-w-[90vw]">
-          <h3 className="text-lg font-medium text-text-primary mb-4">
+        <div role="dialog" aria-modal="true" aria-labelledby="history-edit-title" className="bg-background-primary border border-border-primary rounded-lg p-6 w-[500px] max-w-[90vw]">
+          <h3 id="history-edit-title" className="text-lg font-medium text-text-primary mb-4">
             {intl.formatMessage(i18n.editSessionTitle)}
           </h3>
 
@@ -500,9 +500,9 @@ const SessionItem = React.memo(function SessionItem({
               </DropdownMenuItem>
               <DropdownMenuItem
                 onClick={handleDuplicateClick}
-                disabled={!canForkSession(session.sessionType)}
+                disabled={(session.readonlyHistory || !canForkSession(session.sessionType))}
                 title={intl.formatMessage(
-                  canForkSession(session.sessionType)
+                  !session.readonlyHistory && canForkSession(session.sessionType)
                     ? i18n.duplicateSession
                     : sessionCapabilityMessages.forkUnavailable
                 )}
@@ -564,6 +564,8 @@ const SessionListView: React.FC<SessionListViewProps> = React.memo(
 
     // Search state for debouncing
     const [searchTerm, setSearchTerm] = useState('');
+    const [isSearching, setIsSearching] = useState(false);
+    const [resultKeyword, setResultKeyword] = useState('');
     const debouncedSearchTerm = useDebounce(searchTerm, 300); // 300ms debounce
     const debouncedSearchTermRef = useRef(debouncedSearchTerm);
     debouncedSearchTermRef.current = debouncedSearchTerm;
@@ -589,8 +591,9 @@ const SessionListView: React.FC<SessionListViewProps> = React.memo(
     }, []);
 
     const projectOptions = useMemo(
-      () => Array.from(new Set(sessions.map((session) => session.workingDir))).sort(),
-      [sessions]
+      () => Array.from(new Set([...sessions.map((session) => session.workingDir),
+        ...(projectFilter === 'all' ? [] : [projectFilter])])).sort(),
+      [sessions, projectFilter]
     );
     const visibleSessions = useMemo(() => {
       const now = Date.now();
@@ -656,6 +659,7 @@ const SessionListView: React.FC<SessionListViewProps> = React.memo(
           }
         } catch (err) {
           console.error('Failed to load remaining sessions:', err);
+          if (loadGenerationRef.current === loadId) setError(errorMessage(err, 'Failed to load sessions'));
         } finally {
           if (loadGenerationRef.current === loadId) {
             setIsPrefetchingSessions(false);
@@ -673,6 +677,7 @@ const SessionListView: React.FC<SessionListViewProps> = React.memo(
         // search keyword) update the list in place without flashing the skeleton.
         const isFirstLoad = !hasLoadedRef.current;
         setIsPrefetchingSessions(false);
+        setIsSearching(true);
         setError(null);
         if (isFirstLoad) {
           setIsLoading(true);
@@ -690,6 +695,7 @@ const SessionListView: React.FC<SessionListViewProps> = React.memo(
 
           startTransition(() => {
             setSessions(resp.sessions);
+            setResultKeyword(keyword);
           });
 
           if (resp.nextCursor) {
@@ -702,6 +708,7 @@ const SessionListView: React.FC<SessionListViewProps> = React.memo(
           setError('Failed to load sessions. Please try again later.');
           setSessions([]);
         } finally {
+          if (loadGenerationRef.current === loadId) setIsSearching(false);
           if (loadGenerationRef.current === loadId && isFirstLoad) {
             setIsLoading(false);
           }
@@ -779,6 +786,9 @@ const SessionListView: React.FC<SessionListViewProps> = React.memo(
 
     // Handle immediate search input (updates search term for debouncing).
     const handleSearch = useCallback((term: string) => {
+      // resultKeyword hides older results during debounce without cancelling a
+      // still-useful request if the user immediately clears back to its query.
+      setError(null);
       setSearchTerm(term);
     }, []);
 
@@ -792,7 +802,7 @@ const SessionListView: React.FC<SessionListViewProps> = React.memo(
       // Update state immediately for optimistic UI
       setSessions((prevSessions) =>
         prevSessions.map((s) =>
-          s.id === sessionId ? { ...s, name: newDescription, user_set_name: true } : s
+          s.id === sessionId ? { ...s, name: newDescription, userSetName: true } : s
         )
       );
       window.dispatchEvent(
@@ -841,7 +851,7 @@ const SessionListView: React.FC<SessionListViewProps> = React.memo(
 
     const handleDuplicateSession = useCallback(
       async (session: SessionListItem) => {
-        if (!canForkSession(session.sessionType)) return;
+        if ((session.readonlyHistory || !canForkSession(session.sessionType))) return;
         try {
           await acpForkSession(session.id);
           toast.success(intl.formatMessage(i18n.duplicateSuccess, { name: session.name }));
@@ -999,6 +1009,9 @@ const SessionListView: React.FC<SessionListViewProps> = React.memo(
         );
       }
 
+      if (searchTerm !== resultKeyword || isSearching) {
+        return <div role="status" className="flex items-center justify-center gap-2 py-12 text-text-secondary"><LoaderCircle className="size-4 animate-spin" aria-hidden="true" />{intl.formatMessage({ id: 'mentionPopover.loading', defaultMessage: 'Searching…' })}</div>;
+      }
       if (visibleSessions.length === 0) {
         if (
           historyView === 'archived' &&
@@ -1132,6 +1145,7 @@ const SessionListView: React.FC<SessionListViewProps> = React.memo(
                     placeholder={intl.formatMessage(i18n.searchPlaceholder)}
                     className="min-w-0 flex-1 bg-transparent text-sm text-text-primary outline-none"
                   />
+                  {(isSearching || isPrefetchingSessions) && <LoaderCircle className="size-4 shrink-0 animate-spin" aria-hidden="true" />}
                 </label>
                 <div className="history-filters flex flex-wrap items-center gap-2">
                   <div
@@ -1218,6 +1232,7 @@ const SessionListView: React.FC<SessionListViewProps> = React.memo(
 
             <div
               id="history-results"
+              aria-busy={isSearching || isPrefetchingSessions}
               role="tabpanel"
               aria-labelledby={`history-tab-${historyView}`}
               className="flex-1 min-h-0 relative"

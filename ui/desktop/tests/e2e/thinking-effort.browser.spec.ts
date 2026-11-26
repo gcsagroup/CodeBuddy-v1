@@ -11,11 +11,36 @@ test.beforeAll(async () => {
     server: { host: '127.0.0.1', port: 0, hmr: false },
   });
   await server.listen();
-  browser = await chromium.launch({ channel: process.platform === 'win32' ? 'msedge' : undefined });
+  browser = await chromium.launch({ channel: process.platform === 'win32' ? 'msedge' : process.platform === 'darwin' ? 'chrome' : undefined });
 });
 test.afterAll(async () => {
   await browser?.close();
   await server?.close();
+});
+
+test('service default keeps the slider available for dragging', async () => {
+  const page = await browser.newPage({ viewport: { width: 900, height: 600 } });
+  try {
+    await page.addInitScript(() => Object.assign(window, { thinkingFixture: {
+      name: 'deepseek-v4-pro',
+      settings: { options: ['default', 'off', 'high', 'max'], value: 'default', toggle: false },
+    } }));
+    await page.goto(server.resolvedUrls!.local[0] + 'tests/browser-fixtures/thinking-effort.html?slider');
+    const trigger = page.getByRole('button', { name: '思考强度: 服务默认', exact: true });
+    await trigger.click();
+    const slider = page.getByRole('slider');
+    await expect(slider).toBeVisible();
+    await expect(trigger).toBeVisible();
+    const bounds = (await slider.boundingBox())!;
+    await page.mouse.move(bounds.x + 10, bounds.y + bounds.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(bounds.x + bounds.width - 10, bounds.y + bounds.height / 2, { steps: 8 });
+    await page.mouse.up();
+    await expect(page.getByRole('button', { name: '思考强度: 极致', exact: true })).toBeVisible();
+    await page.getByRole('button', { name: '使用模型默认' }).click();
+    await expect(trigger).toBeVisible();
+    await expect(slider).toBeVisible();
+  } finally { await page.close(); }
 });
 
 test('slider supports pointer, keyboard and model selection with the new layout', async () => {
@@ -33,7 +58,8 @@ test('slider supports pointer, keyboard and model selection with the new layout'
     await expect(slider).toHaveAttribute('aria-valuetext', '超高');
     const cardBounds = (await card.boundingBox())!;
     expect(cardBounds.width).toBeLessThanOrEqual(260);
-    expect(cardBounds.height).toBeLessThanOrEqual(120);
+    expect(cardBounds.y).toBeGreaterThanOrEqual(0);
+    expect(cardBounds.y + cardBounds.height).toBeLessThanOrEqual(600);
     await card.screenshot({ path: test.info().outputPath('slider-light.png') });
     const fill = page.locator('.thinking-effort-fill');
     expect((await fill.boundingBox())!.height).toBeGreaterThanOrEqual(16);
@@ -125,7 +151,7 @@ test('slider fits a narrow dark window and a long model name with reduced motion
     ).toBe('none');
     await card.screenshot({ path: test.info().outputPath('slider-dark-narrow.png') });
     await slider.press('Home');
-    await expect(slider).toHaveAttribute('aria-valuetext', '无');
+    await expect(slider).toHaveAttribute('aria-valuetext', '关闭');
     await expect(card).toHaveAttribute('data-effort', 'off');
     await page.emulateMedia({ reducedMotion: 'no-preference' });
     expect(
@@ -133,7 +159,7 @@ test('slider fits a narrow dark window and a long model name with reduced motion
         .locator('.thinking-effort-fill')
         .evaluate((element) => getComputedStyle(element, '::after').animationName)
     ).toBe('none');
-    await expect(page.getByRole('button', { name: '思考强度: 无' })).toBeVisible();
+    await expect(page.getByRole('button', { name: '思考强度: 关闭' })).toBeVisible();
   } finally {
     await page.close();
   }
@@ -155,8 +181,8 @@ test('verified Qwen modes select correctly while unknown capability remains visi
     await page.locator('[data-thinking-effort-card]').getByText('低', { exact: true }).click();
     await expect(page.getByRole('button', { name: '思考强度: 低' })).toBeVisible();
     await page.getByRole('button', { name: '思考强度: 低' }).click();
-    await page.locator('[data-thinking-effort-card]').getByText('无', { exact: true }).click();
-    await expect(page.getByRole('button', { name: '思考强度: 无' })).toBeVisible();
+    await page.locator('[data-thinking-effort-card]').getByText('关闭', { exact: true }).click();
+    await expect(page.getByRole('button', { name: '思考强度: 关闭' })).toBeVisible();
     await page.screenshot({ path: test.info().outputPath('thinking-effort.png') });
   } finally {
     await page.close();

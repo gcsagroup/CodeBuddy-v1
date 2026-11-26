@@ -7,6 +7,7 @@ import {
   type ReactNode,
   type SyntheticEvent,
 } from 'react';
+import { AppEvents } from '../constants/events';
 import { ChevronRight } from 'lucide-react';
 import { cn } from '../utils';
 import { Button } from './ui/button';
@@ -22,6 +23,7 @@ export interface ToolCallExpandableProps {
   icon?: ReactNode;
   accessibleName?: string;
   isStartExpanded?: boolean;
+  respectToolDisplayStyle?: boolean;
   isForceExpand?: boolean;
   children: ReactNode;
   className?: string;
@@ -55,6 +57,7 @@ export function ToolCallExpandable({
   icon,
   accessibleName,
   isStartExpanded = false,
+  respectToolDisplayStyle = false,
   isForceExpand,
   children,
   className = '',
@@ -70,8 +73,44 @@ export function ToolCallExpandable({
 }: ToolCallExpandableProps) {
   const [expandedState, setExpanded] = useState<boolean | null>(() => readExpansion(storageKey));
   const [readingLive, setReadingLive] = useState(false);
+  const [detailed, setDetailed] = useState<boolean | null>(null);
+  useEffect(() => {
+    if (!respectToolDisplayStyle) return;
+    let disposed = false;
+    let version = 0;
+    const load = async (reset: boolean) => {
+      const request = ++version;
+      try {
+        const style = await window.electron.getSetting('responseStyle');
+        if (disposed || request !== version) return;
+        setDetailed(style === 'detailed');
+        if (reset) {
+          setExpanded(null);
+          if (storageKey) {
+            try {
+              window.sessionStorage.removeItem(`codepro-operation:${storageKey}`);
+            } catch {
+              /* Optional storage. */
+            }
+          }
+        }
+      } catch {
+        /* Retain current presentation when settings are unavailable. */
+      }
+    };
+    const changed = () => {
+      void load(true);
+    };
+    void load(false);
+    window.addEventListener(AppEvents.RESPONSE_STYLE_CHANGED, changed);
+    return () => {
+      disposed = true;
+      window.removeEventListener(AppEvents.RESPONSE_STYLE_CHANGED, changed);
+    };
+  }, [respectToolDisplayStyle, storageKey]);
+  const defaultExpanded = respectToolDisplayStyle && detailed !== null ? detailed : isStartExpanded;
   const expanded =
-    !collapsible || (expandedState === null ? isStartExpanded || readingLive : expandedState);
+    !collapsible || (expandedState === null ? defaultExpanded || readingLive : expandedState);
   const hasOpened = useRef(expanded);
   if (expanded) hasOpened.current = true;
   const viewport = useRef<HTMLDivElement>(null);
@@ -82,6 +121,7 @@ export function ToolCallExpandable({
   useLayoutEffect(() => {
     if (
       collapseOnSettle &&
+      !(respectToolDisplayStyle && detailed) &&
       !wasSettled.current &&
       (resetOnSettle || (chatFollowing && expandedState !== true))
     ) {
@@ -95,7 +135,15 @@ export function ToolCallExpandable({
       }
     }
     wasSettled.current = collapseOnSettle;
-  }, [collapseOnSettle, resetOnSettle, storageKey, chatFollowing, expandedState]);
+  }, [
+    collapseOnSettle,
+    resetOnSettle,
+    storageKey,
+    chatFollowing,
+    expandedState,
+    respectToolDisplayStyle,
+    detailed,
+  ]);
 
   useEffect(() => {
     // Scrollbar dragging and keyboard navigation need not reach this element.

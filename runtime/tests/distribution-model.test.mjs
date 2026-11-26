@@ -105,7 +105,7 @@ test('fresh installed profile exposes Gemma, Flash and both existing Qwen models
   assert.equal(providerStatus(qwen).isConfigured, true);
   assert.equal(providers[0].secret, null);
   assert.deepEqual(defaults, { providerId: defaultModel.providerId, modelId: defaultModel.modelId });
-  assert.equal(providers[0].apiUrl, 'http://192.168.9.101:8001');
+  assert.equal(providers[0].apiUrl, 'http://192.168.50.231:8001');
   assert.equal(providers[0].contextWindows[defaults.modelId], 65536);
   assert.equal(providerStatus(providers[0]).isConfigured, true);
   const settings = new RuntimeSettings(store);

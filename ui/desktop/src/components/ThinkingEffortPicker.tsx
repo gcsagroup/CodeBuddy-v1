@@ -330,7 +330,7 @@ function ThinkingEffortSlider({
               {intl.formatMessage(i18n.cannotDisable, { level: label(levels[0]) })}
             </p>
           )}
-          {usesDefault || levels.length === 1 ? (
+          {levels.length === 1 ? (
             <div className="mt-2 flex flex-wrap gap-1" role="group" aria-label={title}>
               {levels.map((effort) => (
                 <button
@@ -636,6 +636,8 @@ export function ModelThinkingMenu({
 }) {
   const intl = useIntl();
   const identity = JSON.stringify([provider, model]);
+  const [capabilityOpen, setCapabilityOpen] = useState(false);
+  const openingModelList = useRef(false);
   const [loaded, setLoaded] = useState<{
     identity: string;
     details: ModelDisplaySettings;
@@ -730,7 +732,7 @@ export function ModelThinkingMenu({
           ? intl.formatMessage(i18n.readFailed)
           : settings?.stalePreference
             ? intl.formatMessage(i18n.stale)
-            : settings?.state === 'unknown'
+            : !settings || settings.state === 'unknown' || (!settings.options.length && settings.state !== 'unsupported')
               ? intl.formatMessage(i18n.unknown)
               : settings?.state === 'unsupported'
                 ? intl.formatMessage(i18n.unsupported)
@@ -751,29 +753,38 @@ export function ModelThinkingMenu({
       </button>
     </div>
   );
-  if (triggerContent && (!settings?.value || settings.options.length < 2 || unresolved))
+  if (triggerContent && (!settings?.value || settings.options.length < 2 || unresolved || settings.state === 'unknown' || settings.state === 'unsupported'))
     return (
-      <>
+      <Popover.Root open={capabilityOpen} onOpenChange={setCapabilityOpen}>
+        <Popover.Trigger asChild>
         <button
           type="button"
-          onClick={onSelectModel}
           disabled={disabled}
           title={readFailed ? intl.formatMessage(i18n.readFailed) : modelLabel}
           aria-label={modelLabel}
           className="flex h-8 min-w-0 max-w-full cursor-default items-center gap-1 rounded-md px-1.5 text-xs text-text-secondary transition-colors hover:bg-background-secondary hover:text-text-primary disabled:opacity-60"
         >
           {triggerContent}
-          {settings?.state === 'unsupported' && <span>{intl.formatMessage(i18n.unsupportedLabel)}</span>}
-          {settings && settings.options.length === 0 && (
-            <span className="shrink-0 text-xs" title={intl.formatMessage(i18n.noControls)}>
-              {settings.value ? `${intl.formatMessage(i18n[settings.value])} · ` : ''}
-              {intl.formatMessage(i18n.noControls)}
-            </span>
-          )}
-          <DropdownChevron open={modelMenuOpen} className="size-3" />
+          <DropdownChevron open={capabilityOpen || modelMenuOpen} className="size-3" />
         </button>
-        {settings && capabilityFooter}
-      </>
+        </Popover.Trigger>
+        <Popover.Portal>
+          <Popover.Content side="top" align="start" sideOffset={8} collisionPadding={12}
+            onCloseAutoFocus={(event) => {
+              if (openingModelList.current) {
+                event.preventDefault();
+                openingModelList.current = false;
+              }
+            }}
+            className="composer-menu-surface z-[110] w-[min(18rem,calc(100vw-1.5rem))] rounded-2xl border border-border-primary p-3 shadow-lg">
+            <p className="text-xs text-text-secondary">{intl.formatMessage(i18n.title)}</p>
+            <button type="button" className="mt-2 flex max-w-full items-center gap-1 text-sm" onClick={() => { openingModelList.current = true; setCapabilityOpen(false); onSelectModel?.(); }}>
+              <span className="truncate">{modelLabel ?? model}</span><ChevronRight className="size-3" />
+            </button>
+            {capabilityFooter}
+          </Popover.Content>
+        </Popover.Portal>
+      </Popover.Root>
     );
   return (
     <>

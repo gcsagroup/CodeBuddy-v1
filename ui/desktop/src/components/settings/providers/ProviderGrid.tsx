@@ -288,6 +288,7 @@ function ProviderCards({
         onConfigure={() => configureProviderViaModal(provider)}
         onLaunch={() => handleProviderLaunchWithModelSelection(provider)}
         isOnboarding={isOnboarding}
+        onEnabledChanged={() => { refreshProviders?.(); void refreshCurrentModelAndProvider(); }}
       />
     ));
 
@@ -307,6 +308,8 @@ function ProviderCards({
     configureProviderViaModal,
     handleProviderLaunchWithModelSelection,
     compactConnectionSetup,
+    refreshProviders,
+    refreshCurrentModelAndProvider,
   ]);
 
   const hasNoMatches =

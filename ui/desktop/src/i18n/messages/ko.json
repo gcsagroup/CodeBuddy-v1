@@ -3812,42 +3812,6 @@
   "goosehintsSection.title": {
     "defaultMessage": "Project instructions (AGENTS.md)"
   },
-  "groupedExtensionLoadingToast.askGoose": {
-    "defaultMessage": "CodeBuddy에게 묻기"
-  },
-  "groupedExtensionLoadingToast.collapseDetails": {
-    "defaultMessage": "세부정보 접기"
-  },
-  "groupedExtensionLoadingToast.copied": {
-    "defaultMessage": "복사되었습니다!"
-  },
-  "groupedExtensionLoadingToast.copyError": {
-    "defaultMessage": "복사 오류"
-  },
-  "groupedExtensionLoadingToast.expandDetails": {
-    "defaultMessage": "세부정보 펼치기"
-  },
-  "groupedExtensionLoadingToast.failedToAddExtension": {
-    "defaultMessage": "익스텐션을 추가하지 못했습니다."
-  },
-  "groupedExtensionLoadingToast.failedToLoad": {
-    "defaultMessage": "{count,plural,one{#개의 익스텐션을 로드하지 못했습니다} other{#개의 익스텐션을 로드하지 못했습니다}}"
-  },
-  "groupedExtensionLoadingToast.loadingExtensions": {
-    "defaultMessage": "{count,plural,one{#개의 익스텐션을 로드하는 중...} other{#개의 익스텐션을 로드하는 중...}}"
-  },
-  "groupedExtensionLoadingToast.partiallyLoaded": {
-    "defaultMessage": "{totalCount,plural,one{익스텐션 {successCount}/#개 로드됨} other{익스텐션 {successCount}/#개 로드됨}}"
-  },
-  "groupedExtensionLoadingToast.showDetails": {
-    "defaultMessage": "세부정보 표시"
-  },
-  "groupedExtensionLoadingToast.showLess": {
-    "defaultMessage": "간략히 보기"
-  },
-  "groupedExtensionLoadingToast.successfullyLoaded": {
-    "defaultMessage": "{count,plural,one{#개의 익스텐션을 성공적으로 로드했습니다} other{#개의 익스텐션을 성공적으로 로드했습니다}}"
-  },
   "headersSection.add": {
     "defaultMessage": "추가"
   },
@@ -4682,9 +4646,6 @@
   "messageQueue.removeFromQueue": {
     "defaultMessage": "대기열에서 이 메시지 제거"
   },
-  "messageQueue.retrySave": {
-    "defaultMessage": "Retry saving queue"
-  },
   "messageQueue.save": {
     "defaultMessage": "저장"
   },
@@ -4705,12 +4666,6 @@
   },
   "messageQueue.steer": {
     "defaultMessage": "추가 지시"
-  },
-  "messageQueue.storageConflict": {
-    "defaultMessage": "This queue changed in another window. Sending and saving are paused to avoid overwriting it. Keep this window open and compare the queued messages."
-  },
-  "messageQueue.storageFailure": {
-    "defaultMessage": "The queue could not be saved or restored. Messages and attachments in this window are kept in memory. Keep this window open to avoid losing them."
   },
   "messageQueue.verifyDelivery": {
     "defaultMessage": "Sending result unknown. Check the conversation before retrying."
@@ -10274,17 +10229,11 @@
   "modelInventory.acknowledge": {
     "defaultMessage": "확인"
   },
-  "modelInventory.actionFailed": {
-    "defaultMessage": "작업에 실패했습니다. 선택한 모델은 변경되지 않았습니다. 다시 시도하세요."
-  },
   "modelInventory.changed": {
     "defaultMessage": "{model}: 공급자가 {fields} 항목을 변경했습니다. 모델 설정을 확인하세요."
   },
   "modelInventory.context": {
     "defaultMessage": "컨텍스트 용량"
-  },
-  "modelInventory.failed": {
-    "defaultMessage": "연결을 새로 고치지 못했습니다. 이전 목록을 유지합니다. 모델이 삭제되었다는 뜻은 아닙니다."
   },
   "modelInventory.image": {
     "defaultMessage": "이미지 입력"
@@ -10304,13 +10253,31 @@
   "modelInventory.thinking": {
     "defaultMessage": "사고 옵션"
   },
-  "modelInventory.title": {
-    "defaultMessage": "모델 연결 업데이트"
-  },
   "modelInventory.tools": {
     "defaultMessage": "도구 호출"
   },
   "thinkingEffortPicker.unsupportedLabel": {
     "defaultMessage": "조절 불가"
+  },
+  "modelInventory.capabilityTitle": {
+    "defaultMessage": "모델 기능이 변경되었습니다"
+  },
+  "modelInventory.collapse": {
+    "defaultMessage": "잠시 숨기기"
+  },
+  "modelInventory.details": {
+    "defaultMessage": "자세히 보기"
+  },
+  "modelInventory.refreshSummary": {
+    "defaultMessage": "저장된 모델 목록을 유지합니다. 모델이 삭제되었다는 뜻은 아닙니다."
+  },
+  "modelInventory.refreshTitle": {
+    "defaultMessage": "모델 목록을 새로 고치지 못했습니다"
+  },
+  "modelInventory.reviewTitle": {
+    "defaultMessage": "일부 모델이 더 이상 목록에 없습니다"
+  },
+  "modelInventory.selectionSummary": {
+    "defaultMessage": "선택한 모델은 변경되지 않았습니다. 계속하기 전에 세부 정보를 확인하세요."
   }
 }

@@ -446,7 +446,7 @@ test("remote ASR sends the configured endpoint and Qwen model without requiring 
   try {
     const result = await service.request(method("transcribe"), input("remote"));
     assert.equal(result.text, "测试语音 submit (保留原文)");
-    assert.equal(calls[0].url, "http://192.168.9.101:18003/v1/audio/transcriptions");
+    assert.equal(calls[0].url, "http://192.168.50.231:18003/v1/audio/transcriptions");
     assert.equal(calls[0].options.body.get("model"), "Qwen3-ASR-0.6B");
     assert.deepEqual(Buffer.from(await calls[0].options.body.get("file").arrayBuffer()), audio);
     assert.equal(calls[0].options.headers.has("authorization"), false);
@@ -500,11 +500,41 @@ test('manual availability refresh recovers a cached startup failure without prob
   try {
     await service.startAvailabilityCheck('remote');
     status = 405;
-    await assert.rejects(service.request(method('check'), { provider: 'remote' }), /最近一次检测失败/);
+    await assert.rejects(service.request(method('check'), { provider: 'remote' }), /HTTP 503/);
     assert.equal(probes, 1);
     assert.deepEqual(await service.request(method('check'), { provider: 'remote', refresh: true }), { available: true });
     await service.request(method('check'), { provider: 'remote' });
     assert.equal(probes, 2);
+  } finally { service.close(); }
+});
+
+test('availability expires failures and invalidates changed speech settings', async t => {
+  let now = 1000, status = 503, probes = 0;
+  const config = {};
+  t.mock.method(Date, 'now', () => now);
+  const service = new TranscriptionService({ read: () => ({ config }) }, {
+    fetch: async () => { probes++; return new Response(null, { status }); },
+  });
+  try {
+    await assert.rejects(service.check('remote'), /HTTP 503/);
+    status = 405; now += 5001;
+    assert.deepEqual(await service.check('remote'), { available: true });
+    assert.equal(probes, 2);
+    config.SPEECH_SERVICES = { value: { REMOTE_ASR_URL: 'http://localhost:1234/transcribe' } };
+    await service.check('remote');
+    assert.equal(probes, 3);
+    now += 60001;
+    await service.check('remote');
+    assert.equal(probes, 4);
+  } finally { service.close(); }
+});
+
+test('availability retains safe transport reasons without exposing upstream messages', async () => {
+  const service = new TranscriptionService({ read: () => ({ config: {} }) }, {
+    fetch: async () => { throw Object.assign(new Error('secret-token'), { cause: { code: 'ECONNREFUSED' } }); },
+  });
+  try {
+    await assert.rejects(service.check('remote'), error => error.message.includes('拒绝连接') && !error.message.includes('secret-token'));
   } finally { service.close(); }
 });
 

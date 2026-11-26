@@ -47,6 +47,7 @@ export async function acpListProviderDetails(): Promise<ProviderDetails[]> {
     category: entry.category,
     name: entry.providerId,
     is_configured: entry.configured,
+    enabled: entry.enabled !== false,
     provider_type: entry.providerType as ProviderDetails['provider_type'],
     metadata: {
       name: entry.providerId,
@@ -86,6 +87,12 @@ export async function acpRefreshProviderModels(providerId: string): Promise<void
     providerIds: [providerId],
   });
   if (!result.started.includes(providerId)) throw new Error('Model refresh did not complete');
+}
+
+export async function acpSetProviderEnabled(providerId: string, enabled: boolean): Promise<void> {
+  const client = await getAcpClient();
+  await client.extMethod('_goose/unstable/providers/set-enabled', { providerId, enabled });
+  window.dispatchEvent(new Event('codebuddy:model-inventory-updated'));
 }
 
 export async function acpListProviderModels(providerId: string) {

@@ -3812,42 +3812,6 @@
   "goosehintsSection.title": {
     "defaultMessage": "Project instructions (AGENTS.md)"
   },
-  "groupedExtensionLoadingToast.askGoose": {
-    "defaultMessage": "Chiedi a CodeBuddy"
-  },
-  "groupedExtensionLoadingToast.collapseDetails": {
-    "defaultMessage": "Comprimi i dettagli"
-  },
-  "groupedExtensionLoadingToast.copied": {
-    "defaultMessage": "Copiato!"
-  },
-  "groupedExtensionLoadingToast.copyError": {
-    "defaultMessage": "Errore di copia"
-  },
-  "groupedExtensionLoadingToast.expandDetails": {
-    "defaultMessage": "Espandi i dettagli"
-  },
-  "groupedExtensionLoadingToast.failedToAddExtension": {
-    "defaultMessage": "Impossibile aggiungere l'estensione"
-  },
-  "groupedExtensionLoadingToast.failedToLoad": {
-    "defaultMessage": "{count,plural,one{# estensione non caricata} other{# estensioni non caricate}}"
-  },
-  "groupedExtensionLoadingToast.loadingExtensions": {
-    "defaultMessage": "{count,plural,one{Caricamento di # estensione...} other{Caricamento di # estensioni...}}"
-  },
-  "groupedExtensionLoadingToast.partiallyLoaded": {
-    "defaultMessage": "{totalCount,plural,one{Caricata {successCount}/# estensione} other{Caricate {successCount}/# estensioni}}"
-  },
-  "groupedExtensionLoadingToast.showDetails": {
-    "defaultMessage": "Mostra dettagli"
-  },
-  "groupedExtensionLoadingToast.showLess": {
-    "defaultMessage": "Mostra meno"
-  },
-  "groupedExtensionLoadingToast.successfullyLoaded": {
-    "defaultMessage": "{count,plural,one{# estensione caricata correttamente} other{# estensioni caricate correttamente}}"
-  },
   "headersSection.add": {
     "defaultMessage": "Aggiungi"
   },
@@ -4682,9 +4646,6 @@
   "messageQueue.removeFromQueue": {
     "defaultMessage": "Rimuovi questo messaggio dalla coda"
   },
-  "messageQueue.retrySave": {
-    "defaultMessage": "Retry saving queue"
-  },
   "messageQueue.save": {
     "defaultMessage": "Salva"
   },
@@ -4705,12 +4666,6 @@
   },
   "messageQueue.steer": {
     "defaultMessage": "Guida"
-  },
-  "messageQueue.storageConflict": {
-    "defaultMessage": "This queue changed in another window. Sending and saving are paused to avoid overwriting it. Keep this window open and compare the queued messages."
-  },
-  "messageQueue.storageFailure": {
-    "defaultMessage": "The queue could not be saved or restored. Messages and attachments in this window are kept in memory. Keep this window open to avoid losing them."
   },
   "messageQueue.verifyDelivery": {
     "defaultMessage": "Sending result unknown. Check the conversation before retrying."
@@ -10274,17 +10229,11 @@
   "modelInventory.acknowledge": {
     "defaultMessage": "Capito"
   },
-  "modelInventory.actionFailed": {
-    "defaultMessage": "Operazione non riuscita. Il modello selezionato non è cambiato. Riprova."
-  },
   "modelInventory.changed": {
     "defaultMessage": "{model}: il fornitore ha modificato {fields}. Controlla le impostazioni del modello."
   },
   "modelInventory.context": {
     "defaultMessage": "capacità del contesto"
-  },
-  "modelInventory.failed": {
-    "defaultMessage": "Impossibile aggiornare la connessione. L’ultimo elenco viene conservato; ciò non significa che i modelli siano stati rimossi."
   },
   "modelInventory.image": {
     "defaultMessage": "input immagini"
@@ -10304,13 +10253,31 @@
   "modelInventory.thinking": {
     "defaultMessage": "opzioni di ragionamento"
   },
-  "modelInventory.title": {
-    "defaultMessage": "Aggiornamenti delle connessioni ai modelli"
-  },
   "modelInventory.tools": {
     "defaultMessage": "chiamate agli strumenti"
   },
   "thinkingEffortPicker.unsupportedLabel": {
     "defaultMessage": "Non regolabile"
+  },
+  "modelInventory.capabilityTitle": {
+    "defaultMessage": "Le capacità del modello sono cambiate"
+  },
+  "modelInventory.collapse": {
+    "defaultMessage": "Nascondi per ora"
+  },
+  "modelInventory.details": {
+    "defaultMessage": "Mostra dettagli"
+  },
+  "modelInventory.refreshSummary": {
+    "defaultMessage": "L’elenco salvato viene mantenuto. Questo non significa che i modelli siano stati rimossi."
+  },
+  "modelInventory.refreshTitle": {
+    "defaultMessage": "Impossibile aggiornare l’elenco dei modelli"
+  },
+  "modelInventory.reviewTitle": {
+    "defaultMessage": "Alcuni modelli non sono più elencati"
+  },
+  "modelInventory.selectionSummary": {
+    "defaultMessage": "La selezione del modello non è cambiata. Controlla i dettagli prima di continuare."
   }
 }

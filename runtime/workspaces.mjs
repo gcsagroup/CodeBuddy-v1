@@ -193,7 +193,7 @@ export class WorkspaceService {
       if (this.store.update) await this.store.update(state => {
         for (const session of state.sessions ?? []) {
           if (session.cwd && workspaceIdentity(session.cwd) === workspaceIdentity(cwd) &&
-              !Object.hasOwn(session, 'projectFoldersSnapshot')) session.projectFoldersSnapshot = current;
+              session.projectFoldersSnapshot === undefined) session.projectFoldersSnapshot = current;
         }
       });
       await mkdir(path.dirname(file), { recursive: true });
@@ -208,16 +208,22 @@ export class WorkspaceService {
   }
 
   async sessionFolderConfig(cwd, sessionId) {
+    if (!sessionId) return this.readFolderConfig(cwd);
     const session = sessionId && this.store.readSession?.(sessionId, { fields: ['projectFoldersSnapshot'] });
-    if (session && Object.hasOwn(session, 'projectFoldersSnapshot')) return session.projectFoldersSnapshot;
-    const config = await this.readFolderConfig(cwd);
-    if (session && this.store.updateSession) {
+    if (!session) throw invalid('Project permission session was not found');
+    // Store projections include absent fields with undefined. Null is a valid
+    // frozen empty configuration, while undefined still requires migration.
+    if (session.projectFoldersSnapshot !== undefined) return session.projectFoldersSnapshot;
+    return this.serial(async () => {
+      const current = this.store.readSession(sessionId, { fields: ['projectFoldersSnapshot'] });
+      if (!current) throw invalid('Project permission session was not found');
+      if (current.projectFoldersSnapshot !== undefined) return current.projectFoldersSnapshot;
+      const config = await this.readFolderConfig(cwd);
       await this.store.updateSession(sessionId, row => {
-        if (!Object.hasOwn(row, 'projectFoldersSnapshot')) row.projectFoldersSnapshot = config;
+        if (row.projectFoldersSnapshot === undefined) row.projectFoldersSnapshot = config;
       });
       return this.store.readSession(sessionId, { fields: ['projectFoldersSnapshot'] }).projectFoldersSnapshot;
-    }
-    return config;
+    });
   }
 
   async executionFolders(cwd, sessionId) {

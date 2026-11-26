@@ -478,6 +478,7 @@ export class Compat {
       },
     });
     this.conversations = new ConversationEditing(store, driver, {
+      folderSnapshot: (cwd, id) => this.workspaces.sessionFolderConfig(cwd, id),
       isActive: (id) => this.active.has(id),
       onChanged: (id) => this.initialized.delete(id),
       beforeTruncate: async (s) => {

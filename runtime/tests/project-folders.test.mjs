@@ -6,6 +6,39 @@ import test from 'node:test';
 import { createHarnessDriver } from '../harness/index.mjs';
 import { WorkspaceService } from '../workspaces.mjs';
 import { openStore } from '../store.mjs';
+import { createConversationDriver } from '../conversation-driver.mjs';
+
+test('legacy chats freeze missing snapshots on first use, including explicit empty snapshots', async t => {
+  const root = await mkdtemp(path.join(tmpdir(), 'legacy-project-snapshot-'));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const cwd = path.join(root, 'main'), linked = path.join(root, 'reference');
+  await Promise.all([cwd, linked].map(dir => mkdir(dir)));
+  const store = await openStore(path.join(root, 'state'));
+  const service = new WorkspaceService(store);
+  const config = await service.saveProjectFolders({ cwd, version: '', folders: [{ path: linked, access: 'reference' }] });
+  await store.update(state => state.sessions.push({ id: 'legacy', cwd }, { id: 'empty', cwd, projectFoldersSnapshot: null }));
+  assert.deepEqual(await service.executionFolders(cwd, 'legacy'), { writable: [], reference: [linked] });
+  assert.deepEqual(await service.executionFolders(cwd, 'empty'), { writable: [], reference: [] });
+  await service.saveProjectFolders({ cwd, version: config.version, folders: [{ path: linked, access: 'write' }] });
+  const reopened = new WorkspaceService(await openStore(path.join(root, 'state')));
+  assert.deepEqual(await reopened.executionFolders(cwd, 'legacy'), { writable: [], reference: [linked] });
+  await assert.rejects(reopened.executionFolders(cwd, 'unknown'), /session/i);
+});
+
+test('edited native identity resolves the product snapshot instead of the current template', async t => {
+  const root = await mkdtemp(path.join(tmpdir(), 'edited-project-snapshot-'));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const cwd = path.join(root, 'main'), linked = path.join(root, 'reference');
+  await Promise.all([cwd, linked].map(dir => mkdir(dir)));
+  const store = await openStore(path.join(root, 'state'));
+  const service = new WorkspaceService(store);
+  const config = await service.saveProjectFolders({ cwd, version: '', folders: [{ path: linked, access: 'reference' }] });
+  const frozen = await service.readFolderConfig(cwd);
+  await store.update(state => state.sessions.push({ id: 'product', nativeSessionId: 'native-after-edit', cwd, projectFoldersSnapshot: frozen }));
+  await service.saveProjectFolders({ cwd, version: config.version, folders: [{ path: linked, access: 'write' }] });
+  const driver = createConversationDriver({ callTool: native => service.executionFolders(cwd, driver.productSessionId?.(native) ?? native) }, store);
+  assert.deepEqual(await driver.callTool('product', 'fixture', {}), { writable: [], reference: [linked] });
+});
 
 test('editing reusable folders preserves old chats and validates notes and stale directory identities', async t => {
   const root = await mkdtemp(path.join(tmpdir(), 'project-snapshots-'));

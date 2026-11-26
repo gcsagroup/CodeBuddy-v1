@@ -153,12 +153,14 @@ export function PermissionPicker({
   const [referenceProtected, setReferenceProtected] = useState(false);
   useEffect(() => {
     let active = true;
+    let revision = 0;
+    setReferenceProtected(false);
     const refresh = () => {
-      setReferenceProtected(false);
+      const request = ++revision;
       if (!workingDirectory) return;
       void getAcpControlClient().then(client => client.extMethod('_codebuddy/project-folders/get', {
         cwd: workingDirectory, ...(id !== 'new-session' ? { sessionId: id } : {}),
-      })).then(value => { if (active) setReferenceProtected((value as { folders?: { access: string }[] }).folders?.some(folder => folder.access === 'reference') ?? false); }).catch(() => {});
+      })).then(value => { if (active && request === revision) setReferenceProtected((value as { folders?: { access: string }[] }).folders?.some(folder => folder.access === 'reference') ?? false); }).catch(() => {});
     };
     refresh();
     window.addEventListener('codebuddy-project-folders-changed', refresh);

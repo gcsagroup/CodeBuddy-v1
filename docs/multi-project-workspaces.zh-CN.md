@@ -17,3 +17,7 @@
 参考 [Codex Projects](https://learn.chatgpt.com/docs/projects) 的多文件夹、主目录与可复用项目交互，以及 [Codex CLI](https://github.com/openai/codex/blob/main/codex-rs/utils/cli/src/shared_options.rs) 的 cwd 与额外目录分离。仅借鉴公开设计，不复制实现或推断私有权限机制；未新增依赖。
 
 回归：`runtime/tests/project-folders.test.mjs`、`multi-project-sandbox.test.mjs`，桌面 `ProjectCreator.test.tsx`、`NavigationPanel.test.tsx`、`SessionPermissionSummary.test.tsx`。真实验收使用当前源码与独立 profile；组件测试不能替代桌面及模型工具回执。
+
+## 权限快照边界（2026-11-26 修订）
+
+旧聊天首次使用时，将缺失（undefined）的目录配置冻结；null 明确表示已经冻结为空配置。迁移与项目配置保存串行执行。编辑、截断和复制聊天保留原快照，复制前也会冻结尚未迁移的旧聊天。原生根会话 ID 由 ConversationDriver 映射回产品会话 ID，目录服务只读取产品快照；无法解析指定会话时拒绝执行，不回退到最新模板。权限菜单只接受最新一次请求的结果，刷新或请求失败期间保留已知只读保护。

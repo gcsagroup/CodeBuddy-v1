@@ -46,9 +46,10 @@ function prefixAt(session, cutoff) {
 
 /** UI projection changes surround an official fork; no native log is edited. */
 export class ConversationEditing {
-  constructor(store, driver, { isActive = () => false, beforeTruncate, onChanged = () => {} } = {}) {
+  constructor(store, driver, { isActive = () => false, beforeTruncate, folderSnapshot, onChanged = () => {} } = {}) {
     this.store = store; this.driver = driver;
     this.isActive = isActive; this.beforeTruncate = beforeTruncate; this.onChanged = onChanged;
+    this.folderSnapshot = folderSnapshot;
   }
   handles(method) { return ['session/fork', 'session/conversation/truncate', '_codebuddy/main-conversation/clear'].includes(method.replace(/^_goose\/unstable\//, '')); }
   async request(method, params = {}) {
@@ -66,6 +67,7 @@ export class ConversationEditing {
       const isTruncate = isClear || name === 'session/conversation/truncate';
       if (isTruncate && source.type === 'code_pro' && !this.beforeTruncate) throw invalid('CodePro run cancellation must be connected before editing');
       if (params.cwd !== undefined && params.cwd !== source.cwd) throw invalid('A conversation fork must keep its source workspace');
+      if (this.folderSnapshot) source.projectFoldersSnapshot = await this.folderSnapshot(source.cwd, source.id);
       const cutoff = isTruncate ? params.truncateFrom : params._meta?.conversationBefore;
       const boundaryId = !isTruncate ? params._meta?.conversationBeforeMessageId : undefined;
       if (boundaryId !== undefined && cutoff !== undefined) throw invalid('Choose one conversation boundary');
@@ -116,7 +118,7 @@ export class ConversationEditing {
           for (const key of ['cwd', 'providerId', 'modelId', 'mode', 'workspaceBinding', 'workspaceOrigin', 'projectId', 'extensions', 'extensionDefinitions', 'protectedMcpServers', 'mcpServers', 'recipe', 'userRecipeValues', 'temperature']) if (source[key] !== undefined) copy[key] = source[key];
           // The native prefix still refers to its original input identities.
           // Copy configuration snapshots, never resolve old turns from today's template.
-          for (const key of ['agentProfile', 'agentSelection', 'agentInputs']) if (source[key] !== undefined) copy[key] = structuredClone(source[key]);
+          for (const key of ['agentProfile', 'agentSelection', 'agentInputs', 'projectFoldersSnapshot']) if (source[key] !== undefined) copy[key] = structuredClone(source[key]);
           result = { sessionId: id };
           return copy;
         });

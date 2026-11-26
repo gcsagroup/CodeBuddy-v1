@@ -55,8 +55,8 @@ export async function createCompatServer({ dataDir, secret, driver, defaultModel
           m.createHarnessDriver({
             dataDir: path.join(dataDir, "harness"),
             projectFolders: {
-              writeAccess: (cwd, target, sessionId) => compat.workspaces.linkedWriteAccess(cwd, target, sessionId),
-              executionFolders: (cwd, sessionId) => compat.workspaces.executionFolders(cwd, sessionId),
+              writeAccess: (cwd, target, sessionId) => compat.workspaces.linkedWriteAccess(cwd, target, compat.driver.productSessionId(sessionId)),
+              executionFolders: (cwd, sessionId) => compat.workspaces.executionFolders(cwd, compat.driver.productSessionId(sessionId)),
             },
             instructionsHome: path.dirname(dataDir),
             managedWorkspaceRoot: process.env.CODEBUDDY_WORKSPACE_ROOT ?? path.join(dataDir, 'workspaces'),

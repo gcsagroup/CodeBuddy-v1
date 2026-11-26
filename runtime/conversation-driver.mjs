@@ -77,6 +77,11 @@ export function createConversationDriver(driver, store) {
       return { ...result, records: result.records.map(record => ({ ...record, sessionId: ids.get(record.sessionId) ?? record.sessionId })) };
     },
     nativeSessionId: nativeId,
+    productSessionId(actual) {
+      const id = productIds().get(actual);
+      if (!id) throw new Error('Project permission session identity could not be resolved');
+      return id;
+    },
     generateTitle(id, input, signal) { return driver.generateTitle(nativeId(id), input, signal); },
     withConversationLock: lock,
     isConversationBusy: id => busy.has(id) || waitingPrompts.has(id),

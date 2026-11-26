@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { acpSetSessionMode } from '../acp/sessions';
 import { IntlTestWrapper } from '../i18n/test-utils';
@@ -27,6 +27,35 @@ function session(overrides: Partial<Session> = {}): Session {
 }
 
 describe('SessionPermissionSummary', () => {
+  it.each([true, false])('ignores an older folder response when new reference protection is %s', async protectedNow => {
+    let old!: (value: unknown) => void;
+    let fresh!: (value: unknown) => void;
+    folderRpc.mockClear();
+    folderRpc.mockImplementationOnce(() => new Promise(resolve => { old = resolve; }))
+      .mockImplementationOnce(() => new Promise(resolve => { fresh = resolve; }));
+    render(<PermissionPicker workingDirectory="/project" mode="workspace-write" onModeChange={vi.fn()} />, { wrapper: IntlTestWrapper });
+    await waitFor(() => expect(folderRpc).toHaveBeenCalledTimes(1));
+    fireEvent(window, new Event('codebuddy-project-folders-changed'));
+    await waitFor(() => expect(folderRpc).toHaveBeenCalledTimes(2));
+    fireEvent.click(screen.getByRole('button', { name: 'How should actions be approved?' }));
+    await act(async () => fresh({ folders: protectedNow ? [{ access: 'reference' }] : [] }));
+    expect(screen.getByRole('radio', { name: /Full access/ })).toHaveProperty('disabled', protectedNow);
+    await act(async () => old({ folders: protectedNow ? [] : [{ access: 'reference' }] }));
+    expect(screen.getByRole('radio', { name: /Full access/ })).toHaveProperty('disabled', protectedNow);
+  });
+  it('keeps known protection during a pending or failed refresh', async () => {
+    folderRpc.mockResolvedValueOnce({ folders: [{ access: 'reference' }] });
+    render(<PermissionPicker workingDirectory="/project" mode="workspace-write" onModeChange={vi.fn()} />, { wrapper: IntlTestWrapper });
+    fireEvent.click(screen.getByRole('button', { name: 'How should actions be approved?' }));
+    await waitFor(() => expect(screen.getByRole('radio', { name: /Full access/ })).toBeDisabled());
+    let fail!: (reason: Error) => void;
+    folderRpc.mockImplementationOnce(() => new Promise((_resolve, reject) => { fail = reject; }));
+    fireEvent(window, new Event('codebuddy-project-folders-changed'));
+    expect(screen.getByRole('radio', { name: /Full access/ })).toBeDisabled();
+    await waitFor(() => expect(fail).toBeDefined());
+    await act(async () => fail(new Error('offline')));
+    expect(screen.getByRole('radio', { name: /Full access/ })).toBeDisabled();
+  });
   it('disables full access and explains reference-folder protection', async () => {
     folderRpc.mockResolvedValueOnce({ folders: [{ path: '/reference', access: 'reference' }] });
     const select = vi.fn();

@@ -12,7 +12,11 @@ export default defineConfig({
 
   // Forge writes/patches locked executables here during packaging on Windows.
   // Build outputs are never renderer sources and must not crash the dev watcher.
-  server: { watch: { ignored: ['**/out/**'] } },
+  // Keep Forge's generated renderer URL on IPv4 loopback: some Windows VPN
+  // filters reject ::1 even when a server successfully listens on it.
+  // HMR inherits this URL and the actual listening port. Do not pin clientPort:
+  // Vite may choose another port when the default is already occupied.
+  server: { host: '127.0.0.1', watch: { ignored: ['**/out/**'] } },
 
   // Vite caches a copy of @aaif/goose-sdk and doesn't notice when we rebuild it
   // locally, so it serves stale code until you clear node_modules/.vite by hand.

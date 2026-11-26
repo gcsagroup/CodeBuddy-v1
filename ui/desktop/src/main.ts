@@ -672,6 +672,7 @@ if (process.platform !== 'darwin') {
     app.quit();
   } else {
     app.on('second-instance', (_event, commandLine) => {
+      log.info('Desktop activation received', { windowCount: applicationWindows().length });
       const protocolUrl = findSupportedDeepLink(commandLine);
       if (protocolUrl) {
         const parsedUrl = new URL(protocolUrl);
@@ -713,15 +714,9 @@ if (process.platform !== 'darwin') {
         handleProtocolUrl(protocolUrl, parsedUrl);
       }
 
-      // Only focus existing windows for non-bot/recipe URLs
-      const existingWindows = applicationWindows();
-      if (existingWindows.length > 0) {
-        const mainWindow = existingWindows[0];
-        if (mainWindow.isMinimized()) {
-          mainWindow.restore();
-        }
-        mainWindow.focus();
-      }
+      // Closing to tray hides the window; focus() alone cannot reveal it.
+      const activated = revealChatOnActivate(applicationWindows());
+      log.info('Desktop activation completed', { windowId: activated?.id, visible: activated?.isVisible() });
     });
   }
 
@@ -1018,9 +1013,13 @@ declare var MAIN_WINDOW_VITE_DEV_SERVER_URL: string;
 declare var MAIN_WINDOW_VITE_NAME: string;
 
 function getAppUrl(): URL {
-  return MAIN_WINDOW_VITE_DEV_SERVER_URL
-    ? new URL(MAIN_WINDOW_VITE_DEV_SERVER_URL)
-    : pathToFileURL(path.join(__dirname, `../renderer/${MAIN_WINDOW_VITE_NAME}/index.html`));
+  if (MAIN_WINDOW_VITE_DEV_SERVER_URL) {
+    const url = new URL(MAIN_WINDOW_VITE_DEV_SERVER_URL);
+    // Forge may advertise localhost even when Vite explicitly binds IPv4.
+    if (url.hostname === 'localhost') url.hostname = '127.0.0.1';
+    return url;
+  }
+  return pathToFileURL(path.join(__dirname, `../renderer/${MAIN_WINDOW_VITE_NAME}/index.html`));
 }
 
 // Parse command line arguments
@@ -1707,7 +1706,12 @@ const createChat = async (
   url.hash = `${appPath}?${searchParams.toString()}`;
   let formattedUrl = formatUrl(url);
   log.info('Opening URL: ', formattedUrl);
-  mainWindow.loadURL(formattedUrl);
+  void mainWindow.loadURL(formattedUrl).catch((error: unknown) => {
+    // Closing or replacing a navigation is not a startup failure.
+    if (mainWindow.isDestroyed() || (error as { code?: string })?.code === 'ERR_ABORTED') return;
+    log.error('Desktop page failed to load', formattedUrl, error);
+    // registerMainWindowRecovery owns the native failure/retry dialog.
+  });
 
   // If we have an initial message, store it to send after React is ready
   if (initialMessage || initialImages?.length) {
@@ -2924,11 +2928,6 @@ async function appMain() {
 
   // Register global shortcuts based on settings
   registerGlobalShortcuts();
-
-  session.defaultSession.webRequest.onBeforeSendHeaders((details, callback) => {
-    details.requestHeaders['Origin'] = 'http://localhost:5173';
-    callback({ cancel: false, requestHeaders: details.requestHeaders });
-  });
 
   if (settings.showMenuBarIcon) {
     createTray();

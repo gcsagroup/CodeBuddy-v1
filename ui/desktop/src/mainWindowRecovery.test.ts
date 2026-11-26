@@ -11,6 +11,8 @@ function fixture() {
   const window = Object.assign(new EventEmitter(), {
     webContents: new EventEmitter(),
     reload: vi.fn(),
+    show: vi.fn(),
+    loadURL: vi.fn().mockResolvedValue(undefined),
     isDestroyed: vi.fn(() => false),
   });
   registerMainWindowRecovery(window as unknown as BrowserWindow, (_en, zh) => zh);
@@ -120,12 +122,58 @@ it('does not touch a closed window or leak rejected dialog promises', async () =
   mocks.show.mockReturnValue(choice.promise);
   const window = fixture();
   crash(window);
+  const contents = window.webContents;
   window.isDestroyed.mockReturnValue(true);
+  Object.defineProperty(window, 'webContents', { get() { throw new Error('Object has been destroyed'); } });
   window.emit('closed');
   choice.reject(new Error('parent closed'));
   await flush();
   expect(window.reload).not.toHaveBeenCalled();
-  expect(window.webContents.listenerCount('render-process-gone')).toBe(0);
+  expect(contents.listenerCount('render-process-gone')).toBe(0);
+  expect(contents.listenerCount('did-fail-load')).toBe(0);
   expect(window.listenerCount('unresponsive')).toBe(0);
   expect(mocks.error).toHaveBeenCalledTimes(1); // The original crash only.
+});
+
+it('retries the failed initial page URL and reveals the hidden window', async () => {
+  mocks.show.mockResolvedValue({ response: 0 });
+  const window = fixture();
+  window.webContents.emit('did-fail-load', {}, -102, 'ERR_CONNECTION_REFUSED', 'http://127.0.0.1:5173/', true);
+  await flush();
+  expect(window.show).toHaveBeenCalledOnce();
+  expect(mocks.show.mock.calls[0][1].message).toBe('桌面页面加载失败');
+  expect(window.loadURL).toHaveBeenCalledWith('http://127.0.0.1:5173/');
+  expect(window.reload).not.toHaveBeenCalled();
+});
+
+it('ignores cancelled navigation and failed subframes', async () => {
+  const window = fixture();
+  window.webContents.emit('did-fail-load', {}, -3, 'ERR_ABORTED', 'file:///index.html', true);
+  window.webContents.emit('did-fail-load', {}, -6, 'ERR_FILE_NOT_FOUND', 'file:///frame.html', false);
+  await flush();
+  expect(mocks.show).not.toHaveBeenCalled();
+  expect(window.show).not.toHaveBeenCalled();
+});
+
+it('does not retry a failed page after a newer navigation completes', async () => {
+  const choice = pendingChoice();
+  mocks.show.mockReturnValue(choice.promise);
+  const window = fixture();
+  window.webContents.emit('did-fail-load', {}, -6, 'ERR_FILE_NOT_FOUND', 'file:///index.html', true);
+  window.webContents.emit('did-start-navigation', {}, 'file:///other.html', false, true);
+  window.webContents.emit('did-finish-load');
+  choice.resolve({ response: 0 });
+  await flush();
+  expect(window.loadURL).not.toHaveBeenCalled();
+});
+
+it('does not mistake Chromium error-page completion for successful recovery', async () => {
+  const choice = pendingChoice();
+  mocks.show.mockReturnValue(choice.promise);
+  const window = fixture();
+  window.webContents.emit('did-fail-load', {}, -102, 'ERR_CONNECTION_REFUSED', 'http://127.0.0.1:5173/', true);
+  window.webContents.emit('did-finish-load');
+  choice.resolve({ response: 0 });
+  await flush();
+  expect(window.loadURL).toHaveBeenCalledWith('http://127.0.0.1:5173/');
 });

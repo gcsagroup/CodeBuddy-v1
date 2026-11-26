@@ -407,6 +407,20 @@ export default function BaseChat({
   );
 
   const recipe = session?.recipe as Recipe | null | undefined;
+  const [recipeHeaderElement, setRecipeHeaderElement] = useState<HTMLDivElement | null>(null);
+  const [recipeHeaderHeight, setRecipeHeaderHeight] = useState(0);
+  useLayoutEffect(() => {
+    if (!recipeHeaderElement) {
+      setRecipeHeaderHeight(0);
+      return;
+    }
+    const measure = () => setRecipeHeaderHeight(recipeHeaderElement.getBoundingClientRect().height);
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(recipeHeaderElement);
+    return () => observer.disconnect();
+  }, [recipeHeaderElement]);
+
   const handleUserSubmissionAccepted = useCallback(() => scrollRef.current?.scrollToBottom(), []);
 
   const chatInputSubmit = useMemo(
@@ -801,6 +815,9 @@ export default function BaseChat({
             onDragOver={handleDragOver}
             data-drop-zone="true"
             data-conversation-scroll=""
+            style={
+              { '--conversation-sticky-header-height': `${recipeHeaderHeight}px` } as React.CSSProperties
+            }
             data-more-below={!atLatest}
             paddingX={6}
             paddingY={0}
@@ -817,7 +834,10 @@ export default function BaseChat({
                 </article>
               )}
             {recipe?.title && (
-              <div className="sticky top-0 z-10 bg-background-primary px-0 -mx-6 mb-6 pt-6">
+              <div
+                ref={setRecipeHeaderElement}
+                className="sticky top-0 z-10 bg-background-primary px-0 -mx-6 mb-6 pt-6"
+              >
                 <RecipeHeader title={recipe.title} />
               </div>
             )}

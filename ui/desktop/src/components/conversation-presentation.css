@@ -162,6 +162,8 @@
 
 /* Reasoning and operation rows grow with the chat page. */
 .codepro-chat-history .codepro-process-details {
+  padding-block-start: 0.25rem;
+  padding-inline-start: 1rem;
   --conversation-line-height: 1.45;
 }
 

@@ -1,7 +1,7 @@
 import { act, fireEvent, render, screen, within, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { IntlTestWrapper } from '../i18n/test-utils';
-import type { Message, ToolRequestMessageContent } from '../types/message';
+import { insertPresentedUserMessage, type Message, type ToolRequestMessageContent } from '../types/message';
 import ProgressiveMessageList from './ProgressiveMessageList';
 import { ScrollFollowingContext } from './ui/scroll-follow-context';
 import {
@@ -126,6 +126,60 @@ describe('processes between public replies', () => {
       expect(screen.queryByRole('timer')).toBeNull();
       expect(screen.getByText(status === 'cancelled' ? 'Stopped after 1 min 1 sec' : 'Time spent 1 min 1 sec')).toBeVisible();
     } finally { vi.useRealTimers(); }
+  });
+  it('waits for native cancellation before displaying a stopped duration, without changing earlier turns', () => {
+    const end = (source: Message, id: string, finished: number) => assistant(id, [{
+      type: 'systemNotification', notificationType: 'turnTerminal', msg: '',
+      data: {
+        schema_version: 1, session_id: 'between-replies', run_id: id,
+        terminal_message_id: id, source_user_message_id: source.id, status: 'cancelled',
+        checkpoint_id: null, retry_strategy: 'not_available', visible_text_available: false,
+        tool_action_count: 1, copy_artifact_ref: null, finished_at: new Date(finished).toISOString(),
+      },
+    }]);
+    const earlier = { ...user, id: 'earlier', created: 0 };
+    const messages = [earlier, end(earlier, 'earlier-stop', 30_000), user,
+      assistant('read', [request('one')]), end(user, 'local-stop', 62_000)];
+    const view = render(<ProgressiveMessageList messages={messages} cancelling
+      chat={{ sessionId: 'between-replies' }} isUserMessage={m => m.role === 'user'} />,
+      { wrapper: IntlTestWrapper });
+    expect(screen.getByText('Stopping…')).toBeVisible();
+    expect(screen.queryByText('Stopped after 1 min 1 sec')).not.toBeInTheDocument();
+    expect(screen.getByText('Stopped after 30 sec')).toBeVisible();
+
+    view.rerender(<ProgressiveMessageList messages={messages} cancelling={false}
+      chat={{ sessionId: 'between-replies' }} isUserMessage={m => m.role === 'user'} />);
+    expect(screen.queryByText('Stopping…')).not.toBeInTheDocument();
+    expect(screen.getByText('Stopped after 1 min 1 sec')).toBeVisible();
+  });
+  it.each(['before', 'after'] as const)('keeps stopping on the executing turn with a queued input anchored %s its receipt', (anchor) => {
+    const terminal = assistant('local-stop', [{
+      type: 'systemNotification', notificationType: 'turnTerminal', msg: '',
+      data: {
+        schema_version: 1, session_id: 'between-replies', run_id: 'stopping-run',
+        terminal_message_id: 'local-stop', source_user_message_id: user.id, status: 'cancelled',
+        checkpoint_id: null, retry_strategy: 'not_available', visible_text_available: false,
+        tool_action_count: 1, copy_artifact_ref: null, finished_at: new Date(62_000).toISOString(),
+      },
+    }]);
+    const read = assistant('read', [request('one')]);
+    const queued: Message = { ...user, id: 'queued', created: 64,
+      content: [{ type: 'text', text: 'Next queued request' }],
+      metadata: { userVisible: true, agentVisible: false, pendingDelivery: 'pending',
+        presentation: { afterMessageId: (anchor === 'before' ? read : terminal).id! },
+      },
+    };
+    const messages = insertPresentedUserMessage([user, read, terminal], queued);
+    const { container } = render(<ProgressiveMessageList messages={messages} cancelling
+      activeRunId="stopping-run" chat={{ sessionId: 'between-replies' }} isUserMessage={m => m.role === 'user'} />,
+      { wrapper: IntlTestWrapper });
+    const active = container.querySelector<HTMLElement>(`[data-chat-turn-id="${user.id}"]`)!;
+    const pending = container.querySelector<HTMLElement>('[data-chat-turn-id="queued"]')!;
+    expect(within(active).getByText('Stopping…')).toBeVisible();
+    expect(within(active).queryByText('Stopped after 1 min 1 sec')).not.toBeInTheDocument();
+    expect(within(pending).getByText('Next queued request')).toBeVisible();
+    expect(within(pending).queryByText('Stopping…')).not.toBeInTheDocument();
+    expect(screen.queryByText('Stopped')).not.toBeInTheDocument();
   });
   it('does not include unbound historical receipts in the latest completed turn footer', () => {
     const answer = assistant('math-answer', [{ type: 'text', text: '899' }]);

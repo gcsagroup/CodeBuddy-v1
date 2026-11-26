@@ -12,6 +12,76 @@ vi.mock('../i18n', () => ({
 describe('ThinkingContent', () => {
   beforeEach(() => localStorage.clear());
 
+  it('advances the live preview only when a new paragraph first line completes, matching DSH', () => {
+    const view = render(
+      <ThinkingContent
+        content={'**First paragraph**\n\n**Second paragraph**\nMore details.'}
+        isExpanded={false}
+        isStreaming
+        showPreview
+      />
+    );
+    const header = screen.getByRole('button', { name: 'Thinking (updating)' });
+    expect(header).toHaveTextContent('Second paragraph');
+    expect(header).not.toHaveTextContent('First paragraph');
+    view.rerender(
+      <ThinkingContent
+        content={'**First paragraph**\n\n**Second paragraph**\nMore details.\n\n**Third paragraph'}
+        isExpanded={false}
+        isStreaming
+        showPreview
+      />
+    );
+    expect(header).toHaveTextContent('Second paragraph');
+    view.rerender(
+      <ThinkingContent
+        content={
+          '**First paragraph**\n\n**Second paragraph**\nMore details.\n\n**Third paragraph**\nDetails continue.'
+        }
+        isExpanded={false}
+        isStreaming
+        showPreview
+      />
+    );
+    expect(header).toHaveTextContent('Third paragraph');
+    expect(header).not.toHaveTextContent('**');
+    view.rerender(
+      <ThinkingContent
+        content={
+          '**First paragraph**\n\n**Second paragraph**\nMore details.\n\n**Third paragraph**\nDetails continue.'
+        }
+        isExpanded={false}
+        showPreview
+      />
+    );
+    expect(screen.getByRole('button', { name: 'Thinking' })).toHaveTextContent('First paragraph');
+  });
+
+  it('waits for a complete first line and handles CRLF paragraph boundaries', () => {
+    const view = render(
+      <ThinkingContent
+        content="Still receiving the first line"
+        isExpanded={false}
+        isStreaming
+        showPreview
+      />
+    );
+    expect(screen.getByRole('button', { name: 'Thinking (updating)' })).not.toHaveTextContent(
+      'Still receiving'
+    );
+    view.rerender(
+      <ThinkingContent
+        content={'First line\r\n \t\r\n**Latest line**\r\nDetails'}
+        isExpanded={false}
+        isStreaming
+        showPreview
+      />
+    );
+    expect(screen.getByRole('button', { name: 'Thinking (updating)' })).toHaveTextContent(
+      'Latest line'
+    );
+  });
+
   it('keeps long live thoughts complete and formatted without per-word animation nodes', () => {
     const content = Array.from(
       { length: 90 },

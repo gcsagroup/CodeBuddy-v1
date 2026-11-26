@@ -135,6 +135,7 @@ const i18n = defineMessages({
     id: 'conversation.turnStoppedAfter',
     defaultMessage: 'Stopped after {duration}',
   },
+  stopping: { id: 'runAdvice.stopping', defaultMessage: 'Stopping…' },
   toolRecords: {
     id: 'progressiveMessageList.toolRecords',
     defaultMessage: 'Tool records {count}',
@@ -1769,10 +1770,15 @@ function ProgressiveMessageListContent({
     // Internal-only records can project to an empty list, including while the
     // ordered presenter is waiting to release the next visible message.
     if (messages.length === 0) return null;
-    const starts = messages.flatMap((message, index) =>
-      isConversationTurnStart(message) ? [index] : []
-    );
+    let cancellingStart: number | undefined;
+    const starts = messages.flatMap((message, index) => {
+      if (!isConversationTurnStart(message)) return [];
+      // Queue previews have their own display row before native admission.
+      if (cancelling && !message.metadata.pendingDelivery) cancellingStart = index;
+      return [index];
+    });
     if (starts.length === 0 || starts[0] !== 0) starts.unshift(0);
+    const cancellingTurn = cancellingStart === undefined ? undefined : messages[cancellingStart];
     const renderSlice = (
       turn: Message[],
       start: number,
@@ -1809,7 +1815,7 @@ function ProgressiveMessageListContent({
         messageEditingDisabled={messageEditingDisabled}
         chat={chat}
         activeRunId={activeRunId}
-        cancelling={cancelling && turn[turn.length - 1] === messages[messages.length - 1]}
+        cancelling={turn[0] === cancellingTurn}
         foldTurns={false}
         toolCallNotifications={toolCallNotifications}
         append={append}
@@ -1956,8 +1962,12 @@ function ProgressiveMessageListContent({
           );
           const timedEnd = Number.isFinite(elapsed) && elapsed >= 0;
           const liveTime = timedTurn && streaming && !hasTerminalBoundary;
+          const turnCancelling = start === cancellingStart;
           let processLabel: React.ReactNode;
-          if (timedEnd) {
+          // Native cancellation owns settlement, even after local sealing.
+          if (turnCancelling) {
+            processLabel = intl.formatMessage(i18n.stopping);
+          } else if (timedEnd) {
             processLabel =
               terminal?.user_requested_stop || terminal?.status === 'cancelled'
                 ? intl.formatMessage(i18n.turnStoppedAfter, {
@@ -2091,7 +2101,7 @@ function ProgressiveMessageListContent({
                   <TurnProcessHistory
                     settled={!continued && settled && hasHistory}
                     label={processLabel}
-                    showTime={timedEnd || liveTime}
+                    showTime={timedEnd || liveTime || turnCancelling}
                     storageKey={`turn-process-${chat.sessionId}-${turn[0]?.id ?? start}`}
                   >
                     {renderSlice(

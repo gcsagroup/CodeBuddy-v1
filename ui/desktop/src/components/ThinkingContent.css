@@ -1,0 +1,19 @@
+.codepro-thinking-record[data-state='open'] > [data-slot='collapsible-trigger'] {
+  position: sticky;
+  top: var(--conversation-sticky-header-height, 0px);
+  z-index: 1;
+  width: 100%;
+  border-radius: 0;
+  background-color: var(--color-background-primary);
+}
+
+.codepro-thinking-record > .codepro-disclosure-content[data-state='open'] {
+  animation-duration: 320ms;
+  animation-timing-function: cubic-bezier(0.25, 0.1, 0.25, 1);
+}
+
+/* Clip the disclosure animation without creating an ancestor scroll container
+   that prevents an expanded thought's header from following the chat viewport. */
+.codepro-disclosure-content[data-state='open']:has(.codepro-thinking-record[data-state='open']) {
+  overflow: clip;
+}

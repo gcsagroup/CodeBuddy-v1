@@ -5,6 +5,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from './ui/collap
 import Expand from './ui/Expand';
 import { defineMessages, useIntl } from '../i18n';
 import { ScrollFollowingContext, ScrollLayoutAnchorContext } from './ui/scroll-follow-context';
+import './ThinkingContent.css';
 
 const i18n = defineMessages({
   thinking: {
@@ -23,6 +24,25 @@ interface ThinkingContentProps {
   isStreaming?: boolean;
   showPreview?: boolean;
   storageKey?: string;
+}
+
+// Match the live preview policy in the pinned DSH ReasoningRow.
+function latestCompletedParagraphFirstLine(text: string): string {
+  let summary = '';
+  let paragraphStart = 0;
+  const separator = /\r?\n(?:[\t ]*\r?\n)+/g;
+  while (true) {
+    const nextParagraph = separator.exec(text);
+    const paragraphEnd =
+      nextParagraph === null ? text.length : nextParagraph.index + nextParagraph[0].indexOf('\n');
+    const newline = text.indexOf('\n', paragraphStart);
+    if (newline !== -1 && newline <= paragraphEnd) {
+      const candidate = text.slice(paragraphStart, newline).trim();
+      if (candidate !== '') summary = candidate;
+    }
+    if (nextParagraph === null) return summary;
+    paragraphStart = nextParagraph.index + nextParagraph[0].length;
+  }
 }
 
 const preferenceKey = (storageKey: string) => `codepro-thinking:${storageKey}`;
@@ -114,9 +134,12 @@ const ThinkingContent = memo(function ThinkingContent({
   };
 
   const label = intl.formatMessage(isStreaming ? i18n.thinkingLive : i18n.thinking);
-  const preview = showPreview && !expanded
-    ? content.trimStart().match(/^.{1,240}/u)?.[0].replace(/\*\*/g, '')
-    : undefined;
+  const preview =
+    showPreview && !expanded
+      ? (isStreaming ? latestCompletedParagraphFirstLine(content) : content.trimStart())
+          .match(/^.{1,240}/u)?.[0]
+          .replace(/\*\*/g, '')
+      : undefined;
   return (
     <Collapsible
       open={expanded}
@@ -131,7 +154,11 @@ const ThinkingContent = memo(function ThinkingContent({
         <ThinkingIcon active={isStreaming} />
         <span className="shrink-0">{label}</span>
         <Expand size={3} isExpanded={expanded} />
-        {preview && <span aria-hidden="true" className="order-3 min-w-0 truncate">{preview}</span>}
+        {preview && (
+          <span aria-hidden="true" className="order-3 min-w-0 truncate">
+            {preview}
+          </span>
+        )}
       </CollapsibleTrigger>
       <CollapsibleContent className={hasOpened.current ? 'codepro-disclosure-content' : undefined}>
         <div

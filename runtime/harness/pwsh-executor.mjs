@@ -1,12 +1,38 @@
 import { SandboxPwshExecutor } from '@deepseek-ai/dsh-pwsh-sandbox';
+import { SandboxUnavailableError } from '@deepseek-ai/dsh-sandbox';
 import { shellOutput } from './windows-shell-output.mjs';
 import { projectScriptCall, projectScriptInvocation, resolveProjectScript } from './project-script.mjs';
+import { preparePwshCodec, pwshCodec, windowsPwshCodec } from './windows-pwsh-codec.mjs';
 
-// Keep the native executor, sandbox and cancellation lifecycle. Only change
-// the public argv seam so a failing statement cannot be masked by a later
-// successful statement in the same model-authored script. Explicit try/catch
-// remains available for intentional error recovery.
+// Keep command execution in the native executor. The Windows preparation
+// step can now own a probe, so cancellation must join that step's cleanup.
 export default class CodeBuddyPwshExecutor extends SandboxPwshExecutor {
+  async executeArgv(spec, argvOrPrepare, onStarted) {
+    if (typeof argvOrPrepare !== 'function' || !this.ctx.sandbox[windowsPwshCodec])
+      return super.executeArgv(spec, argvOrPrepare, onStarted);
+    let preparation;
+    try {
+      return await super.executeArgv(spec, signal => {
+        preparation = argvOrPrepare(signal);
+        return preparation;
+      }, onStarted);
+    } finally {
+      // The native cancellation race prevents a late payload launch. Join
+      // the very same prepare promise before exposing that native outcome.
+      await preparation?.catch(error => {
+        if (error instanceof SandboxUnavailableError) throw error;
+      });
+    }
+  }
+
+  async confine(spec, policy, signal) {
+    if (!this.ctx.sandbox[windowsPwshCodec]) return super.confine(spec, policy, signal);
+    const argv = await preparePwshCodec(this, spec, policy, signal);
+    const prepared = await this.ctx.sandbox.confine(argv, policy, signal);
+    prepared.argv[pwshCodec] = argv[pwshCodec];
+    return prepared;
+  }
+
   argv(spec) {
     const preamble = "$ErrorActionPreference='Stop'; $PSNativeCommandUseErrorActionPreference=$true; ";
     return super.argv({ ...spec, command: preamble + spec.command });
@@ -34,6 +60,9 @@ export default class CodeBuddyPwshExecutor extends SandboxPwshExecutor {
 
   spawnSpec(...args) {
     const spec = super.spawnSpec(...args);
+    // The private console handoff preserves redirected handles. An empty pipe
+    // gives the same EOF without carrying a console/CHAR handle across detach.
+    if (args[3][pwshCodec] && args[0].stdin === undefined) spec.stdio.stdin = { data: '' };
     // Windows Python pipes otherwise use the locale code page. Some GBK
     // sequences are also valid UTF-8, so guessing after decoding loses text.
     // Preserve an explicitly configured interpreter encoding.

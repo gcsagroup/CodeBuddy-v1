@@ -1,0 +1,12 @@
+import { createRequire } from 'node:module';
+import { pathToFileURL } from 'node:url';
+await import('../../harness/index.mjs');
+const require = createRequire(new URL('../../harness/package.json', import.meta.url));
+const { Context } = await import(pathToFileURL(require.resolve('@deepseek-ai/cordis')));
+const { default: WindowsSandboxProvider } = await import('../../harness/windows-sandbox.mjs');
+const context = new Context();
+await context.plugin(WindowsSandboxProvider, {});
+await context.sandbox.confine(['pwsh.exe'], { mode: 'read-only', workspaceRoot: process.cwd() });
+const helper = [...context.sandbox.slots.values()][0].worker;
+process.send({ helperPid: helper.child.pid });
+setInterval(() => {}, 1000);

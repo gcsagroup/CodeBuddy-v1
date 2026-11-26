@@ -12,6 +12,7 @@ const originalScrollTo = Object.getOwnPropertyDescriptor(HTMLElement.prototype, 
 
 const fixture = vi.hoisted(() => ({
   title: 'Saved history',
+  recipe: undefined as { title: string } | undefined,
   global: false,
   readonly: true,
   loading: false,
@@ -35,6 +36,7 @@ vi.mock('../hooks/useChatSession', () => ({
     session: {
       id: sessionId,
       name: fixture.title,
+      recipe: fixture.recipe,
       global_conversation: fixture.global,
       session_type: 'code_pro',
       extension_data: { readonlyHistory: fixture.readonly },
@@ -121,6 +123,7 @@ vi.mock('./ProgressiveMessageList', () => ({
 beforeEach(() => {
   Object.defineProperty(HTMLElement.prototype, 'scrollTo', { configurable: true, writable: true, value: vi.fn() });
   fixture.title = 'Saved history';
+  fixture.recipe = undefined;
   fixture.global = false;
   vi.stubGlobal('ResizeObserver', class { observe() {} unobserve() {} disconnect() {} });
   fixture.activeToolCallIds = [];
@@ -326,7 +329,7 @@ it('keeps input preparation in the footer without appending a transient history 
   expect(screen.queryByText('Generating file contents')).toBeNull();
 });
 
-it('projects pending input before stop receipts without changing execution history or leaking into another chat', () => {
+it('keeps queued input outside execution history until admission without leaking into another chat', () => {
   fixture.readonly = false;
   const output: Message = {
     id: 'working',
@@ -350,7 +353,8 @@ it('projects pending input before stop receipts without changing execution histo
     },
   };
   act(() => fixture.pending?.('imported', pending));
-  expect(screen.getByTestId('history-order')).toHaveTextContent('working,queued-stop');
+  expect(fixture.pending).toBeUndefined();
+  expect(screen.getByTestId('history-order')).toHaveTextContent(/^working$/);
   expect(fixture.history).toEqual([output]);
   fixture.history = [output, { ...output, id: 'child-ended' }];
   const showSession = (sessionId: string) => (
@@ -359,7 +363,7 @@ it('projects pending input before stop receipts without changing execution histo
     </MemoryRouter>
   );
   view.rerender(showSession('imported'));
-  expect(screen.getByTestId('history-order')).toHaveTextContent('working,queued-stop,child-ended');
+  expect(screen.getByTestId('history-order')).toHaveTextContent(/^working,child-ended$/);
   fixture.history = [
     output,
     { ...pending, metadata: { userVisible: true, agentVisible: true } },
@@ -685,3 +689,43 @@ it.each(['keyboard', 'menu'] as const)(
     });
   }
 );
+
+it('reserves the measured recipe header height for thought titles and clears it when removed', () => {
+  fixture.recipe = { title: 'Recipe inset fixture' };
+  const recipeAcceptance = window.electron.hasAcceptedRecipeBefore;
+  window.electron.hasAcceptedRecipeBefore = vi.fn().mockResolvedValue(true);
+  let headerHeight = 92;
+  let notifyHeaderResize: (() => void) | undefined;
+  const getBounds = HTMLElement.prototype.getBoundingClientRect;
+  const bounds = vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function (this: HTMLElement) {
+    return this.classList.contains('sticky')
+      ? new DOMRect(0, 0, 400, headerHeight)
+      : getBounds.call(this);
+  });
+  vi.stubGlobal('ResizeObserver', class {
+    constructor(private callback: globalThis.ResizeObserverCallback) {}
+    observe(element: globalThis.Element) {
+      if (element.classList.contains('sticky'))
+        notifyHeaderResize = () => this.callback([], this as unknown as ResizeObserver);
+    }
+    unobserve() {}
+    disconnect() {}
+  });
+  try {
+    const view = show();
+    const scroll = view.container.querySelector<HTMLElement>('[data-conversation-scroll]')!;
+    expect(scroll.style.getPropertyValue('--conversation-sticky-header-height')).toBe('92px');
+    act(() => { headerHeight = 128; notifyHeaderResize?.(); });
+    expect(scroll.style.getPropertyValue('--conversation-sticky-header-height')).toBe('128px');
+    fixture.recipe = undefined;
+    view.rerender(
+      <MemoryRouter>
+        <BaseChat sessionId="imported" isActiveSession suppressEmptyState setChat={vi.fn()} />
+      </MemoryRouter>
+    );
+    expect(scroll.style.getPropertyValue('--conversation-sticky-header-height')).toBe('0px');
+  } finally {
+    bounds.mockRestore();
+    window.electron.hasAcceptedRecipeBefore = recipeAcceptance;
+  }
+});

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Folder, FolderPlus, X } from 'lucide-react';
 import { getAcpControlClient } from '../../acp/acpConnection';
 import { defineMessages, useIntl } from '../../i18n';
@@ -16,10 +16,12 @@ export const projectEditorMessages = defineMessages({
   reference: { id: 'projectEditor.reference', defaultMessage: 'Reference only' },
   write: { id: 'projectEditor.write', defaultMessage: 'Allow editing' },
   remove: { id: 'projectEditor.remove', defaultMessage: 'Unlink {name}' },
-  hint: { id: 'projectEditor.hint', defaultMessage: 'Chats start in the primary folder. File editing follows the access selected here. The terminal uses session permissions.' },
+  hint: { id: 'projectEditor.hint', defaultMessage: 'Changes apply to new chats. Existing chats keep their original folders and permissions. Unlinking never deletes files.' },
+  note: { id: 'projectEditor.note', defaultMessage: 'Folder note (optional)' },
+  protected: { id: 'projectEditor.protected', defaultMessage: 'Reference-only folders disable full access for new chats.' },
 });
 
-interface LinkedFolder { path: string; access: 'reference' | 'write' }
+interface LinkedFolder { path: string; access: 'reference' | 'write'; note?: string }
 interface FolderConfig { version: string; folders: LinkedFolder[] }
 
 export function ProjectEditor({ cwd, name, onClose, onSaveName }: {
@@ -32,6 +34,7 @@ export function ProjectEditor({ cwd, name, onClose, onSaveName }: {
   const [folders, setFolders] = useState<LinkedFolder[]>([]);
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
+  const savingRef = useRef(false);
   useEffect(() => {
     let live = true;
     void getAcpControlClient().then(client => client.extMethod('_codebuddy/project-folders/get', { cwd }))
@@ -62,7 +65,8 @@ export function ProjectEditor({ cwd, name, onClose, onSaveName }: {
   }
 
   async function save() {
-    if (!config || saving) return;
+    if (!config || savingRef.current) return;
+    savingRef.current = true;
     setSaving(true);
     setError('');
     try {
@@ -72,9 +76,10 @@ export function ProjectEditor({ cwd, name, onClose, onSaveName }: {
         setConfig(updated as unknown as FolderConfig);
       }
       onSaveName(draft);
+      window.dispatchEvent(new Event('codebuddy-project-folders-changed'));
       onClose();
     } catch (reason) { setError(errorMessage(reason)); }
-    finally { setSaving(false); }
+    finally { savingRef.current = false; setSaving(false); }
   }
 
   return <Dialog open onOpenChange={open => { if (!open && !saving) onClose(); }}>
@@ -92,7 +97,10 @@ export function ProjectEditor({ cwd, name, onClose, onSaveName }: {
           <div className="max-h-52 overflow-y-auto divide-y divide-border-primary">{folders.map(folder =>
             <div key={folder.path} className="flex items-center gap-2 py-2">
               <Folder className="size-4 shrink-0" />
-              <span className="min-w-0 flex-1"><strong>{getProjectLabel(folder.path)}</strong><small className="block break-all text-text-secondary">{folder.path}</small></span>
+              <span className="min-w-0 flex-1"><strong>{getProjectLabel(folder.path)}</strong><small className="block break-all text-text-secondary">{folder.path}</small>
+                <input disabled={saving} maxLength={500} value={folder.note ?? ''} aria-label={`${t(projectEditorMessages.note)}: ${folder.path}`} placeholder={t(projectEditorMessages.note)} className="mt-2 w-full rounded-md border border-border-primary bg-background-primary p-2 text-xs"
+                  onChange={event => setFolders(folders.map(f => f === folder ? { ...f, note: event.target.value } : f))} />
+              </span>
               <select disabled={saving} className="rounded-md border border-border-primary bg-background-primary p-1" aria-label={folder.path} value={folder.access}
                 onChange={event => setFolders(folders.map(f => f === folder ? { ...f, access: event.target.value as LinkedFolder['access'] } : f))}>
                 <option value="reference">{t(projectEditorMessages.reference)}</option><option value="write">{t(projectEditorMessages.write)}</option>
@@ -103,6 +111,7 @@ export function ProjectEditor({ cwd, name, onClose, onSaveName }: {
           <Button type="button" variant="outline" className="justify-self-start" disabled={!config || saving} onClick={() => void add()}>
             <FolderPlus className="size-4" />{t(projectEditorMessages.add)}</Button></div>
         {error && <p role="alert" className="text-sm text-text-primary">{error}</p>}
+        {folders.some(folder => folder.access === 'reference') && <p className="text-xs text-text-secondary">{t(projectEditorMessages.protected)}</p>}
         <DialogFooter><Button type="button" variant="outline" disabled={saving} onClick={onClose}>{t({ id: 'common.cancel', defaultMessage: 'Cancel' })}</Button>
           <Button type="submit" disabled={!config || saving}>{t({ id: 'sessions.save', defaultMessage: 'Save' })}</Button></DialogFooter>
       </form>

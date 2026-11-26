@@ -5,6 +5,28 @@ import { tmpdir } from 'node:os';
 import test from 'node:test';
 import { createHarnessDriver } from '../harness/index.mjs';
 import { WorkspaceService } from '../workspaces.mjs';
+import { openStore } from '../store.mjs';
+
+test('editing reusable folders preserves old chats and validates notes and stale directory identities', async t => {
+  const root = await mkdtemp(path.join(tmpdir(), 'project-snapshots-'));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const cwd = path.join(root, 'main'), linked = path.join(root, 'linked');
+  await Promise.all([cwd, linked].map(dir => mkdir(dir)));
+  const store = await openStore(path.join(root, 'state'));
+  const service = new WorkspaceService(store);
+  const initial = await service.saveProjectFolders({ cwd, version: '', folders: [{ path: linked, access: 'reference', note: ' Upstream source ' }] });
+  assert.equal(initial.folders[0].note, 'Upstream source');
+  await store.update(state => { state.sessions.push({ id: 'legacy', cwd }); });
+  await service.saveProjectFolders({ cwd, version: initial.version, folders: [{ path: linked, access: 'write' }] });
+  assert.deepEqual(await service.executionFolders(cwd, 'legacy'), { writable: [], reference: [linked] });
+  assert.deepEqual(await service.executionFolders(cwd), { writable: [linked], reference: [] });
+  const reopened = new WorkspaceService(await openStore(path.join(root, 'state')));
+  assert.deepEqual(await reopened.executionFolders(cwd, 'legacy'), { writable: [], reference: [linked] });
+  const current = await service.projectFolders(cwd);
+  await assert.rejects(service.saveProjectFolders({ cwd, version: current.version, folders: [{ path: linked, access: 'write', note: 'x'.repeat(501) }] }), /500/);
+  await rename(linked, linked + '-old'); await mkdir(linked);
+  await assert.rejects(service.executionFolders(cwd, 'legacy'), /changed/);
+});
 
 test('project folder changes persist and constrain native Harness file tools', async t => {
   // The native sandbox permits the OS temp directory. Put test targets outside it.

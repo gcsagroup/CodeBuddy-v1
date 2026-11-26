@@ -105,6 +105,7 @@ export class WorkspaceService {
     store,
     { now = Date.now, leaseLifetimeMs = 300_000, projectDirectory } = {},
   ) {
+    this.store = store;
     this.projectDirectory =
       projectDirectory ??
       (store.directory ? path.join(store.directory, "projects") : null);
@@ -140,7 +141,7 @@ export class WorkspaceService {
   }
 
   async request(method, params, connection) {
-    if (method === FOLDER_PREFIX + 'get') return this.projectFolders(params.cwd);
+    if (method === FOLDER_PREFIX + 'get') return this.projectFolders(params.cwd, params.sessionId);
     if (method === FOLDER_PREFIX + 'save') return this.saveProjectFolders(params);
     if (method === LEASE_PREFIX + "acquire")
       return this.acquire(params, connection);
@@ -164,9 +165,9 @@ export class WorkspaceService {
     catch (error) { if (error.code === 'ENOENT') return null; throw error; }
   }
 
-  async projectFolders(cwd) {
-    const config = await this.readFolderConfig(cwd);
-    return { version: config?.version ?? '', folders: (config?.folders ?? []).map(({ path, access }) => ({ path, access })) };
+  async projectFolders(cwd, sessionId) {
+    const config = sessionId ? await this.sessionFolderConfig(cwd, sessionId) : await this.readFolderConfig(cwd);
+    return { version: config?.version ?? '', folders: (config?.folders ?? []).map(({ path, access, note }) => ({ path, access, ...(note ? { note } : {}) })) };
   }
 
   saveProjectFolders({ cwd, folders, version }) {
@@ -183,9 +184,18 @@ export class WorkspaceService {
         if (roots.some(root => insideDirectory(root, snapshot.canonical) || insideDirectory(snapshot.canonical, root)))
           throw invalid('Choose separate folders. These project folders overlap.');
         roots.push(snapshot.canonical);
-        entries.push({ path: snapshot.canonical, access: item.access, snapshot });
+        if (item.note !== undefined && (typeof item.note !== 'string' || item.note.length > 500)) throw invalid('Folder notes must be at most 500 characters');
+        entries.push({ path: snapshot.canonical, access: item.access, ...(item.note?.trim() ? { note: item.note.trim() } : {}), snapshot });
       }
       const file = this.folderConfigPath(cwd);
+      // Freeze legacy chats before changing a reusable workspace. New chats
+      // already carry a snapshot; edits must not widen an existing chat's scope.
+      if (this.store.update) await this.store.update(state => {
+        for (const session of state.sessions ?? []) {
+          if (session.cwd && workspaceIdentity(session.cwd) === workspaceIdentity(cwd) &&
+              !Object.hasOwn(session, 'projectFoldersSnapshot')) session.projectFoldersSnapshot = current;
+        }
+      });
       await mkdir(path.dirname(file), { recursive: true });
       const next = { version: randomUUID(), main, folders: entries };
       const temporary = file + '.' + next.version + '.tmp';
@@ -197,8 +207,33 @@ export class WorkspaceService {
     });
   }
 
-  async linkedWriteAccess(cwd, target) {
+  async sessionFolderConfig(cwd, sessionId) {
+    const session = sessionId && this.store.readSession?.(sessionId, { fields: ['projectFoldersSnapshot'] });
+    if (session && Object.hasOwn(session, 'projectFoldersSnapshot')) return session.projectFoldersSnapshot;
     const config = await this.readFolderConfig(cwd);
+    if (session && this.store.updateSession) {
+      await this.store.updateSession(sessionId, row => {
+        if (!Object.hasOwn(row, 'projectFoldersSnapshot')) row.projectFoldersSnapshot = config;
+      });
+      return this.store.readSession(sessionId, { fields: ['projectFoldersSnapshot'] }).projectFoldersSnapshot;
+    }
+    return config;
+  }
+
+  async executionFolders(cwd, sessionId) {
+    const config = await this.sessionFolderConfig(cwd, sessionId);
+    if (!config) return { writable: [], reference: [] };
+    if (!sameSnapshot(config.main, await directorySnapshot(cwd))) throw invalid('The primary folder changed. Select the workspace again.');
+    const writable = [], reference = [];
+    for (const entry of config.folders) {
+      if (!sameSnapshot(entry.snapshot, await directorySnapshot(entry.path))) throw invalid('A linked folder changed. Select the workspace again.');
+      (entry.access === 'write' ? writable : reference).push(entry.path);
+    }
+    return { writable, reference };
+  }
+
+  async linkedWriteAccess(cwd, target, sessionId) {
+    const config = await this.sessionFolderConfig(cwd, sessionId);
     const entry = config?.folders.find(item => insideDirectory(item.path, target.targetKey) || insideDirectory(item.path, target.displayPath));
     if (!entry) return undefined;
     if (entry.access !== 'write' || !insideDirectory(entry.path, target.targetKey)) return false;

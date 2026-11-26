@@ -49,7 +49,7 @@ export function profileEntries(dataDir, cwd, instructionsHome = dataDir, sharedS
     entry('workspace', 'dsh-workspace'),
     process.platform === 'win32'
       ? { id: 'sandbox', name: new URL('./windows-sandbox.mjs', import.meta.url).href }
-      : entry('sandbox', 'dsh-sandbox-local'),
+      : { id: 'sandbox', name: new URL('./project-local-sandbox.mjs', import.meta.url).href },
     entry('sandbox-policy', 'dsh-sandbox-policy', { mode: 'workspace-write', workspaceRoot: cwd }),
     { id: 'filesystem', name: new URL('./project-filesystem.mjs', import.meta.url).href, config: { cwd } },
     entry('attachments', 'dsh-attachment-local', { dshHome: dataDir }),

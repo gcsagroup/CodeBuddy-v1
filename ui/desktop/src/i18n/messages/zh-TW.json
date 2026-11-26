@@ -6174,7 +6174,7 @@
     "defaultMessage": "編輯專案"
   },
   "projectEditor.hint": {
-    "defaultMessage": "對話預設在主資料夾中工作。檔案編輯工具依這裡的設定讀寫附加資料夾，終端機沿用對話權限。"
+    "defaultMessage": "修改套用至新對話，既有對話保留原目錄與權限。移除關聯不會刪除檔案。"
   },
   "projectEditor.linked": {
     "defaultMessage": "附加資料夾"
@@ -10279,5 +10279,35 @@
   },
   "modelInventory.collapse": {
     "defaultMessage": "暫時收起"
+  },
+  "projectCreator.existing": {
+    "defaultMessage": "此資料夾已有工作區設定，請透過「編輯專案」修改。"
+  },
+  "projectCreator.folders": {
+    "defaultMessage": "專案資料夾"
+  },
+  "projectCreator.hint": {
+    "defaultMessage": "選擇主要目錄和關聯目錄，新對話從主要目錄開始。"
+  },
+  "projectCreator.makePrimary": {
+    "defaultMessage": "設為主要"
+  },
+  "projectCreator.note": {
+    "defaultMessage": "選填說明，例如：上游原始碼或文件"
+  },
+  "projectCreator.protected": {
+    "defaultMessage": "僅供參考目錄禁止修改；關聯這些目錄時不能使用完整存取。"
+  },
+  "projectCreator.title": {
+    "defaultMessage": "建立工作區"
+  },
+  "projectEditor.note": {
+    "defaultMessage": "目錄說明（選填）"
+  },
+  "projectEditor.protected": {
+    "defaultMessage": "包含僅供參考目錄時，新對話不能使用完整存取。"
+  },
+  "sessionPermissions.referenceProtected": {
+    "defaultMessage": "此工作區包含僅供參考目錄，為保護這些目錄，不能使用完整存取。"
   }
 }

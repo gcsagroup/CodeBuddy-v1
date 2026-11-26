@@ -8,8 +8,10 @@ import { all_goose_modes } from './settings/mode/ModeSelectionItem';
 import { parseSessionMode } from '../utils/sessionMode';
 import { readPreferences, savePreferences } from '../acp/preferences';
 import { DropdownChevron } from './ui/DropdownChevron';
+import { getAcpControlClient } from '../acp/acpConnection';
 
 const i18n = defineMessages({
+  referenceProtected: { id: 'sessionPermissions.referenceProtected', defaultMessage: 'This workspace includes reference-only folders. Full access is unavailable to protect them from edits.' },
   projectContainer: {
     id: 'sessionPermissions.projectContainer',
     defaultMessage: 'Project parent: {path}. The parent is not authorized for project writes.',
@@ -127,7 +129,7 @@ export function useInitialPermissionPreset() {
 }
 
 export function PermissionPicker({
-  mode,
+  mode: requestedMode,
   id = 'new-session',
   workingDirectory,
   onModeChange,
@@ -148,6 +150,21 @@ export function PermissionPicker({
   draft?: boolean;
 }) {
   const intl = useIntl();
+  const [referenceProtected, setReferenceProtected] = useState(false);
+  useEffect(() => {
+    let active = true;
+    const refresh = () => {
+      setReferenceProtected(false);
+      if (!workingDirectory) return;
+      void getAcpControlClient().then(client => client.extMethod('_codebuddy/project-folders/get', {
+        cwd: workingDirectory, ...(id !== 'new-session' ? { sessionId: id } : {}),
+      })).then(value => { if (active) setReferenceProtected((value as { folders?: { access: string }[] }).folders?.some(folder => folder.access === 'reference') ?? false); }).catch(() => {});
+    };
+    refresh();
+    window.addEventListener('codebuddy-project-folders-changed', refresh);
+    return () => { active = false; window.removeEventListener('codebuddy-project-folders-changed', refresh); };
+  }, [workingDirectory, id]);
+  const mode = referenceProtected && requestedMode === 'danger-full-access' ? 'workspace-write' : requestedMode;
   const [open, setOpen] = useState(false);
   useEffect(() => { if (openRequest > 0) setOpen(true); }, [openRequest]);
   const [saving, setSaving] = useState(false);
@@ -165,7 +182,7 @@ export function PermissionPicker({
   };
   const ModeIcon = mode ? icons[mode] : ShieldCheck;
   const changeMode = async (nextMode: PermissionPreset) => {
-    if (savingRef.current || (!draft && !mode) || nextMode === mode) return;
+    if (savingRef.current || (!draft && !mode) || nextMode === mode || (referenceProtected && nextMode === 'danger-full-access')) return;
     savingRef.current = true;
     setSaving(true);
     onSavingChange?.(true);
@@ -242,6 +259,7 @@ export function PermissionPicker({
                   className={`relative flex cursor-pointer items-start gap-2 rounded-lg px-2 py-1.5 hover:bg-background-secondary has-[:focus-visible]:outline has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-ring ${saving || (!draft && !mode) ? 'cursor-not-allowed opacity-60' : ''} ${mode === key ? 'bg-background-secondary' : ''}`}
                 >
                   <input
+                    disabled={referenceProtected && key === 'danger-full-access'}
                     type="radio"
                     className="sr-only"
                     name={`session-mode-${id}`}
@@ -273,6 +291,7 @@ export function PermissionPicker({
               );
             })}
           </fieldset>
+          {referenceProtected && <p className="px-2 py-2 text-xs text-text-secondary">{intl.formatMessage(i18n.referenceProtected)}</p>}
           <p className="px-2 pt-1.5 text-[9.6px] leading-[15px] text-text-secondary">
             {intl.formatMessage(busy ? i18n.busy : i18n.onlySession)}
           </p>

@@ -8,6 +8,7 @@ import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
 import { LocalSandboxProvider } from '@deepseek-ai/dsh-sandbox-local';
 import { AclWriteGrant, assertTempRootOutsideWorkspace, workspaceWriteSid } from '@deepseek-ai/dsh-sandbox-windows-acl';
+import { projectWriteSid } from './windows-project-sid.mjs';
 
 const run = promisify(execFile);
 const helper = fileURLToPath(new URL('./WorkspaceLabelAccess.cs', import.meta.url));
@@ -72,6 +73,35 @@ export default class NativeWindowsSandboxProvider extends LocalSandboxProvider {
 
   async confine(argv, policy, signal) {
     const root = resolve(policy.workspaceRoot);
+    if (policy.mode === 'workspace-write' && policy.projectWritableRoots?.length) {
+      const roots = [root, ...policy.projectWritableRoots.map(value => resolve(value))];
+      for (const directory of roots) await this.checkWorkspaceIdentity(directory);
+      // Keep the existing owner/label preparation path before materializing
+      // grants; a direct materialize call skips its Win32-5 recovery on D:.
+      const ordinary = await this.confineWorkspace(argv, policy, signal);
+      const capability = this.materializeAclGrant(policy.sessionId, root);
+      for (const directory of roots) await this.prepareLabels(directory, signal);
+      const sid = projectWriteSid(roots);
+      if (!this.workspaceGrants.has(sid)) {
+        const grant = AclWriteGrant.create(sid);
+        try {
+          for (const directory of roots) {
+            assertTempRootOutsideWorkspace(directory, capability.dir);
+            try { grant.add(directory, true); }
+            catch (error) {
+              await this.prepareRootLabel(directory, error, signal);
+              grant.add(directory, true);
+            }
+          }
+        }
+        catch (error) { grant.dispose(); throw error; }
+        this.workspaceGrants.set(sid, grant);
+      }
+      const startup = new URL('./windows-sandbox-startup.mjs', import.meta.url);
+      if (this.pwshCodecFamily) startup.searchParams.set('pwshCodec', this.pwshCodecFamily);
+      return { ...ordinary, argv: [process.execPath, '--import', startup.href,
+        fileURLToPath(new URL('./windows-project-runner.mjs', import.meta.url)), JSON.stringify(roots), capability.dir, sid, '--', ...argv] };
+    }
     if (policy.mode === 'workspace-write' && root !== parse(root).root) await this.checkWorkspaceIdentity(root);
     this.onPreparationPhase?.('workspace-grant');
     const confined = await this.confineWorkspace(argv, policy, signal);
@@ -138,9 +168,15 @@ export default class NativeWindowsSandboxProvider extends LocalSandboxProvider {
     try {
       return await super.confine(argv, policy, signal);
     } catch (error) {
-      if (policy.mode !== 'workspace-write' || error.api !== 'SetNamedSecurityInfoW' || error.win32Code !== 5) throw error;
-      const root = resolve(policy.workspaceRoot);
-      if (root === parse(root).root) throw error;
+      if (policy.mode !== 'workspace-write') throw error;
+      await this.prepareRootLabel(resolve(policy.workspaceRoot), error, signal);
+      // Only the upstream provider may issue the restricted runner argv.
+      return super.confine(argv, policy, signal);
+    }
+  }
+
+  async prepareRootLabel(root, error, signal) {
+      if (error.api !== 'SetNamedSecurityInfoW' || error.win32Code !== 5 || root === parse(root).root) throw error;
       signal?.throwIfAborted();
       const system = join(process.env.SystemRoot, 'System32');
       const powershell = join(system, 'WindowsPowerShell', 'v1.0', 'powershell.exe');
@@ -155,8 +191,5 @@ export default class NativeWindowsSandboxProvider extends LocalSandboxProvider {
         if (cause.code === 2) throw error;
         throw new Error('Could not prepare the Windows workspace for its sandbox label', { cause });
       }
-      // Only the upstream provider may issue the restricted runner argv.
-      return super.confine(argv, policy, signal);
-    }
   }
 }

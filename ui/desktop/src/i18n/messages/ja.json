@@ -10279,5 +10279,17 @@
   },
   "modelInventory.selectionSummary": {
     "defaultMessage": "選択中のモデルは変更していません。詳細を確認してから続行してください。"
-  }
+  },
+  "projectCreator.existing": {"defaultMessage":"This folder already has a workspace configuration. Open Edit project to change it."},
+  "projectCreator.folders": {
+    "defaultMessage": "Project folders"
+  },
+  "projectCreator.hint": {"defaultMessage":"Choose a primary folder and related folders. New chats start in the primary folder."},
+  "projectCreator.makePrimary": {"defaultMessage":"Make primary"},
+  "projectCreator.note": {"defaultMessage":"Optional note, for example: upstream source or documentation"},
+  "projectCreator.protected": {"defaultMessage":"Reference-only folders are protected from edits. Full access is unavailable while they are attached."},
+  "projectCreator.title": {"defaultMessage":"Create workspace"},
+  "projectEditor.note": {"defaultMessage":"Folder note (optional)"},
+  "projectEditor.protected": {"defaultMessage":"Reference-only folders disable full access for new chats."},
+  "sessionPermissions.referenceProtected": {"defaultMessage":"This workspace includes reference-only folders. Full access is unavailable to protect them from edits."}
 }

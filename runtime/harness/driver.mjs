@@ -151,7 +151,22 @@ export async function createHarnessDriver({ dataDir, cwd = process.cwd(), instru
         }
       });
     }
-    if (projectFolders) host.provide('codebuddyProjectFolders', projectFolders);
+    if (projectFolders) {
+      const ownerId = id => {
+        let agent = host.agents.get(id);
+        while (agent) {
+          const parent = host.agents.get(agent.session.header.parentSession);
+          if (!parent || !host.agents.isOwnedBy(agent.id, parent)) return agent.id;
+          agent = parent;
+        }
+        return id;
+      };
+      host.provide('codebuddyProjectFolders', {
+        ...projectFolders,
+        ...(projectFolders.executionFolders ? { executionFolders: (cwd, id) => projectFolders.executionFolders(cwd, ownerId(id)) } : {}),
+        writeAccess: (cwd, target, id) => projectFolders.writeAccess?.(cwd, target, ownerId(id)),
+      });
+    }
     // Both phases precede the transport observer. A stalled phase must be
     // identifiable even if the first model request is never constructed.
     async function tracePreparation(phase, agent, next) {
@@ -694,6 +709,13 @@ export async function createHarnessDriver({ dataDir, cwd = process.cwd(), instru
     try {
       await abortable(active.events, exec.signal);
       const call = await permissionCall(exec, active);
+      // A tool approval cannot grant full access past a project's read-only boundary.
+      // This also covers delegated and background tool entry points on every OS.
+      if (projectFolders?.executionFolders && call.sandboxMode === 'danger-full-access') {
+        const roots = await ctx.get('codebuddyProjectFolders').executionFolders(
+          ctx.sandboxPolicy.resolve({ session: exec.agent.session }).workspaceRoot, exec.agent.id);
+        if (roots.reference.length) return { kind: 'deny', reason: 'This workspace contains reference-only folders. Full access is unavailable.' };
+      }
       approvalCalls.set(`${exec.agent.id}\0${exec.callId}`, call);
       let gate = active.onToolPolicy
         ? await abortable(active.onToolPolicy(call), exec.signal)

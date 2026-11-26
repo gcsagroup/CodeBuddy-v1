@@ -3,6 +3,7 @@ import { SandboxUnavailableError } from '@deepseek-ai/dsh-sandbox';
 import { shellOutput } from './windows-shell-output.mjs';
 import { projectScriptCall, projectScriptInvocation, resolveProjectScript } from './project-script.mjs';
 import { preparePwshCodec, pwshCodec, windowsPwshCodec } from './windows-pwsh-codec.mjs';
+import { projectSandboxPolicy } from './project-sandbox-policy.mjs';
 
 // Keep command execution in the native executor. The Windows preparation
 // step can now own a probe, so cancellation must join that step's cleanup.
@@ -39,6 +40,7 @@ export default class CodeBuddyPwshExecutor extends SandboxPwshExecutor {
   }
 
   async execute(spec) {
+    if (spec.sandboxPolicy) spec = { ...spec, sandboxPolicy: await projectSandboxPolicy(this.ctx, spec.sandboxPolicy) };
     const target = projectScriptInvocation(spec.command);
     if (!target) return super.execute(spec);
     const result = await resolveProjectScript(spec.sandboxPolicy.workspaceRoot, target.name, spec.signal, spec.workdir)

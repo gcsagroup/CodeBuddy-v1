@@ -6174,7 +6174,7 @@
     "defaultMessage": "编辑项目"
   },
   "projectEditor.hint": {
-    "defaultMessage": "对话默认在主文件夹中工作。文件编辑工具按这里的设置读写附加文件夹，终端沿用会话权限。"
+    "defaultMessage": "修改应用于新对话，已有对话保留原目录与权限。移除关联不会删除文件。"
   },
   "projectEditor.linked": {
     "defaultMessage": "附加文件夹"
@@ -10279,5 +10279,35 @@
   },
   "modelInventory.collapse": {
     "defaultMessage": "暂时收起"
+  },
+  "projectCreator.existing": {
+    "defaultMessage": "此文件夹已有工作区配置，请通过“编辑项目”修改。"
+  },
+  "projectCreator.folders": {
+    "defaultMessage": "项目文件夹"
+  },
+  "projectCreator.hint": {
+    "defaultMessage": "选择主目录和关联目录，新对话从主目录开始。"
+  },
+  "projectCreator.makePrimary": {
+    "defaultMessage": "设为主要"
+  },
+  "projectCreator.note": {
+    "defaultMessage": "可选说明，例如：上游源码或文档"
+  },
+  "projectCreator.protected": {
+    "defaultMessage": "仅参考目录禁止修改；关联这些目录时不能使用完全访问。"
+  },
+  "projectCreator.title": {
+    "defaultMessage": "创建工作区"
+  },
+  "projectEditor.note": {
+    "defaultMessage": "目录说明（可选）"
+  },
+  "projectEditor.protected": {
+    "defaultMessage": "包含仅参考目录时，新对话不能使用完全访问。"
+  },
+  "sessionPermissions.referenceProtected": {
+    "defaultMessage": "此工作区包含仅参考目录，为保护这些目录，不能使用完全访问。"
   }
 }

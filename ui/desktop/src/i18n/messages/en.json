@@ -6218,6 +6218,27 @@
   "projectBrief.unavailable": {
     "defaultMessage": "Could not read this project turn."
   },
+  "projectCreator.existing": {
+    "defaultMessage": "This folder already has a workspace configuration. Open Edit project to change it."
+  },
+  "projectCreator.folders": {
+    "defaultMessage": "Project folders"
+  },
+  "projectCreator.hint": {
+    "defaultMessage": "Choose a primary folder and related folders. New chats start in the primary folder."
+  },
+  "projectCreator.makePrimary": {
+    "defaultMessage": "Make primary"
+  },
+  "projectCreator.note": {
+    "defaultMessage": "Optional note, for example: upstream source or documentation"
+  },
+  "projectCreator.protected": {
+    "defaultMessage": "Reference-only folders are protected from edits. Full access is unavailable while they are attached."
+  },
+  "projectCreator.title": {
+    "defaultMessage": "Create workspace"
+  },
   "projectEditor.add": {
     "defaultMessage": "Add folder"
   },
@@ -6225,13 +6246,19 @@
     "defaultMessage": "Edit project"
   },
   "projectEditor.hint": {
-    "defaultMessage": "Chats start in the primary folder. File editing follows the access selected here. The terminal uses session permissions."
+    "defaultMessage": "Changes apply to new chats. Existing chats keep their original folders and permissions. Unlinking never deletes files."
   },
   "projectEditor.linked": {
     "defaultMessage": "Additional folders"
   },
   "projectEditor.main": {
     "defaultMessage": "Primary folder"
+  },
+  "projectEditor.note": {
+    "defaultMessage": "Folder note (optional)"
+  },
+  "projectEditor.protected": {
+    "defaultMessage": "Reference-only folders disable full access for new chats."
   },
   "projectEditor.reference": {
     "defaultMessage": "Reference only"
@@ -7711,6 +7738,9 @@
   },
   "sessionPermissions.projectContainer": {
     "defaultMessage": "Project parent: {path}. The parent is not authorized for project writes."
+  },
+  "sessionPermissions.referenceProtected": {
+    "defaultMessage": "This workspace includes reference-only folders. Full access is unavailable to protect them from edits."
   },
   "sessionPermissions.saveError": {
     "defaultMessage": "Could not confirm the change. Please try again."

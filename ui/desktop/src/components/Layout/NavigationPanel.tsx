@@ -1,6 +1,9 @@
 import { acpChatSessionController } from '../../acp/chatSessionController';
 import { setSidebarProjectVisible } from '../../utils/sidebarProjects';
 import { ProjectEditor, projectEditorMessages } from './ProjectEditor';
+import { ProjectFolderSummary } from './ProjectFolderSummary';
+import { ProjectHoverCard } from './ProjectHoverCard';
+import { ProjectCreator } from './ProjectCreator';
 import { MainConversationRow } from './MainConversationRow';
 import { getAcpControlClient } from '../../acp/acpConnection';
 import { AgentAvatar } from '../custom-agents/AgentAvatar';
@@ -383,17 +386,14 @@ export const ProjectSessionGroup: React.FC<ProjectSessionGroupProps> = ({
           'group/project-row relative flex w-full items-center gap-1.5'
         )}
       >
-        <SidebarTooltip>
-          <TooltipTrigger asChild>
+        <ProjectHoverCard label={displayName} disabled={menuOpen || isEditing} className={sidebarCardClass} trigger={
             <CollapsibleTrigger type="button" aria-label={displayName}
-              className="flex min-h-7 min-w-0 flex-1 items-center gap-2 rounded-md text-left group-hover/project-row:pr-14 group-focus-within/project-row:pr-14 [@media(hover:none)]:pr-14 focus-visible:ring-2 focus-visible:ring-ring">
+              className="flex w-full min-h-7 min-w-0 flex-1 items-center gap-2 rounded-md text-left group-hover/project-row:pr-14 group-focus-within/project-row:pr-14 [@media(hover:none)]:pr-14 focus-visible:ring-2 focus-visible:ring-ring">
               {agent ? <AgentAvatar avatar={avatars[agent.id] ?? agent.avatar} className="size-4 shrink-0" /> :
                 <Folder className="size-4 shrink-0" aria-hidden="true" />}
               <ConversationTitle>{displayName}</ConversationTitle>
             </CollapsibleTrigger>
-          </TooltipTrigger>
-          {!menuOpen && <TooltipContent side="right" align="start" sideOffset={8} collisionPadding={12}
-            arrowClassName="invisible pointer-events-none" className={sidebarCardClass}>
+          }>
             <div className="flex items-start gap-2 text-sm font-semibold leading-5">
               <Folder className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
               <span className="min-w-0 flex-1 [overflow-wrap:anywhere]">{displayName}</span>
@@ -403,9 +403,8 @@ export const ProjectSessionGroup: React.FC<ProjectSessionGroupProps> = ({
               <MessagesSquare className="size-4 shrink-0" aria-hidden="true" />
               {intl.formatMessage(i18n.workspaceChats, { count: group.sessions.length, active: activeCount })}
             </div>
-            <div className="mt-2 border-t border-border-primary pt-2 text-xs leading-5 text-text-secondary [overflow-wrap:anywhere]">{group.path}</div>
-          </TooltipContent>}
-        </SidebarTooltip>
+            <ProjectFolderSummary cwd={group.path} onEdit={() => setIsEditing(true)} />
+        </ProjectHoverCard>
 
         <div className="absolute right-2 flex items-center gap-1">
           <DropdownMenu open={menuOpen} onOpenChange={setMenuOpen}>
@@ -614,12 +613,8 @@ export const Navigation: React.FC<NavigationProps> = ({
   } = useNavigationSessions();
   const navigate = useNavigate();
   const openDraft = (workingDir: string) => { if (workingDir) setSidebarProjectVisible(workingDir, true); navigate(withWorkspaceMode('/pair', workspaceMode), { state: { draftOnly: true, workingDir } }); };
-  const chooseWorkspace = async () => {
-    try {
-      const result = await window.electron.directoryChooser();
-      if (!result.canceled && result.filePaths[0]) openDraft(result.filePaths[0]);
-    } catch (error) { toast.error(errorMessage(error)); }
-  };
+  const [creatingWorkspace, setCreatingWorkspace] = useState(false);
+  const chooseWorkspace = () => setCreatingWorkspace(true);
   const pinnedProjects = useProjectPins();
   const sortedProjects = [...recentSessionsByProject].sort((a, b) => {
     const rank = (path: string) => {
@@ -742,6 +737,7 @@ export const Navigation: React.FC<NavigationProps> = ({
       transition={{ duration: reducedMotion ? 0 : 0.18 }}
       className={cn('shell-navigation bg-background-primary outline-none flex flex-col h-full', className)}
     >
+      {creatingWorkspace && <ProjectCreator onClose={() => setCreatingWorkspace(false)} onCreated={openDraft} />}
       <NavigationHeaderSlot
         onNewChat={() => handleNavClick('/')}
         needsTrafficLightInset={needsTrafficLightInset}

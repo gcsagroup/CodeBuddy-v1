@@ -6,6 +6,7 @@ import { SandboxUnavailableError } from '@deepseek-ai/dsh-sandbox';
 import { ownSandboxHelper } from './windows-sandbox-job.mjs';
 import { WindowsSessionTemps } from './windows-session-temps.mjs';
 import { pwshCodec, windowsPwshCodec } from './windows-pwsh-codec.mjs';
+import { projectSandboxPolicy } from './project-sandbox-policy.mjs';
 
 // The native provider owns grants, SIDs, locks and restricted runner argv.
 // Its synchronous Win32 ACL propagation can walk millions of descendants.
@@ -160,6 +161,7 @@ export default class WindowsSandboxProvider extends LocalSandboxProvider {
 
   async confine(argv, policy, signal) {
     signal?.throwIfAborted();
+    policy = await projectSandboxPolicy(this.ctx, policy);
     const started = performance.now();
     // Harness already includes preparation in the caller's tool deadline. Its
     // shorter signal wins; a separate cap also bounds callers without one.

@@ -4,6 +4,8 @@ import { acpSetSessionMode } from '../acp/sessions';
 import { IntlTestWrapper } from '../i18n/test-utils';
 import type { Session } from '../types/session';
 import { PermissionPicker, SessionPermissionSummary } from './SessionPermissionSummary';
+const { folderRpc } = vi.hoisted(() => ({ folderRpc: vi.fn().mockResolvedValue({ folders: [] }) }));
+vi.mock('../acp/acpConnection', () => ({ getAcpControlClient: async () => ({ extMethod: folderRpc }) }));
 
 vi.mock('../acp/sessions', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../acp/sessions')>()),
@@ -25,6 +27,16 @@ function session(overrides: Partial<Session> = {}): Session {
 }
 
 describe('SessionPermissionSummary', () => {
+  it('disables full access and explains reference-folder protection', async () => {
+    folderRpc.mockResolvedValueOnce({ folders: [{ path: '/reference', access: 'reference' }] });
+    const select = vi.fn();
+    render(<PermissionPicker workingDirectory="/project" mode="danger-full-access" onModeChange={select} />, { wrapper: IntlTestWrapper });
+    fireEvent.click(screen.getByRole('button', { name: 'How should actions be approved?' }));
+    expect(await screen.findByText(/Full access is unavailable to protect/)).toBeVisible();
+    expect(screen.getByRole('radio', { name: /Full access/ })).toBeDisabled();
+    expect(screen.getByRole('radio', { name: /Workspace write/ })).toBeChecked();
+    expect(select).not.toHaveBeenCalled();
+  });
   it('allows an explicit permission draft before any session or default has loaded', async () => {
     const select = vi.fn();
     vi.mocked(acpSetSessionMode).mockClear();

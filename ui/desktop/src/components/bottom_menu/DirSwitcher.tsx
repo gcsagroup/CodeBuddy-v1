@@ -12,6 +12,8 @@ import {
 import { toast } from 'react-toastify';
 import { defineMessages, useIntl } from '../../i18n';
 import { DropdownChevron } from '../ui/DropdownChevron';
+import { ProjectCreator } from '../Layout/ProjectCreator';
+import { getProjectAlias } from '../../utils/projectAliases';
 
 const i18n = defineMessages({
   clearWorkspace: { id: 'codeProHub.clearWorkspace', defaultMessage: 'Clear selected workspace' },
@@ -53,7 +55,7 @@ const DirNameLabel: React.FC<{ dir: string }> = ({ dir }) => {
   const { name, parent } = splitDirPath(dir);
   return (
     <div className="flex flex-col min-w-0 flex-1">
-      <span className="truncate text-sm leading-5 text-text-primary">{name}</span>
+      <span className="truncate text-sm leading-5 text-text-primary">{getProjectAlias(dir, name)}</span>
       {parent && <span className="truncate text-xs leading-4 text-text-secondary">{parent}</span>}
     </div>
   );
@@ -81,6 +83,7 @@ export const DirSwitcher: React.FC<DirSwitcherProps> = ({
   const intl = useIntl();
   const [isDirectoryChooserOpen, setIsDirectoryChooserOpen] = useState(false);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [creating, setCreating] = useState(false);
   const [recentDirs, setRecentDirs] = useState<string[]>([]);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const refreshVersionRef = useRef(0);
@@ -136,6 +139,7 @@ export const DirSwitcher: React.FC<DirSwitcherProps> = ({
   };
 
   const handleDirectoryChange = async () => {
+    if (!sessionId) { setIsMenuOpen(false); setCreating(true); return; }
     if (isDirectoryChooserOpen) return;
     setIsDirectoryChooserOpen(true);
 
@@ -211,10 +215,10 @@ export const DirSwitcher: React.FC<DirSwitcherProps> = ({
           />
           <div className="max-w-[200px] truncate group-data-[compact=true]/composer-toolbar:hidden">
             {workingDir
-              ? workingDir
+              ? getProjectAlias(workingDir, workingDir
                   .replace(/[\\/]+$/, '')
                   .split(/[\\/]/)
-                  .pop() || workingDir
+                  .pop() || workingDir)
               : intl.formatMessage(i18n.chooseFolder)}
           </div>
           <DropdownChevron
@@ -294,10 +298,12 @@ export const DirSwitcher: React.FC<DirSwitcherProps> = ({
     </DropdownMenu>
   );
 
-  if (!allowClear || sessionId) return picker;
+  const creator = creating && <ProjectCreator onClose={() => setCreating(false)} onCreated={applyDirectoryChange} />;
+  if (!allowClear || sessionId) return <>{picker}{creator}</>;
   return (
     <span className="group/workspace relative inline-flex max-w-full rounded-lg hover:bg-background-tertiary/60 focus-within:bg-background-tertiary/60">
       {picker}
+      {creator}
       {canClear && (
         <button
           type="button"

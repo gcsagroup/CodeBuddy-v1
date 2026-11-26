@@ -1,4 +1,10 @@
 <!-- 2026-11-16 已批准：对话 sidebarPlacement 由 Compat 唯一写入，导航只消费；归属与 cwd 分离。目录切换沿用原有 Harness owner 和运行中拒绝规则。详见 docs/conversation-drag-drop.zh-CN.md。 -->
+## 2026-11-26 已批准：多项目工作区与只读优先
+
+目录成员、版本和真实目录身份由 `WorkspaceService` 持有；Compat 保存会话创建时的 `projectFoldersSnapshot`，已有会话不随项目编辑改变范围。文件与终端适配器消费同一验证结果；子任务沿 Harness 已验证父子关系继承根快照。仅参考目录禁止完全访问，审批不能扩大此边界。Windows 多目录 capability 随目录组合隔离，底层执行和取消继续由 Harness 持有。详见 [多项目工作区](../../docs/multi-project-workspaces.zh-CN.md)。
+
+繁體：工作區服務擁有目錄設定，會話快照固定執行範圍；參考目錄限制完整存取。English: WorkspaceService owns membership; session snapshots fix execution scope and reference folders prohibit full access.
+
 ## 2026-11-22 已批准：启动模型清单与变更提示
 
 ## 2026-11-25 已批准：立即切换与待发送队列

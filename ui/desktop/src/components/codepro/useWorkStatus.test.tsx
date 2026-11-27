@@ -47,9 +47,11 @@ describe('specific live execution feedback', () => {
       },
     }), { initialProps: { start: 105_000, number: 2 }, wrapper: IntlTestWrapper });
     expect(result.current.message).toContain('1m 35s on this call');
+    expect(result.current.message).not.toContain('Model call 2');
     rerender({ start: 200_000, number: 3 });
     act(() => vi.advanceTimersByTime(2000));
     expect(result.current.message).toContain('2s on this call');
+    expect(result.current.announcement).not.toContain('Model call 3');
   });
   it('shows file preparation without claiming a write, keeps its clock across size updates and respects approval', () => {
     vi.useFakeTimers();

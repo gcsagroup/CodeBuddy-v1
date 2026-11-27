@@ -1968,15 +1968,10 @@ function ProgressiveMessageListContent({
           if (turnCancelling) {
             processLabel = intl.formatMessage(i18n.stopping);
           } else if (timedEnd) {
-            processLabel =
-              terminal?.user_requested_stop || terminal?.status === 'cancelled'
-                ? intl.formatMessage(i18n.turnStoppedAfter, {
-                    duration: formatElapsed(intl, elapsed),
-                  })
-                : intl.formatMessage(i18n.turnDuration, {
-                    minutes: Math.floor(elapsed / 60),
-                    seconds: elapsed % 60,
-                  });
+            processLabel = intl.formatMessage(i18n.turnDuration, {
+              minutes: Math.floor(elapsed / 60),
+              seconds: elapsed % 60,
+            });
           } else if (liveTime) {
             processLabel = <LiveTurnDuration startedAt={source.created} />;
           } else {

@@ -19,7 +19,7 @@ import { MainPanelLayout } from './Layout/MainPanelLayout';
 import ChatInput from './ChatInput';
 import { SessionPermissionSummary } from './SessionPermissionSummary';
 import { CodeProPlanDock } from './codepro/CodeProPlanDock';
-import { currentWorkStage, latestReturnedAction } from './codepro/currentWorkStage';
+import { currentWorkStage } from './codepro/currentWorkStage';
 import { ScrollArea, ScrollAreaHandle } from './ui/scroll-area';
 import { useFileDrop } from '../hooks/useFileDrop';
 import { ChatState } from '../types/chatState';
@@ -270,12 +270,6 @@ export default function BaseChat({
       : undefined;
   }, [messages, activeToolCallIds, chatState, intl]);
   const currentAction = currentTool?.title;
-  const sourceId = promptActivity?.sourceUserMessageId;
-  const lastAction = useMemo(() => {
-    if (!sourceId || currentAction) return undefined;
-    const call = latestReturnedAction(messages, sourceId);
-    return call ? formatToolAction(intl, call.name, call.arguments, undefined, 'name') : undefined;
-  }, [sourceId, currentAction, messages, intl]);
   const currentStage = useMemo(
     () =>
       promptActivity ? currentWorkStage(messages, promptActivity.sourceUserMessageId) : undefined,
@@ -978,11 +972,10 @@ export default function BaseChat({
                   />
                   {!currentAction &&
                     !checkingResults &&
-                    (currentStage || lastAction) &&
+                    currentStage &&
                     (chatState === ChatState.Thinking || chatState === ChatState.Streaming) && (
-                      <p className="pb-2 text-xs text-text-secondary truncate" title={currentStage || lastAction}>
-                        {currentStage ? intl.formatMessage(i18n.lastStage, { stage: currentStage })
-                          : intl.formatMessage(i18n.lastTool, { action: lastAction })}
+                      <p className="pb-2 text-xs text-text-secondary truncate" title={currentStage}>
+                        {intl.formatMessage(i18n.lastStage, { stage: currentStage })}
                       </p>
                     )}
                 </div>

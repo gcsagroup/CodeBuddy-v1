@@ -204,10 +204,6 @@ export function useWorkStatus(input: WorkStatusInput) {
               count: 'childCount' in selection ? selection.childCount : 0,
               action: 'action' in selection ? selection.action : '',
             });
-  const number = input.activity?.execution?.modelRequestNumber;
-  const headline = title && number && active && !input.cancelling && !input.checking &&
-    input.activity?.execution?.phase === 'model' && !input.action
-    ? intl.formatMessage(labels.request, { number, status: title }) : title;
   const elapsed =
     elapsedSeconds !== undefined && elapsedSeconds >= 1
       ? measuredStart !== undefined
@@ -227,7 +223,7 @@ export function useWorkStatus(input: WorkStatusInput) {
       (selection.silence ?? 0) >= 20
         ? intl.formatMessage(labels.waitingHint)
         : undefined,
-    announcement: headline,
-    message: elapsed && headline ? `${headline} ${elapsed}` : headline,
+    announcement: title,
+    message: elapsed && title ? `${title} ${elapsed}` : title,
   };
 }

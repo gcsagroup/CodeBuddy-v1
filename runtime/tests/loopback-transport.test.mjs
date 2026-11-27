@@ -19,6 +19,24 @@ test('local backend authenticates independently of development port or file Orig
     assert.equal((await fetch(base + '/status')).status, 401);
     assert.equal((await fetch(base + '/status', { headers: { 'X-Secret-Key': secret } })).status, 200);
     for (const origin of ['http://127.0.0.1:5174', 'null']) {
+      const deniedSpeech = new WebSocket(base.replace('http:', 'ws:') + '/speech-playback?token=incorrect', { origin });
+      sockets.push(deniedSpeech); deniedSpeech.on('error', () => {});
+      const [, deniedSpeechResponse] = await once(deniedSpeech, 'unexpected-response');
+      assert.equal(deniedSpeechResponse.statusCode, 401); deniedSpeechResponse.resume(); deniedSpeech.terminate();
+      const speech = new WebSocket(base.replace('http:', 'ws:') + '/speech-playback?token=' + secret, { origin });
+      sockets.push(speech); await once(speech, 'open'); speech.close(); await once(speech, 'close');
+      const deniedVoice = new WebSocket(base.replace('http:', 'ws:') + '/voice-call?token=incorrect', { origin });
+      sockets.push(deniedVoice);
+      deniedVoice.on('error', () => {});
+      const [, deniedVoiceResponse] = await once(deniedVoice, 'unexpected-response');
+      assert.equal(deniedVoiceResponse.statusCode, 401);
+      deniedVoiceResponse.resume();
+      deniedVoice.terminate();
+      const voice = new WebSocket(base.replace('http:', 'ws:') + '/voice-call?token=' + secret, { origin });
+      sockets.push(voice);
+      await once(voice, 'open');
+      voice.close();
+      await once(voice, 'close');
       const denied = new WebSocket(base.replace('http:', 'ws:') + '/acp?token=incorrect', { origin });
       sockets.push(denied);
       denied.on('error', () => {});

@@ -3,6 +3,7 @@ import userEvent from '@testing-library/user-event';
 import { IntlProvider } from 'react-intl';
 import { describe, expect, it, vi } from 'vitest';
 import MessageCopyLink from './MessageCopyLink';
+import { speechPlayback } from '../utils/speechPlayback';
 
 describe('MessageCopyLink', () => {
   it('shows retry beside copy and invokes the retry callback', () => {
@@ -52,4 +53,25 @@ describe('MessageCopyLink', () => {
     expect(actions).toHaveClass('opacity-100');
     expect(actions).not.toHaveClass('opacity-0');
   });
+  it('puts explicit playback before copy and makes no automatic synthesis request', () => {
+    const start = vi.spyOn(speechPlayback, 'start').mockResolvedValue();
+    render(<IntlProvider locale="en"><MessageCopyLink text="final answer" speakable /></IntlProvider>);
+    expect(start).not.toHaveBeenCalled();
+    expect(screen.getAllByRole('button').map(button => button.textContent)).toEqual(['Read aloud', 'Copy']);
+    fireEvent.click(screen.getByRole('button', { name: 'Read aloud' }));
+    expect(start).toHaveBeenCalledWith(expect.any(String), 'final answer');
+    start.mockRestore();
+  });
+  it('does not add playback to user message actions by default', () => {
+    render(<IntlProvider locale="en"><MessageCopyLink text="user message" /></IntlProvider>);
+    expect(screen.queryByRole('button', { name: 'Read aloud' })).toBeNull();
+  });
+  it('reads reply text without Markdown syntax or footer DOM content', () => {
+    const start = vi.spyOn(speechPlayback, 'start').mockResolvedValue();
+    const div = document.createElement('div'); div.textContent = '2026/11/27 复制 重试';
+    render(<IntlProvider locale="en"><MessageCopyLink text="**Hello** [world](https://example.test)" contentRef={{ current: div }} speakable /></IntlProvider>);
+    fireEvent.click(screen.getByRole('button', { name: 'Read aloud' }));
+    expect(start).toHaveBeenCalledWith(expect.any(String), 'Hello world'); start.mockRestore();
+  });
+
 });

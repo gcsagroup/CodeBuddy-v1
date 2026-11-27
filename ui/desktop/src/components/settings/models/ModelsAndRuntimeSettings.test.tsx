@@ -92,7 +92,7 @@ describe('ModelsAndRuntimeSettings', () => {
     render(<ModelsAndRuntimeSettings setView={vi.fn()} active />);
     fireEvent.click(screen.getByRole('button', { name: 'Speech recognition and synthesis' }));
     expect(await screen.findByText('Endpoint URL')).toBeVisible();
-    expect(screen.getByText('Voice playback is not connected yet. No setup is needed; existing settings are retained.')).toBeVisible();
+    expect(screen.getByText('Streaming PCM or QwenTTS NDJSON')).toBeVisible();
   });
   it('reloads connections when settings reopen and ignores an older response', async () => {
     let resolveOld!: (value: typeof customProvider[]) => void;

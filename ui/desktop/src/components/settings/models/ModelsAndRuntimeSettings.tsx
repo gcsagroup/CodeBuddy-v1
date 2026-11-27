@@ -229,7 +229,7 @@ export default function ModelsAndRuntimeSettings({
             keepAlive: true,
             dirty: speechDirty,
             title: selectNativeText(intl.locale, 'Speech recognition and synthesis', '语音识别与合成', '語音辨識與合成'),
-            description: selectNativeText(intl.locale, 'Speak to compose messages. Manage your speech service.', '按住说话，轻松输入。管理语音识别服务。', '按住說話，輕鬆輸入。管理語音辨識服務。'),
+            description: selectNativeText(intl.locale, 'Manage voice input and reply playback.', '管理语音输入和回复播报服务。', '管理語音輸入與回覆播報服務。'),
             icon: <Mic className="h-5 w-5" />,
             content: <SpeechSettings onDirtyChange={setSpeechDirty} />,
           },

@@ -10,6 +10,8 @@ import { acquireProfileLock } from "./profile-lock.mjs";
 import { createSourceStatus } from './source-status.mjs';
 import { clientDisconnectedError } from './session-connection.mjs';
 import { publicRpcError } from './error-presentation.mjs';
+import { createVoiceCallServer } from './voice-call.mjs';
+import { createSpeechPlaybackServer } from './speech-playback.mjs';
 
 const previewSource = process.env.CODEBUDDY_HARNESS_PREVIEW === '1'
   ? createSourceStatus(path.dirname(fileURLToPath(import.meta.url))).catch(() => undefined)
@@ -206,6 +208,8 @@ export async function createCompatServer({ dataDir, secret, driver, defaultModel
       noServer: true,
       maxPayload: 48 * 1024 * 1024,
     });
+    const voiceCalls = createVoiceCallServer();
+    const speechPlayback = createSpeechPlaybackServer(store);
     server.on("upgrade", (req, socket, head) => {
       if (stopping) {
         socket.end('HTTP/1.1 503 Service Unavailable\r\nConnection: close\r\n\r\n');
@@ -213,14 +217,15 @@ export async function createCompatServer({ dataDir, secret, driver, defaultModel
       }
       const url = new URL(req.url, "http://127.0.0.1");
       if (
-        url.pathname !== "/acp" ||
+        !["/acp", "/voice-call", "/speech-playback"].includes(url.pathname) ||
         !equal(url.searchParams.get("token"), secret)
       ) {
         socket.end("HTTP/1.1 401 Unauthorized\r\nConnection: close\r\n\r\n");
         return;
       }
-      wss.handleUpgrade(req, socket, head, (ws) =>
-        wss.emit("connection", ws, req),
+      const transport = url.pathname === '/speech-playback' ? speechPlayback : url.pathname === '/voice-call' ? voiceCalls : wss;
+      transport.handleUpgrade(req, socket, head, (ws) =>
+        transport.emit("connection", ws, req),
       );
     });
     wss.on("connection", (ws) => {
@@ -389,6 +394,10 @@ export async function createCompatServer({ dataDir, secret, driver, defaultModel
           // Reconnecting clients must not create new sockets while owners drain.
           stopping = true;
           for (const ws of wss.clients) ws.terminate();
+          for (const ws of voiceCalls.clients) ws.terminate();
+          await new Promise(resolve => voiceCalls.close(resolve));
+          for (const ws of speechPlayback.clients) ws.terminate();
+          await new Promise(resolve => speechPlayback.close(resolve));
           try {
             await compat.close({ drainRequests: async () => {
               if (pendingRequests) await new Promise(resolve => requestDrain.add(resolve));

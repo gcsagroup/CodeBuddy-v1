@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
+import { speechPlayback } from '../utils/speechPlayback';
 import { AlertCircle, Bell, ChevronDown, ChevronUp, RefreshCw, X } from 'lucide-react';
 import { selectNativeText } from '../utils/nativeLocalization';
 import './model-inventory-notice.css';
@@ -23,6 +24,14 @@ export function parseInventoryNotices(value: unknown): InventoryNotice[] {
 
 export function ModelInventoryNotice({ notices, refresh }: { notices: InventoryNotice[]; refresh: () => Promise<void> }) {
   const intl = useIntl();
+  const speech = useSyncExternalStore(speechPlayback.subscribe, speechPlayback.getSnapshot);
+  const [speechPreview, setSpeechPreview] = useState(false);
+  useEffect(() => {
+    setSpeechPreview(Boolean(speech.error));
+    if (!speech.error) return;
+    const timer = setTimeout(() => setSpeechPreview(false), 5000);
+    return () => clearTimeout(timer);
+  }, [speech.id, speech.error]);
   const [actions, setActions] = useState<Record<string, { pending: boolean; message?: string; at?: number; error?: boolean }>>({});
   const pendingActions = useRef(new Set<string>());
   const busy = Object.values(actions).some(action => action.pending);
@@ -92,7 +101,7 @@ export function ModelInventoryNotice({ notices, refresh }: { notices: InventoryN
     document.addEventListener('keydown', closeEscape);
     return () => { document.removeEventListener('pointerdown', closeOutside); document.removeEventListener('keydown', closeEscape); };
   }, [collapsed]);
-  if (!notices.length) return null;
+  if (!notices.length && !speech.error) return null;
   const removed = notices.some(notice => notice.changes.some(change => change.kind === 'removed'));
   const refreshFailed = notices.some(notice => notice.failed);
   const loading = busy || notices.some(notice => notice.loading);
@@ -156,11 +165,21 @@ export function ModelInventoryNotice({ notices, refresh }: { notices: InventoryN
     return [status && `HTTP ${status}`, network ?? (reason ? intl.formatMessage(reason) : selectNativeText(intl.locale, 'The service did not report a specific cause. Retry this connection.', '服务未提供具体原因，请重试此连接。', '服務未提供具體原因，請重試此連線。'))].filter(Boolean).join(' · ');
   };
   return <div ref={root} className="model-connection-center">
-    <button className="model-connection-trigger" aria-label={selectNativeText(intl.locale, 'Model connection notifications', '模型连接通知', '模型連線通知')}
+    <button className="model-connection-trigger" aria-label={speech.error ? selectNativeText(intl.locale, 'Notifications', '通知', '通知') : selectNativeText(intl.locale, 'Model connection notifications', '模型连接通知', '模型連線通知')}
       aria-expanded={!collapsed} onClick={() => { setToast([]); setCollapsed(!collapsed); }}>
       {loading ? <RefreshCw size={17} className="model-inventory-spinning" /> : <Bell size={17} />}
-      <span className="model-connection-count">{notices.length}</span>
+      <span className="model-connection-count">{notices.length + (speech.error ? 1 : 0)}</span>
     </button>
+    {speech.error && (!collapsed || speechPreview) && <section className="model-inventory-notice model-connection-toast" aria-label={selectNativeText(intl.locale, 'Speech playback failed', '语音播报失败', '語音播報失敗')}>
+      <div className="model-inventory-header">
+        <AlertCircle size={18} aria-hidden="true" />
+        <div className="model-inventory-summary" role="alert">
+          <strong>{selectNativeText(intl.locale, 'Speech playback failed', '语音播报失败', '語音播報失敗')}</strong>
+          <p>{speech.error}</p>
+        </div>
+        <button className="model-inventory-close" aria-label={selectNativeText(intl.locale, 'Dismiss playback error', '关闭播报错误通知', '關閉播報錯誤通知')} onClick={() => speechPlayback.stop(speech.id ?? undefined)}><X size={16} /></button>
+      </div>
+    </section>}
     {collapsed && toast.length > 0 && <section className="model-inventory-notice model-connection-toast"
       aria-label={selectNativeText(intl.locale, 'New model connection notifications', '模型连接新消息', '模型連線新訊息')}
       onMouseEnter={() => setToastHovered(true)} onMouseLeave={() => setToastHovered(false)}
@@ -177,7 +196,7 @@ export function ModelInventoryNotice({ notices, refresh }: { notices: InventoryN
       </div>
       <button className="model-inventory-action" onClick={() => { setToast([]); setExpanded(true); setCollapsed(false); }}>{detailsLabel}<ChevronDown size={14} /></button>
     </section>}
-    {!collapsed && <section aria-label={title} className="model-inventory-notice" data-attention={removed}>
+    {!collapsed && notices.length > 0 && <section aria-label={title} className="model-inventory-notice" data-attention={removed}>
     <div className="model-inventory-header">
       {loading ? <RefreshCw size={18} className="model-inventory-spinning" aria-hidden="true" /> : <AlertCircle size={18} aria-hidden="true" />}
       <div className="model-inventory-summary" role={removed ? 'alert' : 'status'}>

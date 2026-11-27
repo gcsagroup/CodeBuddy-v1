@@ -193,10 +193,19 @@ export default function ModelsAndRuntimeSettings({
           },
           {
             id: 'speech',
+<<<<<<< Updated upstream
             title: '语音识别与合成',
             description: '配置远程语音识别与合成模型',
             icon: <SlidersHorizontal className="h-5 w-5" />,
             content: <SpeechSettings />,
+=======
+            keepAlive: true,
+            dirty: speechDirty,
+            title: selectNativeText(intl.locale, 'Speech recognition and synthesis', '语音识别与合成', '語音辨識與合成'),
+            description: selectNativeText(intl.locale, 'Manage voice input and reply playback.', '管理语音输入和回复播报服务。', '管理語音輸入與回覆播報服務。'),
+            icon: <Mic className="h-5 w-5" />,
+            content: <SpeechSettings onDirtyChange={setSpeechDirty} />,
+>>>>>>> Stashed changes
           },
           {
             id: 'subagents',

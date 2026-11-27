@@ -5,6 +5,7 @@ import { RotateCcw } from 'lucide-react';
 import { Copy } from './icons';
 import { defineMessages, useIntl } from '../i18n';
 import { cn } from '../utils';
+import MessageSpeechButton from './MessageSpeechButton';
 
 const i18n = defineMessages({
   copied: {
@@ -26,6 +27,7 @@ interface MessageCopyLinkProps {
   contentRef?: React.RefObject<HTMLDivElement | null>;
   onRetry?: () => void;
   alwaysVisible?: boolean;
+  speakable?: boolean;
 }
 
 export default function MessageCopyLink({
@@ -33,6 +35,7 @@ export default function MessageCopyLink({
   contentRef,
   onRetry,
   alwaysVisible = false,
+  speakable = false,
 }: MessageCopyLinkProps) {
   const intl = useIntl();
   const [copied, setCopied] = useState(false);
@@ -88,6 +91,7 @@ export default function MessageCopyLink({
           : 'opacity-0 group-hover:opacity-100 focus-within:opacity-100'
       )}
     >
+      {speakable && text.trim() && <MessageSpeechButton text={text} className={actionClass} />}
       <button
         type="button"
         onClick={handleCopy}

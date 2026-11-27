@@ -1,4 +1,62 @@
 <!-- 2026-11-16 已批准：对话 sidebarPlacement 由 Compat 唯一写入，导航只消费；归属与 cwd 分离。目录切换沿用原有 Harness owner 和运行中拒绝规则。详见 docs/conversation-drag-drop.zh-CN.md。 -->
+<<<<<<< Updated upstream
+=======
+## 2026-11-27 已批准：最终回复按需语音播报
+
+现有配置服务继续持有 `SPEECH_SERVICES`，合成字段为 `REMOTE_TTS_URL` / `REMOTE_TTS_MODEL`，ASR 与 TTS 设置独立保存并保留其他字段。`runtime/speech-playback.mjs` 持有接口校验、分段合成、请求取消和播放背压，新 `/speech-playback` 复用运行时 token 认证；前端 `speechPlayback.ts` 持有单一活动播报、PCM 调度及播放完成确认。消息操作栏仅消费已有最终回复正文，不重新判断 Agent 完成状态。仅用户点击播报或设置中的显式检测会请求合成，不自动合成新回复。停止、切换或卸载时立即释放本地播放，后端按服务地址排空已提交片段后才交接新播报，不再发送旧回复后续片段，避免远端单槽取消竞态。等待时显示可取消的加载图标。播报错误由已有右上角铃铛通知区消费播放状态展示，不再写入消息操作栏。播报正文过滤表情与装饰符号，不改变消息原文，不新增音频持久化或 Agent 工具权限。详见 [回复播报说明](../../docs/reply-speech.zh-CN.md)。
+
+## 2026-11-27 已批准：独立语音通话改用 GemmaE2B 与 QwenTTS
+
+本节覆盖下节早期 Haru 实现。用户要求原生音频输入 → 文本流 → TTS，并最新指定第一版多轮记忆采用滑动窗口，撤回逐轮摘要。智能体资料仍由原服务持有；电话页在开始时固定所选名称与人设。`VoiceCall` / `UtteranceCapture` 持有本地采音、能量停顿分段、手动结束、播放与设备生命周期；`runtime/voice-call.mjs` 持有逐轮 Gemma/TTS 请求、序号隔离、取消、流式转发及本次通话内存窗口。当前发言原生音频交给 Gemma 回复，音频合成完成后由同一 Gemma 转写原话，仅用于后续历史。最多保留前三轮用户转写和助手已生成文字，历史文字上限 1200 UTF-8 字节，超限淘汰最旧完整轮次，当前音频和人设不截断。不得把已生成文字当作用户已听见的事实。后台转写失败只记录日志并标记该轮用户内容未知，不弹错或挂断。挂断取消在途转写并清空窗口，不保存持久化音频、字幕或记忆。认证沿用运行时密钥，不进入 Harness Agent 执行，不新增工具权限。当前无压缩请求，不存在压缩失败的前台提示。详见 [当前电话页说明](../../docs/voice-call.zh-CN.md)。
+
+## 2026-11-27 早期实现（已替换）：独立 Haru 语音通话
+
+自定义智能体服务继续持有人设；通话页在开始时读取选中角色的名称与提示词作为本次快照。`runtime/voice-call.mjs` 持有远端 Haru 地址和会话信令，复用运行时 WebSocket 密钥认证；`HaruCall` 持有浏览器 WebRTC、麦克风与播放生命周期。音频不进入 Harness/ACP 执行消息，通话不拥有工具调用、权限、Agent 状态或完成事实，不新增持久化会话。关闭通话会取消远端 WebRTC 会话并释放本地设备。详见 [Haru 实时语音通话](../../docs/haru-voice-call.zh-CN.md)。
+
+## 2026-11-26 已批准：多项目工作区与只读优先
+
+目录成员、版本和真实目录身份由 `WorkspaceService` 持有；Compat 保存会话创建时的 `projectFoldersSnapshot`，已有会话不随项目编辑改变范围。文件与终端适配器消费同一验证结果；子任务沿 Harness 已验证父子关系继承根快照。仅参考目录禁止完全访问，审批不能扩大此边界。Windows 多目录 capability 随目录组合隔离，底层执行和取消继续由 Harness 持有。详见 [多项目工作区](../../docs/multi-project-workspaces.zh-CN.md)。
+
+繁體：工作區服務擁有目錄設定，會話快照固定執行範圍；參考目錄限制完整存取。English: WorkspaceService owns membership; session snapshots fix execution scope and reference folders prohibit full access.
+
+## 2026-11-22 已批准：启动模型清单与变更提示
+
+## 2026-11-25 已批准：立即切换与待发送队列
+
+本节覆盖下文旧“本地队列 / onSteerQueuedMessage / 立即发送不取消”描述。用户已明确批准整模块修复：普通输入排队；“立即切换”和“全部立即发送”持久化所选消息后取消当前执行，等待原轮次及子任务结算，再开始新轮次。
+
+`runtime/input-queue.mjs` 是进入原生执行前的交付账本 owner，通过现有 Session store 保存版本、独立消息身份、选择批次和命令去重记录。它调用既有 Compat prompt/cancel，不拥有模型执行、工具权限、目标完成或原生 Inbox。Harness 原生 `user/message` 消费回执是已消费的唯一依据；ACK 仅确认队列操作。批量输入经原生 maintenance barrier 接入 next-step，同一次新调用保留每条消息身份、顺序与附件。
+
+编辑、删除、清空、排序通过同一版本校验；切换中的选择冻结。Stop 暂停剩余草稿；冷启动不自动重放；不明交付先与原生消费/当前 Inbox 核对，确认未接入后才允许用户重新排队。前端只展示后台快照，旧 localStorage 仅作一次迁移和未确认命令恢复，不再独立调度。桌面 generation 沿用入队版本，显式立即发送才更新版本。
+
+繁體：待發送交付帳本由 runtime 管理，普通訊息依序等待；立即切換先取消並等待舊輪結束，再按獨立身份交付所選訊息。原生消費回執決定是否移出佇列；停止及重啟保留草稿，不自動重播不明結果。
+
+English: Runtime owns the pre-admission delivery ledger. Ordinary inputs wait in order; explicit switching cancels and settles the old execution before admitting the selected messages with separate identities. Native consumption receipts determine removal. Stop and restart preserve drafts; uncertain deliveries are never automatically replayed.
+
+
+`runtime/model-inventory.mjs` 是启动及手动模型刷新、连接身份校验、成功基线和待确认变化的唯一 writer；`providers.mjs` 只提供服务发现和能力事实。可选 `providers[].inventoryState` 在成功刷新时建立，旧状态无需迁移。`runtime/status` 投影提示与修订，桌面翻译展示，不重新裁决下架、失败或能力变化。默认模型、会话模型和用户能力覆盖仍由既有设置 owner 写入；刷新不能代替用户换模型。在途请求必须校验连接身份，关闭后禁止提交，通知确认绑定版本。详见 `docs/model-inventory-refresh.zh-CN.md`。
+
+繁體：執行階段統一持有模型清單、基線和提示；桌面僅展示，不自動切換模型。English: The runtime owns inventory, baselines and notices; the desktop only presents them and never changes model selection automatically.
+
+## 2026-11-19 已批准：Mac 可选单字段聚焦写入
+
+主模型选择当前已观察字段和值；Go 只校验并透传可选 `set_value.focus`，Swift 唯一持有聚焦、聚焦后窗口/控件/旧值/实际焦点/输入版本/租约复核与真实写入回执。聚焦触发的应用变化不得跳过重新校验。失败停止，无坐标猜测、键盘回退、整表批量或动作重放。旧调用不变，不新增持久化状态；宿主继续持有 Esc、断线停控及新输入恢复权威。见 [协议与迁移边界](../../docs/mac-focused-value.zh-CN.md)。
+
+繁體：原生層在單欄聚焦後重新核對再寫入，主模型仍選欄位，宿主仍控制接管與恢復。English: The model selects one field; native code revalidates after focusing before writing. Host takeover and resume authority are unchanged.
+
+## 2026-11-19 已批准：Mac 当前 PDF 只读落盘回执
+
+Mac 原生观察器从已匹配窗口的 AXDocument 读取本地 PDF，用系统 PDFKit 返回磁盘字段快照；模型不能提供另一个路径。原生层持有文件身份、读前读后稳定性及读取失败事实，Go 只投影 `pdf_document`。界面控件值与磁盘值分别保留，主模型比较目标、保留字段和真实回执；不新增自动保存、提交或任务完成裁决。只读字段快照不证明远端同步成功。旧观察调用兼容，无新持久化状态。
+
+繁體：原生層只讀目前視窗 AXDocument 指定的本機 PDF，分開回傳磁碟與介面值，不自動儲存或提交。English: The native observer owns read-only disk evidence for the local PDF identified by the matched window's AXDocument. Go projects it; the model compares values. No automatic save, submit, new persistence, or completion authority is introduced.
+
+## 2026-11-19 已批准：Mac FORMS 英文评分标签投影
+
+主模型持有字段含义、英文标签翻译与用户修改范围的判断；Go MCP 仅把可选 `form_labels` 绑定到当前窗口快照中的控件，Swift 在评分前核对窗口、所有带名称或值的节点及全部可编辑字段的身份、标签、值与几何。空白非编辑装饰节点不构成语义上下文；字段原生路径、旧值和附近文字仍须一致。原始中文标签、当前值和用户填写值不被投影改写。FluidUse/CUA-S1-FORMS 只持有本地推荐与概率，不持有输入、授权或完成事实。未映射字段不评分；过期或无效投影只降级推荐，仍返回新观察。既有无投影调用保留原行为，不新增持久状态或输入权限。详见 `docs/mac-form-label-projection.zh-CN.md`。
+
+繁體：主模型翻譯評分標籤，宿主綁定觀察、原生層核對；FORMS 僅推薦，不改原值或權限。English: The main model owns semantic translation; Go binds the current observation and Swift validates it. Local FORMS owns recommendations only; original values, input permissions and completion ownership remain unchanged.
+
+>>>>>>> Stashed changes
 ## 2026-11-17 已批准：提供商 API 路径开关
 
 `runtime/providers.mjs` 统一解析模型发现、验证和执行的路径。提供商配置 `autoAppendApiVersion` 为 false 时忽略自定义 `basePath`，保留 API 地址自身路径，仅追加协议端点，不自动补 `/v1`；true 沿用自定义路径及版本补齐规则。UI 新建默认关闭，已有配置缺省字段按 true 读取，旧客户端更新保留已保存值，不批量迁移已有连接。完整 Chat Completions/Responses 地址不重复追加端点，Ollama 的原生模型发现仍使用 `/api/tags`。Google 官方兼容端点另通过适配器的 `supportsStore: false` 合同禁用不支持的字段；不按模型名称推断服务能力，不修改 Harness 内核。

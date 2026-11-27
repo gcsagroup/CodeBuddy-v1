@@ -821,6 +821,7 @@ export default function GooseMessage({
                 {(showTextMessageActions || (plainTerminal && showMessageActions)) && (
                   <MessageCopyLink
                     text={displayText}
+                    speakable
                     contentRef={textBlockCount > 1 ? plainTextCopyRef : contentRef}
                     onRetry={retryMessage}
                     alwaysVisible
@@ -989,6 +990,7 @@ export default function GooseMessage({
                 {showMessageActions && (
                   <MessageCopyLink
                     text={terminalCopyText}
+                    speakable
                     contentRef={contentRef}
                     onRetry={retryMessage}
                     alwaysVisible

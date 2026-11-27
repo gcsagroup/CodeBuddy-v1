@@ -88,6 +88,27 @@ const unfinishedCustomProvider = {
 };
 
 describe('ModelsAndRuntimeSettings', () => {
+<<<<<<< Updated upstream
+=======
+  it('opens speech settings from the grouped model services menu', async () => {
+    render(<ModelsAndRuntimeSettings setView={vi.fn()} active />);
+    fireEvent.click(screen.getByRole('button', { name: 'Speech recognition and synthesis' }));
+    expect(await screen.findByText('Endpoint URL')).toBeVisible();
+    expect(screen.getByText('Streaming PCM or QwenTTS NDJSON')).toBeVisible();
+  });
+  it('reloads connections when settings reopen and ignores an older response', async () => {
+    let resolveOld!: (value: typeof customProvider[]) => void;
+    vi.mocked(acpListProviderDetails).mockReturnValueOnce(new Promise(resolve => { resolveOld = resolve; }));
+    const view = render(<ModelsAndRuntimeSettings setView={vi.fn()} active />);
+    view.rerender(<ModelsAndRuntimeSettings setView={vi.fn()} active={false} />);
+    vi.mocked(acpListProviderDetails).mockResolvedValue([{ ...customProvider, name: 'latest-disabled', enabled: false }]);
+    view.rerender(<ModelsAndRuntimeSettings setView={vi.fn()} active />);
+    fireEvent.click(screen.getByRole('button', { name: 'Models and connections' }));
+    await waitFor(() => expect(screen.getByTestId('custom-provider-grid')).toHaveTextContent('latest-disabled'));
+    await act(async () => resolveOld([customProvider]));
+    expect(screen.getByTestId('custom-provider-grid')).toHaveTextContent('latest-disabled');
+  });
+>>>>>>> Stashed changes
   beforeEach(() => {
     vi.clearAllMocks();
     vi.mocked(acpReadConfig).mockImplementation(async (key) =>

@@ -4595,53 +4595,11 @@
   "messageQueue.cancel": {
     "defaultMessage": "Batal"
   },
-  "messageQueue.cannotSendWhileEditing": {
-    "defaultMessage": "Tidak dapat mengirim saat mengedit"
-  },
-  "messageQueue.clearAll": {
-    "defaultMessage": "Hapus Semua"
-  },
-  "messageQueue.clickToEdit": {
-    "defaultMessage": "{content} (Klik untuk mengedit)"
-  },
-  "messageQueue.collapseDrafts": {
-    "defaultMessage": "Collapse saved drafts"
-  },
-  "messageQueue.collapseQueue": {
-    "defaultMessage": "Ciutkan antrean"
-  },
-  "messageQueue.confirmNotSent": {
-    "defaultMessage": "Confirmed not sent: queue again"
-  },
-  "messageQueue.confirmSent": {
-    "defaultMessage": "Confirmed sent: remove"
-  },
-  "messageQueue.continueSending": {
-    "defaultMessage": "Pesan tetap tersimpan. Kirim sekarang saat Anda siap."
-  },
   "messageQueue.edit": {
     "defaultMessage": "Edit pesan"
   },
-  "messageQueue.expandDrafts": {
-    "defaultMessage": "Expand saved drafts"
-  },
-  "messageQueue.expandQueue": {
-    "defaultMessage": "Perluas antrean"
-  },
-  "messageQueue.messageCount": {
-    "defaultMessage": "{count,plural,one{# pesan {status}} other{# pesan {status}}}"
-  },
-  "messageQueue.more": {
-    "defaultMessage": "Tindakan pesan lainnya"
-  },
   "messageQueue.next": {
     "defaultMessage": "Berikutnya"
-  },
-  "messageQueue.pending": {
-    "defaultMessage": "Menunggu dikirim"
-  },
-  "messageQueue.queued": {
-    "defaultMessage": "diantrekan"
   },
   "messageQueue.removeFromQueue": {
     "defaultMessage": "Hapus pesan ini dari antrean"
@@ -4649,29 +4607,11 @@
   "messageQueue.save": {
     "defaultMessage": "Simpan"
   },
-  "messageQueue.savedDrafts": {
-    "defaultMessage": "{count,plural,one{# saved draft} other{# saved drafts}}"
-  },
-  "messageQueue.sendAllNow": {
-    "defaultMessage": "Kirim semua sekarang"
-  },
-  "messageQueue.sendDrafts": {
-    "defaultMessage": "Send saved drafts"
-  },
-  "messageQueue.sendNow": {
-    "defaultMessage": "Kirim pesan ini sekarang"
-  },
-  "messageQueue.sendTogether": {
-    "defaultMessage": "Kirim semua pesan tertunda sekaligus sekarang"
-  },
-  "messageQueue.steer": {
-    "defaultMessage": "Arahkan"
-  },
   "messageQueue.verifyDelivery": {
     "defaultMessage": "Sending result unknown. Check the conversation before retrying."
   },
   "messageQueue.waitingForCancellation": {
-    "defaultMessage": "Waiting for cancellation confirmation. Your queued message has not been sent."
+    "defaultMessage": "Menghentikan giliran saat ini. Pesan yang dipilih akan dikirim setelah selesai."
   },
   "messageQueue.waitingForPreviousPrompt": {
     "defaultMessage": "Waiting for the previous request to finish. Your queued message has not been sent."
@@ -10291,5 +10231,62 @@
   "projectCreator.title": {"defaultMessage":"Create workspace"},
   "projectEditor.note": {"defaultMessage":"Folder note (optional)"},
   "projectEditor.protected": {"defaultMessage":"Reference-only folders disable full access for new chats."},
-  "sessionPermissions.referenceProtected": {"defaultMessage":"This workspace includes reference-only folders. Full access is unavailable to protect them from edits."}
+  "sessionPermissions.referenceProtected": {"defaultMessage":"This workspace includes reference-only folders. Full access is unavailable to protect them from edits."},
+  "followUp.admitted": {
+    "defaultMessage": "Received; waiting for the current task to process"
+  },
+  "followUp.attachments": {
+    "defaultMessage": "Lampiran: {count}"
+  },
+  "followUp.description": {
+    "defaultMessage": "Queue messages for the next turn, or steer the current task. Ctrl+Enter uses the other mode."
+  },
+  "followUp.failed": {
+    "defaultMessage": "Could not save this preference. Please try again."
+  },
+  "followUp.loadFailed": {
+    "defaultMessage": "Could not read follow-up mode. Reopen chat settings and retry."
+  },
+  "followUp.loading": {
+    "defaultMessage": "Loading follow-up mode"
+  },
+  "followUp.localPending": {
+    "defaultMessage": "Pesan lokal belum dikonfirmasi ({count})"
+  },
+  "followUp.queue": {
+    "defaultMessage": "Queue"
+  },
+  "followUp.queuedSend": {
+    "defaultMessage": "Queue for the next turn (Ctrl+Enter to steer)"
+  },
+  "followUp.requeue": {
+    "defaultMessage": "Not sent: queue this message instead"
+  },
+  "followUp.retry": {
+    "defaultMessage": "Retry"
+  },
+  "followUp.steer": {
+    "defaultMessage": "Steer"
+  },
+  "followUp.steerSend": {
+    "defaultMessage": "Steer the current task (Ctrl+Enter to queue)"
+  },
+  "followUp.title": {
+    "defaultMessage": "Follow-up messages"
+  },
+  "followUp.unavailable": {
+    "defaultMessage": "This runtime does not support steering. Restart the updated preview, or queue this message instead."
+  },
+  "messageQueue.checkAndRequeue": {
+    "defaultMessage": "Periksa pengiriman dan antrekan kembali"
+  },
+  "messageQueue.nativeWaiting": {
+    "defaultMessage": "Sudah diterima tugas; kirim pesan baru untuk melanjutkan."
+  },
+  "messageQueue.prioritySend": {
+    "defaultMessage": "Kirim lebih awal"
+  },
+  "messageQueue.prioritySendHint": {
+    "defaultMessage": "Kirim setelah tindakan saat ini selesai, tanpa menghentikan tugas."
+  }
 }

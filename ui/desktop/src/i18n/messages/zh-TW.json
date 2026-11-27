@@ -4685,53 +4685,11 @@
   "messageQueue.cancel": {
     "defaultMessage": "取消"
   },
-  "messageQueue.cannotSendWhileEditing": {
-    "defaultMessage": "編輯時無法傳送"
-  },
-  "messageQueue.clearAll": {
-    "defaultMessage": "全部清除"
-  },
-  "messageQueue.clickToEdit": {
-    "defaultMessage": "{content}（點擊以編輯）"
-  },
-  "messageQueue.collapseDrafts": {
-    "defaultMessage": "收起已保留的草稿"
-  },
-  "messageQueue.collapseQueue": {
-    "defaultMessage": "收合佇列"
-  },
-  "messageQueue.confirmNotSent": {
-    "defaultMessage": "確認未傳送：重新排隊"
-  },
-  "messageQueue.confirmSent": {
-    "defaultMessage": "確認已傳送：移除"
-  },
-  "messageQueue.continueSending": {
-    "defaultMessage": "訊息已保留，點選立即傳送即可繼續。"
-  },
   "messageQueue.edit": {
     "defaultMessage": "編輯訊息"
   },
-  "messageQueue.expandDrafts": {
-    "defaultMessage": "展開已保留的草稿"
-  },
-  "messageQueue.expandQueue": {
-    "defaultMessage": "展開佇列"
-  },
-  "messageQueue.messageCount": {
-    "defaultMessage": "{count,plural,one{# 則訊息 {status}} other{# 則訊息 {status}}}"
-  },
-  "messageQueue.more": {
-    "defaultMessage": "更多訊息操作"
-  },
   "messageQueue.next": {
     "defaultMessage": "下一個"
-  },
-  "messageQueue.pending": {
-    "defaultMessage": "待傳送"
-  },
-  "messageQueue.queued": {
-    "defaultMessage": "已排入佇列"
   },
   "messageQueue.removeFromQueue": {
     "defaultMessage": "從佇列中移除此訊息"
@@ -4739,29 +4697,11 @@
   "messageQueue.save": {
     "defaultMessage": "儲存"
   },
-  "messageQueue.savedDrafts": {
-    "defaultMessage": "已保留 {count} 則草稿"
-  },
-  "messageQueue.sendAllNow": {
-    "defaultMessage": "全部立即傳送"
-  },
-  "messageQueue.sendDrafts": {
-    "defaultMessage": "傳送草稿"
-  },
-  "messageQueue.sendNow": {
-    "defaultMessage": "立即傳送"
-  },
-  "messageQueue.sendTogether": {
-    "defaultMessage": "將所有待傳送訊息一併傳送"
-  },
-  "messageQueue.steer": {
-    "defaultMessage": "立即切換"
-  },
   "messageQueue.verifyDelivery": {
     "defaultMessage": "傳送結果尚不確定，請先核對對話中的紀錄，再決定是否重試。"
   },
   "messageQueue.waitingForCancellation": {
-    "defaultMessage": "正在停止上一輪，確認後自動傳送這則新訊息。"
+    "defaultMessage": "正在停止目前回合，確認結束後傳送所選訊息。"
   },
   "messageQueue.waitingForPreviousPrompt": {
     "defaultMessage": "正在等待上一條請求結束，佇列中的訊息尚未傳送。"
@@ -10309,5 +10249,62 @@
   },
   "sessionPermissions.referenceProtected": {
     "defaultMessage": "此工作區包含僅供參考目錄，為保護這些目錄，不能使用完整存取。"
+  },
+  "followUp.admitted": {
+    "defaultMessage": "已接收，等待目前任務處理"
+  },
+  "followUp.attachments": {
+    "defaultMessage": "附件：{count}"
+  },
+  "followUp.description": {
+    "defaultMessage": "執行時將後續訊息排隊，或引導目前任務。Ctrl+Enter 使用相反方式；執行中的工具不會因引導被停止。"
+  },
+  "followUp.failed": {
+    "defaultMessage": "無法儲存此設定，請重試。"
+  },
+  "followUp.loadFailed": {
+    "defaultMessage": "無法讀取傳送方式，請重新開啟聊天設定並重試。"
+  },
+  "followUp.loading": {
+    "defaultMessage": "正在讀取後續訊息傳送方式"
+  },
+  "followUp.localPending": {
+    "defaultMessage": "本機待確認的訊息（{count}）"
+  },
+  "followUp.queue": {
+    "defaultMessage": "排隊"
+  },
+  "followUp.queuedSend": {
+    "defaultMessage": "排隊到下一輪（Ctrl+Enter 引導）"
+  },
+  "followUp.requeue": {
+    "defaultMessage": "確定未傳送：改為排隊"
+  },
+  "followUp.retry": {
+    "defaultMessage": "重試"
+  },
+  "followUp.steer": {
+    "defaultMessage": "引導"
+  },
+  "followUp.steerSend": {
+    "defaultMessage": "引導目前任務（Ctrl+Enter 排隊）"
+  },
+  "followUp.title": {
+    "defaultMessage": "後續訊息處理方式"
+  },
+  "followUp.unavailable": {
+    "defaultMessage": "目前執行階段不支援引導，請重啟更新後的原始碼預覽，或將這則訊息改為排隊。"
+  },
+  "messageQueue.checkAndRequeue": {
+    "defaultMessage": "核對傳送結果並重新排隊"
+  },
+  "messageQueue.nativeWaiting": {
+    "defaultMessage": "任務已接收；傳送一則新訊息後繼續處理。"
+  },
+  "messageQueue.prioritySend": {
+    "defaultMessage": "優先傳送"
+  },
+  "messageQueue.prioritySendHint": {
+    "defaultMessage": "目前步驟結束後傳送，不中斷目前任務。"
   }
 }

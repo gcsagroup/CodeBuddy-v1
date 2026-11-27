@@ -4595,53 +4595,11 @@
   "messageQueue.cancel": {
     "defaultMessage": "Annulla"
   },
-  "messageQueue.cannotSendWhileEditing": {
-    "defaultMessage": "Impossibile inviare durante la modifica"
-  },
-  "messageQueue.clearAll": {
-    "defaultMessage": "Cancella tutto"
-  },
-  "messageQueue.clickToEdit": {
-    "defaultMessage": "{content} (Clicca per modificare)"
-  },
-  "messageQueue.collapseDrafts": {
-    "defaultMessage": "Collapse saved drafts"
-  },
-  "messageQueue.collapseQueue": {
-    "defaultMessage": "Comprimi coda"
-  },
-  "messageQueue.confirmNotSent": {
-    "defaultMessage": "Confirmed not sent: queue again"
-  },
-  "messageQueue.confirmSent": {
-    "defaultMessage": "Confirmed sent: remove"
-  },
-  "messageQueue.continueSending": {
-    "defaultMessage": "I messaggi sono conservati. Inviali quando sei pronto."
-  },
   "messageQueue.edit": {
     "defaultMessage": "Modifica messaggio"
   },
-  "messageQueue.expandDrafts": {
-    "defaultMessage": "Expand saved drafts"
-  },
-  "messageQueue.expandQueue": {
-    "defaultMessage": "Espandi coda"
-  },
-  "messageQueue.messageCount": {
-    "defaultMessage": "{count,plural,one{# messaggio {status}} other{# messaggi {status}}}"
-  },
-  "messageQueue.more": {
-    "defaultMessage": "Altre azioni sul messaggio"
-  },
   "messageQueue.next": {
     "defaultMessage": "Successivo"
-  },
-  "messageQueue.pending": {
-    "defaultMessage": "In attesa di invio"
-  },
-  "messageQueue.queued": {
-    "defaultMessage": "in coda"
   },
   "messageQueue.removeFromQueue": {
     "defaultMessage": "Rimuovi questo messaggio dalla coda"
@@ -4649,29 +4607,11 @@
   "messageQueue.save": {
     "defaultMessage": "Salva"
   },
-  "messageQueue.savedDrafts": {
-    "defaultMessage": "{count,plural,one{# saved draft} other{# saved drafts}}"
-  },
-  "messageQueue.sendAllNow": {
-    "defaultMessage": "Invia tutto ora"
-  },
-  "messageQueue.sendDrafts": {
-    "defaultMessage": "Send saved drafts"
-  },
-  "messageQueue.sendNow": {
-    "defaultMessage": "Invia subito questo messaggio"
-  },
-  "messageQueue.sendTogether": {
-    "defaultMessage": "Invia ora insieme tutti i messaggi in attesa"
-  },
-  "messageQueue.steer": {
-    "defaultMessage": "Guida"
-  },
   "messageQueue.verifyDelivery": {
     "defaultMessage": "Sending result unknown. Check the conversation before retrying."
   },
   "messageQueue.waitingForCancellation": {
-    "defaultMessage": "Waiting for cancellation confirmation. Your queued message has not been sent."
+    "defaultMessage": "Interruzione del turno attuale. I messaggi selezionati verranno inviati al termine."
   },
   "messageQueue.waitingForPreviousPrompt": {
     "defaultMessage": "Waiting for the previous request to finish. Your queued message has not been sent."
@@ -10291,5 +10231,62 @@
   "projectCreator.title": {"defaultMessage":"Create workspace"},
   "projectEditor.note": {"defaultMessage":"Folder note (optional)"},
   "projectEditor.protected": {"defaultMessage":"Reference-only folders disable full access for new chats."},
-  "sessionPermissions.referenceProtected": {"defaultMessage":"This workspace includes reference-only folders. Full access is unavailable to protect them from edits."}
+  "sessionPermissions.referenceProtected": {"defaultMessage":"This workspace includes reference-only folders. Full access is unavailable to protect them from edits."},
+  "followUp.admitted": {
+    "defaultMessage": "Received; waiting for the current task to process"
+  },
+  "followUp.attachments": {
+    "defaultMessage": "Allegati: {count}"
+  },
+  "followUp.description": {
+    "defaultMessage": "Queue messages for the next turn, or steer the current task. Ctrl+Enter uses the other mode."
+  },
+  "followUp.failed": {
+    "defaultMessage": "Could not save this preference. Please try again."
+  },
+  "followUp.loadFailed": {
+    "defaultMessage": "Could not read follow-up mode. Reopen chat settings and retry."
+  },
+  "followUp.loading": {
+    "defaultMessage": "Loading follow-up mode"
+  },
+  "followUp.localPending": {
+    "defaultMessage": "Messaggi locali non confermati ({count})"
+  },
+  "followUp.queue": {
+    "defaultMessage": "Queue"
+  },
+  "followUp.queuedSend": {
+    "defaultMessage": "Queue for the next turn (Ctrl+Enter to steer)"
+  },
+  "followUp.requeue": {
+    "defaultMessage": "Not sent: queue this message instead"
+  },
+  "followUp.retry": {
+    "defaultMessage": "Retry"
+  },
+  "followUp.steer": {
+    "defaultMessage": "Steer"
+  },
+  "followUp.steerSend": {
+    "defaultMessage": "Steer the current task (Ctrl+Enter to queue)"
+  },
+  "followUp.title": {
+    "defaultMessage": "Follow-up messages"
+  },
+  "followUp.unavailable": {
+    "defaultMessage": "This runtime does not support steering. Restart the updated preview, or queue this message instead."
+  },
+  "messageQueue.checkAndRequeue": {
+    "defaultMessage": "Controlla l’invio e rimetti in coda"
+  },
+  "messageQueue.nativeWaiting": {
+    "defaultMessage": "Già ricevuto dall’attività; invia un nuovo messaggio per continuare."
+  },
+  "messageQueue.prioritySend": {
+    "defaultMessage": "Invia prima"
+  },
+  "messageQueue.prioritySendHint": {
+    "defaultMessage": "Invia al termine dell’azione corrente, senza interrompere l’attività."
+  }
 }

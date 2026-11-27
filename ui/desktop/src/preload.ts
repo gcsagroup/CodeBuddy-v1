@@ -325,6 +325,7 @@ const electronAPI: ElectronAPI = {
       }
       return await ipcRenderer.invoke('get-setting', key);
     } catch (error) {
+      if (key === 'followUpMode') throw error;
       console.error(`Failed to get setting '${key}', using default`, error);
       return defaultSettings[key];
     }

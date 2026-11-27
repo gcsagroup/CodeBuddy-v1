@@ -1,4 +1,5 @@
 import { inputQueueRequest } from '../acp/inputQueue';
+import { acpChatSessionActions } from '../acp/chatSessionStore';
 import { deliverMainConversationMessage } from '../pets/mainConversation';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
@@ -20,6 +21,9 @@ import { ATTACH_WORKSPACE_IMAGE } from '../workspace-panel/workspaceFilePanel';
 import { conversationMention } from './conversationMention';
 
 vi.mock('../acp/inputQueue', () => ({ inputQueueRequest: vi.fn(async () => ({ version: 1, revision: 0, paused: false, activeRunId: null, items: [], selection: null })) }));
+const followUpChoice = vi.hoisted(() => ({ mode: 'queue' as 'queue' | 'steer', ready: true, error: false, reload: vi.fn() }));
+vi.mock('../hooks/useFollowUpMode', () => ({ useFollowUpMode: () => followUpChoice }));
+afterEach(() => { followUpChoice.mode = 'queue'; followUpChoice.ready = true; });
 
 const selection = vi.hoisted(() => ({ item: null as ToolboxItem | null }));
 vi.mock('../acp/session-extensions', () => ({
@@ -149,11 +153,6 @@ function setup(
   };
 }
 
-const sendNow = () => {
-  const saved = screen.queryByRole('button', { name: 'Expand saved drafts' });
-  if (saved) fireEvent.click(saved);
-  return screen.getByRole('button', { name: /^Send (?:all )?now$|^Send saved drafts$/ });
-};
 
 describe('large pasted drafts', () => {
   beforeEach(() => {
@@ -403,148 +402,51 @@ describe('workspace images added to the composer', () => {
 });
 
 describe('compact queue presentation', () => {
-  const item = { id: 'first', content: 'First queued request', timestamp: 1, images: [] };
-  it('keeps a large queued message compact and preserves its complete text when edited', () => {
-    const text = '中文🙂\n'.repeat(24000);
-    const editMessage = vi.fn();
-    const view = render(<MessageQueue queuedMessages={[{ ...item, content: text }]} onRemoveMessage={vi.fn()} onClearQueue={vi.fn()} onEditMessage={editMessage} />, { wrapper: IntlTestWrapper });
-    expect(view.container.textContent!.length).toBeLessThan(1000);
-    fireEvent.click(screen.getByRole('button', { name: /中文🙂/ }));
-    const editor = screen.getByRole('textbox') as HTMLTextAreaElement;
-    expect(editor.value).toBe('');
-    fireEvent.change(editor, { target: { value: '\nextra instruction' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
-    expect(editMessage).toHaveBeenCalledWith(item.id, text + '\nextra instruction');
-  });
-  it('shows one waiting message directly without an expand control', () => {
-    render(
-      <MessageQueue queuedMessages={[item]} onRemoveMessage={vi.fn()} onClearQueue={vi.fn()} />,
-      { wrapper: IntlTestWrapper }
-    );
-    expect(screen.getByText(item.content)).toBeVisible();
-    expect(screen.queryByRole('button', { name: 'Expand queue' })).toBeNull();
-    expect(screen.queryByText('Queue Paused')).toBeNull();
-  });
-  it('leaves editing when its message is removed and keeps the remaining row accessible', async () => {
-    const editing = { current: null as string | null };
-    const remove = vi.fn();
-    const props = {
-      onRemoveMessage: remove,
-      onClearQueue: vi.fn(),
-      onSendNow: vi.fn(),
-      onEditMessage: vi.fn(),
-      editingMessageIdRef: editing,
-    };
-    const second = { ...item, id: 'second', content: 'Remaining message' };
-    const view = render(<MessageQueue {...props} queuedMessages={[item, second]} />, {
-      wrapper: IntlTestWrapper,
-    });
-    await userEvent.click(screen.getByText(item.content));
-    expect(sendNow()).toBeDisabled();
-    expect(editing.current).toBe(item.id);
-    expect(screen.getByTitle('Remove this message from queue')).toBeDisabled();
-    expect(remove).not.toHaveBeenCalled();
-    view.rerender(<MessageQueue {...props} queuedMessages={[second]} />);
-    await waitFor(() => expect(editing.current).toBeNull());
-    expect(screen.queryByRole('textbox')).toBeNull();
-    expect(screen.queryByRole('button', { name: 'Expand queue' })).toBeNull();
-    expect(screen.getByText(second.content)).toBeVisible();
-    expect(sendNow()).toBeEnabled();
-  });
-  it('shows queued rows by default and lets the user collapse and reopen them', async () => {
-    const send = vi.fn();
-    render(
-      <MessageQueue
-        queuedMessages={[item, { ...item, id: 'second', content: 'Second queued request' }]}
-        onRemoveMessage={vi.fn()}
-        onClearQueue={vi.fn()}
-        onSendNow={send}
-      />,
-      { wrapper: IntlTestWrapper }
-    );
-    expect(screen.queryByText('Message Queue')).toBeNull();
-    expect(screen.getByText('Second queued request')).toBeVisible();
-    await userEvent.click(screen.getByRole('button', { name: 'Collapse queue' }));
-    expect(screen.queryByText('Second queued request')).toBeNull();
-    expect(screen.getByText('2 messages queued')).toBeVisible();
-    const action = screen.getByRole('button', { name: 'Send all now' });
-    expect(action).toHaveAttribute('title', 'Send all waiting messages together now');
-    await userEvent.click(action);
-    expect(send).toHaveBeenCalledOnce();
-    expect(send).toHaveBeenCalledWith();
-    expect(screen.queryByText('Message Queue')).toBeNull();
-    await userEvent.click(screen.getByRole('button', { name: 'Expand queue' }));
-    expect(screen.getByText('2 messages queued')).toBeVisible();
-    expect(screen.getByText('Second queued request')).toBeVisible();
-    expect(screen.queryByText('Queue Paused')).toBeNull();
-    expect(screen.getAllByRole('button', { name: 'Send all now' })).toHaveLength(1);
-  });
-
-  it('keeps cancellation feedback inline without flashing a paused banner or delivery warning', () => {
-    const view = render(
-      <MessageQueue
-        queuedMessages={[item]}
-        onRemoveMessage={vi.fn()}
-        onClearQueue={vi.fn()}
-        onSendNow={vi.fn()}
-      />,
-      { wrapper: IntlTestWrapper }
-    );
-    view.rerender(
-      <MessageQueue
-        queuedMessages={[item]}
-        onRemoveMessage={vi.fn()}
-        onClearQueue={vi.fn()}
-        onSendNow={vi.fn()}
-        isPaused
-        waitingMessageId="first"
-        blockedReason="Waiting for cancellation"
-      />
-    );
-    expect(screen.queryByText('Messages kept. Send now when you are ready.')).toBeNull();
-    expect(screen.queryByText('Paused')).toBeNull();
-    expect(
-      screen.queryByText('Sending result unknown. Check the conversation before retrying.')
-    ).toBeNull();
-    expect(screen.getByLabelText('Waiting for cancellation')).toBeVisible();
-    expect(screen.getByText('First queued request')).toBeVisible();
-  });
-
-  it('lets an unsent queued message be removed while waiting for cancellation', () => {
-    const remove = vi.fn();
-    render(<MessageQueue queuedMessages={[item]} onRemoveMessage={remove}
-      onClearQueue={vi.fn()} onSendNow={vi.fn()} waitingMessageId={item.id}
-      blockedReason="Waiting for cancellation" />, { wrapper: IntlTestWrapper });
-    expect(screen.getByRole('button', { name: 'Send now' })).toBeDisabled();
-    const button = screen.getByRole('button', { name: 'Remove this message from queue' });
-    expect(button).toBeEnabled();
-    fireEvent.click(button);
-    expect(remove).toHaveBeenCalledWith(item.id);
-  });
-
-  it('keeps an uncertain delivery and its confirmation controls directly visible', async () => {
-    const confirmNotSent = vi.fn();
-    render(
-      <MessageQueue
-        queuedMessages={[{ ...item, delivery: 'submitting' }]}
-        onRemoveMessage={vi.fn()}
-        onClearQueue={vi.fn()}
-        onSendNow={vi.fn()}
-        onConfirmNotSent={confirmNotSent}
-        isPaused
-      />,
-      { wrapper: IntlTestWrapper }
-    );
-    expect(
-      screen.getByText('Sending result unknown. Check the conversation before retrying.')
-    ).toBeVisible();
-    expect(screen.getByRole('button', { name: 'Send now' })).toBeDisabled();
-    expect(screen.getByRole('button', { name: 'Send now' })).toHaveAttribute('aria-busy', 'false');
-    expect(screen.getByRole('button', { name: 'Confirmed sent: remove' })).toBeVisible();
-    await userEvent.click(screen.getByRole('button', { name: 'Confirmed not sent: queue again' }));
-    expect(confirmNotSent).toHaveBeenCalledOnce();
-    expect(confirmNotSent).toHaveBeenCalledWith('first');
-  });
+ const item={id:'first',content:'First queued request',timestamp:1,images:[]};
+ const props={onRemoveMessage:vi.fn(),onSteerMessage:vi.fn(),onEditMessage:vi.fn()};
+ it('keeps ten original rows in one scrollable card with only three actions per row', () => {
+  const messages=Array.from({length:10},(_,index)=>({...item,id:String(index),content:'Message '+index}));
+  const view=render(<MessageQueue {...props} queuedMessages={messages}/>,{wrapper:IntlTestWrapper});
+  expect(screen.getAllByRole('button')).toHaveLength(30);
+  expect(screen.getAllByRole('button',{name:'Send sooner'})).toHaveLength(10);
+  expect(view.container.querySelectorAll('[data-queue-row]')).toHaveLength(10);
+  expect(screen.queryByRole('button',{name:/Expand|Collapse|More|Clear/})).toBeNull();
+  expect(screen.queryByText(/step|automatically/i)).toBeNull();
+  expect(screen.getByText('Message 9')).toBeVisible();
+ });
+ it('keeps a large payload compact and preserves its full text when edited', () => {
+  const content='中文🙂\n'.repeat(24000),edit=vi.fn();
+  const view=render(<MessageQueue {...props} onEditMessage={edit} queuedMessages={[{...item,content}]}/>,{wrapper:IntlTestWrapper});
+  expect(view.container.textContent.length).toBeLessThan(1000);
+  fireEvent.click(screen.getByRole('button',{name:'Edit message'}));
+  const editor=screen.getByRole('textbox'); expect(editor).toHaveValue('');
+  fireEvent.change(editor,{target:{value:'\nextra instruction'}});fireEvent.click(screen.getByRole('button',{name:'Save'}));
+  expect(edit).toHaveBeenCalledWith('first',content+'\nextra instruction');
+ });
+ it('leaves editing when its row is removed and keeps the remaining row usable', async () => {
+  const editing={current:null as string|null},second={...item,id:'second',content:'Remaining message'};
+  const view=render(<MessageQueue {...props} editingMessageIdRef={editing} queuedMessages={[item,second]}/>,{wrapper:IntlTestWrapper});
+  fireEvent.click(screen.getAllByRole('button',{name:'Edit message'})[0]);
+  expect(editing.current).toBe('first');
+  view.rerender(<MessageQueue {...props} editingMessageIdRef={editing} queuedMessages={[second]}/>);
+  await waitFor(()=>expect(editing.current).toBeNull());
+  expect(screen.queryByRole('textbox')).toBeNull();expect(screen.getByRole('button',{name:'Send sooner'})).toBeEnabled();
+ });
+ it('keeps an unsent row removable during a pending cancellation', () => {
+  const remove=vi.fn();render(<MessageQueue {...props} onRemoveMessage={remove} queuedMessages={[item]} waitingMessageId="first" blockedReason="Waiting for cancellation"/>,{wrapper:IntlTestWrapper});
+  expect(screen.getByText('Waiting for cancellation')).toBeVisible();
+  expect(screen.getByRole('button',{name:'Send sooner'})).toBeDisabled();
+  fireEvent.click(screen.getByRole('button',{name:'Remove this message from queue'}));expect(remove).toHaveBeenCalledWith('first');
+ });
+ it.each([false,true])('keeps uncertain delivery protected with activeRun=%s', active => {
+  const confirm=vi.fn();render(<MessageQueue {...props} onConfirmNotSent={confirm} hasActiveRun={active} queuedMessages={[{...item,delivery:'submitting'}]}/>,{wrapper:IntlTestWrapper});
+  expect(screen.getAllByRole('button')).toHaveLength(3);
+  const retry=screen.getByRole('button',{name:'Check sending status and requeue'});
+  expect(retry).toHaveProperty('disabled',active);
+  expect(screen.getByRole('button',{name:'Edit message'})).toBeDisabled();
+  expect(screen.getByRole('button',{name:'Remove this message from queue'})).toBeDisabled();
+  if(!active){fireEvent.click(retry);expect(confirm).toHaveBeenCalledExactlyOnceWith('first');}
+ });
 });
 
 describe('ChatInput queue delivery', () => {
@@ -886,17 +788,17 @@ describe('server owned queue controls', () => {
   it('keeps the queue editor open when the server refuses the edit', async () => {
     const edit = vi.fn(async () => false);
     render(<MessageQueue queuedMessages={[{id:'a',content:'original',images:[],timestamp:1}]} onRemoveMessage={vi.fn()} onClearQueue={vi.fn()} onEditMessage={edit} />, {wrapper:IntlTestWrapper});
-    fireEvent.click(screen.getByRole('button',{name:'original'}));
+    fireEvent.click(screen.getByRole('button',{name:'Edit message'}));
     fireEvent.change(screen.getByRole('textbox'),{target:{value:'revised'}});
     fireEvent.click(screen.getByRole('button',{name:'Save'}));
     await waitFor(()=>expect(edit).toHaveBeenCalledWith('a','revised'));
     expect(screen.getByRole('textbox')).toHaveValue('revised');
   });
   it('blocks edit delete clear and duplicate switching while a selected batch is in flight', () => {
-    render(<MessageQueue queuedMessages={[{id:'a',content:'original',images:[],timestamp:1}]} sendingMessageIds={new Set(['a'])} onRemoveMessage={vi.fn()} onClearQueue={vi.fn()} onSendNow={vi.fn()} onSteerMessage={vi.fn()} onEditMessage={vi.fn()} />, {wrapper:IntlTestWrapper});
-    expect(screen.getByRole('button',{name:'Clear All'})).toBeDisabled();
+    render(<MessageQueue hasActiveRun queuedMessages={[{id:'a',content:'original',images:[],timestamp:1}]} sendingMessageIds={new Set(['a'])} onRemoveMessage={vi.fn()} onClearQueue={vi.fn()} onSendNow={vi.fn()} onSteerMessage={vi.fn()} onEditMessage={vi.fn()} />, {wrapper:IntlTestWrapper});
+    expect(screen.queryByRole('button',{name:'Clear All'})).toBeNull();
     expect(screen.getByRole('button',{name:'Remove this message from queue'})).toBeDisabled();
-    expect(screen.getByRole('button',{name:'Switch now'})).toBeDisabled();
+    expect(screen.getByRole('button',{name:'Send sooner'})).toBeDisabled();
   });
 });
 
@@ -910,6 +812,60 @@ it('accepts a new draft while the consumed queue snapshot is still catching up',
   const input=screen.getByTestId('chat-input');fireEvent.change(input,{target:{value:'next instruction'}});fireEvent.keyDown(input,{key:'Enter'});
   await waitFor(()=>expect(inputQueueRequest).toHaveBeenCalledWith('queue-test',expect.objectContaining({action:'enqueue',items:[expect.objectContaining({content:'next instruction'})]})));
   await waitFor(()=>expect(input).toHaveValue(''));expect(submit).not.toHaveBeenCalled();
+});
+
+it.each(['queue', 'steer'] as const)('preserves ten Enter boundaries in %s mode before the first acknowledgement', async mode => {
+ localStorage.clear(); followUpChoice.mode = mode;
+ const snap = {version:1 as const,revision:0,paused:false,activeRunId:'old',steering:true,selection:null,items:[]};
+ const first = deferred<typeof snap>(); let writes = 0;
+ vi.mocked(inputQueueRequest).mockClear().mockImplementation(async (_id, command) => command.action === 'get' ? snap : ++writes === 1 ? first.promise : {...snap, revision:writes});
+ const submit = vi.fn(); setup(submit);
+ await waitFor(() => expect(inputQueueRequest).toHaveBeenCalled());
+ await act(async () => {});
+ const input = screen.getByTestId('chat-input');
+ for (let index = 0; index < 10; index++) {
+   fireEvent.change(input, {target:{value:'1'}}); fireEvent.keyDown(input, {key:'Enter'});
+   expect(input).toHaveValue('');
+ }
+ expect(writes).toBe(1);
+ if (mode === 'queue') expect(document.querySelectorAll('[data-queue-row]')).toHaveLength(10);
+ else expect(document.querySelectorAll('[data-queue-row]')).toHaveLength(0);
+ await act(async () => { first.resolve({...snap, revision:1}); });
+ await waitFor(() => expect(vi.mocked(inputQueueRequest).mock.calls.filter(([, command]) => command.action === 'enqueue')).toHaveLength(10));
+ const sent = vi.mocked(inputQueueRequest).mock.calls.filter(([, command]) => command.action === 'enqueue');
+ expect(sent.map(([, command]) => (command.items as {content:string}[])[0].content)).toEqual(Array(10).fill('1'));
+ expect(new Set(sent.map(([, command]) => (command.items as {id:string}[])[0].id)).size).toBe(10);
+ expect(submit).not.toHaveBeenCalled();
+});
+
+it('shows the content and count of recovered local inputs without submitting them', async () => {
+ localStorage.clear(); sessionStorage.setItem('codebuddy-queue-window','recovery-ui');
+ localStorage.setItem('codebuddy-queue-command:v2:recovery-ui:queue-test', JSON.stringify({version:2,commands:[
+   {action:'enqueue',commandId:'restore-a',revision:0,items:[{id:'a',content:'first local correction',images:[]}]},
+   {action:'enqueue',commandId:'restore-b',revision:0,items:[{id:'b',content:'second local correction',images:[{data:'aGVsbG8=',mimeType:'image/png'}]}]},
+ ]}));
+ vi.mocked(inputQueueRequest).mockClear().mockResolvedValue({version:1,revision:0,paused:false,activeRunId:null,selection:null,items:[]});
+ setup(vi.fn());
+ await screen.findByText('first local correction');
+ expect(screen.getByText('first local correction')).toBeVisible();
+ expect(screen.getByText('second local correction')).toBeVisible();
+ expect(screen.getByText('· Attachments: 1')).toBeVisible();
+ expect(vi.mocked(inputQueueRequest).mock.calls.every(([, command]) => command.action==='get')).toBe(true);
+});
+
+it('keeps a queued tail visible behind an unacknowledged guide', async () => {
+ localStorage.clear(); followUpChoice.mode='steer';
+ const snap={version:1 as const,revision:0,paused:false,activeRunId:'old',steering:true,selection:null,items:[]};
+ const first=deferred<typeof snap>();
+ vi.mocked(inputQueueRequest).mockClear().mockImplementation(async (_id, command) => command.action==='get' ? snap : first.promise);
+ setup(vi.fn()); await waitFor(() => expect(inputQueueRequest).toHaveBeenCalled()); await act(async () => {});
+ const input=screen.getByTestId('chat-input');
+ fireEvent.change(input,{target:{value:'guide first'}}); fireEvent.keyDown(input,{key:'Enter'});
+ expect(document.querySelectorAll('[data-queue-row]')).toHaveLength(0);
+ fireEvent.change(input,{target:{value:'queued correction'}}); fireEvent.keyDown(input,{key:'Enter',ctrlKey:true});
+ expect(document.querySelectorAll('[data-queue-row]')).toHaveLength(1);
+ expect(screen.getByText('queued correction')).toBeVisible(); expect(input).toHaveValue('');
+ await act(async () => { first.resolve({...snap,revision:1}); });
 });
 
 it('clears staged queued input immediately and never clears newer text on delayed acknowledgement', async()=>{
@@ -926,7 +882,6 @@ it('clears staged queued input immediately and never clears newer text on delaye
  await waitFor(()=>expect(release).toBeDefined());
  expect(input).toHaveValue('');
  fireEvent.change(input,{target:{value:'next draft'}});
- fireEvent.keyDown(input,{key:'Enter'});
  expect(vi.mocked(inputQueueRequest).mock.calls.filter(([,c])=>c.action==='enqueue')).toHaveLength(1);
  expect(input).toHaveValue('next draft');
  await act(async()=>{release({...snap,revision:1});});
@@ -939,7 +894,7 @@ it('keeps the list expanded across async edit admission and focuses only the que
  const begin=vi.fn(()=>new Promise<boolean>(r=>{resolve=r;}));
  const props={queuedMessages:items,onRemoveMessage:vi.fn(),onClearQueue:vi.fn(),onEditMessage:vi.fn(async()=>true),onBeginEdit:begin};
  const view=render(<MessageQueue {...props}/>,{wrapper:IntlTestWrapper});
- fireEvent.click(screen.getByRole('button',{name:'layout text 5'}));
+ fireEvent.click(screen.getAllByRole('button',{name:'Edit message'})[5]);
  view.rerender(<MessageQueue {...props} isPaused/>);
  expect(screen.getByText('layout text 0')).toBeVisible();
  await act(async()=>{resolve(true);});
@@ -947,6 +902,258 @@ it('keeps the list expanded across async edit admission and focuses only the que
  expect(editor).toHaveFocus();expect(editor).toHaveValue('layout text 5');
  expect(editor.closest('[data-queue-row]')?.querySelector('[aria-label="Remove this message from queue"]')).toBeNull();
  fireEvent.click(screen.getByRole('button',{name:'Cancel'}));
- expect(screen.getByRole('button',{name:'layout text 5'})).toHaveFocus();
+ expect(screen.getAllByRole('button',{name:'Edit message'})[5]).toHaveFocus();
  expect(props.onEditMessage).not.toHaveBeenCalled();
+});
+
+
+it.each([false,true])('keeps priority actions per message with activeRun=%s', active => {
+ const send=vi.fn(),all=vi.fn();
+ const messages=[{id:'a',content:'First request',images:[],timestamp:1},{id:'b',content:'Second request',images:[],timestamp:2}];
+ render(<MessageQueue queuedMessages={messages} hasActiveRun={active} onRemoveMessage={vi.fn()} onSteerMessage={send} onSendNow={all}/>,{wrapper:IntlTestWrapper});
+ fireEvent.click(screen.getAllByRole('button',{name:'Send sooner'})[1]);
+ expect(send).toHaveBeenCalledExactlyOnceWith('b');expect(all).not.toHaveBeenCalled();
+});
+
+it('prioritizes the selected idle row while preserving the other queued order', async () => {
+ localStorage.clear();
+ const items=['a','b','c'].map(id=>({id,content:'Queued '+id,timestamp:1,desktopGeneration:'',images:[],state:'pending' as const}));
+ let revision=0;
+ vi.mocked(inputQueueRequest).mockClear().mockImplementation(async (_id,command)=>({version:1,revision:command.action==='get'?revision:++revision,paused:true,activeRunId:null,selection:null,items}));
+ const view=setup(vi.fn());view.changeState(ChatState.Idle);
+ await screen.findByText('Queued b');
+ fireEvent.click(screen.getAllByRole('button',{name:'Send sooner'})[1]);
+ await waitFor(()=>expect(vi.mocked(inputQueueRequest).mock.calls.filter(([,command])=>command.action==='resume')).toHaveLength(1));
+ const operations=vi.mocked(inputQueueRequest).mock.calls.filter(([,command])=>command.action!=='get').map(([,command])=>command);
+ expect(operations.map(command=>command.action)).toEqual(['reorder','resume']);
+ expect(operations[0].ids).toEqual(['b','a','c']);expect(view.onStop).not.toHaveBeenCalled();
+});
+
+it('can resume an idle pending row while another message is already owned by native inbox', async () => {
+ localStorage.clear();
+ const items=[
+   {id:'owned',content:'Native owned',timestamp:1,desktopGeneration:'',images:[],state:'admitted' as const,deliveryTarget:'next-step' as const,targetRunId:'old'},
+   {id:'pending',content:'Pending request',timestamp:2,desktopGeneration:'',images:[],state:'pending' as const},
+ ];
+ vi.mocked(inputQueueRequest).mockClear().mockResolvedValue({version:1,revision:1,paused:true,activeRunId:null,selection:null,items});
+ const view=setup(vi.fn());view.changeState(ChatState.Idle);await screen.findByText('Pending request');
+ const buttons=screen.getAllByRole('button',{name:'Send sooner'});
+ expect(buttons[0]).toBeDisabled();expect(buttons[1]).toBeEnabled();fireEvent.click(buttons[1]);
+ await waitFor(()=>expect(inputQueueRequest).toHaveBeenCalledWith('queue-test',expect.objectContaining({action:'resume'})));
+ expect(view.onStop).not.toHaveBeenCalled();
+});
+
+describe('follow-up mode routing', () => {
+  beforeEach(() => {
+    localStorage.clear();
+    vi.stubGlobal('ResizeObserver', class { observe() {} disconnect() {} unobserve() {} });
+    vi.mocked(inputQueueRequest).mockReset().mockResolvedValue({ version: 1, revision: 0, paused: false,
+      activeRunId: 'running', steering: true, selection: null, items: [] });
+  });
+  afterEach(() => vi.unstubAllGlobals());
+
+  it.each(['queue', 'steer'] as const)('retains a loading image when Enter is pressed in %s mode', async mode => {
+    followUpChoice.mode = mode;
+    const compressed = deferred<string>();
+    const normalize = vi.spyOn(conversion, 'compressImageDataUrl').mockReturnValue(compressed.promise);
+    setup(vi.fn());
+    try {
+      await waitFor(() => expect(inputQueueRequest).toHaveBeenCalledWith('queue-test', expect.objectContaining({ action: 'get' })));
+      act(() => window.dispatchEvent(new CustomEvent(ATTACH_WORKSPACE_IMAGE, { detail: {
+        sessionId: 'queue-test', name: 'sample.png', dataUrl: 'data:image/png;base64,aGVsbG8=',
+      } })));
+      await waitFor(() => expect(normalize).toHaveBeenCalled());
+      const input = screen.getByTestId('chat-input');
+      fireEvent.change(input, { target: { value: '看看这张图片' } });
+      fireEvent.keyDown(input, { key: 'Enter' });
+      await act(async () => {});
+      expect(vi.mocked(inputQueueRequest).mock.calls.filter(([, command]) => command.action === 'enqueue')).toHaveLength(0);
+      expect(input).toHaveValue('看看这张图片');
+      await act(async () => compressed.resolve('data:image/png;base64,aGVsbG8='));
+      fireEvent.keyDown(input, { key: 'Enter' });
+      await waitFor(() => expect(vi.mocked(inputQueueRequest).mock.calls.filter(([, command]) => command.action === 'enqueue')).toHaveLength(1));
+      const command = vi.mocked(inputQueueRequest).mock.calls.find(([, command]) => command.action === 'enqueue')![1];
+      expect(command.items).toEqual([expect.objectContaining({ content: '看看这张图片', images: [{ data: 'aGVsbG8=', mimeType: 'image/png' }] })]);
+    } finally { compressed.resolve('data:image/png;base64,aGVsbG8='); normalize.mockRestore(); }
+  });
+
+  it('retains a loading file until it can be included in the queued input', async () => {
+    const file = { id: 'loading-doc', name: 'notes.txt', path: 'C:/fixture/notes.txt', type: 'text/plain', isImage: false, isVideo: false };
+    const props = { sessionId: 'loading-file', chatState: ChatState.Thinking, handleSubmit: vi.fn(), setView: vi.fn() };
+    const view = render(<ChatInput {...props} droppedFiles={[{ ...file, isLoading: true }]} />, { wrapper: IntlTestWrapper });
+    await waitFor(() => expect(inputQueueRequest).toHaveBeenCalledWith('loading-file', expect.objectContaining({ action: 'get' })));
+    const input = screen.getByTestId('chat-input');
+    fireEvent.change(input, { target: { value: '看看这个文件' } });
+    fireEvent.keyDown(input, { key: 'Enter' });
+    await act(async () => {});
+    expect(vi.mocked(inputQueueRequest).mock.calls.filter(([, command]) => command.action === 'enqueue')).toHaveLength(0);
+    expect(input).toHaveValue('看看这个文件');
+    view.rerender(<ChatInput {...props} droppedFiles={[file]} />);
+    fireEvent.keyDown(input, { key: 'Enter' });
+    await waitFor(() => expect(vi.mocked(inputQueueRequest).mock.calls.filter(([, command]) => command.action === 'enqueue')).toHaveLength(1));
+    const command = vi.mocked(inputQueueRequest).mock.calls.find(([, command]) => command.action === 'enqueue')![1];
+    expect(command.items).toEqual([expect.objectContaining({ content: '看看这个文件 C:/fixture/notes.txt' })]);
+  });
+
+  it.each(['queue','steer'] as const)('keeps image and file attachments with the original %s input', async mode => {
+    followUpChoice.mode=mode;
+    const normalize=vi.spyOn(conversion,'compressImageDataUrl').mockResolvedValue('data:image/png;base64,aGVsbG8=');
+    const submit=vi.fn();
+    const view=render(<ChatInput sessionId="attachment-route" chatState={ChatState.Thinking} handleSubmit={submit} setView={vi.fn()}
+      droppedFiles={[{id:'doc',name:'notes.txt',path:'C:/fixture/notes.txt',type:'text/plain',isImage:false,isVideo:false}]} />,{wrapper:IntlTestWrapper});
+    try {
+      await waitFor(()=>expect(inputQueueRequest).toHaveBeenCalledWith('attachment-route',expect.objectContaining({action:'get'})));
+      act(()=>window.dispatchEvent(new CustomEvent(ATTACH_WORKSPACE_IMAGE,{detail:{sessionId:'attachment-route',name:'sample.png',dataUrl:'data:image/png;base64,aGVsbG8='}})));
+      await waitFor(()=>expect(normalize).toHaveBeenCalled()); await act(async()=>{});
+      const input=screen.getByTestId('chat-input');fireEvent.change(input,{target:{value:'看看这两个附件'}});fireEvent.keyDown(input,{key:'Enter'});
+      await waitFor(()=>expect(vi.mocked(inputQueueRequest).mock.calls.some(([id,command])=>id==='attachment-route'&&command.action==='enqueue')).toBe(true));
+      const command=vi.mocked(inputQueueRequest).mock.calls.find(([id,command])=>id==='attachment-route'&&command.action==='enqueue')![1];
+      const row=(command.items as Array<{content:string;images:unknown[];mode?:string}>)[0];
+      expect(row.content).toBe('看看这两个附件 C:/fixture/notes.txt');
+      expect(row.images).toEqual([{data:'aGVsbG8=',mimeType:'image/png'}]);expect(row.mode==='steer').toBe(mode==='steer');
+      expect(submit).not.toHaveBeenCalled();
+    } finally {view.unmount();normalize.mockRestore();}
+  });
+
+  it('prioritizes an attached message by its original ID and projects the same image into its bubble', async () => {
+    const image={data:'aGVsbG8=',mimeType:'image/png'};
+    vi.mocked(inputQueueRequest).mockResolvedValue({version:1,revision:1,paused:false,activeRunId:'running',steering:true,selection:null,
+      items:[{id:'attached-original',content:'Check this C:/fixture/notes.txt',images:[image],timestamp:1,desktopGeneration:'',state:'pending'}]});
+    const bubble=vi.spyOn(acpChatSessionActions,'addPendingLocalSteerMessage');
+    const view=setup(vi.fn());
+    try {
+      fireEvent.click(await screen.findByRole('button',{name:'Send sooner'}));
+      await waitFor(()=>expect(inputQueueRequest).toHaveBeenCalledWith('queue-test',expect.objectContaining({action:'next-step',ids:['attached-original']})));
+      expect(bubble).toHaveBeenCalledWith('queue-test',expect.objectContaining({id:'attached-original',content:[
+        {type:'text',text:'Check this C:/fixture/notes.txt'},{type:'image',...image},
+      ]}));expect(view.onStop).not.toHaveBeenCalled();
+    } finally {view.unmount();bubble.mockRestore();acpChatSessionActions.deleteSnapshot('queue-test');}
+  });
+
+  it('moves an ordinary queued identity to native next step without invoking Stop or changing guide mode', async () => {
+    const snapshot = { version: 1 as const, revision: 1, paused: false, activeRunId: 'running', steering: true,
+      selection: null, items: [{ id: 'native-queued', content: '1', timestamp: 1, desktopGeneration: '', images: [], state: 'pending' as const }] };
+    vi.mocked(inputQueueRequest).mockResolvedValue(snapshot);
+    const view = setup(vi.fn());
+    fireEvent.click(await screen.findByRole('button', { name: 'Send sooner' }));
+    await waitFor(() => expect(inputQueueRequest).toHaveBeenCalledWith('queue-test', expect.objectContaining({
+      action: 'next-step', ids: ['native-queued'], expectedRunId: 'running',
+    })));
+    expect(view.onStop).not.toHaveBeenCalled();
+    expect(vi.mocked(inputQueueRequest).mock.calls.some(([, command]) => command.action === 'send')).toBe(false);
+    acpChatSessionActions.deleteSnapshot('queue-test');
+  });
+
+  it('does not offer a false resume or an uncertain-delivery recovery for native-owned waiting input', () => {
+    render(<MessageQueue hasActiveRun={false} queuedMessages={[{ id: 'native-owned', content: '1', timestamp: 1, images: [],
+      delivery: 'submitting', deliveryState: 'admitted', deliveryTarget: 'next-step', admitted: true }]}
+      onRemoveMessage={vi.fn()} onClearQueue={vi.fn()} onSendNow={vi.fn()} isPaused />, { wrapper: IntlTestWrapper });
+    expect(screen.getByText('Already received by the task; send a new message to continue processing.')).toBeVisible();
+    expect(screen.queryByRole('button', { name: 'Resume queue' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Confirmed not sent: queue again' })).toBeNull();
+  });
+
+  it.each(['pending', 'dispatching', 'admitted'] as const)('keeps an active %s steering receipt out of the queue while retaining ordinary queued messages', async state => {
+    vi.mocked(inputQueueRequest).mockResolvedValue({ version: 1, revision: 1, paused: false,
+      activeRunId: 'running', steering: true, selection: null, items: [
+        { id: 'steer', content: 'Active correction', timestamp: 1, desktopGeneration: '', images: [], mode: 'steer', targetRunId: 'running', state },
+        { id: 'queue', content: 'Next turn request', timestamp: 2, desktopGeneration: '', images: [], state: 'pending' },
+      ] });
+    setup(vi.fn());
+    expect(await screen.findByText('Next turn request')).toBeVisible();
+    expect(screen.queryByText('Active correction')).toBeNull();
+    expect(screen.getByRole('button', { name: 'Send sooner' })).toHaveProperty('disabled', state === 'pending');
+  });
+
+  it.each([
+    ['uncertain', 'running', 'running'],
+    ['pending', null, 'running'],
+    ['pending', 'replacement', 'running'],
+  ] as const)('retains recoverable steering rows with state=%s and activeRun=%s', async (state, activeRunId, targetRunId) => {
+    vi.mocked(inputQueueRequest).mockResolvedValue({ version: 1, revision: 1, paused: true,
+      activeRunId, steering: true, selection: null, items: [
+        { id: 'recover', content: 'Recover this correction', timestamp: 1, desktopGeneration: '', images: [], mode: 'steer', targetRunId, state },
+      ] });
+    setup(vi.fn());
+    await waitFor(() => expect(inputQueueRequest).toHaveBeenCalled());
+    expect(await screen.findByText('Recover this correction')).toBeVisible();
+  });
+
+  it('keeps recovery controls enabled when an uncertain delivery blocks a pending steering item', async () => {
+    vi.mocked(inputQueueRequest).mockResolvedValue({ version: 1, revision: 1, paused: true,
+      activeRunId: 'running', steering: true, selection: null, items: [
+        { id: 'unknown', content: 'Unknown correction', timestamp: 1, desktopGeneration: '', images: [], mode: 'steer', targetRunId: 'running', state: 'uncertain' },
+        { id: 'waiting', content: 'Blocked correction', timestamp: 2, desktopGeneration: '', images: [], mode: 'steer', targetRunId: 'running', state: 'pending' },
+      ] });
+    setup(vi.fn());
+    expect(await screen.findByText('Unknown correction')).toBeVisible();
+    expect(screen.getByText('Blocked correction')).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Check sending status and requeue' })).toBeDisabled();
+  });
+
+  it('does not flash the queue saving notice while a steering command is durably staged', async () => {
+    followUpChoice.mode = 'steer';
+    const ack = deferred<Awaited<ReturnType<typeof inputQueueRequest>>>();
+    const snapshot = { version: 1 as const, revision: 1, paused: false, activeRunId: 'running', steering: true, selection: null, items: [] };
+    vi.mocked(inputQueueRequest).mockImplementation(async (_id, command) => command.action === 'get' ? snapshot : ack.promise);
+    const bubble = vi.spyOn(acpChatSessionActions, 'addPendingLocalSteerMessage');
+    const accepted = vi.fn();
+    setup(vi.fn(), undefined, false, false, { onSubmissionAccepted: accepted });
+    await waitFor(() => expect(inputQueueRequest).toHaveBeenCalled());
+    fireEvent.change(screen.getByTestId('chat-input'), { target: { value: 'A new correction' } });
+    fireEvent.keyDown(screen.getByTestId('chat-input'), { key: 'Enter' });
+    await waitFor(() => expect(screen.getByTestId('chat-input')).toHaveValue(''));
+    expect(screen.queryByText('正在保存待发送消息…')).toBeNull();
+    const sent = vi.mocked(inputQueueRequest).mock.calls.find(([, command]) => command.action === 'enqueue')![1];
+    const item = (sent.items as Array<{ id: string }>)[0];
+    expect(bubble).toHaveBeenCalledWith('queue-test', expect.objectContaining({ id: item.id,
+      content: [{ type: 'text', text: 'A new correction' }],
+      metadata: expect.objectContaining({ steer: true, pendingDelivery: 'unconfirmed', agentVisible: false }),
+    }));
+    expect(accepted).toHaveBeenCalledOnce();
+    await act(async () => ack.resolve(snapshot));
+    bubble.mockRestore();
+  });
+
+  it.each([
+    ['steer', false, true], ['steer', true, false], ['queue', false, false], ['queue', true, true],
+  ] as const)('uses %s with Ctrl=%s and preserves legacy stopping as a separate action', async (mode, ctrlKey, steering) => {
+    followUpChoice.mode = mode;
+    const submit = vi.fn(), view = setup(submit);
+    await waitFor(() => expect(inputQueueRequest).toHaveBeenCalledWith('queue-test', expect.objectContaining({ action: 'get' })));
+    const input = screen.getByTestId('chat-input');
+    fireEvent.change(input, { target: { value: 'New correction' } });
+    fireEvent.keyDown(input, { key: 'Enter', ctrlKey });
+    await waitFor(() => expect(vi.mocked(inputQueueRequest).mock.calls.some(([, command]) => command.action === 'enqueue')).toBe(true));
+    const command = vi.mocked(inputQueueRequest).mock.calls.find(([, command]) => command.action === 'enqueue')![1];
+    const row = (command.items as Array<{ mode?: string }>)[0];
+    expect(row.mode === 'steer').toBe(steering);
+    expect(command.expectedRunId).toBe(steering ? 'running' : undefined);
+    expect(submit).not.toHaveBeenCalled(); expect(view.onStop).not.toHaveBeenCalled();
+  });
+
+  it('keeps the draft intact while the saved sending preference is unknown', async () => {
+    followUpChoice.ready = false;
+    setup(vi.fn());
+    const input = screen.getByTestId('chat-input');
+    fireEvent.change(input, { target: { value: 'Keep this correction' } });
+    fireEvent.keyDown(input, { key: 'Enter' });
+    expect(input).toHaveValue('Keep this correction');
+    expect(vi.mocked(inputQueueRequest).mock.calls.some(([, command]) => command.action === 'enqueue')).toBe(false);
+    expect(screen.getByText('Loading follow-up mode')).toBeVisible();
+  });
+
+  it('retains steering input when connected to an older runtime without the capability receipt', async () => {
+    followUpChoice.mode = 'steer';
+    vi.mocked(inputQueueRequest).mockResolvedValue({ version: 1, revision: 0, paused: false,
+      activeRunId: 'old-backend', selection: null, items: [] });
+    setup(vi.fn());
+    await waitFor(() => expect(inputQueueRequest).toHaveBeenCalled());
+    const input = screen.getByTestId('chat-input');
+    fireEvent.change(input, { target: { value: 'Keep my correction' } });
+    fireEvent.keyDown(input, { key: 'Enter' });
+    expect(input).toHaveValue('Keep my correction');
+    expect(vi.mocked(inputQueueRequest).mock.calls.some(([, command]) => command.action === 'enqueue')).toBe(false);
+    expect(screen.getByText(/This runtime does not support steering/)).toBeVisible();
+  });
 });

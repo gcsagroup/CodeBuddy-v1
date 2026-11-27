@@ -24,6 +24,19 @@
     "testCommand": "node --test test/driver.test.mjs"
   },
   "compatibilityPatches": {
+    "followUpSteering": {
+      "adapter": "steering-patch.mjs via runtime-context-contract.mjs and windows-preparation-contract.mjs",
+      "version": "0.2.1-alpha.2",
+      "approved": "2026-11-27: separate queue and steer; retain legacy queue behavior, running tools and native execution/history ownership",
+      "sourceSha256": {
+        "@deepseek-ai/dsh-agent-loop/lib/index.js": "cf57e3ecd487ac5c2553455aaa5cef2c6fb41e6bd61be5aa455675d1d7193033",
+        "@deepseek-ai/dsh-tool-jobs/lib/index.js": "660066155801b20c67e6e288820961a365fe65738ffee1a16e50a2394ac9c7c6",
+        "@deepseek-ai/dsh-tool-pwsh/lib/index.js": "2b71dff5421f95cf445f1a6f97e660e3ebaed187a77b4c0dddb493caf3ce00b1"
+      },
+      "scope": "Independent model-request preemption after native input admission; preserve confirmed completed items, discard open blocks from canonical assistant history, stop undispatched proposals while draining started calls. job_output and registered foreground PowerShell jobs release only their registry wait, retaining the original producer. Optional promoted releaseReason=steer/preparing distinguishes a handoff from timeout or confirmed command start. Media status observers and optional completed-image inspection can yield without cancelling shared refresh/download or generation; job receipts and the original foreground budget remain authoritative. Desktop pre-dispatch tail/lease waits may withdraw only that proposal; real predecessors and dispatched actions still settle, with first window scope committed at the native metadata boundary. Direct synchronous MCP/Tasks are not generically backgrounded. Real cancellation and preparation settlement stay native. No node_modules writes or second Agent loop.",
+      "delivery": "The existing host ledger preserves stable message IDs, expected run identity, admitted versus consumed receipts, and uncertain recovery without automatic replay. Native claim-to-commit and third-party controller concurrency are not claimed as permanent exactly-once.",
+      "removal": "Replace with an equivalent upstream request-preemption and wait-yield contract; re-review all locked module hashes and cross-layer tests on upgrade. Consumers and loader must be migrated together."
+    },
     "streamingDecodeSpeed": {
       "adapter": "sdk-budget/adapter-patch.mjs",
       "scope": "Request continuous_usage_stats on discovered vLLM chat streams with usage enabled. Publish request-scoped intermediate output counts through the existing transport observer for display. Other providers retain their wire options. End-of-request sessionStats remains upstream.",

@@ -53,6 +53,7 @@ import { selectMediaWorkflow, canDeliverMediaDirectly } from './media-workflow-s
 import { installMediaArtifactContext } from './media-artifact-context.mjs';
 
 import { abortable } from './abortable.mjs';
+import { waitForSteeringInput } from './steering-patch.mjs';
 
 // The sidebar title needs topic and outcome; the conversation keeps the full messages.
 function titleExcerpt(text, limit) {
@@ -424,16 +425,17 @@ export async function createHarnessDriver({ dataDir, cwd = process.cwd(), instru
         '电脑控制已停止：工具已返回截图，但当前模型没有可用的视觉结果。请在“模型与运行”中选择支持图片的模型，或配置辅助视觉，再重新观察窗口。已执行的操作不会重放，发送状态尚未核实。',
       ), { code: 'desktop/vision-unavailable' });
     },
-    async project(content, exec, desktopObservation, browserObservation) {
+    async project(content, exec, desktopObservation, browserObservation, { signal = exec.signal } = {}) {
+      signal.throwIfAborted();
       const routed = exec.agent?.session.requestHeader()?.config;
       const provider = routed?.provider ?? exec.agent?.options.provider;
       const model = routed?.model ?? exec.agent?.options.model;
-      const info = await ctx.llm.resolveModelInfo(provider, model, exec.signal);
+      const info = await ctx.llm.resolveModelInfo(provider, model, signal);
       const settings = settingsFor(exec.agent);
       if (info.inputModalities?.includes('image') && !settings?.prefersMcpImageObserver?.(model)) return content;
       const fallback = settings?.mcpImageFallback;
       if (!fallback) throw new Error('No image-capable model or auxiliary observer is configured');
-      return fallback(content, { sessionId: exec.agent.id, toolName: exec.name, signal: exec.signal, desktopObservation, browserObservation });
+      return fallback(content, { sessionId: exec.agent.id, toolName: exec.name, signal, desktopObservation, browserObservation });
     },
   });
   function emit(run, event) {
@@ -761,6 +763,7 @@ export async function createHarnessDriver({ dataDir, cwd = process.cwd(), instru
     const call = approvalCalls.get(`${exec.agent.id}\0${exec.callId}`) ?? await permissionCall(exec, active);
     const dispatch = async () => {
       await active?.onToolStart?.(call);
+      if (!directCalls.has(exec.callId) && exec.agent?.codebuddyHasPendingSteering?.()) return ctx.tools.cancellationResult(exec);
       try {
         if (exec.name !== 'pwsh' || directCalls.has(exec.callId)) return await next();
         const lookup = scriptLookups.get(exec.agent);
@@ -773,11 +776,14 @@ export async function createHarnessDriver({ dataDir, cwd = process.cwd(), instru
       finally { call.desktopControlReceipt = mcpPlugin.takeDesktopControlReceipt(exec); }
     };
     try {
-      return await (active?.onDesktopTool ? active.onDesktopTool(call, dispatch) : dispatch());
+      if (!active?.onDesktopTool) return await dispatch();
+      call.waitForSteering = wait => waitForSteeringInput(ctx, exec, wait);
+      return await active.onDesktopTool(call, dispatch);
     } catch (error) {
+      if (error.desktopOutcome === 'steered' && !exec.signal.aborted) return ctx.tools.cancellationResult(exec);
       if (['paused', 'stale', 'withdrawn', 'stopped'].includes(error.desktopOutcome)) desktopOutcomes.set(exec, error.desktopOutcome);
       throw error;
-    }
+    } finally { delete call.waitForSteering; }
   });
   ctx.on('tools/post-execute', async (exec, result, next) => {
     const decision = await next();
@@ -1411,7 +1417,10 @@ export async function createHarnessDriver({ dataDir, cwd = process.cwd(), instru
                   }
                   return undefined;
                 } } : {}),
-                ...(tool.currentRequestWorkflow === true ? { selectWorkflow: request => selectMediaWorkflow(ctx, exec.agent, { ...request, signal: exec.signal }) } : {}) };
+                ...(tool.currentRequestWorkflow === true ? {
+                  selectWorkflow: request => selectMediaWorkflow(ctx, exec.agent, { ...request, signal: exec.signal }),
+                  waitForSteering: wait => waitForSteeringInput(ctx, exec, wait),
+                } : {}) };
               const value = await tool.execute(args, settings.projectToolContext ? settings.projectToolContext(context) : context);
               const deliveredByHost = tool.rootOnly && ((tool.name === 'manage_workspace' &&
                 value.finishOnAcceptance === true && value.status === 'accepted') ||
@@ -1441,8 +1450,19 @@ export async function createHarnessDriver({ dataDir, cwd = process.cwd(), instru
                 // Delivery-only scope has no visual review to perform. Retain
                 // the UI image and durable file receipt without another observer call.
                 if (mediaDelivered) return { ...value, content: value.content.filter(block => block.type !== 'image') };
+                const withoutInspection = text => ({ ...value, content: value.content.flatMap(block => block.type === 'image'
+                  ? [{ type: 'text', text }] : [block]) });
                 try {
-                  const content = await ctx.get('codebuddyMcpVision').project(value.content, exec, undefined, tool.name === 'browser_control' ? value.browserObservation : undefined);
+                  const project = signal => ctx.get('codebuddyMcpVision').project(value.content, exec, undefined,
+                    tool.name === 'browser_control' ? value.browserObservation : undefined, { signal });
+                  const observed = tool.currentRequestWorkflow === true && args.operation === 'status'
+                    // Capability/credential reads inside the optional observer may
+                    // not accept signals. Its owner keeps those reads; later
+                    // cancellation checks prevent starting stale inference.
+                    ? await waitForSteeringInput(ctx, exec, signal => abortable(project(signal), signal))
+                    : { value: await project(exec.signal) };
+                  if (observed.released) return withoutInspection('Image inspection yielded to new input. The generation receipt and saved output remain valid; do not claim visual details that were not inspected.');
+                  const content = observed.value;
                   const images = content.filter(block => block.type === 'image' && !block.attachment);
                   if (images.length) {
                     const route = exec.agent.session.requestHeader()?.config ?? exec.agent.options;
@@ -1461,9 +1481,7 @@ export async function createHarnessDriver({ dataDir, cwd = process.cwd(), instru
                   if (exec.signal.aborted) throw error;
                   // The tool action succeeded. Inspection cannot turn it into a
                   // retryable action failure or replace its original receipt.
-                  return { ...value, content: value.content.flatMap(block => block.type === 'image'
-                    ? [{ type: 'text', text: 'Image inspection is unavailable for this result. The tool action and saved output remain valid. Do not repeat the action just to retry inspection or claim visual details you did not observe.' }]
-                    : [block]) };
+                  return withoutInspection('Image inspection is unavailable for this result. The tool action and saved output remain valid. Do not repeat the action just to retry inspection or claim visual details you did not observe.');
                 }
               }
               return value && typeof value === 'object' && !Array.isArray(value) ? value : { result: value ?? null };
@@ -1718,7 +1736,7 @@ export async function createHarnessDriver({ dataDir, cwd = process.cwd(), instru
         // parked notices through native step admission; mixed human queues retain FIFO.
         const mode = promptAgent?.status === 'idle' && parked.length > 0 && parked.every(message => message.source?.kind === 'subagent-settled') ? 'steer' : 'queue';
         if (adopted) adopted.attached.resolve();
-        else if (inputBatch?.length) {
+        else if (inputBatch?.length > 1) {
           // Admit every original message under the native maintenance barrier.
           // Native execution starts only after the entire ordered batch is ready.
           await promptAgent.runMaintenance(async maintenanceSignal => {
@@ -1813,19 +1831,35 @@ export async function createHarnessDriver({ dataDir, cwd = process.cwd(), instru
         return status ? { serverName: state.serverName, status, ...(status === 'error' ? { error: [...scopeChainOf(agent), ctx.root].map(key => mcpPlugin.mcpConnectionError(key, state.serverName)).find(Boolean) ?? 'MCP connection is unavailable or reconnecting.' } : {}) } : structuredClone(state);
       });
     },
-    async steer(sessionId, content, { signal = new AbortController().signal, requestId = randomUUID(), queuedWhileBusy = false } = {}) {
+    async steer(sessionId, content, { signal = new AbortController().signal, requestId = randomUUID(), queuedWhileBusy = false, preempt = false, prepareContent } = {}) {
       const run = runs.get(sessionId);
-      if (!run || !run.acceptingInput || run.cancelRequested) throw Object.assign(
-        new Error('Steering requires an active prompt; use prompt for an idle session'),
-        { harnessCode: 'PROMPT_IDLE' },
-      );
-      const admission = ctx.sessionController.prompt({ sessionId, requestId, mode: 'steer', content: typeof content === 'string' ? [{ type: 'text', text: content }] : content, clientTimeZone: 'Asia/Shanghai' }, signal);
-      run.steers.add(admission);
-      try {
-        const result = await admission;
+      const assertActive = () => {
+        if (!run || runs.get(sessionId) !== run || !run.acceptingInput || run.cancelRequested) throw Object.assign(
+          new Error('Steering requires an active prompt; use prompt for an idle session'),
+          { harnessCode: 'PROMPT_IDLE' },
+        );
+        signal.throwIfAborted();
+      };
+      assertActive();
+      // Completion must wait for persistence too. Tracking only admission can
+      // leave the idle loop spinning on a resolved promise and starve flush I/O.
+      const delivery = (async () => {
+        // Vision preparation can outlive the current native turn. Reserve this
+        // ACP owner before awaiting it, rather than targeting an already closed run.
+        const prepared = prepareContent ? await prepareContent(content) : content;
+        assertActive();
+        const result = await ctx.sessionController.prompt({ sessionId, requestId, mode: 'steer',
+          content: typeof prepared === 'string' ? [{ type: 'text', text: prepared }] : prepared,
+          clientTimeZone: 'Asia/Shanghai' }, signal);
+        const agent = ctx.agents.get(sessionId);
+        if (preempt && !run.cancelRequested) agent?.codebuddyPreemptForInput(requestId);
+        if (agent) await ctx.sessions.flush(agent.session);
         if (queuedWhileBusy === true) run.queuedWhileBusy = true;
         return result;
-      } finally { run.steers.delete(admission); }
+      })();
+      run.steers.add(delivery);
+      try { return await delivery; }
+      finally { run.steers.delete(delivery); }
     },
     async listTools(sessionId, extensionName) {
       const agent = sessionId ? await resolveAgent(sessionId) : undefined;

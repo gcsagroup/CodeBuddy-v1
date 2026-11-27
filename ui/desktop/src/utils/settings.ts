@@ -57,6 +57,7 @@ export interface Settings extends Typography {
   useSystemTheme: boolean;
   language: LanguageSetting;
   responseStyle: string;
+  followUpMode: 'queue' | 'steer';
   showPricing: boolean;
   seenAnnouncementIds: string[];
 }
@@ -99,6 +100,7 @@ export const defaultSettings: Settings = {
   useSystemTheme: true,
   language: 'zh-CN',
   responseStyle: 'concise',
+  followUpMode: 'steer',
   showPricing: true,
   seenAnnouncementIds: [],
 };

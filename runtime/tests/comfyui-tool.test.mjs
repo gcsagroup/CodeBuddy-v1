@@ -40,6 +40,41 @@ async function fixture(t, saveNode = '461', batch = 1) {
 }
 const generate = { operation: 'generate', prompt: 'A watercolor mountain', request_id: id };
 
+test('a completed image racing with a released observer keeps its terminal receipt without starting visual inspection', async t => {
+  const f = await fixture(t);
+  await f.tool.execute(generate);
+  f.state('completed');
+  const signal = new AbortController().signal;
+  const completed = await f.tool.execute({ operation: 'status', job_id: id, wait_seconds: 0 }, {
+    signal, waitForSteering: async observe => ({ value: await observe(signal), released: true }),
+  });
+  assert.equal(completed.status, 'completed');
+  assert.equal(completed.wait_release_reason, 'steer');
+  assert.equal(completed.next, null, 'a terminal job cannot be described as still generating');
+  assert.equal(completed.content.some(block => block.type === 'image'), false, 'do not start optional inspection after yielding');
+  assert.deepEqual(await readFile(completed.images[0].path), f.png);
+  assert.equal(f.calls.filter(call => call.url.endsWith('/prompt')).length, 1);
+  const later = await f.tool.execute({ operation: 'status', job_id: id, wait_seconds: 0 });
+  assert.equal(later.wait_release_reason, undefined);
+  assert.equal(later.content.filter(block => block.type === 'image').length, 1, 'a subsequent explicit observation can still inspect the original saved image');
+});
+
+test('a true stop racing with a released media observer is not swallowed as a successful snapshot', async t => {
+  const f = await fixture(t);
+  await f.tool.execute(generate);
+  f.state('completed');
+  const stop = new AbortController();
+  await assert.rejects(f.tool.execute({ operation: 'status', job_id: id, wait_seconds: 0 }, {
+    signal: stop.signal, waitForSteering: async observe => {
+      const value = await observe(stop.signal);
+      stop.abort(new Error('actual task stop'));
+      return { value, released: true };
+    },
+  }), /actual task stop/);
+  const later = await f.tool.execute({ operation: 'status', job_id: id, wait_seconds: 0 });
+  assert.equal(later.status, 'completed', 'stopping an observer cannot erase an already published completion');
+});
+
 test('session-authorized JPEG attachments upload directly without copying or renaming files', async t => {
   const f = await fixture(t);
   const file = path.join(f.root, 'attachment-without-extension');

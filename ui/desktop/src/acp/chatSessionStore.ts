@@ -387,9 +387,10 @@ function createAcpChatSessionStoreInternal(): AcpChatSessionStoreInternal {
       return notify(sessionId, entry);
     }
 
-    entry.messages = [...entry.messages, cloneMessage(message)];
+    // Append through the existing adapter so another local preview cannot reset
+    // text accumulation for a native echo that is still arriving.
+    applyChatStateChanges(entry, entry.adapter.addPendingLocalSteerMessage(message));
     entry.pendingLocalSteerMessageIds.add(message.id);
-    entry.adapter = createAdapterForEntry(entry);
     return notify(sessionId, entry);
   };
 

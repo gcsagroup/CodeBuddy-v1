@@ -9,6 +9,7 @@ import { mkdir, readFile, realpath, stat, statfs, open, unlink, writeFile, renam
 import path from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
 import { registerToolSessionApproval, toolSessionApprovalScope } from './tool-session-approval.mjs';
+import { abortable } from './harness/abortable.mjs';
 
 export const IMAGE_TOOL_NAME = 'generate_image';
 export const DEFAULT_COMFYUI_URL = 'http://192.168.9.111:8188';
@@ -127,26 +128,44 @@ export function comfyuiTool(options) {
   const imageTool = { ...tool, async execute(input, context = {}) {
     const result = await tool.execute(input, context);
     if (input.operation === 'cancel' || result.status !== 'completed' || !result.images?.length) return result;
-    if (result.workflow_selection?.images_only && Number.isSafeInteger(result.workflow_selection.image_count))
-      result.completed_image_count = await tool.completedImageCount(result.workflow_selection);
-    const receipt = { type: 'text', text: JSON.stringify(result) };
-    try {
-      const images = []; let totalBytes = 0;
-      for (const image of result.images) {
-        context.signal?.throwIfAborted();
-        const file = await inside(options.cwd, image.path), info = await stat(file);
-        if (!info.isFile() || info.size > 8 * 1024 * 1024) throw new Error('Generated image exceeds the visual inspection limit');
-        const bytes = await readFile(file); pngDimensions(bytes); totalBytes += bytes.length;
-        if (bytes.length > 8 * 1024 * 1024 || totalBytes > 32 * 1024 * 1024) throw new Error('Generated images exceed the visual inspection limit');
-        images.push({ type: 'image', mimeType: 'image/png', data: bytes.toString('base64') });
+    const deferredInspection = () => {
+      const snapshot = { ...result, wait_release_reason: 'steer' };
+      return { ...snapshot, content: [{ type: 'text', text: JSON.stringify(snapshot) }, {
+        type: 'text', text: 'Image inspection was deferred when the status wait yielded to new input. The saved generation receipt remains valid; do not claim visual details that were not inspected.',
+      }] };
+    };
+    if (result.wait_release_reason === 'steer') return deferredInspection();
+    async function inspect(signal = context.signal) {
+      const read = pending => signal ? abortable(pending, signal) : pending;
+      signal?.throwIfAborted();
+      if (result.workflow_selection?.images_only && Number.isSafeInteger(result.workflow_selection.image_count))
+        result.completed_image_count = await read(tool.completedImageCount(result.workflow_selection));
+      const receipt = { type: 'text', text: JSON.stringify(result) };
+      try {
+        const images = []; let totalBytes = 0;
+        for (const image of result.images) {
+          signal?.throwIfAborted();
+          const file = await read(inside(options.cwd, image.path));
+          signal?.throwIfAborted();
+          const info = await read(stat(file));
+          signal?.throwIfAborted();
+          if (!info.isFile() || info.size > 8 * 1024 * 1024) throw new Error('Generated image exceeds the visual inspection limit');
+          const bytes = await readFile(file, { signal }); pngDimensions(bytes); totalBytes += bytes.length;
+          if (bytes.length > 8 * 1024 * 1024 || totalBytes > 32 * 1024 * 1024) throw new Error('Generated images exceed the visual inspection limit');
+          images.push({ type: 'image', mimeType: 'image/png', data: bytes.toString('base64') });
+        }
+        signal?.throwIfAborted();
+        return { ...result, content: [receipt, ...images] };
+      } catch (error) {
+        if (signal?.aborted) throw error;
+        // Reading for inspection is optional; the saved generation receipt stays valid.
+        return { ...result, content: [receipt, { type: 'text', text: 'Generated image inspection is unavailable: the saved image could not be read within the inspection limits. Generation remains completed; deliver the saved output and briefly state it was not checked.' }] };
       }
-      context.signal?.throwIfAborted();
-      return { ...result, content: [receipt, ...images] };
-    } catch (error) {
-      if (context.signal?.aborted) throw error;
-      // Reading for inspection is optional; the saved generation receipt stays valid.
-      return { ...result, content: [receipt, { type: 'text', text: 'Generated image inspection is unavailable: the saved image could not be read within the inspection limits. Generation remains completed; deliver the saved output and briefly state it was not checked.' }] };
     }
+    const inspected = context.waitForSteering && input.operation === 'status'
+      ? await context.waitForSteering(inspect) : { value: await inspect() };
+    context.signal?.throwIfAborted();
+    return inspected.released ? deferredInspection() : inspected.value;
   } };
   return registerToolSessionApproval(imageTool, toolSessionApprovalScope(tool));
 }
@@ -607,7 +626,7 @@ export function comfyuiMediaTool({ cwd, dataDir, sessionId, baseUrl = DEFAULT_CO
       request_id: { type: 'string', pattern: uuid.source, description: 'Optional UUID idempotency key (8-4-4-4-12 hexadecimal digits). Omit to generate one automatically. Reuse only for the exact same request.' },
       job_id: { type: 'string' }, wait_seconds: { type: 'integer', minimum: 0, maximum: 240, description: 'For status: use 240 to wait in the host without repeated model calls. Omitted or 0 performs one immediate refresh for compatibility.' },
     }, required: ['operation'], additionalProperties: false },
-    async execute(rawInput, { signal, selectWorkflow, readReferenceImage } = {}) {
+    async execute(rawInput, { signal, selectWorkflow, readReferenceImage, waitForSteering } = {}) {
       signal?.throwIfAborted();
       const { display_name: proposedName, ...input } = rawInput;
       validateWorkflowInput(input);
@@ -759,29 +778,44 @@ export function comfyuiMediaTool({ cwd, dataDir, sessionId, baseUrl = DEFAULT_CO
       const requestedWait = integer(input.wait_seconds, 0, 0, 240);
       const deadline = Date.now() + Math.min(requestedWait * 1000, foregroundRemaining(job));
       const expired = Symbol('foreground wait expired');
-      async function withinDeadline(pending) {
-        if (!requestedWait) return pending;
+      async function withinDeadline(pending, waitSignal) {
         let timer;
         try {
           // A slow history request or output download must not keep the model
           // waiting beyond its budget. The shared refresh may finish in background.
-          return await Promise.race([pending, new Promise(resolve => {
+          const bounded = !requestedWait ? pending : Promise.race([pending, new Promise(resolve => {
             timer = setTimeout(() => resolve(expired), Math.max(0, deadline - Date.now()));
           })]);
+          return await (waitSignal ? abortable(bounded, waitSignal) : bounded);
         } finally { clearTimeout(timer); }
       }
-      let first = true;
-      do {
-        if (!first) Object.assign(job, await load(job.job_id));
-        const key = streamKey(job);
-        const revision = mediaObservation(key).checkRevision ?? 0;
-        const current = await withinDeadline(refresh(job, signal, first, job.status === 'cancelled' && job.cancel_requested === true));
-        if (current === expired) return result(await load(job.job_id));
-        first = false;
-        if (!['queued', 'running'].includes(current.status) || Date.now() >= deadline) return current;
-        const remaining = Math.max(1, checkInterval(key) - (Date.now() - (checks.get(key)?.at ?? 0)));
-        await waitMediaCheck(key, Math.min(remaining, deadline - Date.now()), signal, revision);
-      } while (true);
+      async function observe(waitSignal = signal) {
+        let first = true;
+        do {
+          waitSignal?.throwIfAborted();
+          if (!first) Object.assign(job, await load(job.job_id));
+          waitSignal?.throwIfAborted();
+          const key = streamKey(job);
+          const revision = mediaObservation(key).checkRevision ?? 0;
+          // Only this observation is interruptible. The shared refresh/download
+          // keeps the original signal and must finish publishing its real receipt.
+          const current = await withinDeadline(refresh(job, signal, first, job.status === 'cancelled' && job.cancel_requested === true), waitSignal);
+          if (current === expired) return result(await load(job.job_id));
+          first = false;
+          if (!['queued', 'running'].includes(current.status) || Date.now() >= deadline) return current;
+          const remaining = Math.max(1, checkInterval(key) - (Date.now() - (checks.get(key)?.at ?? 0)));
+          await waitMediaCheck(key, Math.min(remaining, deadline - Date.now()), waitSignal, revision);
+        } while (true);
+      }
+      const waited = waitForSteering ? await waitForSteering(observe) : { value: await observe() };
+      signal?.throwIfAborted();
+      if (!waited.released) return waited.value;
+      const snapshot = result(await load(job.job_id));
+      signal?.throwIfAborted();
+      return { ...snapshot, wait_release_reason: 'steer',
+        ...(['queued', 'running'].includes(snapshot.status) && !snapshot.waiting_in_background ? {
+          next: 'The status wait yielded to new input. Generation continues under the same job_id; retrieve its result with status when needed. Do not resubmit or cancel because this wait ended.',
+        } : {}) };
     },
   };
   tool.description += ' For every generate request, include display_name: a concise name in the user\'s language describing the specific intended result. Users see this name in the generation list, so identify the subject and purpose or action, and distinguish requested variants (for example 招手动作图 and 跳跃动作图, or 春季促销海报 and 夏季促销海报). Do not use a generic tool label, a sequence number, a job ID, or a status as the name. Reuse the name when retrying the same request. Status/cancel calls only need the existing job_id. This is display metadata and does not decide execution or completion; omission does not block generation.';

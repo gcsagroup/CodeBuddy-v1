@@ -4595,53 +4595,11 @@
   "messageQueue.cancel": {
     "defaultMessage": "취소"
   },
-  "messageQueue.cannotSendWhileEditing": {
-    "defaultMessage": "수정 중에는 보낼 수 없습니다."
-  },
-  "messageQueue.clearAll": {
-    "defaultMessage": "모두 지우기"
-  },
-  "messageQueue.clickToEdit": {
-    "defaultMessage": "{content} (수정하려면 클릭하세요)"
-  },
-  "messageQueue.collapseDrafts": {
-    "defaultMessage": "Collapse saved drafts"
-  },
-  "messageQueue.collapseQueue": {
-    "defaultMessage": "대기열 축소"
-  },
-  "messageQueue.confirmNotSent": {
-    "defaultMessage": "Confirmed not sent: queue again"
-  },
-  "messageQueue.confirmSent": {
-    "defaultMessage": "Confirmed sent: remove"
-  },
-  "messageQueue.continueSending": {
-    "defaultMessage": "메시지가 보관되어 있습니다. 준비되면 전송하세요."
-  },
   "messageQueue.edit": {
     "defaultMessage": "메시지 편집"
   },
-  "messageQueue.expandDrafts": {
-    "defaultMessage": "Expand saved drafts"
-  },
-  "messageQueue.expandQueue": {
-    "defaultMessage": "대기열 확장"
-  },
-  "messageQueue.messageCount": {
-    "defaultMessage": "{count,plural,one{#개 메시지 {status}} other{#개 메시지 {status}}}"
-  },
-  "messageQueue.more": {
-    "defaultMessage": "메시지 추가 작업"
-  },
   "messageQueue.next": {
     "defaultMessage": "다음"
-  },
-  "messageQueue.pending": {
-    "defaultMessage": "전송 대기"
-  },
-  "messageQueue.queued": {
-    "defaultMessage": "대기 중"
   },
   "messageQueue.removeFromQueue": {
     "defaultMessage": "대기열에서 이 메시지 제거"
@@ -4649,29 +4607,11 @@
   "messageQueue.save": {
     "defaultMessage": "저장"
   },
-  "messageQueue.savedDrafts": {
-    "defaultMessage": "{count,plural,one{# saved draft} other{# saved drafts}}"
-  },
-  "messageQueue.sendAllNow": {
-    "defaultMessage": "모두 지금 전송"
-  },
-  "messageQueue.sendDrafts": {
-    "defaultMessage": "Send saved drafts"
-  },
-  "messageQueue.sendNow": {
-    "defaultMessage": "지금 이 메시지 보내기"
-  },
-  "messageQueue.sendTogether": {
-    "defaultMessage": "대기 중인 모든 메시지를 지금 함께 전송"
-  },
-  "messageQueue.steer": {
-    "defaultMessage": "추가 지시"
-  },
   "messageQueue.verifyDelivery": {
     "defaultMessage": "Sending result unknown. Check the conversation before retrying."
   },
   "messageQueue.waitingForCancellation": {
-    "defaultMessage": "Waiting for cancellation confirmation. Your queued message has not been sent."
+    "defaultMessage": "현재 턴을 중지하고 있습니다. 종료되면 선택한 메시지를 보냅니다."
   },
   "messageQueue.waitingForPreviousPrompt": {
     "defaultMessage": "Waiting for the previous request to finish. Your queued message has not been sent."
@@ -10291,5 +10231,62 @@
   "projectCreator.title": {"defaultMessage":"Create workspace"},
   "projectEditor.note": {"defaultMessage":"Folder note (optional)"},
   "projectEditor.protected": {"defaultMessage":"Reference-only folders disable full access for new chats."},
-  "sessionPermissions.referenceProtected": {"defaultMessage":"This workspace includes reference-only folders. Full access is unavailable to protect them from edits."}
+  "sessionPermissions.referenceProtected": {"defaultMessage":"This workspace includes reference-only folders. Full access is unavailable to protect them from edits."},
+  "followUp.admitted": {
+    "defaultMessage": "Received; waiting for the current task to process"
+  },
+  "followUp.attachments": {
+    "defaultMessage": "첨부 파일: {count}"
+  },
+  "followUp.description": {
+    "defaultMessage": "Queue messages for the next turn, or steer the current task. Ctrl+Enter uses the other mode."
+  },
+  "followUp.failed": {
+    "defaultMessage": "Could not save this preference. Please try again."
+  },
+  "followUp.loadFailed": {
+    "defaultMessage": "Could not read follow-up mode. Reopen chat settings and retry."
+  },
+  "followUp.loading": {
+    "defaultMessage": "Loading follow-up mode"
+  },
+  "followUp.localPending": {
+    "defaultMessage": "확인되지 않은 로컬 메시지 ({count})"
+  },
+  "followUp.queue": {
+    "defaultMessage": "Queue"
+  },
+  "followUp.queuedSend": {
+    "defaultMessage": "Queue for the next turn (Ctrl+Enter to steer)"
+  },
+  "followUp.requeue": {
+    "defaultMessage": "Not sent: queue this message instead"
+  },
+  "followUp.retry": {
+    "defaultMessage": "Retry"
+  },
+  "followUp.steer": {
+    "defaultMessage": "Steer"
+  },
+  "followUp.steerSend": {
+    "defaultMessage": "Steer the current task (Ctrl+Enter to queue)"
+  },
+  "followUp.title": {
+    "defaultMessage": "Follow-up messages"
+  },
+  "followUp.unavailable": {
+    "defaultMessage": "This runtime does not support steering. Restart the updated preview, or queue this message instead."
+  },
+  "messageQueue.checkAndRequeue": {
+    "defaultMessage": "전송 상태 확인 후 다시 대기열에 추가"
+  },
+  "messageQueue.nativeWaiting": {
+    "defaultMessage": "작업이 이미 수신했습니다. 새 메시지를 보내면 처리를 계속합니다."
+  },
+  "messageQueue.prioritySend": {
+    "defaultMessage": "우선 보내기"
+  },
+  "messageQueue.prioritySendHint": {
+    "defaultMessage": "현재 동작이 끝나면 보내며 작업을 중단하지 않습니다."
+  }
 }

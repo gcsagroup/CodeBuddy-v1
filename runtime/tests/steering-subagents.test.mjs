@@ -92,6 +92,24 @@ async function fixture(t) {
   };
 }
 
+test('request preemption lets the parent respond while its original child keeps running', { timeout: 20000 }, async t => {
+  const f = await fixture(t);
+  await f.driver.steer(f.sessionId, 'REMINDER_AT_NEXT_STEP', { requestId: 'preempt-parent', preempt: true });
+  await f.relayDelivered.promise;
+  assert.equal(f.childPending.res.destroyed, false);
+  assert.equal(f.isSettled(), false);
+  const parent = await f.driver.history(f.sessionId);
+  assert.equal(parent.events.filter(event => event.type === 'user/message' && event.data.source?.rpcId === 'preempt-parent').length, 1);
+  assert.equal(parent.events.some(event => event.type === 'assistant/message' && JSON.stringify(event.data.message).includes('Continuing while the child runs.')), false);
+  f.childPending.release();
+  assert.equal((await f.running).stopReason, 'end_turn');
+  const child = await f.driver.history(f.childId);
+  assert.equal(child.events.filter(event => event.type === 'turn/start').length, 1);
+  assert.ok(child.events.some(event => event.type === 'tool/result' && JSON.stringify(event.data).includes('original child work preserved')));
+  assert.ok(child.events.filter(event => event.type === 'turn/end').every(event => event.data.reason.kind === 'completed'));
+  assert.deepEqual(f.failures, []);
+});
+
 test('native steering keeps parent and child work alive, relays at a step boundary, then admits the next turn', { timeout: 20000 }, async t => {
   const f = await fixture(t);
   await f.driver.steer(f.sessionId, 'REMINDER_AT_NEXT_STEP', { queuedWhileBusy: true });

@@ -4685,53 +4685,11 @@
   "messageQueue.cancel": {
     "defaultMessage": "取消"
   },
-  "messageQueue.cannotSendWhileEditing": {
-    "defaultMessage": "编辑时无法发送"
-  },
-  "messageQueue.clearAll": {
-    "defaultMessage": "清空"
-  },
-  "messageQueue.clickToEdit": {
-    "defaultMessage": "{content}（点击编辑）"
-  },
-  "messageQueue.collapseDrafts": {
-    "defaultMessage": "收起已保留的草稿"
-  },
-  "messageQueue.collapseQueue": {
-    "defaultMessage": "收起队列"
-  },
-  "messageQueue.confirmNotSent": {
-    "defaultMessage": "确认未发送：重新排队"
-  },
-  "messageQueue.confirmSent": {
-    "defaultMessage": "确认已发送：移除"
-  },
-  "messageQueue.continueSending": {
-    "defaultMessage": "消息已保留，点击立即发送可继续。"
-  },
   "messageQueue.edit": {
     "defaultMessage": "编辑消息"
   },
-  "messageQueue.expandDrafts": {
-    "defaultMessage": "展开已保留的草稿"
-  },
-  "messageQueue.expandQueue": {
-    "defaultMessage": "展开队列"
-  },
-  "messageQueue.messageCount": {
-    "defaultMessage": "{count,plural,one{# 条消息 {status}} other{# 条消息 {status}}}"
-  },
-  "messageQueue.more": {
-    "defaultMessage": "更多消息操作"
-  },
   "messageQueue.next": {
     "defaultMessage": "下一条"
-  },
-  "messageQueue.pending": {
-    "defaultMessage": "待发送"
-  },
-  "messageQueue.queued": {
-    "defaultMessage": "已排队"
   },
   "messageQueue.removeFromQueue": {
     "defaultMessage": "将此消息从队列中移除"
@@ -4739,29 +4697,11 @@
   "messageQueue.save": {
     "defaultMessage": "保存"
   },
-  "messageQueue.savedDrafts": {
-    "defaultMessage": "已保留 {count} 条草稿"
-  },
-  "messageQueue.sendAllNow": {
-    "defaultMessage": "全部立即发送"
-  },
-  "messageQueue.sendDrafts": {
-    "defaultMessage": "发送草稿"
-  },
-  "messageQueue.sendNow": {
-    "defaultMessage": "立即发送"
-  },
-  "messageQueue.sendTogether": {
-    "defaultMessage": "将所有待发送消息一并发送"
-  },
-  "messageQueue.steer": {
-    "defaultMessage": "立即切换"
-  },
   "messageQueue.verifyDelivery": {
     "defaultMessage": "发送结果尚不确定，请先核对对话中的记录，再决定是否重试。"
   },
   "messageQueue.waitingForCancellation": {
-    "defaultMessage": "正在停止上一轮，确认后自动发送这条新消息。"
+    "defaultMessage": "正在停止当前轮，确认结束后发送所选消息。"
   },
   "messageQueue.waitingForPreviousPrompt": {
     "defaultMessage": "正在等待上一条请求结束，队列中的消息尚未发送。"
@@ -10309,5 +10249,62 @@
   },
   "sessionPermissions.referenceProtected": {
     "defaultMessage": "此工作区包含仅参考目录，为保护这些目录，不能使用完全访问。"
+  },
+  "followUp.admitted": {
+    "defaultMessage": "已接收，等待当前任务处理"
+  },
+  "followUp.attachments": {
+    "defaultMessage": "附件：{count}"
+  },
+  "followUp.description": {
+    "defaultMessage": "运行时将后续消息排队，或引导当前任务。Ctrl+Enter 使用相反方式；正在执行的工具不会因引导被停止。"
+  },
+  "followUp.failed": {
+    "defaultMessage": "未能保存此设置，请重试。"
+  },
+  "followUp.loadFailed": {
+    "defaultMessage": "无法读取发送方式，请重新打开聊天设置并重试。"
+  },
+  "followUp.loading": {
+    "defaultMessage": "正在读取后续消息发送方式"
+  },
+  "followUp.localPending": {
+    "defaultMessage": "本机待确认的消息（{count}）"
+  },
+  "followUp.queue": {
+    "defaultMessage": "排队"
+  },
+  "followUp.queuedSend": {
+    "defaultMessage": "排队到下一轮（Ctrl+Enter 引导）"
+  },
+  "followUp.requeue": {
+    "defaultMessage": "确定未发送：改为排队"
+  },
+  "followUp.retry": {
+    "defaultMessage": "重试"
+  },
+  "followUp.steer": {
+    "defaultMessage": "引导"
+  },
+  "followUp.steerSend": {
+    "defaultMessage": "引导当前任务（Ctrl+Enter 排队）"
+  },
+  "followUp.title": {
+    "defaultMessage": "后续消息处理方式"
+  },
+  "followUp.unavailable": {
+    "defaultMessage": "当前运行时不支持引导，请重启更新后的源码预览，或将这条消息改为排队。"
+  },
+  "messageQueue.checkAndRequeue": {
+    "defaultMessage": "核对发送结果并重新排队"
+  },
+  "messageQueue.nativeWaiting": {
+    "defaultMessage": "任务已接收；发送一条新消息后继续处理。"
+  },
+  "messageQueue.prioritySend": {
+    "defaultMessage": "优先发送"
+  },
+  "messageQueue.prioritySendHint": {
+    "defaultMessage": "当前步骤结束后发送，不中断当前任务。"
   }
 }

@@ -4,10 +4,18 @@ const empty = () => ({ version: 1, revision: 0, paused: false, items: [], comman
 const fail = (message, reason = 'QUEUE_CONFLICT') => Object.assign(new Error(message), { code: -32602, data: { reason } });
 const pending = item => item.state === 'pending';
 const terminal = item => ['consumed', 'removed'].includes(item.state);
+const stepInput = item => item.mode === 'steer' || item.deliveryTarget === 'next-step';
+function pausePending(q) {
+  q.paused = true; delete q.selection;
+  for (const item of q.items) if (pending(item) && item.deliveryTarget === 'next-step') {
+    delete item.deliveryTarget; delete item.targetRunId;
+  }
+}
 function validateItem(item) {
   if (!item || typeof item.id !== 'string' || !item.id || item.id.length > 200 ||
       typeof item.content !== 'string' || !Array.isArray(item.images) ||
       (!item.content.trim() && !item.images.length) || item.images.length > 10 ||
+      (item.mode !== undefined && !['queue', 'steer'].includes(item.mode)) ||
       item.images.some(image => typeof image?.data !== 'string' || typeof image?.mimeType !== 'string') ||
       Buffer.byteLength(JSON.stringify(item)) > 32 * 1024 * 1024)
     throw fail('Invalid queued message', 'QUEUE_INVALID');
@@ -17,18 +25,18 @@ function validateItem(item) {
 // Only native agent_input receipts establish consumption. Unknown admissions
 // remain blocked across crashes; no renderer is allowed to replay them.
 export class InputQueue {
-  constructor(store, { active, cancel, dispatch, inputIds, closing }) {
-    Object.assign(this, { store, active, cancel, dispatch, inputIds, closing });
+  constructor(store, { active, dispatch, steer, inputIds, closing }) {
+    Object.assign(this, { store, active, dispatch, steer, inputIds, closing });
     this.tails = new Map();
     this.workers = new Map();
     this.clients = new Map();
-    this.cancellations = new WeakMap();
+    this.wakeups = new Map();
   }
   read(id) { return this.store.readSession(id)?.inputQueue ?? empty(); }
   snapshot(id) {
     const q = this.read(id);
     const active = this.active(id);
-    return { version: 1, revision: q.revision, paused: q.paused,
+    return { version: 1, revision: q.revision, paused: q.paused, steering: typeof this.steer === 'function',
       activeRunId: active?.run?.runId ?? active?.desktopControlToken ?? null,
       items: q.items.filter(item => !terminal(item)), selection: q.selection ?? null };
   }
@@ -42,20 +50,24 @@ export class InputQueue {
       if (!session.inputQueue) continue;
       await this.store.updateSession(session.id, s => {
         const q = s.inputQueue;
-        q.paused = true;
-        delete q.selection;
-        for (const item of q.items) if (item.state === 'dispatching') item.state = 'uncertain';
+        pausePending(q);
+        for (const item of q.items) if (['dispatching', 'admitted'].includes(item.state)) item.state = 'uncertain';
         q.revision++;
       });
     }
   }
   async reconcile(id) {
     const q = this.read(id);
-    if (!q.items.some(item => ['dispatching', 'uncertain'].includes(item.state))) return;
+    if (!q.items.some(item => ['dispatching', 'admitted', 'uncertain'].includes(item.state))) return;
     const ids = new Set(await this.inputIds(id));
-    if (!q.items.some(item => !terminal(item) && ids.has(item.id))) return;
+    const nativePending = q.items.some(item => item.deliveryTarget === 'next-step' && item.state === 'uncertain')
+      ? new Set(await this.inputIds(id, false)) : new Set();
+    if (!q.items.some(item => !terminal(item) && (ids.has(item.id) || nativePending.has(item.id)))) return;
     await this.store.updateSession(id, s => {
-      for (const item of s.inputQueue.items) if (ids.has(item.id)) item.state = 'consumed';
+      for (const item of s.inputQueue.items) {
+        if (ids.has(item.id)) item.state = 'consumed';
+        else if (item.deliveryTarget === 'next-step' && nativePending.has(item.id)) item.state = 'admitted';
+      }
       s.inputQueue.revision++;
     });
   }
@@ -88,13 +100,13 @@ export class InputQueue {
       const admitted = command.action === 'resolve' ? new Set(await this.inputIds(id, false)) : null;
       const current = this.active(id);
       const runId = current?.run?.runId ?? current?.desktopControlToken ?? null;
-      if (command.action === 'send' && command.expectedRunId !== runId)
+      if (command.action === 'next-step' && (!current || current.controller?.signal.aborted || command.expectedRunId !== runId))
         throw fail('当前执行已变化，请刷新后重试。');
       await this.store.updateSession(id, session => {
         const q = session.inputQueue ??= empty();
         const find = itemId => {
           const item = q.items.find(row => row.id === itemId);
-          if (!item || !pending(item) || q.selection?.ids.includes(itemId)) throw fail('消息已开始发送或已被消费，不能再修改。');
+          if (!item || !pending(item) || item.deliveryTarget === 'next-step' || q.selection?.ids.includes(itemId)) throw fail('消息已开始发送或已被消费，不能再修改。');
           return item;
         };
         switch (command.action) {
@@ -106,12 +118,20 @@ export class InputQueue {
               validateItem(item);
               const existing = q.items.find(row => row.id === item.id);
               if (existing) {
-                if (existing.content !== item.content || JSON.stringify(existing.images) !== JSON.stringify(item.images))
+                if (existing.content !== item.content || JSON.stringify(existing.images) !== JSON.stringify(item.images) ||
+                    (existing.mode ?? 'queue') !== (item.mode ?? 'queue'))
                   throw fail('Message ID was reused');
                 continue;
               }
+              if (item.mode === 'steer' && command.action !== 'enqueue') throw fail('Steering cannot be imported', 'QUEUE_INVALID');
+              if (item.mode === 'steer' && (!this.steer ||
+                  (command.expectedRunId !== null && typeof command.expectedRunId !== 'string')))
+                throw fail('A steering target is required', 'QUEUE_INVALID');
+              if (item.mode === 'steer' && (command.expectedRunId !== runId || current?.controller?.signal.aborted))
+                throw fail('当前执行已变化，请刷新后重试。');
               q.items.push({ id: item.id, content: item.content, images: item.images,
                 timestamp: item.timestamp ?? Date.now(), desktopGeneration: item.desktopGeneration ?? '',
+                ...(item.mode === 'steer' ? { mode: 'steer', targetRunId: command.expectedRunId } : {}),
                 state: command.action === 'import' && item.delivery === 'submitting' ? 'uncertain' : 'pending' });
             }
             if (command.action === 'import') q.paused = true;
@@ -134,11 +154,12 @@ export class InputQueue {
           }
           case 'clear':
             if (q.selection) throw fail('A switch is pending');
-            for (const item of q.items) if (pending(item)) item.state = 'removed';
+            for (const item of q.items) if (pending(item) && item.deliveryTarget !== 'next-step') item.state = 'removed';
             break;
           case 'reorder': {
             if (q.selection) throw fail('A switch is pending');
             const rows = q.items.filter(pending);
+            if (rows.some(item => item.deliveryTarget === 'next-step')) throw fail('消息正在接入下一步，请稍后重试。');
             if (!Array.isArray(command.ids) || new Set(command.ids).size !== rows.length ||
                 command.ids.length !== rows.length || command.ids.some(key => !rows.some(row => row.id === key)))
               throw fail('Queue order changed');
@@ -146,17 +167,22 @@ export class InputQueue {
             let index = 0;
             q.items = q.items.map(item => pending(item) ? ordered[index++] : item); break;
           }
-          case 'pause': q.paused = true; delete q.selection; break;
-          case 'send': {
-            if (q.selection || !Array.isArray(command.ids) || !command.ids.length || new Set(command.ids).size !== command.ids.length)
-              throw fail('A switch is already pending or the batch is invalid');
-            for (const key of command.ids) find(key);
-            // Freeze identity, ordering and attachments, not a concatenated string.
-            q.selection = { id: command.commandId, ids: command.ids, expectedRunId: runId,
-              desktopGeneration: typeof command.desktopGeneration === 'string' ? command.desktopGeneration : '' };
-            q.paused = false;
+          case 'pause': pausePending(q); break;
+          case 'next-step': {
+            if (!this.steer || q.selection || !Array.isArray(command.ids) || !command.ids.length || new Set(command.ids).size !== command.ids.length)
+              throw fail('Invalid next-step selection', 'QUEUE_INVALID');
+            const selected = command.ids.map(find);
+            if (selected.some(item => item.mode === 'steer')) throw fail('Input is already steering', 'QUEUE_INVALID');
+            // Preserve the ordinary queue identity. This selects native next-step
+            // admission, not the request-preempting guide mode.
+            for (const item of selected) {
+              item.deliveryTarget = 'next-step'; item.targetRunId = runId;
+              item.desktopGeneration = typeof command.desktopGeneration === 'string' ? command.desktopGeneration : item.desktopGeneration;
+            }
             break;
           }
+          case 'resume': q.paused = false; delete q.selection; break;
+          case 'send': throw fail('旧版停止后发送已停用，请刷新后选择下一 step。', 'QUEUE_INVALID');
           default: throw fail('Unknown queue command', 'QUEUE_INVALID');
         }
         q.commands[command.commandId] = fingerprint;
@@ -164,50 +190,154 @@ export class InputQueue {
       });
       return this.snapshot(id);
     });
-    if (command.action === 'send') {
-      const active = this.active(id);
-      const selection = this.read(id).selection;
-      const runId = active?.run?.runId ?? active?.desktopControlToken ?? null;
-      if (active && selection?.id === command.commandId && selection.expectedRunId !== null &&
-          selection.expectedRunId === runId)
-        void this.cancelOnce(id, active, connection).catch(() => this.pause(id));
-    }
     this.kick(id);
     return result;
-  }
-  cancelOnce(id, active, connection) {
-    if (!this.cancellations.has(active)) this.cancellations.set(active, Promise.resolve().then(() => this.cancel(id, connection, active)));
-    return this.cancellations.get(active);
   }
   async pause(id) {
     return this.serial(id, () => this.store.updateSession(id, session => {
       const q = session.inputQueue ??= empty();
-      q.paused = true; delete q.selection; q.revision++;
+      pausePending(q); q.revision++;
     }));
   }
   kick(id) {
+    this.wakeups.get(id)?.();
     if (this.workers.has(id) || this.closing()) return;
     const work = this.drain(id).catch(async () => { await this.pause(id); }).finally(() => {
       this.workers.delete(id);
       const q = this.read(id);
-      if (!q.paused && (q.selection || q.items.some(pending))) this.kick(id);
+      if (!q.items.some(item => item.state === 'uncertain') &&
+          ((!q.paused && (q.selection || q.items.some(pending))) ||
+            (this.active(id) && !q.selection && q.items.some(item => pending(item) && stepInput(item))))) this.kick(id);
     });
     this.workers.set(id, work);
+  }
+  async waitForActive(id, active) {
+    const wake = Promise.withResolvers();
+    this.wakeups.set(id, wake.resolve);
+    try {
+      const finished = await Promise.race([active.done.then(() => true, () => true), wake.promise.then(() => false)]);
+      if (finished) await this.serial(id, async () => {
+        await this.reconcile(id);
+        const nativePending = new Set(await this.inputIds(id, false));
+        await this.store.updateSession(id, session => {
+          const q = session.inputQueue;
+          for (const item of q.items) if (item.state === 'admitted' && item.targetRunId === (active.run?.runId ?? active.desktopControlToken) &&
+              !(item.deliveryTarget === 'next-step' && nativePending.has(item.id))) {
+            item.state = 'uncertain'; q.paused = true;
+          }
+          q.revision++;
+        });
+      });
+    } finally { if (this.wakeups.get(id) === wake.resolve) this.wakeups.delete(id); }
+  }
+  async deliverSteering(id, active, itemId) {
+    const delivery = await this.serial(id, async () => {
+      const q = this.read(id), item = q.items.find(row => row.id === itemId);
+      if (this.active(id) !== active || !item || !pending(item) || !stepInput(item) || q.selection) return;
+      const runId = active.run?.runId ?? active.desktopControlToken;
+      if (item.targetRunId !== runId) {
+        await this.store.updateSession(id, s => {
+          const row = s.inputQueue.items.find(row => row.id === itemId);
+          if (row.deliveryTarget === 'next-step') {
+            // No native admission was attempted. Like DSH's unavailable queue
+            // upgrade, leave the original message waiting for its next turn.
+            delete row.deliveryTarget; delete row.targetRunId;
+          } else { row.state = 'uncertain'; s.inputQueue.paused = true; }
+          s.inputQueue.revision++;
+        });
+        return;
+      }
+      await this.store.updateSession(id, s => {
+        s.inputQueue.items.find(row => row.id === itemId).state = 'dispatching'; s.inputQueue.revision++;
+      });
+      return { ...item };
+    });
+    if (!delivery) return;
+    let admitted = false;
+    try {
+      await this.steer(id, delivery, this.clients.get(id), active);
+      admitted = true;
+    } finally {
+      await this.serial(id, async () => {
+        await this.reconcile(id);
+        await this.store.updateSession(id, s => {
+          const q = s.inputQueue, item = q.items.find(row => row.id === itemId);
+          if (item.state === 'dispatching') item.state = admitted ? 'admitted' : 'uncertain';
+          if (!admitted) q.paused = true;
+          q.revision++;
+        });
+      });
+    }
+  }
+  async waitForDispatch(id, promise) {
+    let settled = false;
+    const outcome = promise.then(result => { settled = true; return { result }; }, error => { settled = true; return { error }; });
+    while (!settled) {
+      const q = this.read(id), active = this.active(id);
+      const item = !q.selection && !q.items.some(row => row.state === 'uncertain') &&
+        q.items.find(row => pending(row) && stepInput(row));
+      if (active && item) { await this.deliverSteering(id, active, item.id); continue; }
+      const wake = Promise.withResolvers();
+      this.wakeups.set(id, wake.resolve);
+      try { await Promise.race([outcome, wake.promise]); }
+      finally { if (this.wakeups.get(id) === wake.resolve) this.wakeups.delete(id); }
+    }
+    const result = await outcome;
+    if (Object.hasOwn(result, 'error')) throw result.error;
+    return result.result;
   }
   async drain(id) {
     while (!this.closing()) {
       let q = this.read(id);
-      if (q.paused || (!q.selection && !q.items.some(pending))) return;
+      if (q.items.some(item => item.state === 'uncertain')) return;
       const active = this.active(id);
+      const runId = active?.run?.runId ?? active?.desktopControlToken ?? null;
+      const staleAdmissions = q.items.filter(item => item.state === 'admitted' && item.targetRunId !== runId);
+      const staleTargets = new Map(staleAdmissions.map(item => [item.id, item.targetRunId]));
+      const nativePending = staleAdmissions.some(item => item.deliveryTarget === 'next-step')
+        ? new Set(await this.inputIds(id, false)) : new Set();
+      if (staleAdmissions.some(item => item.deliveryTarget !== 'next-step' || !nativePending.has(item.id))) {
+        await this.serial(id, async () => {
+          await this.reconcile(id);
+          await this.store.updateSession(id, s => {
+            for (const item of s.inputQueue.items) if (item.state === 'admitted' && staleTargets.has(item.id) &&
+                item.targetRunId === staleTargets.get(item.id) &&
+                !(item.deliveryTarget === 'next-step' && nativePending.has(item.id))) {
+              item.state = 'uncertain'; s.inputQueue.paused = true;
+            }
+            s.inputQueue.revision++;
+          });
+        });
+        continue;
+      }
       if (active) {
+        const steer = !q.selection && q.items.find(item => pending(item) && stepInput(item));
+        if (steer) { await this.deliverSteering(id, active, steer.id); continue; }
+        if ((q.paused && !q.items.some(item => item.state === 'admitted')) ||
+            (!q.selection && !q.items.some(item => pending(item) || item.state === 'admitted'))) return;
         if (q.selection && q.selection.expectedRunId !== null) {
           const runId = active.run?.runId ?? active.desktopControlToken ?? null;
           if (q.selection.expectedRunId !== runId) { await this.pause(id); return; }
-          await this.cancelOnce(id, active, this.clients.get(id));
+          // A persisted legacy stop-and-send selection is never reinterpreted.
+          await this.pause(id); return;
         }
-        await active.done;
+        await this.waitForActive(id, active);
         continue;
       }
+      if (q.items.some(item => pending(item) && item.deliveryTarget === 'next-step')) {
+        await this.serial(id, async () => {
+          const current = this.active(id), currentRunId = current?.run?.runId ?? current?.desktopControlToken;
+          await this.store.updateSession(id, s => {
+            for (const item of s.inputQueue.items) if (pending(item) && item.deliveryTarget === 'next-step' &&
+                (!current || item.targetRunId !== currentRunId)) {
+              delete item.deliveryTarget; delete item.targetRunId;
+            }
+            s.inputQueue.revision++;
+          });
+        });
+        continue;
+      }
+      if (q.paused || (!q.selection && !q.items.some(pending))) return;
       const delivery = await this.serial(id, async () => {
         q = this.read(id);
         if (q.paused) return [];
@@ -245,7 +375,7 @@ export class InputQueue {
       if (!delivery.batch) return;
       const { batch, promise } = delivery;
       let result;
-      try { result = await promise; }
+      try { result = await this.waitForDispatch(id, promise); }
       finally {
         await this.serial(id, async () => {
           await this.reconcile(id);

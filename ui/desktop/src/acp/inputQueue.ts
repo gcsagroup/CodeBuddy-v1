@@ -4,10 +4,14 @@ import { getAcpControlClient } from './acpConnection';
 const itemSchema = z.object({
   id: z.string(), content: z.string(), timestamp: z.number(), desktopGeneration: z.string(),
   images: z.array(z.object({ data: z.string(), mimeType: z.string() })),
-  state: z.enum(['pending', 'dispatching', 'uncertain']),
+  state: z.enum(['pending', 'dispatching', 'admitted', 'uncertain']),
+  mode: z.enum(['queue', 'steer']).optional(),
+  targetRunId: z.string().nullable().optional(),
+  deliveryTarget: z.literal('next-step').optional(),
 });
 const snapshotSchema = z.object({
   version: z.literal(1), revision: z.number(), paused: z.boolean(), activeRunId: z.string().nullable(),
+  steering: z.boolean().optional(),
   items: z.array(itemSchema),
   selection: z.object({ id: z.string(), ids: z.array(z.string()), expectedRunId: z.string().nullable() }).nullable(),
   commandApplied: z.boolean().optional(),

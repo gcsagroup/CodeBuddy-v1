@@ -4,6 +4,7 @@ import { savedFixtureResponse } from './comfyui-catalog-fixture.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createServer } from 'node:http';
+import { setTimeout as delay } from 'node:timers/promises';
 import { mkdtemp, mkdir, readFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
@@ -17,7 +18,7 @@ const require = createRequire(new URL('../harness/package.json', import.meta.url
 const png = await require('sharp')({ create: { width: 32, height: 32, channels: 3, background: 'blue' } }).png().toBuffer();
 const jobId = 'cc4b7110-bdfe-41ce-878e-cd6b402b6a4b';
 
-async function fixture(t, inputModalities = ['text', 'image']) {
+async function fixture(t, inputModalities = ['text', 'image'], { onRequest, finalText } = {}) {
   const root = await mkdtemp(path.join(tmpdir(), 'codebuddy-generated-check-'));
   const cwd = path.join(root, 'workspace'); await mkdir(cwd);
   const requests = [], submissions = [];
@@ -32,6 +33,7 @@ async function fixture(t, inputModalities = ['text', 'image']) {
     if (!request.stream) { res.writeHead(200, { 'content-type': 'application/json' }).end(JSON.stringify({ choices: [{ message: { content: 'OK' } }] })); return; }
     if (answerTitleRequest(request, res)) return;
     requests.push(request);
+    onRequest?.(request);
     res.writeHead(200, { 'content-type': 'text/event-stream' });
     const emit = (delta, finish_reason = null) => res.write(`data: ${JSON.stringify({ id: 'image-check', object: 'chat.completion.chunk', choices: [{ index: 0, delta, finish_reason }] })}\n\n`);
     const user = request.messages.findLastIndex(message => message.role === 'user' && message.content === '检查已生成的图片，再简短交付。');
@@ -39,7 +41,7 @@ async function fixture(t, inputModalities = ['text', 'image']) {
       emit({ role: 'assistant', content: 'The generated image is a blue square. VISUAL_BLUE_SQUARE' }); emit({}, 'stop');
     } else if (!request.messages.slice(user + 1).some(message => message.role === 'tool') && !JSON.stringify(request.messages).includes('image_url')) {
       emit({ role: 'assistant', tool_calls: [{ index: 0, id: 'inspect-result', type: 'function', function: { name: 'generate_image', arguments: JSON.stringify({ operation: 'status', job_id: jobId }) } }] }); emit({}, 'tool_calls');
-    } else { emit({ role: 'assistant', content: '画好了，蓝色方块。' }); emit({}, 'stop'); }
+    } else { emit({ role: 'assistant', content: finalText ?? '画好了，蓝色方块。' }); emit({}, 'stop'); }
     res.end('data: [DONE]\n\n');
   });
   await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
@@ -179,4 +181,173 @@ test('inspection outage preserves the saved generation receipt and cancellation 
   assert.equal(cancelled.status, 'completed');
   assert.equal(cancelled.content, undefined, 'cancelling a completed job must not initiate a visual check');
   assert.equal(f.submissions.length, 1);
+});
+
+
+test('steering during completed media status aborts only its optional image observation and preserves the real receipt', { timeout: 15_000 }, async t => {
+  const original = '检查已生成的图片，再简短交付。';
+  const correction = '另外保留这次完成的图片，随后按补充要求继续，不要重新生成。';
+  const textOf = message => typeof message.content === 'string' ? message.content
+    : (message.content ?? []).map(part => part.text ?? '').join('\n');
+  const entered = Promise.withResolvers(), nextRequest = Promise.withResolvers();
+  const f = await fixture(t, ['text'], {
+    // This is a controlled Provider response, not a host-synthesized reply or
+    // evidence of what an uncontrolled model would choose to say.
+    finalText: '继续处理补充要求。',
+    onRequest: request => {
+      if (request.model === 'main' && request.messages.some(message => message.role === 'user' && textOf(message) === correction))
+        nextRequest.resolve(request);
+    },
+  });
+  let observerSignal, observerCalls = 0;
+  await f.driver.configureSession(f.sessionId, { ...f.options, mcpImageFallback: async (content, { signal }) => {
+    observerCalls++;
+    observerSignal = signal;
+    assert.equal(content.find(block => block.type === 'image').data, png.toString('base64'));
+    signal.throwIfAborted();
+    entered.resolve();
+    await new Promise((resolve, reject) => {
+      signal.addEventListener('abort', () => reject(signal.reason), { once: true });
+    });
+    assert.fail('the held read-only observation must not fabricate a visual result');
+  } });
+  const controller = new AbortController(), events = [];
+  const running = f.driver.prompt(f.sessionId, original, {
+    signal: controller.signal, onPermission: () => true, onEvent: event => events.push(event),
+  });
+  running.catch(() => {});
+  try {
+    await entered.promise;
+    const saved = (await f.tool.jobs())[0];
+    assert.equal(saved.status, 'completed', 'the optional observation must start after the real generation receipt is saved');
+    assert.deepEqual(await readFile(saved.images[0].path), png);
+    await f.driver.steer(f.sessionId, correction, { requestId: 'completed-media-observation-steer', preempt: true });
+    const next = await Promise.race([nextRequest.promise, delay(1500).then(() => null)]);
+    t.diagnostic(JSON.stringify({ nextRequestReceived: Boolean(next), observerAbortedBeforeCleanup: observerSignal.aborted,
+      turnAbortedBeforeCleanup: controller.signal.aborted }));
+    assert.ok(next, 'steering must reach the next real Provider request without waiting for optional image inspection');
+    assert.equal(observerSignal.aborted, true, 'only the read-only observation should receive cancellation');
+    assert.equal(controller.signal.aborted, false, 'steering must preserve the original native turn');
+    assert.equal((await running).stopReason, 'end_turn');
+    const users = next.messages.filter(message => message.role === 'user').map(textOf);
+    assert.ok(users.includes(original));
+    assert.equal(users.filter(text => text === correction).length, 1);
+    const calls = next.messages.filter(message => message.role === 'assistant').flatMap(message => message.tool_calls ?? [])
+      .map(call => ({ call, input: JSON.parse(call.function.arguments) }))
+      .filter(({ input }) => input.operation === 'status' && input.job_id === jobId);
+    assert.equal(calls.length, 1);
+    const results = next.messages.filter(message => message.role === 'tool' && message.tool_call_id === calls[0].call.id);
+    assert.equal(results.length, 1);
+    const rendered = textOf(results[0]);
+    let status;
+    // The Provider concatenates the JSON receipt and any inspection note.
+    for (let end = rendered.indexOf('}'); end !== -1; end = rendered.indexOf('}', end + 1)) {
+      try { const value = JSON.parse(rendered.slice(0, end + 1)); if (value?.job_id === jobId) { status = value; break; } }
+      catch { /* A nested closing brace is not the complete JSON receipt. */ }
+    }
+    assert.equal(status?.status, 'completed');
+    assert.equal(status.error, null);
+    assert.equal(status.images[0].path, saved.images[0].path);
+    assert.deepEqual(await readFile(status.images[0].path), png);
+    const receipt = events.find(event => event.type === 'tool_result' && event.id === calls[0].call.id);
+    assert.ok(receipt && !receipt.isError);
+    assert.equal(receipt.structuredContent.status, 'completed');
+    assert.equal(receipt.presentationContent.find(block => block.type === 'image').data, png.toString('base64'),
+      'UI presentation must retain the actual image when canonical observation is deferred');
+    assert.doesNotMatch(rendered, /VISUAL_BLUE_SQUARE/, 'unfinished observation text must not be fabricated');
+    assert.equal(observerCalls, 1);
+    assert.equal(f.submissions.length, 1, 'inspection cancellation must never resubmit the already completed generation');
+    const history = await f.driver.history(f.sessionId);
+    assert.equal(history.events.filter(event => event.type === 'turn/start').length, 1);
+  } finally {
+    // Red runs must also release the actual held fallback before fixture cleanup.
+    controller.abort();
+    await running.catch(() => {});
+  }
+});
+
+
+test('media steering releases an actual VisionRouting capability wait and rejects its late observer launch', { timeout: 15_000 }, async t => {
+  const original = '检查已生成的图片，再简短交付。';
+  const correction = '保留已完成的这张图片，先处理补充要求，暂不需要识图。';
+  const textOf = message => typeof message.content === 'string' ? message.content
+    : (message.content ?? []).map(part => part.text ?? '').join('\n');
+  const entered = Promise.withResolvers(), capability = Promise.withResolvers(), observerDone = Promise.withResolvers();
+  const nextRequest = Promise.withResolvers();
+  const f = await fixture(t, ['text'], {
+    finalText: '继续处理补充要求。',
+    onRequest: request => {
+      if (request.model === 'main' && request.messages.some(message => message.role === 'user' && textOf(message) === correction))
+        nextRequest.resolve(request);
+    },
+  });
+  const observerSessions = [], observerPrompts = [];
+  const observerDriver = { ...f.driver,
+    createSession: input => { observerSessions.push(input); return f.driver.createSession(input); },
+    prompt: (...args) => { observerPrompts.push(args[0]); return f.driver.prompt(...args); },
+  };
+  const vision = new VisionRouting(observerDriver, {
+    resolveCapability: async reference => {
+      assert.equal(reference.modelId, 'observer');
+      entered.resolve();
+      await capability.promise;
+      return { imageInput: 'supported' };
+    },
+    resolveProvider: async () => ({ ...f.provider, inputModalities: ['text', 'image'] }),
+  });
+  let observerSignal;
+  await f.driver.configureSession(f.sessionId, { ...f.options, mcpImageFallback: (content, { signal, toolName }) => {
+    observerSignal = signal;
+    return vision.prepareToolContent({ sessionId: f.sessionId, cwd: f.cwd, signal, toolName, content,
+      providers: [{ id: 'fixture', requiresAuth: false }],
+      routing: { visionRoute: { enabled: true, mode: 'auto', providerId: 'fixture', modelId: 'observer' } },
+    }).finally(() => observerDone.resolve());
+  } });
+  const controller = new AbortController(), events = [];
+  const running = f.driver.prompt(f.sessionId, original, { signal: controller.signal,
+    onPermission: () => true, onEvent: event => events.push(event) });
+  running.catch(() => {});
+  try {
+    await entered.promise;
+    const saved = (await f.tool.jobs())[0];
+    assert.equal(saved.status, 'completed');
+    await f.driver.steer(f.sessionId, correction, { requestId: 'media-capability-wait-steer', preempt: true });
+    const next = await Promise.race([nextRequest.promise, delay(1500).then(() => null)]);
+    t.diagnostic(JSON.stringify({ nextRequestReceived: Boolean(next), observerSignalAborted: observerSignal.aborted,
+      turnSignalAborted: controller.signal.aborted, capabilityStillHeld: observerSessions.length === 0 }));
+    assert.ok(next, 'media steering must not wait for the optional observer capability resolver to settle');
+    assert.equal(observerSignal.aborted, true);
+    assert.equal(controller.signal.aborted, false);
+    assert.equal((await running).stopReason, 'end_turn');
+    const users = next.messages.filter(message => message.role === 'user').map(textOf);
+    assert.ok(users.includes(original));
+    assert.equal(users.filter(text => text === correction).length, 1);
+    const statusCall = next.messages.filter(message => message.role === 'assistant').flatMap(message => message.tool_calls ?? [])
+      .find(call => { const input = JSON.parse(call.function.arguments); return input.operation === 'status' && input.job_id === jobId; });
+    assert.ok(statusCall);
+    const toolResult = events.find(event => event.type === 'tool_result' && event.id === statusCall.id);
+    assert.ok(toolResult && !toolResult.isError);
+    assert.equal(toolResult.structuredContent.status, 'completed');
+    assert.equal(toolResult.structuredContent.images[0].path, saved.images[0].path);
+    assert.ok(next.messages.some(message => message.role === 'tool' && message.tool_call_id === statusCall.id));
+    assert.equal(toolResult.presentationContent.find(block => block.type === 'image').data, png.toString('base64'));
+    // The caller has already continued. The resolver may finish later, but its
+    // original VisionRouting cancellation checks must fence all observer I/O.
+    capability.resolve();
+    await observerDone.promise;
+    assert.equal(observerSessions.length, 0);
+    assert.equal(observerPrompts.length, 0);
+    assert.equal(f.requests.filter(request => request.model === 'observer').length, 0);
+    const after = (await f.tool.jobs())[0];
+    assert.equal(after.status, 'completed');
+    assert.deepEqual(await readFile(after.images[0].path), png);
+    assert.equal(f.submissions.length, 1);
+  } finally {
+    // close() intentionally awaits its active producer; release the resolver
+    // explicitly rather than claiming observer abort stopped that async work.
+    controller.abort(); capability.resolve();
+    await running.catch(() => {});
+    await observerDone.promise;
+    await vision.close();
+  }
 });

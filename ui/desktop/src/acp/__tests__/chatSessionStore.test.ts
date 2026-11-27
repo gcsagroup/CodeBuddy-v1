@@ -658,6 +658,68 @@ function userSteerChunkNotification(
   };
 }
 
+it.each([true, false])('confirms an early steering bubble once when its native echo uses steer=%s', steer => {
+  const id = `early-steering-confirmation-${steer}`;
+  const local = message('early-bubble', 'New correction');
+  local.metadata = { ...local.metadata, steer: true, pendingDelivery: 'unconfirmed', agentVisible: false };
+  try {
+    acpChatSessionActions.addPendingLocalSteerMessage(id, local);
+    expect(acpChatSessionStore.getSnapshot(id)?.messages[0].metadata.pendingDelivery).toBe('unconfirmed');
+    for (const text of ['New ', 'correction']) {
+      acpChatSessionActions.applyAcpSessionNotification({ sessionId: id, update: {
+        sessionUpdate: 'user_message_chunk', messageId: local.id, content: { type: 'text', text },
+        _meta: { goose: { messageId: local.id, steer } },
+      } });
+    }
+    const messages = acpChatSessionStore.getSnapshot(id)!.messages;
+    expect(messages).toHaveLength(1);
+    expect(messages[0].content).toEqual([{ type: 'text', text: 'New correction' }]);
+    expect(messages[0].metadata.pendingDelivery).toBeUndefined();
+    expect(messages[0].metadata.agentVisible).toBe(true);
+    expect(messages[0].metadata.steer).toBe(steer);
+  } finally { acpChatSessionActions.deleteSnapshot(id); }
+});
+
+it('does not duplicate an ordinary full echo after an early steering bubble is requeued', () => {
+  const sessionId = 'early-bubble-requeued-echo';
+  const local = message('requeued-bubble', 'hello');
+  local.metadata = { ...local.metadata, steer: true, pendingDelivery: 'unconfirmed', agentVisible: false };
+  try {
+    acpChatSessionActions.addPendingLocalSteerMessage(sessionId, local);
+    const notification: SessionNotification = { sessionId, update: {
+      sessionUpdate: 'user_message_chunk', messageId: local.id,
+      content: { type: 'text', text: 'hello' },
+    } };
+    acpChatSessionActions.applyAcpSessionNotification(notification);
+    acpChatSessionActions.applyAcpSessionNotification(notification);
+    const messages = acpChatSessionStore.getSnapshot(sessionId)!.messages;
+    expect(messages).toHaveLength(1);
+    expect(messages[0].content).toEqual([{ type: 'text', text: 'hello' }]);
+    expect(messages[0].metadata.pendingDelivery).toBeUndefined();
+    expect(messages[0].metadata.steer).toBe(false);
+  } finally { acpChatSessionActions.deleteSnapshot(sessionId); }
+});
+
+it('preserves an ordinary partial echo and its image when a second local bubble is staged', () => {
+  const sessionId = 'early-bubble-partial-with-image';
+  const local = message('partial-bubble', 'hello');
+  const image = { type: 'image' as const, data: 'cG5n', mimeType: 'image/png' };
+  local.content.push(image);
+  local.metadata = { ...local.metadata, steer: true, pendingDelivery: 'unconfirmed', agentVisible: false };
+  const echo = (text: string): SessionNotification => ({ sessionId, update: {
+    sessionUpdate: 'user_message_chunk', messageId: local.id, content: { type: 'text', text },
+  } });
+  try {
+    acpChatSessionActions.addPendingLocalSteerMessage(sessionId, local);
+    acpChatSessionActions.applyAcpSessionNotification(echo('hel'));
+    acpChatSessionActions.addPendingLocalSteerMessage(sessionId, message('second-bubble', 'another message'));
+    acpChatSessionActions.applyAcpSessionNotification(echo('lo'));
+    const messages = acpChatSessionStore.getSnapshot(sessionId)!.messages;
+    expect(messages).toHaveLength(2);
+    expect(messages[0].content).toEqual([{ type: 'text', text: 'hello' }, image]);
+  } finally { acpChatSessionActions.deleteSnapshot(sessionId); }
+});
+
 function activeRunNotification(sessionId: string, activeRunId: string | null): SessionNotification {
   return {
     sessionId,

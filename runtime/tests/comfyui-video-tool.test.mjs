@@ -57,6 +57,25 @@ test('approved video templates preserve original conditioning and frame-grid cal
   assert.throws(() => comfyVideoWorkflow({ ...input, width: 1344, height: 1344 }, [], id), /resolution/);
 });
 
+test('a pending steering input releases a video status observer without resubmitting or changing its budget', async t => {
+  const f = await fixture(t);
+  const queued = await f.tool.execute(input);
+  const before = f.calls.length;
+  const wake = new AbortController(); wake.abort();
+  const status = await f.tool.execute({ operation: 'status', job_id: id, wait_seconds: 240 }, {
+    waitForSteering: async observe => {
+      await assert.rejects(observe(wake.signal), { name: 'AbortError' });
+      return { released: true };
+    },
+  });
+  assert.equal(status.job_id, queued.job_id);
+  assert.equal(status.status, 'queued');
+  assert.equal(status.wait_release_reason, 'steer');
+  assert.equal(status.waiting_in_background, false);
+  assert.equal(status.created_at, queued.created_at);
+  assert.equal(f.calls.length, before, 'a preexisting steer must be checked before starting another service request');
+});
+
 test('requested long and fractional durations reach the saved workflow and publish completed MP4s', async t => {
   for (const seconds of [20, 30, 60, 20.5]) {
     const f = await fixture(t, seconds * 24);

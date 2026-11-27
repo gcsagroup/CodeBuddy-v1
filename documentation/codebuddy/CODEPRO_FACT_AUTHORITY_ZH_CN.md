@@ -1,4 +1,28 @@
 <!-- 2026-11-16 已批准：对话 sidebarPlacement 由 Compat 唯一写入，导航只消费；归属与 cwd 分离。目录切换沿用原有 Harness owner 和运行中拒绝规则。详见 docs/conversation-drag-drop.zh-CN.md。 -->
+## 2026-11-27 后续修订：排队复用 DSH 下一 turn / 下一 step
+
+同日密集发送修订已获用户批准：桌面仅持有尚未确认提交的 v2 FIFO journal，逐条冻结完整 commandId、revision、消息 ID、内容、附件、模式和目标 run；先持久追加再清相应草稿，一个 worker 串行提交，ACK 后先持久移除队首。它不是第二份执行队列或消费权威；本机待确认内容只读展示，不能冒充后端接收。v1 完整请求先写 v2 再删旧 key；双份冲突保留。刷新、卸载或切换会话后的恢复仅 GET 核对已应用前缀，尾部不自动 POST；改投仍须明确选择。旧版本不能读取 v2 尾部，回滚前须处理完未确认记录。现有 sessionStorage 窗口身份范围不因此扩大。失效的非空引导 run 目标明确拒绝，不因当前 idle 自动改投。driver 的在途 steer 集合跟踪入箱至 flush 的完整 Promise，保持收尾可等待，不能反复等待已完成 admission 而饿死落盘 I/O。
+
+用户撤回排队侧的停止后发送方案，要求保留引导、默认引导，并复用 DSH。普通 queue 仍由 InputQueue 暂存原生入箱前的交付记录，待当前 ACP 执行结算后逐条通过原生 queue 开启下一 turn；这不是把宿主未交付消息冒充原生 Inbox。选中的普通队列项以明确的 deliveryTarget=next-step 逐条交给现有原生 steer 入口，preempt=false；guide 仍单独以 mode=steer 启用模型请求抢占，不改变其工具、子任务和正式历史边界。多条输入保留各自 ID、顺序和附件，不拼接成一个新 query；下一 step 的多条领取及实际模型请求合并由 Harness 决定，不承诺所有选中项在同一步消费。
+
+最终队列界面只投影同一交付账本及本机未确认请求：一个限高滚动卡片，每行提供“优先发送”、编辑、删除；不另建折叠/批量发送调度。优先发送在活动轮次使用 next-step，空闲时复用既有 reorder/resume，将选中项提前而保留其他待发项的相对顺序。本机未确认内容只读；原生已接纳或未知的内容不能由界面猜测为未发送。自然结束后的剩余消息按当前顺序逐条发送，附件跟随原 ID，暂不合并。
+
+图片引导的慢准备也属于既有 driver delivery 的在途工作：driver 在任何异步准备前同步捕获并校验原 run，在同一 run.steers 集合登记完整 Promise，再由 Compat 原 VisionRouting 准备内容和绑定输入。准备后复核 run 身份、acceptingInput、cancelRequested 和原信号；原生接纳/flush 的 owner 不变。普通自然结束须等待已接受的准备，Stop 和准备错误不得转换成新的 prompt 或重放。DSH 若已结束原生 turn，可在同 ACP owner 下继续下一原生 turn；ACP 执行身份与原生 turn 不混用。
+
+新排队入口不调用 cancel，也不将旧 send 命令重新解释为下一 step；未应用的旧 send 明确拒绝，已应用命令只返回原去重回执。启动清除旧选择并暂停宿主尚未交付的队列，原消息和不明结果保留。真正 Stop 仍暂停宿主未交付项；已入原生 Inbox 的 next-step 项不能降回 pending 或重新 prompt。原生仍持有该 ID 时保留 admitted；空闲界面明确提示发送新消息后继续，不提供虚假恢复动作。原生 user/message 的 agent_input 回执仍是 consumed 的唯一依据。
+
+本节覆盖下方 2026-11-25 的排队停止后发送约定及同日早期“旧 stop-and-send 继续兼容”的候选描述，其他引导、权限、桌面和执行所有权不变。
+
+## 2026-11-27 已批准：排队与运行中引导分离（候选实施）
+
+桌面设置只持有新消息的 queue/steer 选择；既有 InputQueue 继续唯一持有进入原生执行前的交付账本，保留原消息身份、命令 ID、目标 run 和接纳/未知状态。只有 Harness 原生 user/message 的 agent_input 回执表示消费，ACK/flush 不表示模型已读；是否进入模型上下文须核对后续真实请求。新引导不调用旧 cancel；原生循环持有独立模型请求抢占信号，实际工具、子 Agent、权限和 Session 历史仍由既有 Harness owner 持有。job_output及已登记Job的前台PowerShell只解除等待，生产者由原JobRegistry继续管理；真正Stop沿原取消和结算路径。前台因引导让出使用原promoted结果及可选releaseReason/preparing，区分真实超时与尚未确认启动；不要求模型立即输出正文。
+
+旧排队及显式停止后发送继续兼容；未知输入不自动重放。锁版变换及已完成/未完成项、停止、恢复边界见 [ADR-004](decisions/ADR-004-follow-up-steering.md)。本节为已批准方案的候选实现合同，不代表前端验证或产品验收完成。繁體：交付帳本與原生執行權威分離，引導只搶占模型請求。English: The existing ledger owns delivery; Harness owns request preemption, tools and canonical history.
+
+2026-11-27 等待边界补充：媒体继续由既有 job_id、共享刷新和落盘回执持有生成及最终状态；Harness 提供仅限当前 Agent 的观察等待信号。status 的观察循环、完成图像的可选读取/辅助识图可让出，生成提交、刷新/下载和取消不接收 steer 信号；可选 wait_release_reason=steer 仅描述本次调用，不持久化，不改变真实状态或原 240 秒预算。未检查的像素不冒充视觉验证，已保存的图像与 UI 投递保留。
+
+DesktopCoordinator 继续独占桌面 lease、窗口绑定、串行 tail 和在途动作回执。引导仅撤回未派发调用的前驱/lease 等待，原生工具 writer 使用派发前取消结果配对；新调用不能越过真实前驱，其他聊天 lease 不变。首次窗口范围在真实 MCP 派发前的元数据边界提交，已提交范围不随引导清空。已派发 CU 动作及其视觉收尾、普通同步 MCP/Tasks 保持原结果合同，不把任意 Promise 提前返回当作安全后台化。
+
 ## 2026-11-26 已批准：多项目工作区与只读优先
 
 目录成员、版本和真实目录身份由 `WorkspaceService` 持有；Compat 保存会话创建时的 `projectFoldersSnapshot`，已有会话不随项目编辑改变范围。文件与终端适配器消费同一验证结果；子任务沿 Harness 已验证父子关系继承根快照。仅参考目录禁止完全访问，审批不能扩大此边界。Windows 多目录 capability 随目录组合隔离，底层执行和取消继续由 Harness 持有。详见 [多项目工作区](../../docs/multi-project-workspaces.zh-CN.md)。

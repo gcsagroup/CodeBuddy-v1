@@ -2327,6 +2327,7 @@ const validSettingKeys: Set<string> = new Set([
   'useSystemTheme',
   'language',
   'responseStyle',
+  'followUpMode',
   'showPricing',
   'windowZoom',
   'textSize',
@@ -2361,11 +2362,15 @@ ipcMain.handle('set-setting', (_event, key: SettingKey, value: unknown) => {
   }
 
   if (key === 'windowZoom' || key === 'textSize' || key === 'codeFontSize' || key === 'uiFont') return saveTypography(key, value);
+  if (key === 'followUpMode' && value !== 'queue' && value !== 'steer') throw new Error('Invalid follow-up mode');
   const settings = getSettings();
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   (settings as any)[key] = value;
   fsSync.writeFileSync(SETTINGS_FILE, JSON.stringify(settings, null, 2));
 
+  if (key === 'followUpMode') for (const win of windowMap.values()) {
+    if (!win.isDestroyed()) win.webContents.send('follow-up-mode-changed', value);
+  }
   if (key === 'enableWakelock') taskWakelock.setEnabled(value === true);
   if (key === 'language') {
     appConfig.GOOSE_LOCALE = getConfiguredGooseLocale();

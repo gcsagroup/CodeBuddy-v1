@@ -3,6 +3,7 @@ import { join } from 'node:path';
 import { homedir } from 'node:os';
 import { randomUUID } from 'node:crypto';
 import { setTimeout as delay } from 'node:timers/promises';
+import { abortable } from './harness/abortable.mjs';
 
 export const desktopDirectory = () => process.env.CODEBUDDY_DESKTOP_CONTROL_DIRECTORY ||
   join(process.env.LOCALAPPDATA || homedir(), 'CodeBuddy', 'desktop-control-v1');
@@ -16,6 +17,19 @@ const alive = pid => { try { process.kill(pid, 0); return true; } catch (e) { re
 const controlError = (desktopOutcome, message) => Object.assign(new Error(message), { desktopOutcome });
 const pauseReasons = new Set(['escape', 'input_conflicts', 'mouse', 'keyboard', 'cancelled', 'owner_lost', 'manual']);
 const stoppedReasons = new Set(['escape', 'input_conflicts']);
+function requestedWindowTitle(turn, tool) {
+  const title = tool.arguments?.window_title;
+  if (title === undefined) return;
+  if (typeof title !== 'string' || (title !== '' && !title.trim()))
+    throw Error('Declare the exact requested window_title on the first desktop discovery call.');
+  if (turn.windowTitle === undefined) {
+    if (!['mcp__qwen_computer__list_apps', 'mcp__qwen_computer__get_app_state', 'mcp__qwen_computer__open_path'].includes(tool.name))
+      throw Error('Declare the exact requested window_title on the first desktop discovery call.');
+  } else if (title !== turn.windowTitle) {
+    throw Error('The window title for this turn is already bound. No input dispatched.');
+  }
+  return title;
+}
 
 // This owns only one shared desktop resource. Harness still owns the task loop,
 // approvals and completion. The marker also fences other profiles and native input.
@@ -153,8 +167,22 @@ export class DesktopCoordinator {
       },
       execute: (tool, next) => {
         if (!isDesktopTool(tool.name)) return next();
-        const work = turn.tail.then(() => this.execute(turn, tool, next));
-        turn.tail = work.catch(() => {});
+        const previous = turn.tail;
+        const prepare = async waitSignal => {
+          await (waitSignal ? abortable(previous, waitSignal) : previous);
+          waitSignal?.throwIfAborted();
+          await this.acquire(turn, tool, waitSignal);
+        };
+        const work = (async () => {
+          const waited = tool.waitForSteering ? await tool.waitForSteering(prepare)
+            : { value: await prepare(tool.signal ?? turn.signal) };
+          (tool.signal ?? turn.signal)?.throwIfAborted();
+          if (waited.released) throw controlError('steered', 'Desktop proposal withdrawn before dispatch for new input.');
+          return this.execute(turn, tool, next);
+        })();
+        // A queued caller may return before its predecessor. Keep that actual
+        // work in the tail so later calls/end cannot bypass an in-flight action.
+        turn.tail = Promise.all([previous, work.catch(() => {})]).then(() => {});
         return work;
       },
       metadata: () => {
@@ -164,6 +192,12 @@ export class DesktopCoordinator {
         if (this.pauseRevision() !== null) throw controlError('paused', pausedMessage);
         const owner = this.readLease();
         if (owner?.token !== turn.token) throw controlError('stale', staleMessage);
+        // Commit the first candidate only at the real MCP metadata boundary.
+        // A proposal withdrawn in the lease queue/presentation never binds scope.
+        if (turn.dispatchTool) {
+          const title = requestedWindowTitle(turn, turn.dispatchTool);
+          if (turn.windowTitle === undefined && title !== undefined) turn.windowTitle = title;
+        }
         return { 'codebuddy/desktop-control': { version: 1, token: turn.token, generation: owner.generation,
           windowTitle: turn.windowTitle ?? null } };
       },
@@ -189,26 +223,16 @@ export class DesktopCoordinator {
       },
     };
   }
-  async execute(turn, tool, next) {
+  async acquire(turn, tool, waitSignal) {
     turn.signal ??= tool.signal;
     turn.signal?.throwIfAborted();
+    waitSignal?.throwIfAborted();
     if (turn.closed) throw Error('Desktop turn has ended');
     this.publish();
     if (turn.epoch !== this.epoch()) turn.desktopStopped = true;
     if (turn.desktopStopped) throw controlError('stopped', turn.failureMessage ?? stoppedMessage);
     if (turn.withdrawn) throw controlError('withdrawn', 'DESKTOP_WITHDRAWN: 用户已退出本轮电脑控制排队；原任务保留，继续独立的非桌面工作。');
-    const title = tool.arguments?.window_title;
-    if (title !== undefined) {
-      if (typeof title !== 'string' || (title !== '' && !title.trim()))
-        throw Error('Declare the exact requested window_title on the first desktop discovery call.');
-      if (turn.windowTitle === undefined) {
-        if (!['mcp__qwen_computer__list_apps', 'mcp__qwen_computer__get_app_state', 'mcp__qwen_computer__open_path'].includes(tool.name))
-          throw Error('Declare the exact requested window_title on the first desktop discovery call.');
-        turn.windowTitle = title;
-      } else if (title !== turn.windowTitle) {
-        throw Error('The window title for this turn is already bound. No input dispatched.');
-      }
-    }
+    requestedWindowTitle(turn, tool);
     mkdirSync(this.directory, { recursive: true });
     if (!this.timer) {
       this.timer = setInterval(() => {
@@ -229,7 +253,7 @@ export class DesktopCoordinator {
         while (this.pauseRevision() !== null) {
           this.publish();
           if (turn.desktopStopped) throw controlError('stopped', turn.failureMessage ?? stoppedMessage);
-          await delay(75, undefined, { signal: turn.signal });
+          await delay(75, undefined, { signal: waitSignal });
         }
         turn.notifiedPause = false;
         throw controlError('stale', staleMessage);
@@ -242,6 +266,7 @@ export class DesktopCoordinator {
     try {
       for (;;) {
         turn.signal?.throwIfAborted();
+        waitSignal?.throwIfAborted();
         if (turn.closed) throw Error('Desktop turn has ended');
         this.publish();
         if (turn.desktopStopped) throw controlError('stopped', turn.failureMessage ?? stoppedMessage);
@@ -259,11 +284,19 @@ export class DesktopCoordinator {
         }
         if (owner && (owner.unknown || !alive(owner.pid))) this.hold();
         this.publish();
-        await delay(75, undefined, { signal: turn.signal });
+        await delay(75, undefined, { signal: waitSignal });
       }
     } finally { this.queue = this.queue.filter(t => t !== turn); this.publish(); }
+  }
+  async execute(turn, tool, next) {
+    turn.signal?.throwIfAborted();
+    if (turn.closed) throw Error('Desktop turn has ended');
+    this.publish();
+    if (turn.epoch !== this.epoch()) turn.desktopStopped = true;
+    if (turn.desktopStopped) throw controlError('stopped', turn.failureMessage ?? stoppedMessage);
     if (this.pauseRevision() !== null) { turn.notifiedPause = true; throw controlError('paused', pausedMessage); }
     turn.inFlight++;
+    turn.dispatchTool = tool;
     delete tool.desktopControlReceipt;
     try {
       let result;
@@ -301,6 +334,7 @@ export class DesktopCoordinator {
       }
       throw error;
     } finally {
+      if (turn.dispatchTool === tool) delete turn.dispatchTool;
       turn.inFlight--;
       // A broken native connection ends only this turn's desktop access. Other
       // chats can use their own valid connection once this call has settled.

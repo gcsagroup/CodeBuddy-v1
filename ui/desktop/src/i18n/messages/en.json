@@ -3128,6 +3128,51 @@
   "externalBackendSection.useExternalServerDescription": {
     "defaultMessage": "Connect to an ACP-compatible backend running elsewhere."
   },
+  "followUp.admitted": {
+    "defaultMessage": "Received; waiting for the current task to process"
+  },
+  "followUp.attachments": {
+    "defaultMessage": "Attachments: {count}"
+  },
+  "followUp.description": {
+    "defaultMessage": "Queue messages for the next turn, or steer the current task. Ctrl+Enter uses the other mode."
+  },
+  "followUp.failed": {
+    "defaultMessage": "Could not save this preference. Please try again."
+  },
+  "followUp.loadFailed": {
+    "defaultMessage": "Could not read follow-up mode. Reopen chat settings and retry."
+  },
+  "followUp.loading": {
+    "defaultMessage": "Loading follow-up mode"
+  },
+  "followUp.localPending": {
+    "defaultMessage": "Unconfirmed local messages ({count})"
+  },
+  "followUp.queue": {
+    "defaultMessage": "Queue"
+  },
+  "followUp.queuedSend": {
+    "defaultMessage": "Queue for the next turn (Ctrl+Enter to steer)"
+  },
+  "followUp.requeue": {
+    "defaultMessage": "Not sent: queue this message instead"
+  },
+  "followUp.retry": {
+    "defaultMessage": "Retry"
+  },
+  "followUp.steer": {
+    "defaultMessage": "Steer"
+  },
+  "followUp.steerSend": {
+    "defaultMessage": "Steer the current task (Ctrl+Enter to queue)"
+  },
+  "followUp.title": {
+    "defaultMessage": "Follow-up messages"
+  },
+  "followUp.unavailable": {
+    "defaultMessage": "This runtime does not support steering. Restart the updated preview, or queue this message instead."
+  },
   "githubCi.aggregate.neutral": {
     "defaultMessage": "CI completed neutrally"
   },
@@ -4685,53 +4730,23 @@
   "messageQueue.cancel": {
     "defaultMessage": "Cancel"
   },
-  "messageQueue.cannotSendWhileEditing": {
-    "defaultMessage": "Cannot send while editing"
-  },
-  "messageQueue.clearAll": {
-    "defaultMessage": "Clear All"
-  },
-  "messageQueue.clickToEdit": {
-    "defaultMessage": "{content} (Click to edit)"
-  },
-  "messageQueue.collapseDrafts": {
-    "defaultMessage": "Collapse saved drafts"
-  },
-  "messageQueue.collapseQueue": {
-    "defaultMessage": "Collapse queue"
-  },
-  "messageQueue.confirmNotSent": {
-    "defaultMessage": "Confirmed not sent: queue again"
-  },
-  "messageQueue.confirmSent": {
-    "defaultMessage": "Confirmed sent: remove"
-  },
-  "messageQueue.continueSending": {
-    "defaultMessage": "Messages kept. Send now when you are ready."
+  "messageQueue.checkAndRequeue": {
+    "defaultMessage": "Check sending status and requeue"
   },
   "messageQueue.edit": {
     "defaultMessage": "Edit message"
   },
-  "messageQueue.expandDrafts": {
-    "defaultMessage": "Expand saved drafts"
-  },
-  "messageQueue.expandQueue": {
-    "defaultMessage": "Expand queue"
-  },
-  "messageQueue.messageCount": {
-    "defaultMessage": "{count,plural,one{# message {status}} other{# messages {status}}}"
-  },
-  "messageQueue.more": {
-    "defaultMessage": "More message actions"
+  "messageQueue.nativeWaiting": {
+    "defaultMessage": "Already received by the task; send a new message to continue processing."
   },
   "messageQueue.next": {
     "defaultMessage": "Next"
   },
-  "messageQueue.pending": {
-    "defaultMessage": "Waiting to send"
+  "messageQueue.prioritySend": {
+    "defaultMessage": "Send sooner"
   },
-  "messageQueue.queued": {
-    "defaultMessage": "queued"
+  "messageQueue.prioritySendHint": {
+    "defaultMessage": "Send when the current action finishes, without interrupting the task."
   },
   "messageQueue.removeFromQueue": {
     "defaultMessage": "Remove this message from queue"
@@ -4739,29 +4754,11 @@
   "messageQueue.save": {
     "defaultMessage": "Save"
   },
-  "messageQueue.savedDrafts": {
-    "defaultMessage": "{count,plural,one{# saved draft} other{# saved drafts}}"
-  },
-  "messageQueue.sendAllNow": {
-    "defaultMessage": "Send all now"
-  },
-  "messageQueue.sendDrafts": {
-    "defaultMessage": "Send saved drafts"
-  },
-  "messageQueue.sendNow": {
-    "defaultMessage": "Send now"
-  },
-  "messageQueue.sendTogether": {
-    "defaultMessage": "Send all waiting messages together now"
-  },
-  "messageQueue.steer": {
-    "defaultMessage": "Switch now"
-  },
   "messageQueue.verifyDelivery": {
     "defaultMessage": "Sending result unknown. Check the conversation before retrying."
   },
   "messageQueue.waitingForCancellation": {
-    "defaultMessage": "Stopping the previous turn. Your new message will be sent after confirmation."
+    "defaultMessage": "Stopping the current turn. Waiting for it to finish before sending the selected messages."
   },
   "messageQueue.waitingForPreviousPrompt": {
     "defaultMessage": "Waiting for the previous request to finish. Your queued message has not been sent."

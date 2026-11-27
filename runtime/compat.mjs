@@ -339,13 +339,20 @@ export class Compat {
     this.inputQueue = new InputQueue(store, {
       active: id => this.active.get(id), closing: () => this.closing,
       inputIds: (id, committedOnly = true) => this.driver.agentInputIds(id, { committedOnly, currentOnly: !committedOnly }),
-      cancel: (id, connection, expected) => this.active.get(id) === expected
-        ? this.request('session/cancel', { sessionId: id }, connection, true) : Promise.resolve(),
       dispatch: (id, items, connection) => this.prompt({ sessionId: id,
         prompt: items.flatMap(item => queuePrompt(item)),
         _meta: { 'codeagentpro/source-message-id': items[0].id,
           'codebuddy/input-origin': 'queued-while-busy', 'codebuddy/desktop-generation': items[0].desktopGeneration },
       }, connection, undefined, items),
+      steer: (id, item, connection, expected) => {
+        if (this.active.get(id) !== expected) throw Object.assign(invalid('Run ended before steering admission'), { harnessCode: 'PROMPT_IDLE' });
+        return this.request('_goose/unstable/session/steer', {
+          sessionId: id, expectedRunId: expected.run?.runId ?? expected.desktopControlToken,
+          prompt: queuePrompt(item), _meta: { 'codeagentpro/source-message-id': item.id,
+            ...(item.mode === 'steer' ? { 'codebuddy/input-mode': 'steer' } : {}),
+            'codebuddy/input-origin': 'queued-while-busy', 'codebuddy/desktop-generation': item.desktopGeneration },
+        }, connection);
+      },
     });
     this.initialized = new Set();
     this.initializing = new Map();
@@ -2842,23 +2849,21 @@ export class Compat {
         const runId = active?.run?.runId ?? active?.desktopControlToken;
         if (!active?.notify || !runId || runId !== p.expectedRunId)
           throw Object.assign(invalid("Run changed or is no longer active"), { harnessCode: 'PROMPT_IDLE' });
-        const prepared = await this.prepareModelContent(
-          s,
-          harnessPrompt(p.prompt),
-          active.controller.signal,
-        );
-        if (
-          this.active.get(s.id) !== active ||
-          active.controller.signal.aborted
-        )
-          throw Object.assign(invalid("Run ended before the input could be added"), { harnessCode: 'PROMPT_IDLE' });
-        const messageId = randomUUID();
-        await bindAgentInput(this.store, s.id, messageId, { profile: Object.hasOwn(active, 'agentProfile')
-          ? active.agentProfile : await this.driver.mainAgentProfile?.(s.id) ?? null });
-        await this.driver.steer(s.id, prepared.content, {
+        const messageId = p._meta?.['codeagentpro/source-message-id'] ?? randomUUID();
+        if (typeof messageId !== 'string' || !messageId || messageId.length > 200) throw invalid('Invalid steering message identity');
+        await this.driver.steer(s.id, harnessPrompt(p.prompt), {
           requestId: messageId,
           signal: active.controller.signal,
           queuedWhileBusy: p._meta?.['codebuddy/input-origin'] === 'queued-while-busy',
+          preempt: p._meta?.['codebuddy/input-mode'] === 'steer',
+          prepareContent: async content => {
+            const prepared = await this.prepareModelContent(s, content, active.controller.signal);
+            if (this.active.get(s.id) !== active || active.controller.signal.aborted)
+              throw Object.assign(invalid('Run ended before the input could be added'), { harnessCode: 'PROMPT_IDLE' });
+            await bindAgentInput(this.store, s.id, messageId, { profile: Object.hasOwn(active, 'agentProfile')
+              ? active.agentProfile : await this.driver.mainAgentProfile?.(s.id) ?? null });
+            return prepared.content;
+          },
         });
         await this.desktop.preparePrompt(s.id, { activeInput: true, token: active.desktopControlToken });
         const created = Math.floor(Date.now() / 1000);

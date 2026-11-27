@@ -31,20 +31,30 @@ export function applyContentChunk(
   const existing = findMessageForChunk(state, role, messageId, gooseMeta.created);
 
   if (existing) {
+    const confirmingLocalPreview = role === 'user' && !!existing.id && !!existing.metadata.pendingDelivery;
+    if (confirmingLocalPreview && existing.id) {
+      // The local bubble is a preview. Its real echo owns both the text and
+      // routing, including a rejected steer explicitly requeued as ordinary input.
+      state.localSteerTextByMessageId.set(existing.id, '');
+      existing.metadata = { ...existing.metadata, ...DEFAULT_VISIBLE_MESSAGE_METADATA,
+        steer: gooseMeta.steer === true };
+      delete existing.metadata.pendingDelivery;
+    }
     if (role === 'user' && gooseMeta.inference) existing.metadata.inference = gooseMeta.inference;
     const lastContent = existing.content[existing.content.length - 1];
-    if (reconcileLocalSteerTextChunk(state, existing, content, gooseMeta.steer)) {
-      return messagesChangeWithLocalSteerConfirmation(state, existing, gooseMeta.steer);
-    }
     if (
       role === 'user' &&
       messageId &&
+      !confirmingLocalPreview &&
       !existing.metadata.steer &&
       content.type === 'text' &&
       existing.content
         .filter((item) => item.type === 'text')
         .some((item) => item.text === content.text)
     ) {
+      return messagesChangeWithLocalSteerConfirmation(state, existing, gooseMeta.steer);
+    }
+    if (reconcileLocalSteerTextChunk(state, existing, content, gooseMeta.steer)) {
       return messagesChangeWithLocalSteerConfirmation(state, existing, gooseMeta.steer);
     }
 
@@ -219,7 +229,8 @@ function messagesChangeWithLocalSteerConfirmation(
   isSteerChunk: boolean | undefined
 ): AcpChatStateChange[] {
   const changes = messagesChange(state, message);
-  if (isSteerChunk && message.metadata.steer && message.role === 'user' && message.id) {
+  if (message.role === 'user' && message.id &&
+    (isSteerChunk && message.metadata.steer || state.localSteerTextByMessageId.has(message.id))) {
     changes.push({ type: 'localSteerConfirmed', messageId: message.id });
   }
   return changes;
@@ -231,7 +242,9 @@ function reconcileLocalSteerTextChunk(
   content: StreamedContentBlock,
   isSteerChunk: boolean | undefined
 ): boolean {
-  if (!isSteerChunk || !message.metadata.steer || message.role !== 'user') {
+  if (message.role !== 'user' ||
+    (!(isSteerChunk && message.metadata.steer) &&
+      !(message.id && state.localSteerTextByMessageId.has(message.id)))) {
     return false;
   }
 
@@ -250,6 +263,7 @@ function reconcileLocalSteerTextChunk(
   }
 
   message.content = [{ ...content, text: nextText }, ...message.content.slice(1)];
-  message.metadata = { ...message.metadata, steer: true };
+  message.metadata = { ...message.metadata,
+    ...(isSteerChunk !== undefined ? { steer: isSteerChunk } : {}) };
   return true;
 }

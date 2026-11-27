@@ -57,7 +57,8 @@ import { DroppedFile, useFileDrop } from '../hooks/useFileDrop';
 import { Recipe } from '../recipe';
 import { MessageQueue, QueuedMessage } from './MessageQueue';
 import { getDesktopOwnership } from '../desktopOwnership';
-import { type Message } from '../types/message';
+import { createUserMessage, type Message } from '../types/message';
+import { acpChatSessionActions } from '../acp/chatSessionStore';
 import { getInitialWorkingDir } from '../utils/workingDir';
 import { trackFileAttached, trackVoiceDictation } from '../utils/analytics';
 import { getNavigationShortcutText } from '../utils/keyboardShortcuts';
@@ -75,6 +76,8 @@ import TurndownService from 'turndown';
 import type { NextChatExtensionDraft } from '../utils/nextChatExtensions';
 import { AgentSelector } from './custom-agents/AgentSelector';
 import { useInputQueue } from '../hooks/useInputQueue';
+import { useFollowUpMode, type FollowUpMode } from '../hooks/useFollowUpMode';
+import { followUpMessages } from './followUpMessages';
 import { isLargeText, useCompactTextInput } from './pastedText';
 import { PastedTextPreview } from './PastedTextPreview';
 import { ComposerAttachmentTray } from './ComposerAttachmentTray';
@@ -171,7 +174,7 @@ const i18n = defineMessages({
   },
   waitingForCancellation: {
     id: 'messageQueue.waitingForCancellation',
-    defaultMessage: 'Stopping the previous turn. Your new message will be sent after confirmation.',
+    defaultMessage: 'Stopping the current turn. Waiting for it to finish before sending the selected messages.',
   },
   waitingForPreviousPrompt: {
     id: 'messageQueue.waitingForPreviousPrompt',
@@ -378,16 +381,47 @@ export default function ChatInput({
   // Derived state - chatState != Idle means we're in some form of loading state
   const isLoading = chatState !== ChatState.Idle;
   const serverQueue = useInputQueue(sessionId ?? undefined);
+  const followUpPreference = useFollowUpMode(), followUpMode = followUpPreference.mode;
   const mutateQueue = serverQueue.mutate;
-  const queuedMessages: QueuedMessage[] = serverQueue.snapshot.items.map(item => ({
-    ...item, delivery: item.state === 'pending' ? 'pending' : 'submitting',
+  const localPendingInputs = serverQueue.pendingInputs.filter(item => serverQueue.error || item.mode !== 'steer');
+  // Delivery remains in the shared ledger. Only ordinary drafts/recovery belong
+  // in the queue panel; active steering is processed by the current turn.
+  const activeSteeringItems = serverQueue.error || serverQueue.snapshot.selection ||
+    serverQueue.snapshot.items.some(item => item.state === 'uncertain') ? [] :
+    serverQueue.snapshot.items.filter(item => (item.mode === 'steer' || item.deliveryTarget === 'next-step') &&
+      serverQueue.snapshot.steering === true && serverQueue.snapshot.activeRunId !== null &&
+      item.targetRunId === serverQueue.snapshot.activeRunId && item.state !== 'uncertain');
+  const activeSteeringIds = new Set(activeSteeringItems.map(item => item.id));
+  const queueItems = serverQueue.snapshot.items.filter(item => !activeSteeringIds.has(item.id));
+  const queueOperationPending = serverQueue.busy || activeSteeringItems.some(item => item.state === 'pending');
+  const mutateVisibleQueue: typeof mutateQueue = (...args) =>
+    queueOperationPending ? Promise.resolve(false) : mutateQueue(...args);
+  const queuedMessages: QueuedMessage[] = queueItems.map(item => ({
+    ...item, delivery: item.state === 'pending' && item.deliveryTarget !== 'next-step' ? 'pending' : 'submitting',
+    deliveryState: item.state, admitted: item.state === 'admitted',
   }));
+  const visibleIds = new Set(queuedMessages.map(message => message.id));
+  for (const item of localPendingInputs) if (!visibleIds.has(item.id)) {
+    queuedMessages.push({ id: item.id, content: item.content, timestamp: 0, images: [],
+      attachmentCount: item.attachmentCount, localOnly: true, delivery: 'submitting' });
+  }
   const queueSessionIdRef = useRef(sessionId);
   queueSessionIdRef.current = sessionId;
+  const presentPendingStepMessages = (messages: QueuedMessage[]) => {
+    if (!sessionId) return;
+    for (const message of messages) {
+      const bubble = createUserMessage(message.content, message.images);
+      acpChatSessionActions.addPendingLocalSteerMessage(sessionId, {
+        ...bubble, id: message.id,
+        metadata: { ...bubble.metadata, agentVisible: false, steer: true, pendingDelivery: 'unconfirmed' },
+      });
+    }
+    if (queueSessionIdRef.current === sessionId) onSubmissionAccepted?.();
+  };
   const editingMessageIdRef = useRef<string | null>(null);
   const sendNowInFlightMessageIdsRef = useRef<Set<string>>(new Set());
   sendNowInFlightMessageIdsRef.current = new Set([...serverQueue.snapshot.items
-    .filter(item => item.state === 'dispatching').map(item => item.id), ...(serverQueue.snapshot.selection?.ids ?? [])]);
+    .filter(item => item.state === 'dispatching' || item.state === 'admitted').map(item => item.id), ...(serverQueue.snapshot.selection?.ids ?? [])]);
   const [composerMode, setComposerMode] = useState<'goal' | 'plan' | null>(null);
   const [modelOpenRequest, setModelOpenRequest] = useState(0);
   const [agentOpenRequest, setAgentOpenRequest] = useState(0);
@@ -1137,11 +1171,19 @@ export default function ChatInput({
     }
   };
 
-  const queueWhileBusy = () => {
-    if (serverQueue.busy) return true;
+  const isAnyImageLoading = pastedImages.some((img) => img.isLoading);
+  const isAnyDroppedFileLoading = allDroppedFiles.some((file) => file.isLoading);
+  const queueWhileBusy = (mode: FollowUpMode = followUpMode) => {
+    if (isAnyImageLoading || isAnyDroppedFileLoading) return true;
+    if (serverQueue.busy && !serverQueue.canEnqueue) return true;
     if (isCurrentDraftSubmitted) return false;
     if ((!isLoading && !queueProcessingBlocked && !serverQueue.snapshot.activeRunId &&
-        sendNowInFlightMessageIdsRef.current.size === 0) || !hasSubmittableContent) return false;
+        sendNowInFlightMessageIdsRef.current.size === 0 && !serverQueue.busy) || !hasSubmittableContent) return false;
+    if (!followUpPreference.ready) return true;
+    if (mode === 'steer' && serverQueue.snapshot.activeRunId && serverQueue.snapshot.steering !== true) {
+      setCommandNotice(intl.formatMessage(followUpMessages.unavailable));
+      return true;
+    }
     const newMessage: QueuedMessage = {
       queuedWhileBusy: true,
       id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
@@ -1151,7 +1193,14 @@ export default function ChatInput({
       images: convertImagesToImageData(),
     };
     const revision = inputRevisionRef.current;
-    void mutateQueue({ action: 'enqueue', items: [newMessage] }, undefined, () => {
+    // At preparation/completion boundaries without a confirmed run, preserve ordinary queuing.
+    const steer = mode === 'steer' && serverQueue.snapshot.activeRunId !== null;
+    setCommandNotice(null);
+    void mutateQueue({ action: 'enqueue', items: [{ ...newMessage, ...(steer ? { mode: 'steer' } : {}) }],
+      ...(steer ? { expectedRunId: serverQueue.snapshot.activeRunId } : {}) }, undefined, () => {
+      if (steer && sessionId) {
+        presentPendingStepMessages([newMessage]);
+      }
       if (queueSessionIdRef.current === sessionId && inputRevisionRef.current === revision) {
         inputRevisionRef.current += 1;
         clearInputState();
@@ -1268,7 +1317,7 @@ export default function ChatInput({
         return;
       }
       const submittedAtMs = Date.now();
-      if (submitInFlightRef.current) return;
+      if (submitInFlightRef.current || isAnyImageLoading || isAnyDroppedFileLoading) return;
 
       const imageData = convertImagesToImageData();
       const textToSend = appendDroppedFilePaths(
@@ -1372,6 +1421,8 @@ export default function ChatInput({
       pastedImages,
       localDroppedFiles,
       allDroppedFiles,
+      isAnyImageLoading,
+      isAnyDroppedFileLoading,
       handleSubmit,
       clearInputState,
       onSubmissionAccepted,
@@ -1448,8 +1499,8 @@ export default function ChatInput({
         void performSubmit();
         return;
       }
-      // Enter queues a follow-up. Explicit Switch now cancels before dispatching.
-      if (queueWhileBusy()) {
+      const mode = evt.ctrlKey || evt.metaKey ? (followUpMode === 'steer' ? 'queue' : 'steer') : followUpMode;
+      if (queueWhileBusy(mode)) {
         return;
       }
 
@@ -1661,12 +1712,11 @@ export default function ChatInput({
     isLoading,
     Boolean(hasSubmittableContent) && !isCurrentDraftSubmitted
   );
-  const isAnyImageLoading = pastedImages.some((img) => img.isLoading);
-  const isAnyDroppedFileLoading = allDroppedFiles.some((file) => file.isLoading);
   const continueAction = chatState === ChatState.Idle && !draftText.trim() &&
     !pastedImages.length && !allDroppedFiles.length && !isRecording && !isTranscribing
     ? onContinue : undefined;
-  const primaryActionDisabled = submissionDisabled || serverQueue.busy || !continueAction && (
+  const primaryActionDisabled = submissionDisabled || (serverQueue.busy && !serverQueue.canEnqueue) || !continueAction && (
+    ((isLoading || queueProcessingBlocked || !!serverQueue.snapshot.activeRunId) && !followUpPreference.ready && !isComposerControl(displayValue)) ||
     isCurrentDraftSubmitted ||
     !hasSubmittableContent ||
     isAnyImageLoading ||
@@ -1680,7 +1730,9 @@ export default function ChatInput({
     if (chatState === ChatState.RestartingAgent) return intl.formatMessage(i18n.restartingSession);
     if (isComposerControl(displayValue)) return intl.formatMessage(i18n.send);
     if (isLoading || queueProcessingBlocked)
-      return queueBlockedReason ?? intl.formatMessage(i18n.queueMessage);
+      return queueBlockedReason ?? intl.formatMessage(!followUpPreference.ready
+        ? followUpPreference.error ? followUpMessages.loadFailed : followUpMessages.loading
+        : followUpMode === 'steer' ? followUpMessages.steerSend : followUpMessages.queuedSend);
     if (isAnyImageLoading) return intl.formatMessage(i18n.waitingForImages);
     if (isAnyDroppedFileLoading) return intl.formatMessage(i18n.processingDroppedFiles);
     if (isRecording) return intl.formatMessage(i18n.recording);
@@ -1695,28 +1747,38 @@ export default function ChatInput({
   };
   const sendQueued = (ids: string[]) => {
     if (editingMessageIdRef.current || !ids.length) return;
-    void mutateQueue({ action: 'send', ids,
+    void mutateVisibleQueue({ action: 'next-step', ids,
       expectedRunId: serverQueue.snapshot.activeRunId,
       desktopGeneration: getDesktopOwnership().generation ?? '',
-    });
+    }, undefined, () => presentPendingStepMessages(queueItems.filter(item => ids.includes(item.id))));
+  };
+  const prioritizeQueued = (id: string) => {
+    if (queueOperationPending || editingMessageIdRef.current) return;
+    if (serverQueue.snapshot.activeRunId !== null) { sendQueued([id]); return; }
+    const pendingIds = queueItems.filter(item => item.state === 'pending').map(item => item.id);
+    if (!pendingIds.includes(id)) return;
+    const paused = serverQueue.snapshot.paused;
+    void (async () => {
+      if (pendingIds[0] !== id && !await mutateQueue({ action: 'reorder', ids: [id, ...pendingIds.filter(key => key !== id)] })) return;
+      if (paused) await mutateQueue({ action: 'resume' });
+    })();
   };
   const messageQueue = queuedMessages.length > 0 && (
     <MessageQueue queuedMessages={queuedMessages}
-      onBeginEdit={id => mutateQueue({ action: 'begin-edit', id })}
-      onRemoveMessage={id => { void mutateQueue({ action: 'remove', id }); }}
-      onConfirmNotSent={id => { void mutateQueue({ action: 'resolve', id }); }}
-      onClearQueue={() => { void mutateQueue({ action: 'clear' }); }}
-      onSendNow={() => sendQueued(serverQueue.snapshot.items.filter(item => item.state === 'pending').map(item => item.id))}
-      onSteerMessage={id => sendQueued([id])}
-      onReorderMessages={items => { void mutateQueue({ action: 'reorder', ids: items.filter(item => item.delivery !== 'submitting').map(item => item.id) }); }}
-      onEditMessage={(id, content) => mutateQueue({ action: 'edit', id, content })}
+      onBeginEdit={id => mutateVisibleQueue({ action: 'begin-edit', id })}
+      onRemoveMessage={id => { void mutateVisibleQueue({ action: 'remove', id }); }}
+      onConfirmNotSent={id => { void mutateVisibleQueue({ action: 'resolve', id }); }}
+      onSteerMessage={prioritizeQueued}
+      onReorderMessages={items => { void mutateVisibleQueue({ action: 'reorder', ids: items.filter(item => item.delivery !== 'submitting').map(item => item.id) }); }}
+      onEditMessage={(id, content) => mutateVisibleQueue({ action: 'edit', id, content })}
       editingMessageIdRef={editingMessageIdRef}
       sendingMessageIds={sendNowInFlightMessageIdsRef.current}
-      operationPending={serverQueue.busy}
+      operationPending={queueOperationPending}
       isPaused={serverQueue.snapshot.paused}
       isBusy={isLoading || queueProcessingBlocked}
+      hasActiveRun={serverQueue.snapshot.activeRunId !== null}
       blockedReason={serverQueue.snapshot.selection ? intl.formatMessage(i18n.waitingForCancellation) : queueBlockedReason}
-      className="mx-2 rounded-t-xl border border-b-0 border-border-primary bg-background-primary px-1 py-1"
+      className="mx-2 mb-1 overflow-hidden rounded-xl bg-background-secondary/60"
     />
   );
 
@@ -1757,10 +1819,19 @@ export default function ChatInput({
         }}
       />
       {/* Message Queue Display */}
-      {serverQueue.savingInput && !serverQueue.error && <div role="status" className="px-3 py-1 text-sm text-text-secondary">正在保存待发送消息…</div>}
+      {!followUpPreference.ready && hasSubmittableContent && (isLoading || queueProcessingBlocked || !!serverQueue.snapshot.activeRunId) && !isComposerControl(displayValue) && (
+        <div role={followUpPreference.error ? 'alert' : 'status'} className="px-3 py-1 text-sm text-text-secondary">
+          {intl.formatMessage(followUpPreference.error ? followUpMessages.loadFailed : followUpMessages.loading)}
+          {followUpPreference.error && <Button variant="outline" size="sm" onClick={followUpPreference.reload}>{intl.formatMessage(followUpMessages.retry)}</Button>}
+        </div>
+      )}
+      {serverQueue.savingInput && !serverQueue.savingSteering && !serverQueue.error && <div role="status" className="px-3 py-1 text-sm text-text-secondary">正在保存待发送消息…</div>}
       {serverQueue.error && <div role="alert" className="p-3 text-sm">
         {serverQueue.error}
         <Button variant="outline" size="sm" onClick={() => { void serverQueue.retry(); }}>刷新 / 重试确认</Button>
+        {serverQueue.canRequeueRejected && <Button variant="outline" size="sm" onClick={() => { void serverQueue.requeueRejected(); }}>
+          {intl.formatMessage(followUpMessages.requeue)}
+        </Button>}
       </div>}
       {attachmentNotice && (
         <p

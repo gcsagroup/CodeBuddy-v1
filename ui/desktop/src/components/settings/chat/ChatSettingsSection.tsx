@@ -4,6 +4,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../..
 import { defineMessages, useIntl } from '../../../i18n';
 import { FileText, ListTree } from 'lucide-react';
 import SettingsMenu from '../SettingsMenu';
+import { FollowUpSettings } from './FollowUpSettings';
+import { followUpMessages } from '../../followUpMessages';
 
 const i18n = defineMessages({
   instructions: { id: 'globalInstructions.title', defaultMessage: 'CodeBuddy rules' },
@@ -29,6 +31,13 @@ export default function ChatSettingsSection() {
     <SettingsMenu
       layout="cards"
       items={[
+        {
+          id: 'follow-up',
+          title: intl.formatMessage(followUpMessages.title),
+          description: intl.formatMessage(followUpMessages.description),
+          icon: <ListTree className="h-5 w-5" />,
+          content: <FollowUpSettings />,
+        },
         {
           id: 'instructions',
           keepAlive: true,

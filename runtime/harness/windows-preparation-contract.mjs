@@ -1,6 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import { registerHooks } from 'node:module';
+import { patchSteeringPwsh } from './steering-patch.mjs';
 
 // Keep preparation settlement and error attribution with the native job.
 // Its job view carries text, so retain the original startup promise until the
@@ -39,6 +40,7 @@ if (process.platform === 'win32') {
   replaceSeam('return settled;', 'if (failure !== void 0) throw failure;\n\t\t\t\treturn settled;');
   replaceSeam('if (process === void 0) throw new Error(view.detail);',
     'if (process === void 0) throw (await preparationFailure()) ?? new Error(view.detail);');
+  replacement = patchSteeringPwsh(replacement);
   let applied = false;
   const hook = registerHooks({ load(url, context, next) {
     const result = next(url, context);

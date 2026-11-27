@@ -25,6 +25,7 @@ import type { AcpElicitationRequest } from './elicitationRequests';
 export type { AcpChatStateChange } from './adapter/shared';
 
 export interface AcpSessionNotificationAdapter {
+  addPendingLocalSteerMessage(message: Message): AcpChatStateChange[];
   apply(notification: SessionNotification): AcpChatStateChange[];
   applyGoose(
     notification: GooseSessionNotification_unstable,
@@ -46,6 +47,11 @@ export function createAcpSessionNotificationAdapter(
   };
 
   return {
+    addPendingLocalSteerMessage(message) {
+      const pending = cloneMessage(message);
+      state.messages.push(pending);
+      return messagesChange(state, pending, true);
+    },
     apply(notification) {
       return applyAcpSessionNotification(state, notification);
     },

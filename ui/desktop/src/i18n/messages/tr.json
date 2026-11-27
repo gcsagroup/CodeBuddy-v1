@@ -4595,53 +4595,11 @@
   "messageQueue.cancel": {
     "defaultMessage": "İptal"
   },
-  "messageQueue.cannotSendWhileEditing": {
-    "defaultMessage": "Düzenleme sırasında gönderilemiyor"
-  },
-  "messageQueue.clearAll": {
-    "defaultMessage": "Tümünü Temizle"
-  },
-  "messageQueue.clickToEdit": {
-    "defaultMessage": "{content} (Düzenlemek için tıklayın)"
-  },
-  "messageQueue.collapseDrafts": {
-    "defaultMessage": "Collapse saved drafts"
-  },
-  "messageQueue.collapseQueue": {
-    "defaultMessage": "Sırayı daralt"
-  },
-  "messageQueue.confirmNotSent": {
-    "defaultMessage": "Confirmed not sent: queue again"
-  },
-  "messageQueue.confirmSent": {
-    "defaultMessage": "Confirmed sent: remove"
-  },
-  "messageQueue.continueSending": {
-    "defaultMessage": "İletiler korundu. Hazır olduğunuzda gönderin."
-  },
   "messageQueue.edit": {
     "defaultMessage": "Mesajı düzenle"
   },
-  "messageQueue.expandDrafts": {
-    "defaultMessage": "Expand saved drafts"
-  },
-  "messageQueue.expandQueue": {
-    "defaultMessage": "Sırayı genişlet"
-  },
-  "messageQueue.messageCount": {
-    "defaultMessage": "{count,plural,one{# mesaj {status}} other{# mesaj {status}}}"
-  },
-  "messageQueue.more": {
-    "defaultMessage": "Diğer mesaj işlemleri"
-  },
   "messageQueue.next": {
     "defaultMessage": "Sonraki"
-  },
-  "messageQueue.pending": {
-    "defaultMessage": "Gönderilmeyi bekliyor"
-  },
-  "messageQueue.queued": {
-    "defaultMessage": "sıraya alınmış"
   },
   "messageQueue.removeFromQueue": {
     "defaultMessage": "Bu mesajı sıradan kaldır"
@@ -4649,29 +4607,11 @@
   "messageQueue.save": {
     "defaultMessage": "Kaydet"
   },
-  "messageQueue.savedDrafts": {
-    "defaultMessage": "{count,plural,one{# saved draft} other{# saved drafts}}"
-  },
-  "messageQueue.sendAllNow": {
-    "defaultMessage": "Tümünü şimdi gönder"
-  },
-  "messageQueue.sendDrafts": {
-    "defaultMessage": "Send saved drafts"
-  },
-  "messageQueue.sendNow": {
-    "defaultMessage": "Bu mesajı şimdi gönder"
-  },
-  "messageQueue.sendTogether": {
-    "defaultMessage": "Bekleyen tüm iletileri şimdi birlikte gönder"
-  },
-  "messageQueue.steer": {
-    "defaultMessage": "Yönlendir"
-  },
   "messageQueue.verifyDelivery": {
     "defaultMessage": "Sending result unknown. Check the conversation before retrying."
   },
   "messageQueue.waitingForCancellation": {
-    "defaultMessage": "Waiting for cancellation confirmation. Your queued message has not been sent."
+    "defaultMessage": "Geçerli tur durduruluyor. Seçili mesajlar tur bittikten sonra gönderilecek."
   },
   "messageQueue.waitingForPreviousPrompt": {
     "defaultMessage": "Waiting for the previous request to finish. Your queued message has not been sent."
@@ -10291,5 +10231,62 @@
   "projectCreator.title": {"defaultMessage":"Create workspace"},
   "projectEditor.note": {"defaultMessage":"Folder note (optional)"},
   "projectEditor.protected": {"defaultMessage":"Reference-only folders disable full access for new chats."},
-  "sessionPermissions.referenceProtected": {"defaultMessage":"This workspace includes reference-only folders. Full access is unavailable to protect them from edits."}
+  "sessionPermissions.referenceProtected": {"defaultMessage":"This workspace includes reference-only folders. Full access is unavailable to protect them from edits."},
+  "followUp.admitted": {
+    "defaultMessage": "Received; waiting for the current task to process"
+  },
+  "followUp.attachments": {
+    "defaultMessage": "Ekler: {count}"
+  },
+  "followUp.description": {
+    "defaultMessage": "Queue messages for the next turn, or steer the current task. Ctrl+Enter uses the other mode."
+  },
+  "followUp.failed": {
+    "defaultMessage": "Could not save this preference. Please try again."
+  },
+  "followUp.loadFailed": {
+    "defaultMessage": "Could not read follow-up mode. Reopen chat settings and retry."
+  },
+  "followUp.loading": {
+    "defaultMessage": "Loading follow-up mode"
+  },
+  "followUp.localPending": {
+    "defaultMessage": "Onaylanmamış yerel mesajlar ({count})"
+  },
+  "followUp.queue": {
+    "defaultMessage": "Queue"
+  },
+  "followUp.queuedSend": {
+    "defaultMessage": "Queue for the next turn (Ctrl+Enter to steer)"
+  },
+  "followUp.requeue": {
+    "defaultMessage": "Not sent: queue this message instead"
+  },
+  "followUp.retry": {
+    "defaultMessage": "Retry"
+  },
+  "followUp.steer": {
+    "defaultMessage": "Steer"
+  },
+  "followUp.steerSend": {
+    "defaultMessage": "Steer the current task (Ctrl+Enter to queue)"
+  },
+  "followUp.title": {
+    "defaultMessage": "Follow-up messages"
+  },
+  "followUp.unavailable": {
+    "defaultMessage": "This runtime does not support steering. Restart the updated preview, or queue this message instead."
+  },
+  "messageQueue.checkAndRequeue": {
+    "defaultMessage": "Gönderimi denetle ve yeniden kuyruğa al"
+  },
+  "messageQueue.nativeWaiting": {
+    "defaultMessage": "Görev zaten aldı; işlemeye devam etmek için yeni bir mesaj gönderin."
+  },
+  "messageQueue.prioritySend": {
+    "defaultMessage": "Öncelikli gönder"
+  },
+  "messageQueue.prioritySendHint": {
+    "defaultMessage": "Geçerli eylem bitince görevi kesmeden gönder."
+  }
 }

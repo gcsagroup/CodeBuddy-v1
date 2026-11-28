@@ -215,3 +215,98 @@ GLM纯文件和图文各三路径（自然、优先、引导）均通过。模�
 5. 单独研究流式/导航问题。优先拆“数据到达→store发布→React渲染→Markdown处理→布局/滚动→屏幕呈现”时间，按累计内容增长测量，保留原Job与执行状态所有权，不继续堆UI计时器或按正文猜状态。
 
 给组长的人话版在同目录《给组长-插话改动交接.txt》。
+
+## 10. 2026-11-28 追加：流式展示、导航和权限修复的合并交接
+
+本节追加本批状态，不抹去前文当时的交付事实。第8节第3、4项和“导航/渲染仍dirty”的说明是11月27日快照；本节及所链接的11月28日报告是新的处理结果。用户授权本批审查、测试与本地提交，**没有授权推送、合并main或发布**。
+
+### 10.1 来源和提交依赖
+
+- 工作目录：`C:\Users\admin\Documents\ChatGPT\codebuddy-v1`；分支：`codex/fix-streaming-navigation-20261128`。
+- 起点：`bcc6ab77731cc6f1c67985a83f71f1ecb0e41d15`，包含此前插话功能/文案/交接提交，保留当时未提交的导航与前端候选。本批不恢复旧Rust执行核心。
+- 已有权限修复：`7d8a3e32f856dddc234c63acee4d5f278c64a91a`。它修复never策略下补充输入把已允许的写入提升为ask，继而因不可审批而失败；不放宽显式ask/deny、只读根、工作区范围或Auto安全检查。
+- 本轮提交清单将在收齐门禁后写在10.7。接收方应按祖先顺序取完整行为切片；不要只复制大文件或跳过其新增模块、测试、固定来源清单。
+- 本地`.local`夹具、profile、归档与生成的语言服务目录不提交；`.agents`、`.workbuddy`及11月9/10日无关报告不吸收。
+
+### 10.2 前端改变了什么，哪些状态仍归原owner
+
+1. `AnswerFilesProvider.tsx`按会话、轮次和实际key/path词汇稳定Context；`ProgressiveMessageList.tsx`接入。真实文件事实仍来自原工具回执ledger，不把模型文本变成证明。新增、撤销、歧义、key变更或切会话仍使链接失效重算。
+2. `MarkdownBlocks.tsx`复用现有ReactMarkdown、remark/rehype、KaTeX和streaming frontier，完成块保留ReactElement。组件state中的Map只保留当前文档块；没有全局缓存、新计时器、第二套Markdown协议或持久化。
+3. `MarkdownContent.tsx`统一增量与静态呈现；跨块引用/脚注仍交原完整文档转换，再按源位置归属块。保留原URL检查、真实文件链接、选择与焦点。`streamingMarkdown.ts`继续拥有解析frontier及回滚规则；不要把已完成块按任意固定字符数切断。
+4. `ThinkingContent.tsx`显式传实时状态；`GooseMessage.tsx`用`streaming`表达正文流式状态，不再为了逐词淡入生成大量动画span。通用`animateIncoming/revealAt`调用仍保留，流中代码plain、结束后高亮。`LoadingGoose.tsx`只在显示阶段耗时时重设起点，避免无关流式文字触发额外state更新。
+5. `ScrollArea`仍独占跟随/阅读意图与折叠锚点，合并几何更新按帧贴近真实末尾，处理viewport变化和Selection；上滚/选字不被新内容抢回，显式回底可恢复。没有给后台伪造尚未到达的文字，也没有新增WBD合帧层。
+6. 侧栏仅改两个CSS：标签增加主题边框/背景/圆角，选中边框区分更强并移除旧阴影；不改切换、关闭、文档加载或通知逻辑。DOCX打不开的已证实原因另见10.5，不能把CSS说成转换修复。
+
+### 10.3 导航：正常只读免询问，隔离可执行项目缓存
+
+`development-tools.mjs`的固定工厂提供可信只读事实；driver/Compat继续检查实际定义身份、显式ask/deny和安全复审。**不是按工具名称全局放行，也不是采信任意远端MCP的readOnlyHint。** 外层facade只接收overview/definition/references，realpath验证具体源文件位于工作区，目录请求给出纠正信息。
+
+- `code-navigation-connection.mjs`、`mcp-bridge.mjs`复用官方MCP SDK与DSH scope。按Agent/真实工作区/运行配置惰性复用一个私有连接，原始工具/资源/指令不投影模型。Windows x64由唯一Job拥有该Python/LSP范围；`code-navigation-job.mjs`观察SDK根退出。排队取消不杀健康实例；在途取消、超时或不确定结果退役旧实例，关闭获证才允许下一次显式查询重建，失败请求不重放。
+- `code_navigation_runtime.py`沿固定Serena选择拟启动的全部语言服务，预检全部载荷，再用同一`RegisteredProject`内存快照。当前只审查Python/Pyright及TypeScript pair；缺失或其他语言明确未准备，不在查询或桌面启动时安装。TypeScript禁用ATA，使用已核的宿主tsserver；项目activation和自定义LS命令不生效。
+- 对抗审查实证：上游读项目`.serena/cache/python/*.pkl`时，`pickle.load`会在版本校验之前执行归档内容。只读查询夹具中只写无害marker，旧实现确实写出，回归为红。这是本批自动allow必须关闭的边界，不能靠让每次正常导航都审批来掩盖。
+- 修复复用上游YAML默认值/兼容/local覆盖解析，无base时`autogenerate(save_to_disk=False)`；不调用会补写项目的`ProjectConfig.load()`。支持local-only配置，拒绝配置链接越界；不创建、迁移或修改原项目YAML/旧缓存。
+- 每个服务进程在导入Serena前取得全新工作区外临时`SERENA_HOME`，派生目录先创建，防止上游fallback到项目`.serena`；不导入旧pickle或旧全局注册项目列表。静态语言服务载荷仍按原宿主state定位。正常关闭清理，强杀可能留不再复用的临时派生目录；没有扫描/清理用户Temp。
+- 固定Serena `1.7.1.dev0`，`mcp.py`与`config/serena_config.py`的SHA及工厂合同见`PROVENANCE.json`。升级上游须重新检查纯配置helper、factory二次读全局配置、缓存fallback和LSP启动约束；不要只改预期hash绕过门禁。
+
+### 10.4 载荷准备和接收方环境
+
+`runtime/assets/typescript-runtime.json`固定官方`typescript@5.9.3`与`typescript-language-server@5.1.3`、来源和SHA-512。`scripts/prepare-typescript-runtime.cjs`是显式准备入口，校验后解包，不运行npm install或包脚本；已存在pair先校验，不联网。`stage-harness-distribution.cjs`只校验pair/provenance，缺失、替换或present-null metadata不能绕过；不触发准备。
+
+Git不带`runtime/assets/serena`、`pyright`、`typescript`生成目录。组长的机器若缺载荷，须按README与其授权准备；本机已有pair不等于干净机器/安装包已经通过。混合语言仍沿Serena选择规则：需要时在项目`.serena/project.local.yml`列出语言并新建聊天，当前连接不自动重载语言配置。不要为了跑过验收自动给任意语言安装服务。
+
+### 10.5 本机修正、已验收范围和保留限制
+
+- 用户分别明确授权仅将`runtime/py/dependencies/python/python.exe`、`runtime/harness/node_modules/@deepseek-ai/libreoffice-kit-win32-x64/bin/libreoffice-kit.exe`的Low完整性标签恢复为Medium；核对内容、所有者和普通ACL不变。**这些是本机安全元数据修正，Git不传递，也没有新增自动改ACL代码。** 接收方若再现必须先查其实际标签/进程身份，不可全树改权限。
+- 权限修复已有81个不同自动用例和GLM四轮真实文件/子Agent写入回执；原Aegis失败写入未自动重放。Exa仍按原模块审批策略，未发现本批需要变更的机制证据，按用户要求先不动。
+- 前端已有同源码四核心hash的原生Electron十轮GLM长思考/正文/代码/表格/阅读/回底/重载记录；累计正文27445、思考88703 UTF16。不是逐字符DOM hash、paint/FPS或heap泄漏证明。报告保留一次坐标回底是否命中不明的观察，不把它算通过或缺陷。
+- 受控A/B中完成块缓存和移除聊天逐词span显著降低渲染/接收积压，详见完成块报告；单个巨大未闭合块、全局引用、完整历史store/list、模型真实输出空窗仍有成本，不承诺所有模型/吞吐均匀速。WBD私有实现未声称掌握，不增加补字动画遮盖接收空窗。
+- 图片附件黑缩略图后闪退按用户要求仍搁置。此次不涉及模型连接面板、代理/TUN或安装包。
+
+### 10.6 最终核对、执行入口和合并边界
+
+本轮最终前端17个Vitest目标共384项通过，exit0；TypeScript noEmit exit0。新增导航安全回归先红后绿，最终Node门禁与正式TS实际查询的退出码、skip原因将在10.7结算。Node真实Harness/MCP/LSP查询不是模型调用或桌面E2E；不能用它替代用户前台验收。
+
+使用已有依赖，未安装/下载新依赖、重建node_modules或改PATH；未跑Rust全套或发行安装包。已有TypeScript显式载荷下载是此前用户单独批准的固定两包，本轮只复用。原始本地日志在`.local/final-review-20261128`，性能/窗口证据位置见各实施报告；不提交profile或凭据。
+
+2026-11-28重新fetch后`origin/main`仍为`73e5718ac192bdaad5fd4b001adadcf7eb952cb4`，只是读远端，没有合并工作树。最终提交树的预合并结果会记录10.7。第7节的旧冲突结论只适用于旧树，不能套到本批；组长未推送源码仍不在本机可见范围。
+
+不论文本是否冲突，接收方都要核对这些共同文件/职责：
+
+- `GooseMessage.tsx`：保留main的`speakable`/TTS接线，同时接入这里的`streaming`，不要恢复正文逐词span。
+- `ProgressiveMessageList.tsx`：保留新版布局、停止绑定真实轮次和文件回执owner，同时用`AnswerFilesProvider`传session/turn scope；不能因文件数组等价而冻结children。
+- `runtime/harness/driver.mjs`：保留`7d8a3e32`的never修复与原所有权限门禁，接入私有导航连接；不把显式ask/deny改成allow。
+- `mcp-bridge.mjs`：私有导航分支与普通扩展分支分开；保留普通MCP版本协商、重连、模块审批、CU真实回执和task合同。
+- `CODEPRO_FACT_AUTHORITY_ZH_CN.md`：插话、私有导航、前端展示、权限、main语音与多项目目录说明各自保留；不要整文件ours/theirs。
+- `runtime/compat.mjs`、`conversation-driver.mjs`虽不是本轮新增修改，合并祖先插话切片仍须保留main项目目录快照与steer options透传。
+
+完成正式合并后，复跑本节受影响门禁及目录快照/TTS相关目标，按目标checkout的README入口`powershell -ExecutionPolicy Bypass -File .\start-preview.ps1`启动，并以其launch.json/sourceHash确认加载的代码。进程启动不是产品PASS。回滚先确认无活动任务，按完整依赖切片操作，不删除用户缓存或自动重放不确定输入；本交接不授权实际合并或回滚。
+
+### 10.7 本轮最终提交、预合并与验证结算
+
+所有产品切片已本地提交，独立审查无剩余Required；本节随文档提交交付。前文历史提交/测试不重复算作本轮新运行。
+
+| 顺序 | 提交 | 内容/涉及文件 |
+| --- | --- | --- |
+| 前置 | `7d8a3e32`（此前本地提交） | never审批修复；driver、native-permissions/supplement-review回归、ADR-004、所有权与权限报告 |
+| 1 | `f4a4f1b9` | 完成块/稳定Context共13文件：AnswerFilesProvider及测试、MarkdownBlocks、MarkdownContent及streaming/普通测试、streamingMarkdown及测试、GooseMessage及stream测试、ProgressiveMessageList、ThinkingContent、remarkDeliveredFileLinks |
+| 2 | `829247c4` | ScrollArea及其6项回归，包含跟随/选区/viewport/历史与折叠锚点 |
+| 3 | `15fd99c3` | LoadingGoose可见耗时更新；ProgressiveMessageList.process旧用时断言与已接受产品文案对齐 |
+| 4 | `ace75ebb` | desktop-shell.css + workspacePanel.css；仅侧栏标签外观 |
+| 5 | `545e3ac2` | 固定TS准备/打包6文件：gitignore、typescript-runtime.json、prepare-typescript-runtime及测试、stage-harness-distribution、distribution-credentials测试；生成pair不在Git |
+| 6 | `51edbd31` | 导航14文件：README、所有权、PROVENANCE；Python入口及bootstrap；development-tools；driver/MCP bridge；私有connection/Job模块；native connection测试和fault-server夹具；code-navigation Node与Python合同 |
+
+本次文档还完整纳入ADR-005、11月27日研究、11月28日streaming-navigation/completed-blocks/docx-tabs报告以及本交接MD/TXT。精确文件与逐行差异以`git show --stat <commit>`、`git show <commit>`为准。六个源码切片加文档提交均未推送；前置7d8也仅本地。`git ls-remote --heads`确认远端旧插话分支停在bcc6ab77，当前fix-streaming-navigation分支没有远端head；没有把“本地commit”写成已推送。
+
+最终检查结算：
+
+- 前端：17文件/384用例通过；现存TypeScript noEmit exit0。jsdom仅有既有HTMLMediaElement.pause未实现提示，没有失败。
+- 导航/权限身份/Job/打包：集中6目标38个Node用例，37pass/1skip/0fail、exit0。Python10合同嵌套在1个Node目标，不重复加为47。细化错误文案与Temp范围检查后重跑导航：11pass/同1skip；追加旧全局注册项目不回写断言后，只重跑该目标1pass、exit0，不重复加总。
+- TS skip原因：未设置专用`CODEBUDDY_TEST_TS_LSP`夹具，非查询失败；本轮另用正式固定pair在无旧缓存的全新Temp项目/profile完成overview/definition/references，7362/99/199ms，0审批，isolated staging与sourceUnchanged通过、exit0。没有新下载或干净机器安装验收。
+- 红/绿与变异：项目pickle marker旧实现确实执行，新增测试先红；当前fallback/native均成功且marker未执行，YAML/原全局/其他项目配置不变，junction越界拒绝。目录条件的内存副本反转使10合同出现5个error、exit1，实际产品源文件从未改写；正常候选的10合同在绿色Node目标中通过。
+- 用户指定的后续真实模型仅官方`deepseek-flash`、低思考：3轮，5个导航回执成功、0审批，随后write说明.md成功；实际12个上游请求逐个硬断言model/effort，sourceUnchanged=true，exit0。本地脚本第一次在三轮后误用同步cancel的Promise接口导致清理失败，保留失败日志，不计完整通过；只修本地脚本后有界重跑。没有修改产品来适配测试。
+- 独立Agent只读复核了19个UI文件、35项性能源码身份、4核心与十轮窗口见证，另复核了导航新安全边界、所有最新测试退出码和Flash/TS源码hash，无剩余Required。没有声称这是两位Agent独立重跑；实际执行由主Agent串行完成。
+- 未执行：Rust全套、发行构建、安装包、干净机器或合并main后验证。已有预览保持打开未重启；同SHA既有十轮前端窗口证据可复用，不能据此说旧导航连接已加载最新修复。Flash本轮是新driver真实后端集成，不冒充桌面CU。
+
+**本轮源码预合并**：`git merge-tree --write-tree 51edbd31 origin/main`对刚fetch的73e5718a返回exit1；只生成Git对象，没有切分支/修改工作树/正式合并。结果树`75be95179a73d75005702f3d563d387066c8e732`有且只有1个冲突文件`CODEPRO_FACT_AUTHORITY_ZH_CN.md`：本分支新增插话/权限/导航/展示说明，与main新增最终回复播报/通话说明在文件顶部同一区域冲突，双方按owner保留，删除冲突标记，不能整文件选择一方。
+
+该预合并树中`GooseMessage.tsx`已同时保留`streaming={isStreaming}`和两处`speakable`；`compat.mjs`同时保留InputQueue、prepareContent、main的folderSnapshot。它们是**文本检查**，不是已合并构建或跨模块产品验证。原始输出`merge-tree.log`和全部本轮账本在`.local/final-review-20261128`。组长实际目标revision或私有dirty不同，必须重做预合并，不套用本次“1个文件”。

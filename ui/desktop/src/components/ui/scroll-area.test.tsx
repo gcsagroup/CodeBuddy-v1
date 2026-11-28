@@ -7,6 +7,89 @@ import { ScrollLayoutAnchorContext } from './scroll-follow-context';
 
 afterEach(() => vi.unstubAllGlobals());
 
+it('follows the latest floor after fast content or viewport growth, without leaving an idle animation', () => {
+  const frames = new Map<number, FrameRequestCallback>();
+  let nextFrame = 0;
+  vi.stubGlobal('requestAnimationFrame', (callback: FrameRequestCallback) => {
+    frames.set(++nextFrame, callback);
+    return nextFrame;
+  });
+  vi.stubGlobal('cancelAnimationFrame', (id: number) => { frames.delete(id); });
+  const observers: Array<{ targets: Set<Element>; callback: () => void }> = [];
+  vi.stubGlobal('ResizeObserver', class {
+    targets = new Set<Element>();
+    constructor(public callback: () => void) { observers.push(this); }
+    observe(target: Element) { this.targets.add(target); }
+    unobserve(target: Element) { this.targets.delete(target); }
+    disconnect() { this.targets.clear(); }
+  });
+  const flushFrame = () => act(() => {
+    const ready = [...frames.values()];
+    frames.clear();
+    ready.forEach(callback => callback(performance.now()));
+  });
+  const resize = (target: Element) => act(() => {
+    observers.filter(observer => observer.targets.has(target)).forEach(observer => observer.callback());
+  });
+  const ref = createRef<ScrollAreaHandle>();
+  const view = render(<ScrollArea ref={ref} autoScroll><p>Streaming content</p></ScrollArea>);
+  const viewport = ref.current!.viewportRef.current!;
+  let height = 1000, viewportHeight = 500;
+  Object.defineProperty(viewport, 'scrollHeight', { get: () => height });
+  Object.defineProperty(viewport, 'clientHeight', { get: () => viewportHeight });
+  viewport.scrollTop = 500;
+  flushFrame();
+  height += 1800;
+  resize(view.getByText('Streaming content').parentElement!);
+  flushFrame();
+  flushFrame();
+  expect(viewport.scrollTop).toBe(2300);
+  expect(frames.size).toBe(0);
+  viewportHeight = 300;
+  resize(viewport);
+  flushFrame();
+  flushFrame();
+  expect(viewport.scrollTop).toBe(2500);
+  expect(ref.current!.isFollowing).toBe(true);
+  view.unmount();
+  expect(frames.size).toBe(0);
+});
+
+it('pauses for a changed chat selection but lets an explicit jump resume with the old selection intact', () => {
+  const ref = createRef<ScrollAreaHandle>();
+  const view = render(<>
+    <p>Outside text</p>
+    <ScrollArea ref={ref} autoScroll><p>Selected chat text</p></ScrollArea>
+  </>);
+  const viewport = ref.current!.viewportRef.current!;
+  viewport.scrollTo = vi.fn();
+  const selection = window.getSelection()!;
+  const range = document.createRange();
+  range.setStart(view.getByText('Selected chat text').firstChild!, 0);
+  range.setEnd(view.getByText('Selected chat text').firstChild!, 8);
+  selection.removeAllRanges();
+  selection.addRange(range);
+  fireEvent(document, new Event('selectionchange'));
+  expect(ref.current!.isFollowing).toBe(false);
+  act(() => ref.current!.scrollToBottom());
+  fireEvent(document, new Event('selectionchange'));
+  expect(ref.current!.isFollowing).toBe(true);
+  expect(selection.toString()).toBe('Selected');
+  range.setEnd(view.getByText('Selected chat text').firstChild!, 13);
+  fireEvent(document, new Event('selectionchange'));
+  expect(ref.current!.isFollowing).toBe(false);
+  selection.removeAllRanges();
+  fireEvent(document, new Event('selectionchange'));
+  expect(ref.current!.isFollowing).toBe(false);
+  act(() => ref.current!.scrollToBottom());
+  range.selectNodeContents(view.getByText('Outside text'));
+  selection.addRange(range);
+  fireEvent(document, new Event('selectionchange'));
+  expect(ref.current!.isFollowing).toBe(true);
+  view.unmount();
+  selection.removeAllRanges();
+});
+
 it('restores a prepended batch synchronously even when a reading anchor already exists', () => {
   let hold: ((element: Element) => () => void) | null = null;
   function ReadingContent() {
@@ -163,4 +246,30 @@ it('reports actual bottom after layout and scroll events without changing readin
   expect(onFollowing).toHaveBeenLastCalledWith(false);
   view.unmount();
   expect(observers.every((o) => o.disconnect.mock.calls.length > 0)).toBe(true);
+});
+
+it('owns browser anchoring only while following and restores it for reading or non-auto containers', () => {
+  const ref = createRef<ScrollAreaHandle>();
+  const view = render(
+    <ScrollArea ref={ref} autoScroll>
+      <details>
+        <summary>Read thought</summary>
+        <p>Original text</p>
+      </details>
+    </ScrollArea>
+  );
+  const viewport = ref.current!.viewportRef.current!;
+  viewport.scrollTo = vi.fn();
+  expect(viewport.style.overflowAnchor).toBe('none');
+  fireEvent.focusIn(view.getByText('Read thought'));
+  expect(ref.current!.isFollowing).toBe(false);
+  expect(viewport.style.overflowAnchor).not.toBe('none');
+  act(() => ref.current!.scrollToBottom());
+  expect(viewport.style.overflowAnchor).toBe('none');
+  view.rerender(
+    <ScrollArea ref={ref} autoScroll={false}>
+      <p>Static content</p>
+    </ScrollArea>
+  );
+  expect(viewport.style.overflowAnchor).not.toBe('none');
 });

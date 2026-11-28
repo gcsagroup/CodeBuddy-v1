@@ -98,7 +98,7 @@ import { getResponsePhase } from '../types/responsePhase';
 import { parseSubagentLifecycle } from '../types/subagentLifecycle';
 import { CodeProConversationFiles } from './codepro/CodeProConversationFiles';
 import { collectConversationChanges } from './codepro/conversationChanges';
-import { AnswerFiles } from './remarkDeliveredFileLinks';
+import { AnswerFilesProvider } from './AnswerFilesProvider';
 import { AnswerWorkspaceLinks } from './AnswerWorkspaceLinks';
 import { useConversationChangeMessages } from '../workspace-panel/WorkspaceSubagents';
 import LoadingGoose from './LoadingGoose';
@@ -2111,10 +2111,10 @@ function ProgressiveMessageListContent({
                       true
                     )}
                   </TurnProcessHistory>
-                  <AnswerFiles.Provider
-                    value={
-                      conversationChanges.find((change) => change.id === turn[0]?.id)?.files ?? []
-                    }
+                  <AnswerFilesProvider
+                    sessionId={chat.sessionId}
+                    turnId={turn[0]?.id ?? String(start)}
+                    files={conversationChanges.find((change) => change.id === turn[0]?.id)?.files}
                   >
                     {renderSlice(
                       turn,
@@ -2133,7 +2133,7 @@ function ProgressiveMessageListContent({
                         hidden: continued && (streaming || pending),
                       }
                     )}
-                  </AnswerFiles.Provider>
+                  </AnswerFilesProvider>
                   {terminal?.status === 'completed' &&
                     !continued &&
                     turn[0]?.role === 'user' &&

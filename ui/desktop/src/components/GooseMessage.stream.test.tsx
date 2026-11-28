@@ -16,13 +16,13 @@ const message: Message = {
     usage: { inputTokens: 1200, outputTokens: 340, totalTokens: 1540 },
   },
 };
-function answer(streaming: boolean, running: boolean) {
+function answer(streaming: boolean, running: boolean, current = message) {
   return (
     <GooseMessage
       compactTools
       sessionId="paced-session"
-      message={message}
-      messages={[message]}
+      message={current}
+      messages={[current]}
       toolCallNotifications={new Map()}
       append={() => {}}
       isStreaming={streaming}
@@ -32,6 +32,25 @@ function answer(streaming: boolean, running: boolean) {
 }
 
 describe('persistent answer actions', () => {
+  it('renders received chat text without word wrappers and keeps its paragraph when settling', () => {
+    const view = render(answer(true, true), { wrapper: IntlTestWrapper });
+    const paragraph = view.container.querySelector('.codepro-assistant-prose p');
+    expect(paragraph).toHaveTextContent(text.trim());
+    expect(view.container.querySelector('.codepro-incoming-word')).toBeNull();
+    view.rerender(answer(false, false));
+    expect(view.container.querySelector('.codepro-assistant-prose p')).toBe(paragraph);
+    expect(view.container.querySelector('.codepro-incoming-word')).toBeNull();
+  });
+
+  it('still switches live code from plain rendering to settled highlighting', () => {
+    const code: Message = { ...message, content: [{ type: 'text', text: '```js\nconst n = 1;\n```' }] };
+    const view = render(answer(true, true, code), { wrapper: IntlTestWrapper });
+    expect(view.container.querySelector('[data-plain-code] code')).toHaveTextContent('const n = 1;');
+    view.rerender(answer(false, false, code));
+    expect(view.container.querySelector('[data-plain-code]')).toBeNull();
+    expect(view.container.querySelector('code')).toHaveTextContent('const n = 1;');
+  });
+
   it('shows actions once the caller has finished presenting the answer', async () => {
     const view = render(answer(true, true), { wrapper: IntlTestWrapper });
     expect(screen.queryByRole('button', { name: 'Copy' })).toBeNull();

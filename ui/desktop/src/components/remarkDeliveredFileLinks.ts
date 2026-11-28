@@ -3,11 +3,12 @@ import type { Link, Root } from 'mdast';
 import { visit } from 'unist-util-visit';
 import { fileIdentity, type ConversationChangeFile } from './codepro/conversationChanges';
 
-export const AnswerFiles = createContext<readonly ConversationChangeFile[]>([]);
+export type AnswerFile = Readonly<Pick<ConversationChangeFile, 'key' | 'path'>>;
+export const AnswerFiles = createContext<readonly AnswerFile[]>([]);
 
 // Older replies copied the prompt's placeholder, sometimes prepending it to
 // the real destination. Only repair a link backed by this turn's write receipt.
-export function remarkDeliveredFileLinks(files: readonly ConversationChangeFile[]) {
+export function remarkDeliveredFileLinks(files: readonly AnswerFile[]) {
   const resolve = (label: string) => {
     const matches = files.filter(file => file.path.replace(/\\/g, '/').split('/').pop() === label);
     if (matches.length !== 1) return;

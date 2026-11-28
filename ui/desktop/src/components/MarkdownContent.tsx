@@ -17,7 +17,11 @@ import { remarkWindowsFileLinks } from './remarkWindowsFileLinks';
 import { AnswerFiles, remarkDeliveredFileLinks } from './remarkDeliveredFileLinks';
 import { remarkCodeFileLinks } from './remarkCodeFileLinks';
 import { rehypeIncomingText } from './rehypeIncomingText';
-import { StreamingMarkdownBlocks } from './streamingMarkdown';
+import {
+  StreamingMarkdownParser,
+  remarkStreamingParser,
+} from './streamingMarkdown';
+import { MarkdownBlocks } from './MarkdownBlocks';
 import './ui/stream-prose.css';
 import rehypeKatex from 'rehype-katex';
 import 'katex/dist/katex.min.css';
@@ -104,6 +108,7 @@ interface MarkdownContentProps {
   className?: string;
   revealAt?: number;
   animateIncoming?: boolean;
+  streaming?: boolean;
 }
 
 type MarkdownSegment =
@@ -335,11 +340,10 @@ const MarkdownContent = memo(function MarkdownContent({
   className = '',
   revealAt,
   animateIncoming = false,
+  streaming = animateIncoming,
   sessionId,
 }: MarkdownContentProps) {
   const intl = useIntl();
-  const files = useContext(AnswerFiles);
-  const splitIncoming = animateIncoming;
   const previewLabel = intl.formatMessage(panelMessages.previewMedia);
   const [pendingLink, setPendingLink] = useState<{ protocol: string; href: string } | null>(null);
   const [linkMenuError, setLinkMenuError] = useState('');
@@ -527,53 +531,30 @@ const MarkdownContent = memo(function MarkdownContent({
     [sessionId]
   );
   const renderMarkdown = (markdown: string, key: string) =>
-    revealAt === undefined && splitIncoming ? (
-      <StreamingMarkdown
+    revealAt === undefined ? (
+      <MarkdownBlocks
         key={key}
         content={markdown}
         components={components}
         urlTransform={urlTransform}
+        animateIncoming={animateIncoming}
+        streaming={streaming}
       />
     ) : (
-      <ReactMarkdown
+      <MarkdownDocument
         key={key}
-        urlTransform={urlTransform}
-        remarkPlugins={[
-          [remarkDeliveredFileLinks, files],
-          remarkWindowsFileLinks,
-          remarkCodeFileLinks,
-          [remarkGfm, { singleTilde: false }],
-          [remarkMath, { singleDollarTextMath: false }],
-          ...(revealAt !== undefined && canRevealTree
-            ? [
-                [remarkStreamReveal, { at: revealAt, source: content }] as [
-                  typeof remarkStreamReveal,
-                  { at: number; source: string },
-                ],
-              ]
-            : []),
-          // Clip before break conversion, which creates nodes without source offsets.
-          remarkBreaks,
-        ]}
-        rehypePlugins={[
-          ...(splitIncoming ? [rehypeIncomingText] : []),
-          [
-            rehypeKatex,
-            {
-              throwOnError: false,
-              errorColor: '#cc0000',
-              strict: false,
-            },
-          ],
-        ]}
+        content={markdown}
+        streaming={streaming}
+        animateIncoming={animateIncoming}
         components={components}
-      >
-        {markdown}
-      </ReactMarkdown>
+        urlTransform={urlTransform}
+        revealAt={canRevealTree ? revealAt : undefined}
+        source={content}
+      />
     );
 
   return (
-    <StreamingMarkdownContext.Provider value={animateIncoming}>
+    <StreamingMarkdownContext.Provider value={streaming}>
       <div
         className={`w-full overflow-x-hidden prose prose-sm text-text-primary dark:prose-invert max-w-full word-break font-sans
         prose-pre:p-0 prose-pre:m-0 !p-0
@@ -590,7 +571,7 @@ const MarkdownContent = memo(function MarkdownContent({
         prose-p:mt-0 prose-p:mb-2 prose-p:font-sans
         prose-ol:my-2 prose-ol:font-sans
         prose-ul:mt-0 prose-ul:mb-3 prose-ul:font-sans
-        prose-li:m-0 prose-li:font-sans ${splitIncoming ? 'codepro-incoming-text' : ''} ${className}`}
+        prose-li:m-0 prose-li:font-sans ${animateIncoming ? 'codepro-incoming-text' : ''} ${className}`}
       >
         {segments.map((segment, index) =>
           segment.kind === 'markdown' ? (
@@ -641,30 +622,56 @@ const MarkdownContent = memo(function MarkdownContent({
   );
 });
 
-const StreamingBlock = memo(function StreamingBlock({
+const MarkdownDocument = memo(function MarkdownDocument({
   content,
+  streaming,
+  animateIncoming,
   components,
   urlTransform,
+  revealAt,
+  source,
 }: {
   content: string;
+  streaming: boolean;
+  animateIncoming: boolean;
   components: Components;
   urlTransform: (url: string) => string;
+  revealAt?: number;
+  source: string;
 }) {
   const files = useContext(AnswerFiles);
+  const cache = useRef<StreamingMarkdownParser | null>(null);
+  cache.current ??= new StreamingMarkdownParser();
   return (
     <ReactMarkdown
       components={components}
       urlTransform={urlTransform}
       remarkPlugins={[
+        ...(streaming
+          ? [
+              [remarkStreamingParser, cache.current] as [
+                typeof remarkStreamingParser,
+                StreamingMarkdownParser,
+              ],
+            ]
+          : []),
         [remarkDeliveredFileLinks, files],
         remarkWindowsFileLinks,
         remarkCodeFileLinks,
         [remarkGfm, { singleTilde: false }],
         [remarkMath, { singleDollarTextMath: false }],
+        ...(revealAt !== undefined
+          ? [
+              [remarkStreamReveal, { at: revealAt, source }] as [
+                typeof remarkStreamReveal,
+                { at: number; source: string },
+              ],
+            ]
+          : []),
         remarkBreaks,
       ]}
       rehypePlugins={[
-        rehypeIncomingText,
+        ...(animateIncoming ? [rehypeIncomingText] : []),
         [rehypeKatex, { throwOnError: false, errorColor: '#cc0000', strict: false }],
       ]}
     >
@@ -672,29 +679,5 @@ const StreamingBlock = memo(function StreamingBlock({
     </ReactMarkdown>
   );
 });
-
-function StreamingMarkdown(props: {
-  content: string;
-  components: Components;
-  urlTransform: (url: string) => string;
-}) {
-  const parser = useRef<StreamingMarkdownBlocks | null>(null);
-  parser.current ??= new StreamingMarkdownBlocks();
-  const blocks = parser.current.update(props.content);
-  return (
-    <>
-      {blocks.map((block, index) => (
-        <React.Fragment key={block.key}>
-          {index > 0 ? '\n' : null}
-          <StreamingBlock
-            content={block.content}
-            components={props.components}
-            urlTransform={props.urlTransform}
-          />
-        </React.Fragment>
-      ))}
-    </>
-  );
-}
 
 export default MarkdownContent;

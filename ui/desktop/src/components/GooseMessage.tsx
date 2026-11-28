@@ -750,7 +750,7 @@ export default function GooseMessage({
                 <MarkdownContent
                   sessionId={sessionId}
                   content={text}
-                  animateIncoming={isStreaming}
+                  streaming={isStreaming}
                   className="codepro-assistant-prose codepro-stream-prose"
                 />
               </div>

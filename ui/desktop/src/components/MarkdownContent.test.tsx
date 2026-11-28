@@ -1198,3 +1198,83 @@ it.each([false, true])(
     }
   }
 );
+
+describe('streaming document identity', () => {
+  const source =
+    'First.\n\n[focused](https://example.com/focus).\n\nRead [guide][g].\n\nFourth.\n\nFifth.';
+  it.each([
+    [false, true],
+    [true, false],
+  ])('keeps the focused link when thinking streaming changes %s to %s', (before, after) => {
+    const view = renderWithIntl(<MarkdownContent content={source} streaming={before} />);
+    const link = screen.getByRole('link', { name: 'focused' });
+    link.focus();
+    view.rerender(<MarkdownContent content={source} streaming={after} />);
+    expect(screen.getByRole('link', { name: 'focused' })).toBe(link);
+    expect(document.activeElement).toBe(link);
+  });
+  it('keeps an unrelated focused block when a late reference requires document-wide parsing', () => {
+    const view = renderWithIntl(<MarkdownContent content={source} streaming />);
+    const link = screen.getByRole('link', { name: 'focused' });
+    link.focus();
+    view.rerender(
+      <MarkdownContent content={source + '\n\n[g]: https://example.com/guide'} streaming />
+    );
+    expect(screen.getByRole('link', { name: 'guide' })).toHaveAttribute(
+      'href',
+      'https://example.com/guide'
+    );
+    expect(screen.getByRole('link', { name: 'focused' })).toBe(link);
+    expect(document.activeElement).toBe(link);
+  });
+});
+
+it('renders live thinking without word animation and honors explicit settled state independently', () => {
+  const content =
+    'First.\n\nSecond.\n\n' + String.fromCharCode(96).repeat(3) + 'js\nconst n = 1;\n';
+  const view = renderWithIntl(
+    <MarkdownContent content={content} streaming animateIncoming={false} />
+  );
+  expect(view.container.querySelector('.codepro-incoming-word')).toBeNull();
+  expect(view.container.querySelector('[data-plain-code] code')).toHaveTextContent('const n = 1;');
+  view.rerender(<MarkdownContent content={content} streaming={false} animateIncoming />);
+  expect(view.container.querySelector('[data-plain-code]')).toBeNull();
+});
+
+it('reapplies trusted file receipts to a cached raw document without retaining revoked repairs', () => {
+  const path = '/work/笔记.txt';
+  const source = '[笔记](<absolute file path>' + path + ')\n\nSecond.\n\nThird.\n\nFourth.';
+  const tree = (files: React.ContextType<typeof AnswerFiles>) => (
+    <AnswerFiles.Provider value={files}>
+      <MarkdownContent sessionId="cached-files" content={source} streaming />
+    </AnswerFiles.Provider>
+  );
+  const view = renderWithIntl(tree([]));
+  const before = view.container.querySelector('a')?.getAttribute('href');
+  view.rerender(
+    tree([{ path, key: path }])
+  );
+  expect(decodeURIComponent(screen.getByRole('link', { name: '笔记' }).getAttribute('href')!)).toBe(
+    path
+  );
+  view.rerender(tree([]));
+  expect(view.container.querySelector('a')?.getAttribute('href')).toBe(before);
+});
+
+it('does not let reveal clipping mutate a cached complete source document', () => {
+  const source = 'First😀.\r\n\r\nSecond.\r\n\r\n[说明](D:/目录/_file.md)';
+  const view = renderWithIntl(
+    <MarkdownContent
+      content={source}
+      sessionId="revealed"
+      streaming
+      revealAt={source.indexOf('Second')}
+    />
+  );
+  expect(view.container).not.toHaveTextContent('Second.');
+  view.rerender(<MarkdownContent content={source} sessionId="revealed" streaming />);
+  expect(view.container).toHaveTextContent('Second.');
+  expect(decodeURIComponent(screen.getByRole('link', { name: '说明' }).getAttribute('href')!)).toBe(
+    'D:/目录/_file.md'
+  );
+});

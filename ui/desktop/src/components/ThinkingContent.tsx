@@ -181,6 +181,7 @@ const ThinkingContent = memo(function ThinkingContent({
           {/* Source chunks already stream; per-word animation nodes make long thoughts costly. */}
           <MarkdownContent
             content={content}
+            streaming={isStreaming}
             className="!text-text-secondary prose-headings:text-text-secondary prose-strong:text-text-secondary prose-a:text-text-secondary"
           />
         </div>

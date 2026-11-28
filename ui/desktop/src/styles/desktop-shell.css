@@ -79,7 +79,6 @@
 .desktop-shell .wb-tab[aria-selected='true'],
 .desktop-shell .wb-tab.is-active {
   background: var(--color-background-primary);
-  box-shadow: 0 1px 3px rgb(25 35 50 / 6%);
 }
 .desktop-shell .wb-tab[aria-selected='true'] > svg { color: var(--shell-accent); }
 .desktop-shell .wb-header { padding: 0 8px; gap: 3px; }

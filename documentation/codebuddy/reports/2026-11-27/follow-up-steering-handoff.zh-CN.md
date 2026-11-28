@@ -1,5 +1,7 @@
 # 插话与排队交接：供组长的 Codex 接手
 
+> **2026-11-28 完整统一交接入口：**[给同事 Codex 的完整交接](../2026-11-28/给同事Codex-完整交接.md)、[给同事的人话版](../2026-11-28/给同事-完整交接.txt)。两份覆盖插话及后续流式、权限、导航、侧栏的全部交付；本文继续保留分阶段历史，“未推送”等请按相应日期理解。
+
 日期：2026-11-27。用户最新指令为“插话这部分验收，推送，写好交接”。该验收不扩大为所有流式性能、代码导航或完整恢复路径均通过。
 
 ## 1. 分支、范围和提交
@@ -250,7 +252,7 @@ GLM纯文件和图文各三路径（自然、优先、引导）均通过。模�
 
 ### 10.4 载荷准备和接收方环境
 
-`runtime/assets/typescript-runtime.json`固定官方`typescript@5.9.3`与`typescript-language-server@5.1.3`、来源和SHA-512。`scripts/prepare-typescript-runtime.cjs`是显式准备入口，校验后解包，不运行npm install或包脚本；已存在pair先校验，不联网。`stage-harness-distribution.cjs`只校验pair/provenance，缺失、替换或present-null metadata不能绕过；不触发准备。
+`runtime/assets/typescript-runtime.json`固定官方`typescript@5.9.3`与`typescript-language-server@5.1.3`、来源和SHA-512。`scripts/prepare-typescript-runtime.cjs`是显式准备入口，校验后解包，不运行npm install或包脚本。**11月28日统一交接复核更正：目标目录已存在时，prepare直接拒绝并要求保全旧载荷，不执行已有pair校验/覆盖，也不联网；已有pair的验证在bootstrap/staging/validateTypeScriptPayload。** `stage-harness-distribution.cjs`只校验pair/provenance，缺失、替换或present-null metadata不能绕过；不触发准备。
 
 Git不带`runtime/assets/serena`、`pyright`、`typescript`生成目录。组长的机器若缺载荷，须按README与其授权准备；本机已有pair不等于干净机器/安装包已经通过。混合语言仍沿Serena选择规则：需要时在项目`.serena/project.local.yml`列出语言并新建聊天，当前连接不自动重载语言配置。不要为了跑过验收自动给任意语言安装服务。
 

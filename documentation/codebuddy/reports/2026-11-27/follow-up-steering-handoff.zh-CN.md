@@ -310,3 +310,39 @@ Git不带`runtime/assets/serena`、`pyright`、`typescript`生成目录。组长
 **本轮源码预合并**：`git merge-tree --write-tree 51edbd31 origin/main`对刚fetch的73e5718a返回exit1；只生成Git对象，没有切分支/修改工作树/正式合并。结果树`75be95179a73d75005702f3d563d387066c8e732`有且只有1个冲突文件`CODEPRO_FACT_AUTHORITY_ZH_CN.md`：本分支新增插话/权限/导航/展示说明，与main新增最终回复播报/通话说明在文件顶部同一区域冲突，双方按owner保留，删除冲突标记，不能整文件选择一方。
 
 该预合并树中`GooseMessage.tsx`已同时保留`streaming={isStreaming}`和两处`speakable`；`compat.mjs`同时保留InputQueue、prepareContent、main的folderSnapshot。它们是**文本检查**，不是已合并构建或跨模块产品验证。原始输出`merge-tree.log`和全部本轮账本在`.local/final-review-20261128`。组长实际目标revision或私有dirty不同，必须重做预合并，不套用本次“1个文件”。
+
+### 10.8 追加：重启后六轮真实窗口验收（2026-11-28）
+
+用户随后要求重新拉起源码预览，Agent用真实Windows交互验收思考、正文、自动下滚和导航，不推送。本轮**未改产品源码**，测试对象仍为`ac3b8c014f7f8e627f51dfc7262d25d36f74b10f`；本文档的后续提交不改变该产品源码身份。
+
+先核旧预览20个native会话均无未结束turn，再经应用“文件→退出”正常退出；按README的`powershell -ExecutionPolicy Bypass -File .\start-preview.ps1`隐藏启动同一隔离profile`.local/steering-desktop-20261127`，未动安装版或用户业务源码。启动收据：launcher/runtime/desktop为14408/33080/32772；backend `http://127.0.0.1:49828`，Vite `http://127.0.0.1:5173`，独立工具校验passed。runtime sourceHash/currentHash均为`36cfe6ce7bde259f670fdc47a1b38ea21a1fb9587e2460727ab24c0ef5dac082`，restartRequired=false。通过实际Vite source-map的sourcesContent核对4个核心文件，逐字及SHA均匹配当前源文件。
+
+用户在源码窗口手动配置官方DeepSeek连接并选择Flash低档。六轮测试会话`3ed06709-1c50-4ce0-b910-12b836d10da0`（界面标题“定位 add 与 multiply 调用”），仅绑定已有隔离样例项目`.local/fix-streaming-navigation-20261128/acceptance-project`；TS/Python选择已在项目local配置声明。没有拿Aegis真实业务源码作写入夹具。
+
+| 原生轮次 | 真实需求与观察对象 | 正文/思考UTF16 | native耗时 |
+| --- | --- | ---: | ---: |
+| 1 | TS/Python各查定义、引用，界面输出实际调用关系 | 753 / 111 | 24.933s |
+| 2 | 离线多人笔记的长方案，表格/案例/列表 | 6535 / 13201 | 55.109s |
+| 3 | 多轮对抗审查、长思考与反例；展开/滚动/标题吸附/收起 | 12169 / 14870 | 75.457s |
+| 4 | 12节工程指南、协议/状态表与三段TS代码，流中跟随和上翻阅读 | 20412 / 4467 | 54.046s |
+| 5 | 同聊天导航热复用、真实写Markdown并回读修正 | 677 / 833 | 22.365s |
+| 6 | 累积历史后的状态机/不变量长分析，收尾与再次重载 | 8520 / 7468 | 52.477s |
+
+长度合计正文49066、思考40950 UTF16；不是汉字数或用户需求质量评分。耗时来自native turn/start→end，包含模型/工具，不是render耗时。6个turn/end均completed；提交/接纳/prompt_finished各6，finished均accepted且first_output_received为真。第1/5轮含工具步骤，分别有4/6个assistant消息，其余各1；ID唯一，不错误宣称每轮都只有一条。
+
+实际窗口观察：
+
+- 折叠思考预览随生成变化；完成后的长思考可以展开、滚动，标题吸附并遮住其上方正文，从吸附标题可收起，收起后阅读锚点仍在附近。实时展开操作有几次因自动化索引失效/调用延迟而晚于思考结束，因此**未完成“全文展开状态下持续接收思考直到结束”的专项连续观察**，不把静态展开代作该项通过。
+- 第4轮从已确认底部发出，正文/表格增长时视野跟随至第5节，未先出现需点击回底的按钮。随后原生滚轮上翻，在计时约34秒与49秒的两张流中快照中，同一段代码和第8节标题位置保持，新输出没有抢回阅读位置。流中代码为plain，结束后同段呈现语法高亮。
+- 流末一次坐标点回底跨过了完成状态，不能确认命中；之后用最新AX的“回到最新”实际回到底部，`指南结束`、完成操作区可见且回底按钮消失。**不声称那次坐标点击已证明流中恢复连续跟随**；自然跟随、阅读保护和完成后显式回底分开记账。
+- 第5轮、最后第6轮到最新后，正文末尾及空闲输入可见。分别在五轮和六轮后Ctrl+R重载；最终同聊天六个轮次定位入口齐全、最后结论可见，无停止/回底按钮，模型仍是Flash低档。最后一次重载日志store_ready573ms、history_dom_committed1379ms、visible_commit2258ms，是该次加载埋点，不是持续帧率。
+
+导航和写入硬证据：8个实际`tool/call`与配对`tool/result.message.isError=false`，覆盖overview/definition/references和两种语言，返回的符号/正文非空。第1轮四次约8425/5477/581/2311ms；第5轮四次约742/921/1109/915ms。该新启动runtime中私有导航仅1条ready记录，表明同会话跨轮复用。界面未出现审批卡，native没有approval/asked；本窗口是用户已有的**完全访问**设置，不能借此替代10.7默认工作区只读策略的自动测试。
+
+模型用pwsh先写`预览验收说明-1128.md`，双引号here-string把反引号解释成转义，随后read发现并用单引号here-string重写、回读；实际命令/读取回执成功。最终文件1439bytes/869UTF16、SHA256 `a58403ec956746e3953de8f80b0b91cceff347af73fbeaaf27aed4522f2092cd`，包含符号/引用小表格，异常C0（排除TAB/CR/LF）为0。保留模型首次写错和纠正事实，不把模型自述或exit0直接当内容正确，也未为此改产品权限。
+
+**模型限制的实际偏差**：主任务14个运行时请求均`deepseek-flash/low`，7条native request/header配置也均为low；另有1个上游标题请求为`deepseek-flash/off`，runtime有结构化`purpose=session-title`，native `session/title-llm-request`明确同一路由和off。因此“所有API请求都是低思考”的严格条件并未成立。最初严格审计据此exit1，失败日志保留；核清原生purpose后，审计分别门禁主任务低思考、所有请求都Flash、标题off单独明示，exit0，并保留`allRequestsFlashLow=false`。没有切其他模型或提高主任务思考档，也没有为本轮改标题机制；不把修正分类口径说成已改变标题请求。
+
+源码、原生journal、工具回执和renderer日志已由独立Agent只读重算，长度/SHA/退出状态一致；不是其另跑了一遍。原始证据在`.local/preview-acceptance-20261128/{launch-current.json,served-sources.json,audit.json,audit.log,audit-all-requests-low-failure.log}`，审计入口`node .local/preview-acceptance-20261128/audit.mjs`最终exit0。6次ui_first_token_received但ui_first_token_committed只有5条，原样保留，不能据此计算六轮完整首字渲染延迟。
+
+本轮没有观察到崩溃、空白回复、权限拒绝写入或无法继续对话等新阻断。**没有连续paint/FPS录屏、完整屏幕字符hash或heap浸泡验证，不承诺每帧无顿挫或全部滚动场景已根除。** 窗口保持打开并停在验收会话最后一轮，供用户继续验收；测试夹具/profile/生成MD及凭据均不提交、不推送。

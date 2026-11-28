@@ -2,10 +2,10 @@ import { replyToNoActionReview } from '../harness/test/review-fixture.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createServer } from 'node:http';
-import { mkdir, mkdtemp, readFile, access, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, access, writeFile, rm } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
-import { join } from 'node:path';
-import { tmpdir } from 'node:os';
+import { basename, dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
+import { homedir, tmpdir } from 'node:os';
 import { randomUUID } from 'node:crypto';
 import { spawn } from 'node:child_process';
 import { setTimeout as delay } from 'node:timers/promises';
@@ -20,7 +20,7 @@ const quoted = value => "'" + value.replaceAll("'", "''") + "'";
 const text = message => typeof message.content === 'string' ? message.content :
   (message.content ?? []).filter(block => block.type === 'text').map(block => block.text).join('\n');
 
-async function fixture(t) {
+async function fixture(t, { onToolStart } = {}) {
   // The native Windows sandbox needs an owned temporary workspace whose ACL
   // can be granted to its worker; repository drives may inherit Modify only.
   const fixtures = join(tmpdir(), 'codebuddy-native-permissions');
@@ -55,6 +55,7 @@ async function fixture(t) {
     onEvent: event => events.push(event),
     onToolPolicy: call => { calls.push(call); return host.toolPolicy(session, call, call.signal); },
     onPermission: call => host.approveTool(session, call, connection, call.signal),
+    onToolStart: call => onToolStart?.(session, call),
   });
   async function session(mode) {
     const cwd = join(root, randomUUID()); await mkdir(cwd);
@@ -74,6 +75,49 @@ async function fixture(t) {
   };
 }
 const command = value => ({ name: shell, arguments: { command: value, description: 'Isolated native permission regression', timeoutMs: 120000 } });
+
+test('root steering preserves child native file permissions without creating impossible approvals', { timeout: 45000 }, async t => {
+  // Native workspace-write includes the platform temp directory. A sibling of
+  // the temp workspace is therefore not an outside-boundary negative case.
+  const outsideRoot = await mkdtemp(join(homedir(), '.codebuddy-native-boundary-'));
+  t.after(async () => {
+    assert.equal(dirname(resolve(outsideRoot)), resolve(homedir()));
+    assert(basename(outsideRoot).startsWith('.codebuddy-native-boundary-'));
+    await rm(outsideRoot, { recursive: true, force: true });
+  });
+  const steered = new Set();
+  const f = await fixture(t, { onToolStart: async (session, call) => {
+    if (call.name !== 'subagent' || steered.has(session.id)) return;
+    steered.add(session.id);
+    await f.driver.steer(session.id, 'Include the additional report details.');
+  } });
+  const { canonicalPath, writableRoots } = await import('../harness/node_modules/@deepseek-ai/dsh-sandbox/lib/index.js');
+  for (const [mode, outside, allowed] of [
+    ['workspace-write', false, true],
+    ['workspace-write', true, false],
+    ['read-only', false, false],
+    ['danger-full-access', true, true],
+  ]) {
+    const session = await f.session(mode);
+    if (outside) for (const root of writableRoots({ mode: 'workspace-write', workspaceRoot: session.cwd })) {
+      const location = relative(root, canonicalPath(outsideRoot));
+      assert(location === '..' || location.startsWith('..' + sep) || isAbsolute(location),
+        'The negative fixture must be outside every native writable root');
+    }
+    const target = join(outside ? outsideRoot : session.cwd, randomUUID() + '.md');
+    await f.delegate(session, [{ name: 'write', arguments: { file_path: target, content: '# Native report\n' } }]);
+    assert(steered.has(session.id), 'The parent actually accepted a follow-up before child execution');
+    const [child] = await f.children(session);
+    const history = await f.rawDriver.history(child.id);
+    assert(history.events.some(e => e.type === 'approval/policy' && e.data.policy === 'never'));
+    if (allowed) assert.equal(await readFile(target, 'utf8'), '# Native report\n', mode + ' keeps its native capability');
+    else {
+      await assert.rejects(access(target), { code: 'ENOENT' }, mode + ' keeps the native file boundary');
+      assert.match(JSON.stringify(history), /FS_SANDBOX_DENIED/);
+    }
+  }
+  assert.equal(f.questions.length, 0, 'No child may open an approval request under native never');
+});
 async function until(check, description, timeout = 15000) {
   const end = Date.now() + timeout;
   while (Date.now() < end) { if (await check()) return; await delay(30); }

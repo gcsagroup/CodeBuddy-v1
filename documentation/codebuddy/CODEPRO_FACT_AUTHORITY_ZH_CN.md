@@ -72,11 +72,11 @@ Mac 原生观察器从已匹配窗口的 AXDocument 读取本地 PDF，用系统
 
 ## 2026-11-16 已批准：补充后的逐次工具确认与验收事实
 
-Harness 原生用户输入事件持有补充已进入当前轮的事实；适配层仅在该事件或带队列来源的后续原生轮中启用逐次工具确认。非只读提案仍由 Harness 的执行前审批执行，Compat 复用现有审批卡展示精确参数与有界原生回执，只允许本次批准，不复用会话许可。已执行的操作不回滚；禁止审批、取消及未知答复均不授予执行。普通新轮恢复既有权限。此规则默认用于交互会话的补充输入，不重写历史或引入第二执行器。
+Harness 原生用户输入事件持有补充已进入当前轮的事实；适配层仅在该事件或带队列来源的后续原生轮中启用逐次工具确认。非只读提案仍由 Harness 的执行前审批执行，Compat 复用现有审批卡展示精确参数与有界原生回执，只允许本次批准，不复用会话许可。2026-11-28 按用户修复授权补充：执行 Agent 的原生审批策略为 `never` 时，不因补充输入把宿主已经判定的 `allow` 升级成无法回答的审批；既有 `ask`、`deny`、`cancel`、安全检查及原生文件/命令边界仍生效，仍进入原生执行链。`never` 本身不授予能力，也不复活失效许可。可交互审批会话保留补充后的逐次确认。已执行的操作不回滚；取消及未知答复均不授予执行。普通新轮恢复既有权限。不重写历史或引入第二执行器。
 
 Harness 的结束事实不等于项目验收。Compat 保留现有终态报告中的未验证分类，包括零工具轮；聊天保留模型回复原文，不额外显示未验收提醒，也不根据模型文字、成功进程或历史验证自动标记当前任务 PASS。没有新增验收模型、外部脚本门禁或自动宣告验收成功的接口。Windows 原生 PowerShell 执行器为 Python 管道缺省声明 UTF-8，保留显式编码覆盖；原始回执仍由 Harness 持有。
 
-繁體：補充後的非唯讀提案逐次批准，原生結束不代表獨立驗收；後端保留未驗收記錄。聊天顯示模型原文，不另行提示或自動標記 PASS。English: Supplemental side effects require per-call approval. Native turn completion does not certify acceptance; the backend retains the unverified record. Chat displays the model’s reply without an extra reminder or an automatic PASS label. Python pipes default to explicit UTF-8.
+繁體：可互動審批會話對補充後的非唯讀提案逐次批准；原生 `never` 不把既有允許改為無法回答的審批，也不放寬其他拒絕。原生結束不代表獨立驗收，聊天顯示模型原文，不自動標記 PASS。English: Interactive sessions retain per-call supplemental review. Native never preserves existing allowed capabilities without overriding other denials. Native completion does not certify acceptance; chat displays the original reply without automatically marking PASS. Python pipes default to explicit UTF-8.
 
 ## 项目附加文件夹
 

@@ -725,10 +725,11 @@ export async function createHarnessDriver({ dataDir, cwd = process.cwd(), instru
       if (!['allow', 'ask', 'deny', 'cancel'].includes(gate?.kind) ||
         (gate.kind === 'deny' && (typeof gate.reason !== 'string' || !gate.reason)))
         return { kind: 'deny', reason: 'The tool policy returned an invalid decision.' };
-      // A new native user input may change the work without invalidating prior
-      // effects. Review each subsequent proposal; never infer shell equivalence
-      // or reuse a session grant to authorize that proposal.
-      if (call.supplementReview && gate.kind === 'allow') gate = {
+      // Supplemental confirmations require an interactive approval policy.
+      // Under native never, retain the existing gate and continue through the
+      // native executor guards. An existing ask/deny is never upgraded here.
+      if (call.supplementReview && gate.kind === 'allow' &&
+          ctx.get('approval')?.effectivePolicy(exec.agent.session) !== 'never') gate = {
         kind: 'ask', reason: 'Supplemental input was received. Review this exact operation and prior receipts before allowing it once.',
       };
       if (exec.signal.aborted || active.cancelRequested) return { kind: 'cancel' };

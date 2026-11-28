@@ -1,26 +1,30 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createServer } from 'node:http';
-import { mkdtemp, readFile, realpath } from 'node:fs/promises';
+import { mkdtemp, readFile, realpath, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { createHarnessDriver } from '../harness/index.mjs';
 import { Compat } from '../compat.mjs';
 
-async function fixture(t, preset) {
+async function fixture(t, preset, { readFirst = false, queuedWrite = false } = {}) {
   const root = await realpath(await mkdtemp(join(tmpdir(), 'cb-supplement-review-')));
-  const once = join(root, 'once.txt'), extra = join(root, 'extra.txt');
+  const once = join(root, 'once.txt'), extra = join(root, 'extra.md');
+  const queued = join(root, 'queued.md');
+  if (readFirst) await writeFile(once, 'SOURCE\n');
   let step = 0, driver;
   const failures = [];
   const server = createServer(async (req, res) => {
     try {
       let raw = ''; for await (const chunk of req) raw += chunk;
       const body = JSON.parse(raw);
-      const actions = [ ['write', { file_path: once, content: 'ONCE\n' }],
+      const actions = readFirst ? [['read', { file_path: once }], ['write', { file_path: extra, content: '# Report\n' }]] : [ ['write', { file_path: once, content: 'ONCE\n' }],
         ['write', { file_path: once, content: 'ONCE\nONCE\n' }],
         ['read', { file_path: once }], ['write', { file_path: extra, content: 'QUEUE-OK' }] ];
-      const action = step === 6 ? ['write', { file_path: once, content: 'ONCE\nONCE\n' }] : actions[step];
+      const action = step === 6 ? ['write', queuedWrite
+        ? { file_path: queued, content: '# Queued report\n' }
+        : { file_path: once, content: 'ONCE\nONCE\n' }] : actions[step];
       step++;
       res.writeHead(200, { 'content-type': 'text/event-stream' });
       const emit = (delta, finish_reason) => res.write(`data: ${JSON.stringify({ id: randomUUID(), model: body.model, choices: [{ index: 0, delta, finish_reason }] })}\n\n`);
@@ -37,12 +41,12 @@ async function fixture(t, preset) {
   const { sessionId } = await driver.createSession({ provider: { id: 'fixture', baseUrl: `http://127.0.0.1:${server.address().port}/v1`, apiKey: 'fixture' }, model: 'fixture' });
   if (preset) await driver.permissions(sessionId, { cwd: root, preset });
   let first = true;
-  const start = (onPermission, queuedWhileBusy = false) => driver.prompt(sessionId, 'Write once.', {
+  const start = (onPermission, queuedWhileBusy = false, onToolPolicy = () => ({ kind: 'allow' })) => driver.prompt(sessionId, 'Write once.', {
     queuedWhileBusy,
-    onToolPolicy: () => ({ kind: 'allow' }), onPermission,
+    onToolPolicy, onPermission,
     onToolStart: async () => { if (first) { first = false; await driver.steer(sessionId, 'Also create extra, preserving existing work.'); } },
   });
-  return { root, once, extra, driver, sessionId, start, failures };
+  return { root, once, extra, queued, driver, sessionId, start, failures };
 }
 
 test('native supplement reviews exact proposals despite allow policy; rejection preserves old effect and next ordinary turn is independent', { timeout: 30000 }, async t => {
@@ -72,12 +76,52 @@ test('native supplement reviews exact proposals despite allow policy; rejection 
   assert.deepEqual(f.failures, []);
 });
 
-test('approval:never cannot silently execute supplemental writes', { timeout: 30000 }, async t => {
+test('full access preserves allowed Markdown creation after native steering', { timeout: 30000 }, async t => {
+  const f = await fixture(t, 'danger-full-access', { readFirst: true });
+  await f.start(() => { throw Error('full access must not request approval for an allowed file write'); });
+  assert.equal(await readFile(f.extra, 'utf8'), '# Report\n',
+    'A supplemental user message must not remove the native full-access write capability');
+  assert.deepEqual(f.failures, []);
+});
+
+test('approval:never still rejects an explicit host approval requirement after steering', { timeout: 30000 }, async t => {
   const f = await fixture(t, 'danger-full-access');
-  await f.start(() => { throw Error('never mode must not ask'); });
-  assert.equal(await readFile(f.once, 'utf8'), 'ONCE\n');
+  await f.start(() => { throw Error('never mode must not ask'); }, false,
+    call => ({ kind: call.arguments.file_path === f.extra ? 'ask' : 'allow' }));
+  assert.equal(await readFile(f.once, 'utf8'), 'ONCE\nONCE\n');
   await assert.rejects(readFile(f.extra), { code: 'ENOENT' });
   assert.match(JSON.stringify(await f.driver.history(f.sessionId)), /APPROVAL_UNAVAILABLE/);
+});
+
+test('a queued native turn keeps full-access writes without an impossible approval', { timeout: 30000 }, async t => {
+  const f = await fixture(t, 'danger-full-access', { queuedWrite: true });
+  const onPermission = () => { throw Error('an allowed queued file write must not ask in never mode'); };
+  await f.start(onPermission);
+  await f.driver.prompt(f.sessionId, 'An ordinary explanation.');
+  await f.driver.prompt(f.sessionId, 'Create the queued report.', { queuedWhileBusy: true, onPermission });
+  assert.equal(await readFile(f.queued, 'utf8'), '# Queued report\n');
+  assert.deepEqual(f.failures, []);
+});
+
+test('steering under never does not override explicit deny or cancel', { timeout: 30000 }, async t => {
+  for (const kind of ['deny', 'cancel']) await t.test(kind, async t => {
+    const f = await fixture(t, 'danger-full-access', { readFirst: true });
+    await f.start(() => { throw Error('no approval is available'); }, false,
+      call => call.name === 'write' ? { kind, ...(kind === 'deny' ? { reason: 'Fixture explicit deny' } : {}) } : { kind: 'allow' });
+    await assert.rejects(readFile(f.extra), { code: 'ENOENT' });
+    assert.equal(await readFile(f.once, 'utf8'), 'SOURCE\n');
+  });
+});
+
+test('a read-only root retains its file sandbox after supplemental approval', { timeout: 30000 }, async t => {
+  const f = await fixture(t, 'read-only', { readFirst: true });
+  assert.equal((await f.driver.permissions(f.sessionId)).approvalPolicy, 'ask');
+  let confirmations = 0;
+  await f.start(() => { confirmations++; return true; });
+  assert.equal(confirmations, 1, 'Confirming a proposal does not itself widen the native file sandbox');
+  await assert.rejects(readFile(f.extra), { code: 'ENOENT' });
+  assert.equal(await readFile(f.once, 'utf8'), 'SOURCE\n');
+  assert.match(JSON.stringify(await f.driver.history(f.sessionId)), /FS_SANDBOX_DENIED/);
 });
 
 test('queued follow-up admitted as a later native turn still requires a fresh decision', { timeout: 30000 }, async t => {

@@ -163,8 +163,9 @@ const LoadingGoose = ({
   const compacting =
     compactionLifecycle?.status === 'started' && chatState === ChatState.Compacting;
   useEffect(() => {
+    if (!showElapsed) return;
     setStageStartedAt(Date.now());
-  }, [message, chatState]);
+  }, [message, chatState, showElapsed]);
   useEffect(() => {
     if (!compacting && !showElapsed) return;
     const timer = setInterval(() => setNow(Date.now()), 1000);

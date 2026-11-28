@@ -99,7 +99,7 @@ describe('processes between public replies', () => {
     expect(screen.getByText('Starting the server file')).toBeVisible();
     expect(screen.getByText('Output 11')).toBeVisible();
     expect(container.querySelectorAll('.codepro-message-actions')).toHaveLength(1);
-    if (stopped) expect(screen.getByText('Stopped after 1 min 1 sec')).toBeVisible();
+    if (stopped) expect(screen.getByText('Time spent 1 min 1 sec')).toBeVisible();
     else expect(screen.getByText('Checking the workspace')).toBeVisible();
   });
   it.each(['completed', 'cancelled'] as const)('times the active turn and freezes on %s even without tool history', (status) => {
@@ -124,7 +124,7 @@ describe('processes between public replies', () => {
       view.rerender(show([earlier, start, end]));
       act(() => { vi.advanceTimersByTime(60_000); });
       expect(screen.queryByRole('timer')).toBeNull();
-      expect(screen.getByText(status === 'cancelled' ? 'Stopped after 1 min 1 sec' : 'Time spent 1 min 1 sec')).toBeVisible();
+      expect(screen.getByText('Time spent 1 min 1 sec')).toBeVisible();
     } finally { vi.useRealTimers(); }
   });
   it('waits for native cancellation before displaying a stopped duration, without changing earlier turns', () => {
@@ -144,13 +144,13 @@ describe('processes between public replies', () => {
       chat={{ sessionId: 'between-replies' }} isUserMessage={m => m.role === 'user'} />,
       { wrapper: IntlTestWrapper });
     expect(screen.getByText('Stopping…')).toBeVisible();
-    expect(screen.queryByText('Stopped after 1 min 1 sec')).not.toBeInTheDocument();
-    expect(screen.getByText('Stopped after 30 sec')).toBeVisible();
+    expect(screen.queryByText('Time spent 1 min 1 sec')).not.toBeInTheDocument();
+    expect(screen.getByText('Time spent 0 min 30 sec')).toBeVisible();
 
     view.rerender(<ProgressiveMessageList messages={messages} cancelling={false}
       chat={{ sessionId: 'between-replies' }} isUserMessage={m => m.role === 'user'} />);
     expect(screen.queryByText('Stopping…')).not.toBeInTheDocument();
-    expect(screen.getByText('Stopped after 1 min 1 sec')).toBeVisible();
+    expect(screen.getByText('Time spent 1 min 1 sec')).toBeVisible();
   });
   it.each(['before', 'after'] as const)('keeps stopping on the executing turn with a queued input anchored %s its receipt', (anchor) => {
     const terminal = assistant('local-stop', [{
@@ -176,7 +176,7 @@ describe('processes between public replies', () => {
     const active = container.querySelector<HTMLElement>(`[data-chat-turn-id="${user.id}"]`)!;
     const pending = container.querySelector<HTMLElement>('[data-chat-turn-id="queued"]')!;
     expect(within(active).getByText('Stopping…')).toBeVisible();
-    expect(within(active).queryByText('Stopped after 1 min 1 sec')).not.toBeInTheDocument();
+    expect(within(active).queryByText('Time spent 1 min 1 sec')).not.toBeInTheDocument();
     expect(within(pending).getByText('Next queued request')).toBeVisible();
     expect(within(pending).queryByText('Stopping…')).not.toBeInTheDocument();
     expect(screen.queryByText('Stopped')).not.toBeInTheDocument();

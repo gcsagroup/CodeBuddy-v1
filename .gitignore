@@ -170,3 +170,4 @@ gooseselftest/
 # Generated platform-specific Serena Python dependencies
 /runtime/assets/serena/
 /runtime/assets/pyright/
+/runtime/assets/typescript/

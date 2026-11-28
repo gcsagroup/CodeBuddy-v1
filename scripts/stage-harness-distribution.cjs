@@ -4,6 +4,7 @@ const crypto = require('node:crypto');
 const { createRequire } = require('node:module');
 const { pathToFileURL } = require('node:url');
 const { dependencyClosure, commonJsImports, profilePackageNames } = require('./harness-dependencies.cjs');
+const { validateTypeScriptPayload } = require('./prepare-typescript-runtime.cjs');
 
 function distributionTarget(platform = process.platform, arch = process.arch) {
   if (platform === 'win32' && arch === 'x64') return { node: 'node.exe', office: 'win-x64' };
@@ -20,7 +21,7 @@ function assertOfficeTarget(manifest, platform = process.platform, arch = proces
 async function copyRuntimeSources(runtime, destination) {
   const pyrightIdentity = await fs.readFile(path.join(runtime, 'assets/pyright-runtime.json'), 'utf8')
     .then(JSON.parse, error => { if (error.code === 'ENOENT') return undefined; throw error; });
-  if (pyrightIdentity) {
+  if (pyrightIdentity !== undefined) {
     const payload = path.join(runtime, 'assets/pyright');
     await fs.access(path.join(payload, 'dist/pyright-langserver.js')).catch(() => {
       throw new Error('Pyright payload is missing; run scripts/prepare-pyright-runtime.cjs before packaging.');
@@ -29,11 +30,15 @@ async function copyRuntimeSources(runtime, destination) {
     for (const key of ['name', 'version', 'license', 'url', 'integrity'])
       if (actual[key] !== pyrightIdentity[key]) throw new Error(`Pyright payload provenance mismatch: ${key}`);
   }
+  const typescriptIdentity = await fs.readFile(path.join(runtime, 'assets/typescript-runtime.json'), 'utf8')
+    .then(JSON.parse, error => { if (error.code === 'ENOENT') return undefined; throw error; });
+  if (typescriptIdentity !== undefined)
+    await validateTypeScriptPayload(path.join(runtime, 'assets/typescript'), typescriptIdentity);
   const serena = path.join(runtime, 'assets', 'serena');
   const provenance = await fs.readFile(path.join(runtime, 'assets', 'serena-runtime.json'), 'utf8')
     .then(JSON.parse, error => { if (error.code === 'ENOENT') return undefined; throw error; });
   let serenaManifest;
-  if (provenance) {
+  if (provenance !== undefined) {
     await fs.access(path.join(serena, 'serena', 'cli.py')).catch(() => {
       throw new Error('Serena payload is missing; run scripts/prepare-serena-runtime.cjs on the target host before packaging.');
     });

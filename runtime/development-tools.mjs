@@ -2,32 +2,66 @@ import { promisify } from 'node:util';
 import { spawn, execFile } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
-import { realpath } from 'node:fs/promises';
+import { realpath, stat } from 'node:fs/promises';
 import { registerToolSessionApproval } from './tool-session-approval.mjs';
 import { inspectImage } from './harness/skills/media-quality/inspect-image.mjs';
+
+// These are the same bundled entry points used by distribution preparation.
+// A source checkout may have no generated payload; report that before spawning.
+export async function assertCodeNavigationRuntime(runtime) {
+  const required = [
+    path.join('py/dependencies/python', process.platform === 'win32' ? 'python.exe' : 'bin/python3'),
+    'assets/code-navigation.py', 'assets/code_navigation_runtime.py', 'assets/serena/serena/cli.py', 'assets/serena/mcp/__init__.py',
+    'assets/pyright/dist/pyright-langserver.js',
+  ];
+  const missing = (await Promise.all(required.map(async file => {
+    try { return (await stat(path.join(runtime, file))).isFile() ? null : file; }
+    catch (error) { if (error.code === 'ENOENT' || error.code === 'ENOTDIR') return file; throw error; }
+  }))).filter(Boolean);
+  if (missing.length) throw Object.assign(new Error(
+    'Code navigation runtime is not prepared: bundled Python, Serena and Pyright are required. ' +
+    'Prepare the matching payloads with scripts/prepare-serena-runtime.cjs and scripts/prepare-pyright-runtime.cjs. ' +
+    'Missing: ' + missing.join(', ')), { code: 'CODE_NAVIGATION_UNAVAILABLE' });
+}
 
 export function developmentTools({ cwd, dataDir, request = fetch }) {
   const root = path.resolve(cwd);
   return [
     registerToolSessionApproval({
       name: 'code_navigation',
+      annotations: { readOnlyHint: true, destructiveHint: false },
+      ...(process.platform === 'win32' && process.arch === 'x64' ? { codeNavigation: {
+        workspace: root,
+        runtime: fileURLToPath(new URL('./', import.meta.url)),
+        state: path.join(dataDir ?? root, 'tool-runtime', 'serena'),
+      } } : {}),
       description: 'Read-only semantic code queries using Serena: overview a file, locate a symbol definition, or find references. Scope is the current workspace.',
       inputSchema: { type: 'object', properties: {
         operation: { type: 'string', enum: ['overview', 'definition', 'references'] },
         path: { type: 'string', minLength: 1 }, symbol: { type: 'string', minLength: 1 },
       }, required: ['operation', 'path'], additionalProperties: false },
-      async execute(args, { signal } = {}) {
+      async execute(args, { signal, sessionId, queryCodeNavigation } = {}) {
         const directory = await realpath(root), file = await realpath(path.resolve(root, args.path));
         const relative = path.relative(directory, file);
         if (relative === '..' || relative.startsWith('..' + path.sep) || path.isAbsolute(relative)) throw Error('Code must be inside the current workspace');
+        if (!(await stat(file)).isFile()) throw Error('Code navigation requires a source file, not a directory; choose a specific file for the symbol query.');
         if (args.operation !== 'overview' && !args.symbol) throw Error('A symbol name is required');
         const parameters = { relative_path: relative.replaceAll(path.sep, '/'), max_answer_chars: 18000 };
         if (args.operation === 'definition') parameters.name_path_pattern = args.symbol;
         if (args.operation === 'references') parameters.name_path = args.symbol;
         const runtime = fileURLToPath(new URL('./', import.meta.url));
+        await assertCodeNavigationRuntime(runtime);
+        if (process.platform === 'win32' && process.arch === 'x64' && sessionId) {
+          if (!queryCodeNavigation) throw Error('Managed code navigation binding is unavailable');
+          const deadline = AbortSignal.timeout(180000);
+          const result = await queryCodeNavigation(args.operation, parameters, directory,
+            AbortSignal.any([deadline, ...(signal ? [signal] : [])]));
+          if (result.isError) throw Error(JSON.stringify(result.content));
+          return result;
+        }
         const python = path.join(runtime, 'py/dependencies/python', process.platform === 'win32' ? 'python.exe' : 'bin/python3');
         return new Promise((resolve, reject) => {
-          const child = spawn(python, ['-B', path.join(runtime, 'assets/code-navigation.py')], { cwd: directory, windowsHide: true, signal,
+          const child = spawn(python, ['-I', '-B', path.join(runtime, 'assets/code-navigation.py')], { cwd: directory, windowsHide: true, signal,
             stdio: ['pipe', 'pipe', 'pipe'], timeout: 180000 });
           let output = '', errors = '';
           child.stdout.on('data', data => { output += data; if (output.length > 1000000) child.kill(); });

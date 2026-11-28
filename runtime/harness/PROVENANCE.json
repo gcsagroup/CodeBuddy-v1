@@ -24,6 +24,20 @@
     "testCommand": "node --test test/driver.test.mjs"
   },
   "compatibilityPatches": {
+    "readOnlyNavigationBootstrap": {
+      "approved": "2026-11-28: restore trusted read-only facts after checking prepared language-service execution",
+      "adapter": "../assets/code_navigation_runtime.py via ../assets/code-navigation.py; fixed host developmentTools definition",
+      "upstream": "Serena 1.7.1.dev0; protected SerenaMCPFactory._create_serena_agent(self, serena_config, modes, project_activation_error); mcp.py SHA256 7b5aab7dcf91503be850ce580aa101d3713fccfe8bdfe32f8aa53ab33f130daa; ProjectConfig pure YAML/default/override helpers guarded by config/serena_config.py SHA256 0149cbafedb537f769a00a8e1ee69f70cb7976657e419ffd1df9a736d16289e3",
+      "scope": "Inspect every project-selected language service before activation, reuse the same in-memory config/RegisteredProject, and use prepared Python/TypeScript commands without managed installation. Read workspace YAML without migration or writes, including local-only overrides; constrain configuration links to the workspace. Each server gets a fresh external temporary SERENA_HOME and derived data folder, never imports project pickle caches or the old global registered-project list. Static language-service payload state is separate. Project activation/command/prompt/mode overrides are disabled only in this navigation instance; persistent user trust is unchanged. Explicit ask/deny/safety and actual definition identity remain authoritative.",
+      "verification": "runtime/tests/code-navigation.test.mjs and code_navigation_runtime_test.py cover actual policy, prepared services, configuration/activation boundaries, harmless pickle execution markers through fallback/native entries, linked YAML rejection and isolated native queries. Normal shutdown cleans temporary data; a forced Job/process exit may leave unused temporary directories which are never reused. Official TypeScript payload preparation and desktop acceptance are separate gates."
+    },
+    "privateCodeNavigation": {
+      "adapter": "code-navigation-connection.mjs, code-navigation-job.mjs and the private branch of mcp-bridge.mjs",
+      "approved": "2026-11-27: reuse native MCP transport and scoped lifecycle behind the existing read-only code_navigation facade",
+      "scope": "One lazy Windows x64 Serena connection per Agent/configuration/real workspace. Fixed overview/definition/references only; no projected raw tools, resources or instructions. Public MCP negotiation and policy stay unchanged. Private pinned Serena uses the SDK legacy negotiation option. No additional MCP client protocol or subprocess dependency.",
+      "lifecycle": "Unique noninheritable KILL_ON_JOB_CLOSE owner handle; Python joins before Serena configuration/import and closes its assignment handle. The SDK root is synchronously observed through its public PID using a SYNCHRONIZE-only handle. Cancellation, timeout or uncertain transport outcome retires that generation; no request replay. A subsequent explicit query may recreate only after verified closure. Failed cleanup releases handles while preserving an immutable unknown proof and blocking replacement.",
+      "verification": "runtime/harness/test/code-navigation-connection.test.mjs exercises the actual MCP SDK/native Job with isolated fault servers, including pre-assignment cancellation, failed spawn, queued cancellation, descendant cleanup, driver gates/recovery and an immutable unknown-close fence. runtime/tests/code-navigation.test.mjs additionally verifies actual pinned Serena queries and warm file-edit visibility; this is not desktop E2E."
+    },
     "followUpSteering": {
       "adapter": "steering-patch.mjs via runtime-context-contract.mjs and windows-preparation-contract.mjs",
       "version": "0.2.1-alpha.2",

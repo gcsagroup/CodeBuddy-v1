@@ -113,6 +113,14 @@ Pop-Location
 
 以后依赖未变化时直接运行 `.\start-preview.ps1`。窗口未出现时，先检查数据根下的 `logs/preview/launch.json`、`prepare.log`、`runtime.log` 和 `electron.log`；进程启动成功不等于真实模型对话或工具已经验收。
 
+代码导航需要本机平台匹配的 Serena 和已准备的语言服务；生成的载荷不随 Git 同步。Serena 使用 `scripts/prepare-serena-runtime.cjs`（传入锁定版本的干净源码目录），Python 使用 `scripts/prepare-pyright-runtime.cjs`，TypeScript 使用显式的 `scripts/prepare-typescript-runtime.cjs`，来源、版本与完整性以 `runtime/assets/*-runtime.json` 为准。准备脚本会下载载荷，须先取得相应授权；导航和桌面启动不会调用它们。TypeScript 也可使用同一宿主状态目录内已完整准备的固定版本缓存；发行包仍须包含正式载荷及来源标记。
+
+默认只读导航复用已有权限策略，不再因缺少宿主只读标记而反复询问；显式询问、禁止和安全复审仍优先。启动前沿 Serena 的项目语言选择检查全部拟启动服务，当前已审查支持 Python 与 TypeScript；其他语言或缺失载荷明确报告未准备，不在一次查询中隐式安装。专用导航实例不执行项目 activation command 或采纳项目自定义语言服务命令，不改用户持久 trust。符号概览的目标应为具体源文件，目录列表使用文件工具。
+
+Serena 首次非交互初始化默认只选择占比最高的一种语言。混合语言项目需要在 `.serena/project.local.yml` 的 `language_servers` 中显式列出所需语言（例如 `typescript`、`python`），然后新建聊天以创建新导航实例；已有实例不会在下一轮自动重读语言配置。该配置不替代相应语言服务载荷的准备。
+
+导航只读取工作区内的 `.serena/project.yml` 和 `project.local.yml`，不创建、迁移或补写这些文件；只有 local 文件时也会应用覆盖。每个服务进程使用全新的工作区外临时配置和索引目录，不加载项目自带的 pickle 缓存或原全局配置中的注册项目，也不使用项目 prompt/mode。静态语言服务载荷仍复用已准备的宿主目录。正常退出清理临时目录，强制终止可能留下不再复用的临时文件；这不改变项目的原缓存或持久 trust。
+
 预览入口会在启动后端和桌面前，复用运行时规则检查独立工具的文件类型、路径、大小和 SHA256。Windows 在 SDK 准备前检查；Mac 在现有原生工具准备完成后检查。工具缺失或不匹配时，终端和 `launch.json` 会记录具体文件、校验失败原因、预期大小及哈希，并停止启动。
 
 Git 不同步 `runtime/tools/bin`，所以拉取新源码后，旧 EXE 可能仍留在本机。遇到该提示时，先备份旧工具，再按上文独立 MCP 工具准备说明，从与当前源码匹配的已核验载荷恢复文件，或离线构建并核对来源和产物登记；完成后重新启动。不要只修改大小或哈希来绕过检查。启动检查不自动下载、安装或替换工具，也不代替真实工具调用验收。

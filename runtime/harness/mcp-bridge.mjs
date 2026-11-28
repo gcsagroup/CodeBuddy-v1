@@ -14,7 +14,17 @@ import { isDeepStrictEqual } from 'node:util';
 import { isMcpSessionApprovalScope } from '../tool-session-approval.mjs';
 import { agentPolicyFor } from './agent-policy.mjs';
 import { mcpDiagnostic } from './mcp-diagnostics.mjs';
+import { createNavigationJob } from './code-navigation-job.mjs';
+import { abortable } from './abortable.mjs';
 
+const navigationTools = Object.freeze({ overview: 'get_symbols_overview', definition: 'find_symbol', references: 'find_referencing_symbols' });
+const navigationServer = 'codebuddy_navigation';
+
+// This entry is reachable only through the driver's private, unprojected scope.
+export const privateNavigation = {
+  name: 'codebuddy-navigation-connection', inject: ['tools'],
+  apply(ctx, config) { return applyConnection(ctx, config, true); },
+};
 export const Config = Schema.union(UpstreamConfig.list.map(option => Schema.object({
   ...option.dict, toolCallTimeoutMs: Schema.number().min(1).max(2_147_483_647).default(DEFAULT_MCP_TIMEOUT_MS),
   allowedTools: Schema.union([Schema.const(null), Schema.array(String)]).default(null),
@@ -229,11 +239,14 @@ export function takeMcpResultMetadata(exec, result) {
   return { mcpResult: clone(receipt.result), mcpSource: clone(receipt.source), ...(receipt.mcpApp ? { mcpApp: clone(receipt.mcpApp) } : {}) };
 }
 
-export async function apply(ctx, config) {
+export async function apply(ctx, config) { return applyConnection(ctx, config, false); }
+
+async function applyConnection(ctx, config, navigation) {
+  if (navigation && (config.transport !== 'stdio' || config.serverName !== navigationServer)) throw Error('Invalid private navigation connection');
   const failureKey = createHash('sha256').update(JSON.stringify(config)).digest('hex');
   const recent = startupFailures.get(failureKey);
-  if (config.failOnStartupError && recent && Date.now() - recent.at < 30_000) throw Error(recent.error);
-  startupFailures.delete(failureKey);
+  if (!navigation && config.failOnStartupError && recent && Date.now() - recent.at < 30_000) throw Error(recent.error);
+  if (!navigation) startupFailures.delete(failureKey);
   const allowedTools = config.allowedTools ?? null, deniedTools = config.deniedTools ?? [];
   const owner = scopeOf(ctx) ?? ctx.root;
   let registry = scopes.get(owner);
@@ -247,12 +260,21 @@ export async function apply(ctx, config) {
   entry.instructions = () => instructions;
   let registrations = [];
   function clearTools() { for (const dispose of registrations) dispose(); registrations = []; entry.tools.clear(); entry.approvals.clear(); entry.snapshots.clear(); }
-  const live = current => !disposed && generation === current && current.ready;
+  const live = current => Boolean(current && !disposed && generation === current && current.ready && !current.down && !current.startupAbort?.signal.aborted);
   async function synchronize(current) {
     const next = sync.then(async () => {
       if (disposed || generation !== current || current.down) return;
-      const response = current.client.getServerCapabilities()?.tools === undefined ? { tools: [] } : await current.client.listTools(undefined, { cacheMode: 'refresh', timeout });
+      const response = current.client.getServerCapabilities()?.tools === undefined ? { tools: [] } : await current.client.listTools(undefined, { cacheMode: 'refresh', timeout,
+        ...(navigation ? { signal: current.startupAbort.signal } : {}) });
       if (disposed || generation !== current || current.down) return;
+      if (navigation) {
+        current.navigationSchemas = new Map(Object.values(navigationTools).map(name => {
+          const tool = response.tools.find(tool => tool.name === name);
+          if (!tool) throw Error(`Code navigation server lacks ${name}`);
+          return [name, tool];
+        }));
+        return;
+      }
       const definitions = new Map(), metadata = new Map(), approvals = new Map(), snapshots = new Map();
       for (const tool of response.tools) {
         // User selection uses server-native names; role filters below use public names.
@@ -353,6 +375,16 @@ export async function apply(ctx, config) {
   async function closeGeneration(current) {
     if (!current) return true;
     if (current.closing) return current.closing;
+    if (current.navigationJob) {
+      current.startupAbort.abort();
+      current.closing = current.navigationJob.close(async () => {
+        const closing = current.client.transport ? current.client.close() : current.transport.close();
+        await Promise.allSettled([closing, current.connection]);
+        // A cancelled handshake must not relink a transport after the close.
+        if (current.client.transport) await current.client.close();
+      });
+      return current.closing;
+    }
     current.closing = (async () => {
       let timer;
       try {
@@ -389,13 +421,35 @@ export async function apply(ctx, config) {
     // Session identity belongs to the transport handshake, never saved headers.
     const headers = new Headers(config.headers ?? {});
     headers.delete('mcp-session-id');
-    const transport = config.transport === 'stdio' ? new StdioClientTransport({ command: config.command, args: config.args ?? [], env: { ...scrubbedParentEnv(), ...config.env }, cwd: config.cwd, stderr: 'pipe' }) : new StreamableHTTPClientTransport(new URL(config.url), { requestInit: { headers } });
+    let navigationJob;
+    try { navigationJob = navigation ? createNavigationJob() : undefined; }
+    catch (error) { entry.status = 'error'; entry.error = mcpDiagnostic(error, config); throw error; }
+    const transport = config.transport === 'stdio' ? new StdioClientTransport({ command: config.command,
+      args: navigationJob ? [...config.args, '--job', navigationJob.name] : config.args ?? [],
+      env: { ...scrubbedParentEnv(), ...config.env }, cwd: config.cwd, stderr: 'pipe' }) : new StreamableHTTPClientTransport(new URL(config.url), { requestInit: { headers } });
     let startupStderr = '';
     transport.stderr?.on('data', chunk => { startupStderr = (startupStderr + chunk.toString()).slice(-8192); });
-    const current = { transport, ready: false, closed: false, connecting: true };
+    const current = { transport, ready: false, closed: false, connecting: true, navigationJob,
+      ...(navigation ? { startupAbort: new AbortController(), navigationTail: Promise.resolve() } : {}) };
+    if (navigationJob) {
+      const start = transport.start.bind(transport);
+      transport.start = async () => {
+        navigationJob.beginRoot();
+        let tracked = false;
+        const track = () => {
+          if (!tracked && transport.pid) { navigationJob.trackRoot(transport.pid); tracked = true; }
+        };
+        const starting = start();
+        try { track(); await starting; }
+        finally {
+          track();
+          if (!tracked) navigationJob.rootStartSettledWithoutPid();
+        }
+      };
+    }
     current.client = new McpTaskClient({ name: 'codebuddy-harness-mcp', version: '0.1.0' }, {
       capabilities: { extensions: { 'io.modelcontextprotocol/tasks': {}, 'io.modelcontextprotocol/ui': { mimeTypes: ['text/html;profile=mcp-app'] } } },
-      versionNegotiation: { mode: 'auto' },
+      versionNegotiation: { mode: navigation ? 'legacy' : 'auto' },
       listChanged: { tools: { autoRefresh: false, debounceMs: 0, onChanged: () => { synchronize(current).catch(error => ctx.logger.warn(`MCP tool refresh failed: ${String(error)}`)); } } },
     });
     generation = current;
@@ -406,16 +460,17 @@ export async function apply(ctx, config) {
       if (!current.connecting && transport.sessionId && sessionExpired(error)) disconnected(current);
     };
     try {
-      await current.client.connect(transport, { timeout });
+      current.connection = current.client.connect(transport, { timeout, ...(navigation ? { signal: current.startupAbort.signal } : {}) });
+      await current.connection;
       phases.initializeMs = Math.round(performance.now() - started);
-      if (disposed || generation !== current || current.closed) throw Error('MCP connection closed during startup');
-      const text = current.client.getInstructions()?.trimEnd() ?? '';
+      if (disposed || generation !== current || current.closed || current.down || current.startupAbort?.signal.aborted) throw Error('MCP connection closed during startup');
+      const text = navigation ? '' : current.client.getInstructions()?.trimEnd() ?? '';
       const contribution = text ? `### MCP server: ${config.serverName}\n\n${text}` : '';
       if (Buffer.byteLength(contribution) > (config.maxInstructionBytes ?? 32768)) throw Error('MCP instructions exceed configured limit');
       const discoveryStarted = performance.now();
       await synchronize(current);
       phases.toolsListMs = Math.round(performance.now() - discoveryStarted);
-      if (disposed || current.closed) throw Error('MCP connection closed during tool discovery');
+      if (disposed || generation !== current || current.closed || current.down || current.startupAbort?.signal.aborted) throw Error('MCP connection closed during tool discovery');
       current.ready = true; current.connecting = false; connectedAt = Date.now(); instructions = contribution; entry.status = 'ready';
       entry.resourceApprovals = new Map([...entry.resourceDefinitions].map(([name, definition]) => [name, {
         definition, identity: Object.freeze({}), live: () => live(current),
@@ -435,8 +490,10 @@ export async function apply(ctx, config) {
         // Background activation must not turn it into a reconnect loop.
         current.down = true; current.ready = false; clearTools();
         const diagnostic = mcpDiagnostic(error, config, startupStderr);
-        startupFailures.set(failureKey, { serverName: config.serverName, at: Date.now(), error: diagnostic });
-        while (startupFailures.size > 64) startupFailures.delete(startupFailures.keys().next().value);
+        if (!navigation) {
+          startupFailures.set(failureKey, { serverName: config.serverName, at: Date.now(), error: diagnostic });
+          while (startupFailures.size > 64) startupFailures.delete(startupFailures.keys().next().value);
+        }
         throw Error(diagnostic);
       }
       if (closed) disconnected(current);
@@ -449,14 +506,52 @@ export async function apply(ctx, config) {
     if (stopping) return stopping;
     disposed = true; clearTimeout(retryTimer); instructions = ''; registry.delete(config.serverName);
     stopping = (async () => {
-      if (!await closeGeneration(generation)) ctx.logger.error('MCP transport closure was not confirmed during disposal');
+      if (!await closeGeneration(generation)) {
+        if (navigation) throw Error('Code navigation closure could not be confirmed');
+        ctx.logger.error('MCP transport closure was not confirmed during disposal');
+      }
       await attempt.catch(() => {}); await sync; clearTools();
     })();
     return stopping;
   }
   ctx.effect(() => dispose, 'codebuddy-mcp.connection');
   ctx.on('internal/plugin', fiber => fiber === ctx.fiber && fiber.uid === null ? dispose() : undefined, { global: true });
-  const resourcesAllowed = MCP_RESOURCE_TOOL_NAMES
+  if (navigation) entry.navigation = {
+    close: dispose,
+    get ready() { return live(generation); },
+    get retired() { return disposed || entry.status === 'error' || Boolean(generation?.down); },
+    async request(operation, args, signal) {
+      if (!Object.hasOwn(navigationTools, operation)) throw Error('Unsupported code navigation operation');
+      signal?.throwIfAborted();
+      try { await (signal ? abortable(entry.ready, signal) : entry.ready); }
+      catch (error) {
+        if (generation && !live(generation)) { disconnected(generation); await closeGeneration(generation); }
+        throw error;
+      }
+      const current = generation;
+      if (!live(current)) throw Error(entry.error ?? 'Code navigation connection is unavailable');
+      const query = current.navigationTail.then(async () => {
+        signal?.throwIfAborted();
+        if (!live(current)) throw Error('Code navigation connection was retired');
+        const rawName = navigationTools[operation];
+        const deadline = AbortSignal.timeout(timeout);
+        const callSignal = AbortSignal.any([current.startupAbort.signal, deadline, ...(signal ? [signal] : [])]);
+        try {
+          return await current.client.callTool({ name: rawName, arguments: args },
+            { signal: callSignal, timeout, toolDefinition: current.navigationSchemas.get(rawName) });
+        } catch (error) {
+          // A cancelled MCP Future may leave the Serena thread running. Retire
+          // the exact generation and prove its range closed before reconnect.
+          disconnected(current);
+          if (!await closeGeneration(current)) entry.error = 'Code navigation closure could not be confirmed';
+          throw error;
+        }
+      });
+      current.navigationTail = query.catch(() => {});
+      return query;
+    },
+  };
+  const resourcesAllowed = !navigation && MCP_RESOURCE_TOOL_NAMES
     .some(name => (allowedTools === null || allowedTools.includes(name)) && !deniedTools.includes(name));
   if (resourcesAllowed) entry.resources = { async request(request, exec) {
     const current = generation;
@@ -474,8 +569,11 @@ export async function apply(ctx, config) {
       if (definition) entry.resourceDefinitions.set(name, definition);
     }
   });
-  ctx.inject(['systemPrompt'], inner => { inner.systemPrompt.section({ name: `mcp:${config.serverName}`, order: inner.systemPrompt.getSectionOrder('MCP_SERVERS'), interpolate: false,
+  if (!navigation) ctx.inject(['systemPrompt'], inner => { inner.systemPrompt.section({ name: `mcp:${config.serverName}`, order: inner.systemPrompt.getSectionOrder('MCP_SERVERS'), interpolate: false,
     text: ({ scope }) => agentPolicyFor(scope).every(policy => policy.mcpServers.includes(config.serverName)) ? instructions : '' }); });
+  // Publish the private close capability before anything can spawn. Even if
+  // Cordis unloads a failed plugin, its owner retains the actual close result.
+  if (navigation) config.onConnection(entry.navigation);
   attempt = connect(true);
   entry.ready = attempt.catch(() => {});
   if (config.backgroundStart) return;

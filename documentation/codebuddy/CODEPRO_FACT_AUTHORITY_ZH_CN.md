@@ -23,6 +23,14 @@
 
 DesktopCoordinator 继续独占桌面 lease、窗口绑定、串行 tail 和在途动作回执。引导仅撤回未派发调用的前驱/lease 等待，原生工具 writer 使用派发前取消结果配对；新调用不能越过真实前驱，其他聊天 lease 不变。首次窗口范围在真实 MCP 派发前的元数据边界提交，已提交范围不随引导清空。已派发 CU 动作及其视觉收尾、普通同步 MCP/Tasks 保持原结果合同，不把任意 Promise 提前返回当作安全后台化。
 
+同日批准的导航复用切片：`development-tools.mjs` 继续拥有 `code_navigation` 的只读三操作、realpath/工作区门禁及批准身份；driver 按 Agent、真实工作区及运行包配置惰性持有私有 scope，并串行创建/失效；`mcp-bridge.mjs` 复用原 MCP SDK transport/generation，只接受固定三个查询。私有 raw 工具、资源、服务指令不投影到模型，也不转移外层工具结果的 Session writer。Windows x64 用唯一命名原生 Job 管理该 Serena/LSP 范围；SDK 根进程另用只读等待句柄观察。取消/超时先退役原实例，只有关闭获证后新的显式查询可重建，不重放失败请求。关闭未知保留隔离，释放资源不冒充退出证明。静态语言服务载荷缓存布局、外层权限、普通扩展的版本协商与重连策略不变。
+
+2026-11-28 用户批准的只读导航修订：可信宿主工厂显式提供既有只读能力事实；driver/Compat 仍拥有实际定义身份、显式 ask/deny、安全复审与失效裁决，不采信远端 MCP hint 或工具名称代替权限。`code_navigation_runtime.py` 仅在固定 Serena 版本/源码及受保护工厂合同匹配时，沿原项目配置选择全部拟启动服务、验证 Python/TypeScript 现成载荷并传递同一内存配置快照；专用实例不执行项目 activation command 或采用项目自定义启动命令，不持久化 trust 更改。缺失或未审服务明确未准备，不回退 managed 安装。显式准备脚本与发行 staging 分别负责获取已授权固定载荷和校验 pair/provenance；查询或启动不会触发准备。原 MCP、Job、结果 writer 和取消 owner 不变。
+
+本轮对抗审查补充：项目 YAML 只读解析，不回写默认值或迁移；配置链接不得越出真实工作区，只有 local YAML 时也应用其覆盖。每个服务进程在导入 Serena 前取得全新的工作区外临时 `SERENA_HOME`，派生项目目录先创建以禁用上游目录回退；不读取、迁移或删除项目旧 pickle 缓存，也不加载旧全局配置的注册项目列表。静态语言服务载荷仍按已检查的独立 state 定位。项目 prompt/mode 不参与专用查询，真实结果 writer 不变；正常退出清理临时目录，强杀残留不再复用。
+
+同批流式展示修订只归前端：真实文件回执仍由现有 ledger 投影；AnswerFilesProvider 只稳定按会话/轮次作用域的 key/path 展示词汇，不创建第二份文件事实。ScrollArea 继续唯一拥有跟随、阅读、折叠锚点与选区导航意图，按帧追随实际布局；不改 Agent 事件接纳、权限、交付账本或正式历史。方案与边界见 ADR-005。
+
 ## 2026-11-26 已批准：多项目工作区与只读优先
 
 目录成员、版本和真实目录身份由 `WorkspaceService` 持有；Compat 保存会话创建时的 `projectFoldersSnapshot`，已有会话不随项目编辑改变范围。文件与终端适配器消费同一验证结果；子任务沿 Harness 已验证父子关系继承根快照。仅参考目录禁止完全访问，审批不能扩大此边界。Windows 多目录 capability 随目录组合隔离，底层执行和取消继续由 Harness 持有。详见 [多项目工作区](../../docs/multi-project-workspaces.zh-CN.md)。

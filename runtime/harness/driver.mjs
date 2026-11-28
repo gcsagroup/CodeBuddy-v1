@@ -42,6 +42,7 @@ import { commandEvidence, executionReceiptContext, hasFailedCommand, recordComma
 import { projectScriptCall, projectScriptInvocation, selectNamedScript } from './project-script.mjs';
 import { installOutputRecovery, isOutputLimitFailure, OUTPUT_RECOVERY_LIMIT } from './output-recovery.mjs';
 import { createMcpPresets, restrictSessionTools } from './mcp-presets.mjs';
+import { createCodeNavigationConnection } from './code-navigation-connection.mjs';
 import { installToolDiscovery } from './tool-discovery.mjs';
 import { installSubagentTemplates } from './subagent-templates.mjs';
 import { installSubagentNoticeAdmission } from './subagent-notice-admission.mjs';
@@ -1194,6 +1195,34 @@ export async function createHarnessDriver({ dataDir, cwd = process.cwd(), instru
     if (connections) await Promise.all([...connections.values()].map(entry => entry.fiber.dispose()));
     if (stdioConnections.get(agent) === connections) stdioConnections.delete(agent);
   }
+  const navigationConnections = new WeakMap();
+  function navigationOwner(agent) {
+    let owner = navigationConnections.get(agent);
+    if (!owner) { owner = { tail: Promise.resolve() }; navigationConnections.set(agent, owner); }
+    return owner;
+  }
+  function reconcileNavigation(agent, config, workspace, signal) {
+    const owner = navigationOwner(agent);
+    const work = owner.tail.then(async () => {
+      signal?.throwIfAborted();
+      const configKey = JSON.stringify(config);
+      const identity = JSON.stringify({ ...config, workspace, node: process.execPath });
+      const current = owner.current;
+      if (!config || current?.identity !== identity || current?.connection.retired) {
+        await current?.connection.close();
+        signal?.throwIfAborted();
+        owner.current = config ? { identity, configKey,
+          connection: createCodeNavigationConnection(agent, { ...config, workspace }) } : undefined;
+      }
+      return owner.current?.connection;
+    });
+    owner.tail = work.then(() => {}, () => {});
+    return work;
+  }
+  async function queryCodeNavigation(agent, config, operation, args, workspace, signal) {
+    const connection = await abortable(reconcileNavigation(agent, config, workspace, signal), signal);
+    return connection.request(operation, args, signal);
+  }
   function capabilitiesFor(agent) {
     let scope = capabilityScopes.get(agent);
     if (scope) return scope;
@@ -1214,6 +1243,12 @@ export async function createHarnessDriver({ dataDir, cwd = process.cwd(), instru
     // Obsolete role routing and per-session limits cannot alter this Host's
     // generic native delegation policy, including when replayed from old data.
     const { roleModels: _roleModels, maxParallelSubagents: _parallel, maxParallelCoders: _coders, initialPermissionPreset: _initialPreset, ...settings } = { ...previous, ...options };
+    const navigationConfig = settings.tools?.find(tool => tool.name === 'code_navigation')?.codeNavigation;
+    const navigation = navigationConnections.get(agent)?.current;
+    if (navigation && navigation.configKey !== JSON.stringify(navigationConfig)) {
+      try { await reconcileNavigation(agent, undefined); }
+      catch { console.warn('[Harness code navigation]', JSON.stringify({ sessionId, status: 'closure-unconfirmed' })); }
+    }
     let childFilter;
     if (agent.session.header.origin === 'subagent') {
       const observation = await ctx.sessionQuery.observeSession(agent.id, { projectionMode: 'none' });
@@ -1401,6 +1436,10 @@ export async function createHarnessDriver({ dataDir, cwd = process.cwd(), instru
               const active = directCalls.get(exec.callId) ?? runFor(exec.agent);
               await active?.events;
               const context = { sessionId: exec.agent.id, signal: exec.signal, callId: exec.callId,
+                ...(tool.name === 'code_navigation' && tool.codeNavigation ? {
+                  queryCodeNavigation: (operation, args, workspace, signal) => queryCodeNavigation(exec.agent,
+                    tool.codeNavigation, operation, args, workspace, AbortSignal.any([exec.signal, signal])),
+                } : {}),
                 ...(tool.currentRequestWorkflow === true ? { readReferenceImage: async file => {
                   const { events } = await ctx.sessionController.inspect(exec.agent.id);
                   for (const event of events) {
